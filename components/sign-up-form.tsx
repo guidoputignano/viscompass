@@ -68,14 +68,14 @@ export function SignUpForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Sign up</CardTitle>
-          <CardDescription>Create a new account</CardDescription>
+          <CardTitle className="text-2xl">Registrati</CardTitle>
+          <CardDescription>Crea un nuovo account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-6">
               <div className="grid gap-2">
-                <Label htmlFor="full-name">Full name</Label>
+                <Label htmlFor="full-name">Nome e cognome</Label>
                 <Input
                   id="full-name"
                   type="text"
@@ -85,7 +85,7 @@ export function SignUpForm({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="role">Ruolo</Label>
                 <Input
                   id="role"
                   type="text"
@@ -132,7 +132,7 @@ export function SignUpForm({
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="repeat-password">Repeat Password</Label>
+                  <Label htmlFor="repeat-password">Conferma password</Label>
                 </div>
                 <Input
                   id="repeat-password"
@@ -150,13 +150,13 @@ export function SignUpForm({
                 className="w-full sm:col-span-2"
                 disabled={isLoading}
               >
-                {isLoading ? "Creating an account..." : "Sign up"}
+                {isLoading ? "Creazione account..." : "Registrati"}
               </Button>
             </div>
             <div className="mt-4 text-center text-sm">
-              Already have an account?{" "}
+              Hai già un account?{" "}
               <Link href="/auth/login" className="underline underline-offset-4">
-                Login
+                Accedi
               </Link>
             </div>
           </form>
