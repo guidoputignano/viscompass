@@ -12,12 +12,6 @@ const TEXT_SIZE = {
   lg: "text-xl",
 } as const;
 
-const TAGLINE_SIZE = {
-  sm: "text-[9px]",
-  md: "text-[10px]",
-  lg: "text-xs",
-} as const;
-
 const GAP = {
   sm: "gap-2",
   md: "gap-2.5",
@@ -38,7 +32,7 @@ function CompassIcon({ size }: { size: number }) {
         cy="20"
         r="18"
         fill="none"
-        stroke="#12B5A5"
+        stroke="hsl(174 82% 39%)"
         strokeWidth="1.4"
       />
       <circle
@@ -46,23 +40,23 @@ function CompassIcon({ size }: { size: number }) {
         cy="20"
         r="13.5"
         fill="none"
-        stroke="#ffffff"
+        stroke="hsl(204 63% 12%)"
         strokeWidth="1"
-        opacity=".45"
+        opacity=".3"
       />
       <path
         d="M20 4v3.4M20 32.6V36M4 20h3.4M32.6 20H36"
-        stroke="#ffffff"
+        stroke="hsl(204 63% 12%)"
         strokeWidth="1.2"
-        opacity=".55"
+        opacity=".4"
       />
-      <path d="M26.5 13.5 17.8 17.8 13.5 26.5 22.2 22.2Z" fill="#12B5A5" />
+      <path d="M26.5 13.5 17.8 17.8 13.5 26.5 22.2 22.2Z" fill="hsl(174 82% 39%)" />
       <circle
         cx="20"
         cy="20"
         r="2.1"
-        fill="#0B2130"
-        stroke="#ffffff"
+        fill="hsl(204 63% 12%)"
+        stroke="hsl(0 0% 100%)"
         strokeWidth="1.1"
       />
     </svg>
@@ -80,9 +74,7 @@ export function VisLogo({
     <div className={cn("inline-flex items-center", GAP[size], className)}>
       <CompassIcon size={ICON_SIZE[size]} />
       <div className="flex flex-col leading-tight">
-        <span
-          className={cn("font-bold tracking-tight", TEXT_SIZE[size])}
-        >
+        <span className={cn("font-bold tracking-tight", TEXT_SIZE[size])}>
           VIS PHARMA
         </span>
         <span
@@ -92,11 +84,6 @@ export function VisLogo({
           )}
         >
           COMPASS
-        </span>
-        <span
-          className={cn("opacity-60 mt-0.5", TAGLINE_SIZE[size])}
-        >
-          governance for hospital pharmacy spend
         </span>
       </div>
     </div>
