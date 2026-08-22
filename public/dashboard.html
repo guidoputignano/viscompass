@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIS Pharma Compass . Prototipo di interfaccia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   VIS PHARMA COMPASS . prototipo di interfaccia
+   Palette: strumento di navigazione notturno.
+   Blu profondo per la plancia, carta fredda per il piano di lavoro,
+   teal per la rotta, ambra e ruggine per le finestre che si chiudono.
+   ============================================================ */
+:root{
+  --ink:#0B1729; --ink2:#14294A; --ink3:#1E3B66;
+  --paper:#E9EDF2; --panel:#FFFFFF; --panel2:#F5F7FA;
+  --line:#D2DAE5; --line2:#E4EAF1;
+  --teal:#12C4B8; --tealD:#0B6F6A; --tealL:#E2F7F5;
+  --slate:#5D6C86; --slate2:#8496AE;
+  --amber:#B8730F; --amberL:#FBF2E2;
+  --rust:#A3372A; --rustL:#FBEDEB;
+  --green:#2C7A58; --greenL:#E6F4ED;
+  --rail:76px; --topbar:56px;
+  --r:3px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:14px; line-height:1.5; color:var(--ink);
+  background:var(--paper); -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.cond{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--slate2);
+}
+
+/* ---------- struttura ---------- */
+.app{display:grid;grid-template-columns:var(--rail) 1fr;height:100vh;overflow:hidden}
+
+/* ---------- plancia laterale ---------- */
+.rail{background:var(--ink);display:flex;flex-direction:column;align-items:center;padding:12px 0;overflow-y:auto}
+.rail-mark{width:40px;height:40px;margin-bottom:16px;flex:0 0 auto}
+.rail-mark svg{display:block}
+.rail-group{display:flex;flex-direction:column;gap:3px;width:100%;align-items:center}
+.rail-sep{width:34px;height:1px;background:rgba(255,255,255,.14);margin:10px 0}
+.mbtn{
+  width:56px;padding:7px 0;border-radius:var(--r);display:flex;flex-direction:column;
+  align-items:center;gap:3px;color:#8FA3C0;transition:background .12s,color .12s;position:relative;
+}
+.mbtn:hover{background:rgba(255,255,255,.07);color:#DCE6F3}
+.mbtn .code{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.02em}
+.mbtn .lbl{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;line-height:1.15;text-align:center}
+.mbtn[aria-current="true"]{background:var(--ink3);color:#fff}
+.mbtn[aria-current="true"]::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;background:var(--teal);border-radius:0 2px 2px 0}
+.mbtn[data-locked="1"]{opacity:.42}
+.mbtn[data-locked="1"] .code::after{content:"·";margin-left:1px}
+
+/* ---------- barra superiore ---------- */
+.main{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{
+  height:var(--topbar);flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:18px;padding:0 18px;
+}
+.ente{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.ente b{font-size:13px;font-weight:600;white-space:nowrap}
+.roles{display:flex;gap:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;flex:0 0 auto}
+.role{
+  padding:5px 11px;font-size:11.5px;font-weight:500;color:var(--slate);
+  border-right:1px solid var(--line);white-space:nowrap;transition:background .12s
+}
+.role:last-child{border-right:none}
+.role:hover{background:var(--panel2)}
+.role[aria-pressed="true"]{background:var(--ink);color:#fff}
+.spacer{flex:1}
+.readout{
+  display:flex;align-items:center;gap:10px;padding:4px 11px;border:1px solid var(--line);
+  border-radius:var(--r);background:var(--panel2)
+}
+.readout .v{font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:600;line-height:1}
+.readout .k{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate2);font-family:"IBM Plex Mono",monospace}
+.demo{
+  font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.1em;
+  padding:3px 7px;border:1px solid var(--amber);color:var(--amber);border-radius:2px;white-space:nowrap
+}
+.planbtn{
+  display:flex;align-items:center;gap:7px;background:var(--ink);color:#fff;
+  padding:6px 12px;border-radius:var(--r);font-size:12px;font-weight:600
+}
+.planbtn .n{font-family:"IBM Plex Mono",monospace;background:var(--teal);color:var(--ink);padding:0 5px;border-radius:2px;font-size:11px}
+
+/* ---------- orizzonte: elemento firma ---------- */
+.horizon{flex:0 0 auto;background:var(--ink);border-bottom:1px solid #06101E;padding:9px 18px 6px;position:relative}
+.horizon-head{display:flex;align-items:baseline;gap:12px;margin-bottom:2px}
+.horizon-head .t{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#fff}
+.horizon-head .s{font-size:10.5px;color:#7B90AE}
+.horizon svg{display:block;width:100%;height:78px}
+.hz-tick{stroke:#22375A;stroke-width:1}
+.hz-tick-y{stroke:#33507E;stroke-width:1}
+.hz-lbl{font-family:"IBM Plex Mono",monospace;font-size:8px;fill:#6B82A3;letter-spacing:.06em}
+.hz-yr{font-family:"IBM Plex Mono",monospace;font-size:9px;fill:#93A9C6;font-weight:600;letter-spacing:.08em}
+.hz-mk{cursor:pointer}
+.hz-mk:hover .hz-dot{r:6}
+.hz-mk-lbl{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:9.5px;fill:#C7D6E8;letter-spacing:.02em}
+.hz-now{stroke:var(--teal);stroke-width:1.5}
+.hz-now-lbl{font-family:"IBM Plex Mono",monospace;font-size:8px;fill:var(--teal);letter-spacing:.1em}
+
+/* ---------- area di lavoro ---------- */
+.work{flex:1;overflow-y:auto;padding:18px 18px 26px;scroll-behavior:smooth}
+.mhead{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.mhead .num{
+  font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:600;color:var(--teal);
+  background:var(--ink);padding:5px 9px;border-radius:var(--r);line-height:1;flex:0 0 auto
+}
+.mhead h1{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:23px;font-weight:700;letter-spacing:-.005em;line-height:1.15}
+.mhead p{font-size:13px;color:var(--slate);max-width:70ch;margin-top:2px}
+
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g21{grid-template-columns:1.55fr 1fr}
+.g12{grid-template-columns:1fr 1.6fr}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px}
+.card.flat{background:transparent;border-style:dashed}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px}
+.card-h h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:14px;font-weight:700;letter-spacing:.01em}
+.card-h .note{font-size:11px;color:var(--slate2)}
+
+/* strumento numerico */
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;position:relative;overflow:hidden}
+.stat .k{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--slate2);display:block;margin-bottom:5px}
+.stat .v{font-family:"IBM Plex Mono",monospace;font-size:25px;font-weight:600;line-height:1;letter-spacing:-.02em}
+.stat .u{font-size:13px;font-weight:500;color:var(--slate)}
+.stat .d{font-size:11.5px;color:var(--slate);margin-top:5px;line-height:1.35}
+.stat .ticks{position:absolute;top:0;right:0;bottom:0;width:5px;display:flex;flex-direction:column}
+.stat .ticks i{flex:1;border-bottom:1px solid var(--line2)}
+.stat.hot .v{color:var(--rust)}
+.stat.warm .v{color:var(--amber)}
+.stat.good .v{color:var(--green)}
+
+/* tabelle */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{
+  font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--slate2);font-weight:500;text-align:left;padding:0 8px 6px;border-bottom:1px solid var(--line);white-space:nowrap
+}
+tbody td{padding:7px 8px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:var(--panel2)}
+tbody tr.sel{background:var(--tealL)}
+.num{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mol{font-weight:600}
+.sub{font-size:11px;color:var(--slate2);font-weight:400}
+
+/* pillole e finestre */
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.05em;padding:2px 6px;border-radius:2px;white-space:nowrap}
+.p-rust{background:var(--rustL);color:var(--rust)}
+.p-amber{background:var(--amberL);color:var(--amber)}
+.p-green{background:var(--greenL);color:var(--green)}
+.p-teal{background:var(--tealL);color:var(--tealD)}
+.p-grey{background:var(--panel2);color:var(--slate);border:1px solid var(--line)}
+
+.win{display:flex;align-items:center;gap:7px;min-width:130px}
+.win .bar{flex:1;height:4px;background:var(--line2);border-radius:2px;overflow:hidden}
+.win .bar i{display:block;height:100%;border-radius:2px}
+.win .d{font-family:"IBM Plex Mono",monospace;font-size:11px;white-space:nowrap}
+
+/* barra proporzione */
+.pen{display:flex;align-items:center;gap:8px}
+.pen .track{width:64px;height:7px;background:var(--line2);border-radius:1px;overflow:hidden}
+.pen .track i{display:block;height:100%;background:var(--tealD)}
+.pen span{font-family:"IBM Plex Mono",monospace;font-size:11.5px;min-width:42px;text-align:right}
+
+/* limite invalicabile */
+.limit{
+  display:flex;gap:9px;align-items:flex-start;background:var(--panel2);border-left:3px solid var(--ink3);
+  padding:9px 12px;border-radius:0 var(--r) var(--r) 0;font-size:12px;color:var(--slate);margin-top:12px
+}
+.limit b{color:var(--ink);font-weight:600}
+.limit .ic{color:var(--ink3);font-weight:700;font-family:"IBM Plex Mono",monospace;flex:0 0 auto}
+.limit.hard{background:var(--amberL);border-left-color:var(--amber)}
+.limit.hard .ic{color:var(--amber)}
+
+/* callout per ruolo */
+.forrole{
+  border:1px solid var(--teal);background:var(--tealL);border-radius:var(--r);
+  padding:10px 13px;font-size:12.5px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start
+}
+.forrole .who{
+  font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--tealD);white-space:nowrap;padding-top:2px;flex:0 0 auto
+}
+.forrole b{font-weight:600}
+
+/* azioni */
+.act{
+  display:inline-flex;align-items:center;gap:6px;border:1px solid var(--ink);color:var(--ink);
+  padding:4px 10px;border-radius:var(--r);font-size:11.5px;font-weight:600;transition:background .12s,color .12s
+}
+.act:hover{background:var(--ink);color:#fff}
+.act.on{background:var(--tealD);border-color:var(--tealD);color:#fff}
+.act.ghost{border-color:var(--line);color:var(--slate);font-weight:500}
+.act.ghost:hover{background:var(--panel2);color:var(--ink)}
+
+/* pannello di dettaglio */
+.detail{border:1px solid var(--ink3);border-radius:var(--r);background:var(--panel);overflow:hidden}
+.detail-h{background:var(--ink);color:#fff;padding:11px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.detail-h h3{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:16px;font-weight:700}
+.detail-h .m{font-size:11px;color:#8FA3C0;margin-top:2px}
+.detail-b{padding:13px 14px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12.5px;margin-bottom:12px}
+.kv dt{color:var(--slate2);font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding-top:3px}
+.kv dd{font-family:"IBM Plex Mono",monospace;font-weight:500}
+.formula{background:var(--ink);color:#BFD3EA;font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:10px 12px;border-radius:var(--r);line-height:1.7;overflow-x:auto}
+.formula em{color:var(--teal);font-style:normal}
+.formula s{color:#5E779B;text-decoration:none}
+
+/* fasce settimanali */
+.week{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.week div{text-align:center;padding:9px 2px;border-radius:2px;font-family:"IBM Plex Mono",monospace;font-size:11px}
+.week .lab{font-size:9.5px;letter-spacing:.08em;color:var(--slate2);background:none;padding:0 0 4px}
+
+/* matrice regionale */
+.mx{width:100%;border-collapse:separate;border-spacing:2px;font-size:12px}
+.mx th{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate2);font-weight:500;padding:0 4px 4px;text-align:center}
+.mx th.rowh{text-align:left;min-width:120px}
+.mx td{text-align:center;padding:8px 4px;border-radius:2px;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500}
+.mx td.rowh{text-align:left;font-family:"IBM Plex Sans",sans-serif;font-weight:600;background:none;padding-left:0}
+
+/* cassetto del piano */
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--panel);
+  border-left:1px solid var(--line);box-shadow:-14px 0 40px rgba(11,23,41,.13);
+  transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;z-index:40
+}
+.drawer.open{transform:translateX(0)}
+.drawer-h{background:var(--ink);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.drawer-h h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:16px;font-weight:700;letter-spacing:.02em}
+.drawer-b{flex:1;overflow-y:auto;padding:14px 16px}
+.drawer-f{border-top:1px solid var(--line);padding:13px 16px;background:var(--panel2)}
+.plan-item{border:1px solid var(--line);border-radius:var(--r);padding:10px 11px;margin-bottom:8px}
+.plan-item .r1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.plan-item b{font-size:13px}
+.plan-item .meta{font-size:11px;color:var(--slate2);margin-top:3px;line-height:1.45}
+.empty{text-align:center;padding:34px 12px;color:var(--slate2);font-size:12.5px;line-height:1.6}
+.empty .big{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:15px;color:var(--slate);display:block;margin-bottom:5px;font-weight:600}
+
+/* strato modale */
+.scrim{position:fixed;inset:0;background:rgba(11,23,41,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}
+.scrim.on{opacity:1;pointer-events:auto}
+
+/* schermata bloccata */
+.locked{text-align:center;padding:52px 20px;border:1px dashed var(--line);border-radius:var(--r);background:var(--panel)}
+.locked h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:19px;margin-bottom:8px}
+.locked p{color:var(--slate);font-size:13px;max-width:56ch;margin:0 auto 14px}
+
+/* controllo a cursore */
+.slider{display:flex;align-items:center;gap:12px;margin:10px 0}
+.slider input[type=range]{flex:1;accent-color:var(--tealD)}
+.slider .out{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;min-width:96px;text-align:right}
+
+.foot{margin-top:18px;padding-top:11px;border-top:1px solid var(--line);font-size:11px;color:var(--slate2);line-height:1.6}
+.foot b{color:var(--slate)}
+
+@media (max-width:960px){
+  .g4,.g3,.g2,.g21,.g12{grid-template-columns:1fr}
+  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .rail{flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:6px 8px;gap:4px;align-items:center}
+  .rail-mark{margin:0 8px 0 0;width:30px;height:30px}
+  .rail-group{flex-direction:row;width:auto}
+  .rail-sep{width:1px;height:26px;margin:0 6px}
+  .mbtn[aria-current="true"]::before{left:8px;right:8px;top:auto;bottom:-6px;width:auto;height:3px;border-radius:2px 2px 0 0}
+  .topbar{height:auto;flex-wrap:wrap;padding:9px 12px;gap:10px}
+  .work{padding:12px}
+  .horizon{padding:8px 12px 4px}
+}
+@media (max-width:700px){
+  /* la fascia orizzonte è uno strumento denso: sotto questa larghezza non è leggibile */
+  .horizon{display:none}
+  .roles{flex-wrap:nowrap;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+  .role{flex:0 0 auto}
+  .drawer{width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ============ plancia ============ -->
+  <nav class="rail" aria-label="Moduli">
+    <div class="rail-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="18" stroke="#12C4B8" stroke-width="1.4"/>
+        <circle cx="20" cy="20" r="13.5" stroke="#3B5C8C" stroke-width="1"/>
+        <path d="M20 7.5 L23 20 L20 32.5 L17 20 Z" fill="#12C4B8"/>
+        <circle cx="20" cy="20" r="2.6" fill="#0B1729" stroke="#12C4B8" stroke-width="1.2"/>
+      </svg>
+    </div>
+    <div class="rail-group" id="nav"></div>
+  </nav>
+
+  <!-- ============ area principale ============ -->
+  <div class="main">
+    <header class="topbar">
+      <div class="ente">
+        <span class="eyebrow">Perimetro</span>
+        <b id="enteName">Regione . 4 Aziende Sanitarie</b>
+      </div>
+      <div class="roles" role="group" aria-label="Profilo di accesso">
+        <button class="role" data-role="farmacia">Direzione di Farmacia</button>
+        <button class="role" data-role="dg">Direzione Generale</button>
+        <button class="role" data-role="regione">Servizio Farmaceutico Regionale</button>
+      </div>
+      <span class="spacer"></span>
+      <div class="readout" title="Mediana dei giorni fra la disponibilità di un'opportunità e la delibera dell'Ente">
+        <div><span class="k">Tempo di reazione</span><div><span class="v" id="ttrVal">118</span> <span class="k">gg</span></div></div>
+        <svg width="52" height="24" aria-hidden="true"><line x1="0" y1="19" x2="52" y2="19" stroke="#D2DAE5"/><rect x="0" y="12" width="34" height="7" fill="#B8730F"/><rect x="0" y="4" width="13" height="6" fill="#0B6F6A"/><line x1="13" y1="0" x2="13" y2="22" stroke="#12C4B8" stroke-width="1.5"/></svg>
+      </div>
+      <span class="demo">DATI DIMOSTRATIVI</span>
+      <button class="planbtn" id="planBtn">Piano d'azione <span class="n" id="planN">0</span></button>
+    </header>
+
+    <!-- ============ orizzonte, elemento firma ============ -->
+    <section class="horizon" aria-label="Orizzonte a 24 mesi">
+      <div class="horizon-head">
+        <span class="t">Orizzonte 24 mesi</span>
+        <span class="s" id="hzSub">Finestre aperte sul perimetro. Ogni segno è una data entro cui l'azione resta utile.</span>
+      </div>
+      <svg id="hz" viewBox="0 0 1200 78" preserveAspectRatio="none" role="img" aria-label="Linea temporale delle finestre di intervento"></svg>
+    </section>
+
+    <main class="work" id="work" tabindex="-1"></main>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Piano d'azione">
+  <div class="drawer-h">
+    <div>
+      <h2>Piano d'azione</h2>
+      <div style="font-size:11px;color:#8FA3C0;margin-top:2px" id="planSub">Nessuna voce selezionata</div>
+    </div>
+    <button class="act" style="border-color:#3B5C8C;color:#fff" id="drawerClose">Chiudi</button>
+  </div>
+  <div class="drawer-b" id="planBody"></div>
+  <div class="drawer-f">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+      <span class="eyebrow">Valore del piano</span>
+      <span class="mono" style="font-size:20px;font-weight:600" id="planTot">0 &euro;</span>
+    </div>
+    <button class="act" style="width:100%;justify-content:center;padding:8px" id="planExport">Genera scheda per la Commissione Terapeutica</button>
+    <p style="font-size:10.5px;color:var(--slate2);margin-top:8px;line-height:1.5">La scheda riporta molecola, valore, finestra utile e funzione responsabile. Non contiene dati riferibili a singoli pazienti.</p>
+  </div>
+</aside>
+
+<script>
+/* ============================================================
+   DATI . perimetro reale del prototipo, molecole a scopo dimostrativo
+   ============================================================ */
+const ASL = ["ASL 1 Nord","ASL 2 Centro","ASL 3 Sud","AOU Riferimento"];
+
+const D = {
+  perimetro: 452_700_000,
+  precedente: 435_000_000,
+  record: 261_153,
+  top20: 128_800_000,
+  delta20: 24_400_000,
+  loeTot: 22_800_000,
+  origTot: 13_613_000,
+  tetto: 0.083,
+  correnteFSN: 0.1206,
+
+  /* M2 . scadenze di esclusiva entro 12 mesi */
+  loe: [
+    {m:"Ustekinumab",  atc:"L04AC05", sp:8_400_000, gg:47,  pen:0,    diff:.28, asl:[3_100_000,2_400_000,1_800_000,1_100_000]},
+    {m:"Aflibercept",  atc:"S01LA05", sp:5_800_000, gg:96,  pen:0,    diff:.24, asl:[2_050_000,1_500_000,1_350_000,900_000]},
+    {m:"Denosumab",    atc:"M05BX04", sp:2_600_000, gg:158, pen:0,    diff:.22, asl:[880_000,720_000,610_000,390_000]},
+    {m:"Tocilizumab",  atc:"L04AC07", sp:1_900_000, gg:214, pen:.111, diff:.25, asl:[700_000,540_000,410_000,250_000]},
+    {m:"Enzalutamide", atc:"L02BB04", sp:600_000,   gg:272, pen:0,    diff:.30, asl:[210_000,170_000,130_000,90_000]},
+    {m:"Nintedanib",   atc:"L01EX09", sp:500_000,   gg:311, pen:0,    diff:.26, asl:[180_000,140_000,110_000,70_000]},
+    {m:"Apixaban",     atc:"B01AF02", sp:300_000,   gg:349, pen:0,    diff:.35, asl:[110_000,80_000,70_000,40_000]}
+  ],
+  loeAltre: {n:14, sp:2_700_000},
+
+  /* M2 . quota residua su originator dove il biosimilare esiste già */
+  orig: [
+    {m:"Ustekinumab", atc:"L04AC05", sp:3_841_000, pen:0,     pr:1},
+    {m:"Aflibercept", atc:"S01LA05", sp:2_819_000, pen:0,     pr:2},
+    {m:"Bevacizumab", atc:"L01FG01", sp:2_126_000, pen:.358,  pr:3},
+    {m:"Trastuzumab", atc:"L01FD01", sp:1_408_000, pen:.196,  pr:4},
+    {m:"Denosumab",   atc:"M05BX04", sp:1_322_000, pen:0,     pr:5},
+    {m:"Tocilizumab", atc:"L04AC07", sp:1_106_000, pen:.111,  pr:6},
+    {m:"Rituximab",   atc:"L01FA01", sp:969_000,   pen:.454,  pr:7},
+    {m:"Adalimumab",  atc:"L04AB04", sp:22_000,    pen:.009,  pr:8}
+  ],
+
+  /* M1 . andamento mensile della spesa, milioni di euro */
+  mesi: ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"],
+  spesaAnno: [36.1,34.8,38.4,36.9,39.2,38.0,37.4,31.6,38.9,40.1,null,null],
+  spesaPrec: [34.2,33.1,36.5,35.4,37.0,36.2,35.9,30.4,37.1,38.0,38.6,42.6],
+
+  /* M1 . prime voci per incremento assoluto */
+  incr: [
+    {m:"Pembrolizumab", atc:"L01FF02", d:+4_180_000, sp:11_240_000, pto:"in prontuario"},
+    {m:"Nirsevimab",    atc:"J06BD01", d:+2_560_000, sp:2_560_000,  pto:"nuovo, da zero"},
+    {m:"Daratumumab",   atc:"L01FC01", d:+2_310_000, sp:8_970_000,  pto:"in prontuario"},
+    {m:"Risankizumab",  atc:"L04AC18", d:+1_940_000, sp:4_120_000,  pto:"fuori prontuario 21%"},
+    {m:"Osimertinib",   atc:"L01EB04", d:+1_620_000, sp:6_480_000,  pto:"in prontuario"},
+    {m:"Dupilumab",     atc:"D11AH05", d:+1_380_000, sp:5_310_000,  pto:"fuori prontuario 9%"}
+  ],
+
+  /* M3 . disallineamenti fra consumo, registro e File F */
+  reg: [
+    {t:"Schede di fine trattamento non chiuse", n:23, v:41_200, gg:34, az:"ASL 1 Nord, AOU Riferimento", reg:"Registri oncologici"},
+    {t:"Trattamenti erogati e non registrati",  n:8,  v:12_800, gg:12, az:"ASL 2 Centro", reg:"Registri di monitoraggio"},
+    {t:"Rendicontazioni File F non coerenti",   n:41, v:4_100,  gg:19, az:"Tutte le Aziende", reg:"File F"},
+    {t:"Richieste di rimborso non trasmesse",   n:3,  v:1_900,  gg:61, az:"ASL 3 Sud", reg:"Accordi negoziali"}
+  ],
+  preInvio: [
+    {t:"Quadratura totali File F con il bilancio", s:"ok",   d:"Scarto 0,03% entro tolleranza"},
+    {t:"Codici AIC cessati non sostituiti",        s:"warn", d:"7 record da rimappare prima dell'invio"},
+    {t:"Struttura erogante assente",               s:"stop", d:"2 record bloccanti, invio non consentito"},
+    {t:"Duplicazioni fra flussi",                  s:"ok",   d:"Nessuna rilevata"}
+  ],
+
+  /* M4 . scorte, scadenze e carenze */
+  rischio:{g30:74_000,g60:198_000,g90:412_000},
+  immob: 18_400_000,
+  redistr: [
+    {m:"Pertuzumab",  da:"AOU Riferimento", a:"ASL 2 Centro", v:86_400,  gg:52},
+    {m:"Ocrelizumab", da:"ASL 1 Nord",      a:"ASL 3 Sud",    v:61_200,  gg:74},
+    {m:"Emicizumab",  da:"ASL 2 Centro",    a:"AOU Riferimento", v:38_900, gg:41},
+    {m:"Ravulizumab", da:"ASL 3 Sud",       a:"ASL 1 Nord",   v:27_300,  gg:88}
+  ],
+  carenze:[
+    {m:"Immunoglobulina umana normale", st:"Carenza dichiarata", cop:"18 giorni", imp:"alto"},
+    {m:"Cisplatino",                    st:"Carenza dichiarata", cop:"46 giorni", imp:"medio"},
+    {m:"Amoxicillina + ac. clavulanico",st:"Rientrata",          cop:"oltre 90 giorni", imp:"basso"}
+  ],
+
+  /* M5 . residuo di allestimento, livello aggregato */
+  centri:[
+    {c:"Centro A . AOU Riferimento", prep:6_420, res:164_000, sedute:5},
+    {c:"Centro B . ASL 1 Nord",      prep:3_180, res:112_000, sedute:5},
+    {c:"Centro C . ASL 2 Centro",    prep:2_040, res:78_000,  sedute:4},
+    {c:"Centro D . ASL 3 Sud",       prep:1_260, res:32_000,  sedute:3}
+  ],
+  settimana:[31,12,28,9,20],
+
+  /* M6 . penetrazione biosimilare per molecola e per Azienda */
+  pen:[
+    {m:"Trastuzumab", atc:"L01FD01", v:[.78,.82,.71,.19], n:"Tre Aziende hanno convertito, la quarta no"},
+    {m:"Rituximab",   atc:"L01FA01", v:[.71,.45,.82,.39], n:"Conversione disomogenea"},
+    {m:"Bevacizumab", atc:"L01FG01", v:[.61,.58,.24,.66], n:"Una sola Azienda in ritardo"},
+    {m:"Tocilizumab", atc:"L04AC07", v:[.34,.11,.48,.09], n:"Conversione ovunque parziale"},
+    {m:"Denosumab",   atc:"M05BX04", v:[0,0,.12,0],       n:"Praticamente mai avviata"},
+    {m:"Ustekinumab", atc:"L04AC05", v:[0,0,0,0],         n:"Mai convertita in nessuna Azienda"},
+    {m:"Aflibercept", atc:"S01LA05", v:[0,0,0,0],         n:"Mai convertita in nessuna Azienda"},
+    {m:"Adalimumab",  atc:"L04AB04", v:[.98,.99,.97,.96], n:"Conversione completata, nessuna azione"}
+  ],
+
+  /* M6 . confronto fra Aziende */
+  prezzi:[
+    {m:"Bevacizumab", u:"100 mg", p:[38.10,41.90,36.40,44.20]},
+    {m:"Trastuzumab", u:"150 mg", p:[124.00,131.50,119.80,142.30]},
+    {m:"Rituximab",   u:"500 mg", p:[286.00,301.20,279.40,318.90]}
+  ],
+
+  /* M7 . farmaci attesi */
+  arrivo:[
+    {m:"Anti-PD1 di nuova generazione", f:"Negoziazione AIFA in corso", pop:210, cic:4_800, mesi:9,  ind:"NSCLC in prima linea"},
+    {m:"Terapia genica emofilia B",     f:"Opinione CHMP positiva",     pop:3,   cic:1_950_000, mesi:14, ind:"Emofilia B grave"},
+    {m:"Bispecifico linfoma",           f:"Classificazione attesa",     pop:38,  cic:62_000, mesi:6,  ind:"LNH recidivato"},
+    {m:"Anti-amiloide",                 f:"Valutazione EMA in corso",   pop:120, cic:24_500, mesi:18, ind:"Alzheimer precoce"}
+  ]
+};
+
+/* moduli */
+const MODULI = [
+  {id:"M1", lbl:"Spesa",       t:"Cruscotto direzionale della spesa"},
+  {id:"M2", lbl:"Biosimilari", t:"Radar scadenze brevettuali e opportunità biosimilari"},
+  {id:"M3", lbl:"Registri",    t:"Registri AIFA, File F e flussi"},
+  {id:"M4", lbl:"Scorte",      t:"Scorte, scadenze e carenze"},
+  {id:"M5", lbl:"Oncologia",   t:"Oncologia, sprechi di allestimento"},
+  {id:"M6", lbl:"Confronto",   t:"Confronto fra Aziende", reg:true},
+  {id:"M7", lbl:"Orizzonte",   t:"Orizzonte e simulazione di impatto", reg:true}
+];
+
+const RUOLI = {
+  farmacia:{nome:"Direzione di Farmacia", ente:"ASL 2 Centro . vista aziendale", home:"M2",
+    intro:"Tu vedi dove si perde valore e sei l'unico che può agire. Questa vista ordina le opportunità per valore e per giorni residui, in un formato portabile in Commissione Terapeutica."},
+  dg:{nome:"Direzione Generale", ente:"ASL 2 Centro . vista aziendale", home:"M1",
+    intro:"Ti serve sapere dove chiude l'esercizio e che cosa è ancora correggibile. Le voci sono ordinate per impatto sul budget assegnato, con la finestra entro cui l'azione produce ancora effetto nell'anno."},
+  regione:{nome:"Servizio Farmaceutico Regionale", ente:"Regione . 4 Aziende Sanitarie", home:"M6",
+    intro:"Il tuo strumento è il confronto. Dove tre Aziende hanno convertito e la quarta no, la differenza non è clinica: è organizzativa, ed è documentata."}
+};
+
+/* ============================================================
+   STATO E UTILITÀ
+   ============================================================ */
+let S = {role:"farmacia", mod:"M2", sel:null, plan:[], scen:3, coorte:210};
+
+const nf = new Intl.NumberFormat("it-IT");
+const eur = n => nf.format(Math.round(n)) + " \u20AC";
+const mln = n => (n/1e6).toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1}) + " mln \u20AC";
+const pct = n => (n*100).toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1}) + "%";
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $  = s => document.querySelector(s);
+
+/* colore della finestra in base ai giorni residui */
+function winCol(gg){ return gg<=60 ? "var(--rust)" : gg<=180 ? "var(--amber)" : "var(--tealD)"; }
+function winPill(gg){
+  const c = gg<=60 ? "p-rust" : gg<=180 ? "p-amber" : "p-teal";
+  return `<span class="pill ${c}">${gg} gg</span>`;
+}
+function winBar(gg){
+  const w = Math.max(4, Math.min(100, 100 - gg/365*100));
+  return `<div class="win"><div class="bar"><i style="width:${w}%;background:${winCol(gg)}"></i></div><span class="d" style="color:${winCol(gg)}">${gg} gg</span></div>`;
+}
+
+/* ============================================================
+   ORIZZONTE . elemento firma
+   ============================================================ */
+function horizonMarks(){
+  const m = [];
+  D.loe.slice(0,4).forEach(o => m.push({gg:o.gg, l:o.m, m:"M2", k:"Perdita di esclusiva"}));
+  m.push({gg:12,  l:"Registri", m:"M3", k:"Trattamenti non registrati"});
+  m.push({gg:34,  l:"Schede",   m:"M3", k:"Schede di fine trattamento"});
+  m.push({gg:61,  l:"Rimborsi", m:"M3", k:"Richieste di rimborso"});
+  m.push({gg:52,  l:"Lotti",    m:"M4", k:"Scadenza lotti redistribuibili"});
+  m.push({gg:274, l:"Anti-PD1", m:"M7", k:"Ingresso atteso"});
+  m.push({gg:426, l:"Bispecifico", m:"M7", k:"Ingresso atteso"});
+  return m.sort((a,b)=>a.gg-b.gg);
+}
+
+function drawHorizon(){
+  const W=1200, H=78, L=14, R=14, Y=58;
+  const span=730;                                   // 24 mesi
+  const x = gg => L + (gg/span)*(W-L-R);
+  const hi = S.mod;                                  // modulo corrente, segni in evidenza
+  let s = "";
+
+  s += `<line x1="${L}" y1="${Y}" x2="${W-R}" y2="${Y}" stroke="#2A4368"/>`;
+  for(let i=0;i<=24;i++){
+    const px=x(i*30.4), big=(i%6===0);
+    s += `<line x1="${px}" y1="${Y}" x2="${px}" y2="${Y+(big?8:4)}" class="${big?'hz-tick-y':'hz-tick'}"/>`;
+    if(big){
+      const lab = i===0?"oggi":"+"+i+(i===24?" mesi":"");
+      s += `<text x="${px}" y="${Y+18}" class="hz-yr" text-anchor="${i===0?'start':(i===24?'end':'middle')}">${lab}</text>`;
+    }
+  }
+  s += `<line x1="${x(0)}" y1="4" x2="${x(0)}" y2="${Y+10}" class="hz-now"/>`;
+
+  // assegnazione a corsie. Se nessuna corsia è libera il segno resta senza etichetta
+  const lanes=[-1e4,-1e4,-1e4], ys=[10,26,42];
+  horizonMarks().forEach(mk=>{
+    const px=x(mk.gg), w=mk.l.length*5.4+18;
+    const endAnchor = px > W-200;
+    const left  = endAnchor ? px-w : px;
+    const right = endAnchor ? px   : px+w;
+    let lane = lanes.findIndex(r => left > r+10);
+    const labelled = lane >= 0;
+    if(labelled) lanes[lane] = right; else lane = 2;
+    const yy = labelled ? ys[lane] : 50;
+    const on = mk.m===hi;
+    const c  = on ? winCol(mk.gg) : "#43608C";
+    s += `<g class="hz-mk" data-mod="${mk.m}" tabindex="0" role="button" aria-label="${esc(mk.k)}: ${esc(mk.l)}, fra ${mk.gg} giorni, modulo ${mk.m}">
+            <title>${esc(mk.k)} . ${esc(mk.l)} . fra ${mk.gg} giorni . ${mk.m}</title>
+            <line x1="${px}" y1="${yy}" x2="${px}" y2="${Y}" stroke="${c}" stroke-width="${on?1.2:0.8}" ${on?"":'stroke-dasharray="2 2"'}/>
+            <circle class="hz-dot" cx="${px}" cy="${yy}" r="${labelled?(on?3.6:2.6):2.2}" fill="${c}"/>
+            ${labelled ? `<text x="${endAnchor?px-7:px+7}" y="${yy+3.4}" class="hz-mk-lbl" text-anchor="${endAnchor?'end':'start'}"
+                  style="fill:${on?'#E4EEF9':'#7D93B3'};font-weight:${on?600:400}">${esc(mk.l)}</text>` : ``}
+          </g>`;
+  });
+
+  $("#hz").setAttribute("viewBox",`0 0 ${W} ${H}`);
+  $("#hz").innerHTML = s;
+  $("#hz").querySelectorAll(".hz-mk").forEach(g=>{
+    const go = ()=>{ S.mod=g.dataset.mod; S.sel=null; render(); };
+    g.addEventListener("click", go);
+    g.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();go();} });
+  });
+}
+
+/* ============================================================
+   GRAFICI SVG
+   ============================================================ */
+function spendChart(){
+  const W=560,H=180,P={t:12,r:10,b:24,l:40};
+  const max=46, min=26;
+  const xs = i => P.l + i*((W-P.l-P.r)/11);
+  const ys = v => P.t + (1-(v-min)/(max-min))*(H-P.t-P.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Andamento mensile della spesa">`;
+  [30,35,40,45].forEach(v=>{
+    s+=`<line x1="${P.l}" y1="${ys(v)}" x2="${W-P.r}" y2="${ys(v)}" stroke="#E4EAF1"/>`;
+    s+=`<text x="${P.l-6}" y="${ys(v)+3}" text-anchor="end" style="font:400 9px 'IBM Plex Mono';fill:#8496AE">${v}</text>`;
+  });
+  const line = a => a.map((v,i)=> v==null?null:`${xs(i)},${ys(v)}`).filter(Boolean).join(" ");
+  s+=`<polyline points="${line(D.spesaPrec)}" fill="none" stroke="#C3CDDB" stroke-width="1.5"/>`;
+  s+=`<polyline points="${line(D.spesaAnno)}" fill="none" stroke="#0B1729" stroke-width="2"/>`;
+  // proiezione
+  const last=9, pv=[D.spesaAnno[9],39.6,43.1];
+  s+=`<polyline points="${xs(9)},${ys(pv[0])} ${xs(10)},${ys(pv[1])} ${xs(11)},${ys(pv[2])}" fill="none" stroke="#B8730F" stroke-width="2" stroke-dasharray="4 3"/>`;
+  s+=`<circle cx="${xs(11)}" cy="${ys(pv[2])}" r="3.5" fill="#B8730F"/>`;
+  D.mesi.forEach((m,i)=> s+=`<text x="${xs(i)}" y="${H-8}" text-anchor="middle" style="font:400 9px 'IBM Plex Mono';fill:#8496AE">${m}</text>`);
+  s+=`</svg>`;
+  return s;
+}
+
+function riskBars(){
+  const m=D.rischio.g90;
+  const row=(k,v,c)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
+      <span class="mono" style="font-size:10.5px;color:var(--slate2);width:44px">${k}</span>
+      <div style="flex:1;height:16px;background:var(--line2);border-radius:1px;overflow:hidden">
+        <i style="display:block;height:100%;width:${v/m*100}%;background:${c}"></i></div>
+      <span class="mono" style="font-size:12px;width:86px;text-align:right">${eur(v)}</span></div>`;
+  return row("30 gg",D.rischio.g30,"var(--rust)")+row("60 gg",D.rischio.g60,"var(--amber)")+row("90 gg",D.rischio.g90,"var(--tealD)");
+}
+
+/* ============================================================
+   MODULI
+   ============================================================ */
+const V = {};
+
+/* ---------- M1 ---------- */
+V.M1 = () => {
+  const ytd = D.spesaAnno.filter(Boolean).reduce((a,b)=>a+b,0);
+  const proj = 452.7;
+  return `
+  ${roleNote()}
+  <div class="grid g4">
+    ${stat("Spesa al 31 ottobre", mln(ytd*1e6), `Perimetro di ${D.record.toLocaleString("it-IT")} record riconciliati`)}
+    ${stat("Proiezione di fine anno", mln(proj*1e6), "Su periodi omogenei, non estrapolazione lineare", "warm")}
+    ${stat("Scostamento sul precedente", "+4,1%", "435,0 mln \u20AC nell'esercizio chiuso")}
+    ${stat("Acquisti diretti sul FSN", "12,06%", "Tetto programmato 8,3%. Sforamento in corso", "hot")}
+  </div>
+
+  <div class="grid g21" style="margin-top:12px">
+    <div class="card">
+      <div class="card-h"><h2>Andamento mensile e proiezione</h2><span class="note">milioni di euro . nero esercizio corrente, grigio precedente, ambra proiezione</span></div>
+      ${spendChart()}
+      <div class="limit"><span class="ic">!</span><div><b>Segnalazione oltre soglia.</b> La proiezione supera il budget assegnato di 6,2 milioni di euro. Restano due mesi di esercizio: le leve ancora efficaci nell'anno sono nel modulo M2, ordinate per finestra utile.</div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Concentrazione</h2></div>
+      <p style="font-size:12.5px;color:var(--slate);margin-bottom:10px">Presidiare quaranta voci significa presidiare oltre un terzo della spesa.</p>
+      <div class="kv">
+        <dt>Prime 20 per spesa</dt><dd>128,8 mln \u20AC . 28,5%</dd>
+        <dt>Prime 20 per incremento</dt><dd>+24,4 mln \u20AC</dd>
+        <dt>Resto del perimetro</dt><dd>323,9 mln \u20AC . 71,5%</dd>
+      </div>
+      <svg viewBox="0 0 240 14" style="width:100%;height:14px" role="img" aria-label="Quota delle prime venti specialità">
+        <rect x="0" y="0" width="240" height="14" fill="#E4EAF1"/>
+        <rect x="0" y="0" width="68.4" height="14" fill="#0B1729"/>
+        <line x1="68.4" y1="0" x2="68.4" y2="14" stroke="#12C4B8" stroke-width="2"/>
+      </svg>
+      <p style="font-size:11px;color:var(--slate2);margin-top:6px">La banda scura è la quota delle prime venti specialità.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-h"><h2>Prime voci per incremento assoluto</h2><span class="note">ordinate per delta rispetto all'esercizio precedente</span></div>
+    <table>
+      <thead><tr><th>Molecola</th><th>ATC</th><th class="num">Spesa</th><th class="num">Delta</th><th>Aderenza al prontuario</th><th></th></tr></thead>
+      <tbody>${D.incr.map(r=>`
+        <tr>
+          <td class="mol">${r.m}</td>
+          <td class="mono" style="font-size:11px;color:var(--slate)">${r.atc}</td>
+          <td class="num">${eur(r.sp)}</td>
+          <td class="num" style="color:var(--rust);font-weight:600">+${eur(r.d)}</td>
+          <td>${r.pto.startsWith("fuori")
+              ? `<span class="pill p-amber">${r.pto}</span>`
+              : r.pto==="nuovo, da zero" ? `<span class="pill p-rust">crescita da zero</span>`
+              : `<span class="pill p-green">in prontuario</span>`}</td>
+          <td style="text-align:right"><button class="act ghost" data-verify="${esc(r.m)}">Verifica aderenza</button></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <div class="limit"><span class="ic">M1</span><div><b>Limite del modulo.</b> Nessuna analisi per singolo paziente. Il livello minimo di aggregazione è la struttura erogante.</div></div>
+  </div>
+  ${foot("M1 legge i flussi di consumo ospedaliero, distribuzione diretta, distribuzione per conto e File F, e li riconcilia con il bilancio prima di pubblicare qualunque valore.")}`;
+};
+
+/* ---------- M2 ---------- */
+V.M2 = () => {
+  const sel = S.sel ? D.loe.find(o=>o.m===S.sel) || D.orig.find(o=>o.m===S.sel) : null;
+  return `
+  ${roleNote()}
+  <div class="grid g4">
+    ${stat("Esposizione a 12 mesi", "22,8 mln \u20AC", "21 specialità. Le prime due valgono 14,2 mln", "warm")}
+    ${stat("Residuo su originator", "13,6 mln \u20AC", "8 molecole con penetrazione biosimilare sotto il 50%")}
+    ${stat("Di cui a penetrazione zero", "8,0 mln \u20AC", "3 molecole mai convertite", "hot")}
+    ${stat("Valore del piano proposto", eur(544_000), "Anticipo conversione 400.000 \u20AC, recupero originator 144.000 \u20AC", "good")}
+  </div>
+
+  <div class="grid g12" style="margin-top:12px">
+    <div>
+      <div class="card">
+        <div class="card-h"><h2>Finestre in chiusura</h2><span class="note">giorni residui</span></div>
+        <table>
+          <thead><tr><th>Molecola</th><th class="num">Spesa esposta</th><th>Finestra utile</th></tr></thead>
+          <tbody>${D.loe.map(o=>`
+            <tr class="click ${S.sel===o.m?'sel':''}" data-mol="${esc(o.m)}" tabindex="0">
+              <td><span class="mol">${o.m}</span><br><span class="sub mono">${o.atc}</span></td>
+              <td class="num">${eur(o.sp)}</td>
+              <td>${winBar(o.gg)}</td>
+            </tr>`).join("")}
+            <tr><td colspan="3" style="font-size:11.5px;color:var(--slate2);padding-top:9px">
+              e altre ${D.loeAltre.n} specialità sotto 0,8 mln \u20AC, per ${mln(D.loeAltre.sp)} complessivi</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="card-h"><h2>Quota residua su originator</h2><span class="note">biosimilare già disponibile</span></div>
+        <table>
+          <thead><tr><th>Molecola</th><th class="num">Su originator</th><th>Penetrazione</th></tr></thead>
+          <tbody>${D.orig.map(o=>`
+            <tr class="click ${S.sel===o.m?'sel':''}" data-mol="${esc(o.m)}" tabindex="0">
+              <td class="mol">${o.m}</td>
+              <td class="num">${eur(o.sp)}</td>
+              <td><div class="pen"><div class="track"><i style="width:${o.pen*100}%"></i></div><span>${pct(o.pen)}</span></div></td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>${sel ? detail(sel) : emptyDetail()}</div>
+  </div>
+
+  <div class="limit hard"><span class="ic">M2</span><div><b>Limite invalicabile.</b> Lo strumento identifica l'opportunità e la quantifica. La valutazione di sostituibilità clinica resta interamente del farmacista e del clinico, ed è esercitata nei canali istituzionali già esistenti. Nessuna raccomandazione riferita a un singolo paziente viene prodotta o suggerita.</div></div>
+  ${foot("La quota di penetrazione biosimilare non è comprimibile a zero. Continuità terapeutica, pazienti già in trattamento e indicazioni cliniche specifiche sono considerati dal parametro di switchabilità concordato con l'Ente.")}`;
+};
+
+function emptyDetail(){
+  return `<div class="card" style="height:100%;display:flex;align-items:center;justify-content:center">
+    <div class="empty"><span class="big">Seleziona una molecola</span>
+    Il pannello mostra la normalizzazione per milligrammo, la quota residua per Azienda e l'azione proposta con la sua finestra utile.</div></div>`;
+}
+
+function detail(o){
+  const inLoe = !!o.gg;
+  const contendibile=.35, switchabile=.5, attrib=.30;
+  const diff = o.diff || .25;
+  const val = inLoe
+    ? Math.round(o.sp*contendibile*diff*(90/365))
+    : Math.round(o.sp*switchabile*diff*attrib);
+  const inPlan = S.plan.some(p=>p.m===o.m);
+  const perAsl = o.asl || ASL.map((_,i)=> Math.round(o.sp*[0.36,0.28,0.22,0.14][i]));
+  return `
+  <div class="detail">
+    <div class="detail-h">
+      <div><h3>${o.m}</h3><div class="m">${o.atc} . ${inLoe?"perdita di esclusiva entro 12 mesi":"biosimilare già disponibile"}</div></div>
+      ${inLoe?`<span class="pill" style="background:${winCol(o.gg)};color:#fff">${o.gg} gg</span>`:`<span class="pill p-grey">priorità ${o.pr}</span>`}
+    </div>
+    <div class="detail-b">
+      <span class="eyebrow">Normalizzazione, stadio 4</span>
+      <div class="formula" style="margin:6px 0 12px">
+        prezzo confezione&nbsp;&nbsp;<s>non confrontabile</s><br>
+        &darr; diviso per contenuto (unità &times; dosaggio)<br>
+        <em>\u20AC / mg</em>&nbsp;&nbsp;originator 2,41&nbsp;&nbsp;&middot;&nbsp;&nbsp;biosimilare 1,79<br>
+        <em>\u20AC / DDD</em>&nbsp;&nbsp;originator 68,30&nbsp;&nbsp;&middot;&nbsp;&nbsp;biosimilare 50,70<br>
+        differenziale applicato&nbsp;&nbsp;<em>${Math.round(diff*100)}%</em> convenzionale
+      </div>
+
+      <span class="eyebrow">Ripartizione per Azienda</span>
+      <table style="margin:6px 0 12px">
+        <tbody>${ASL.map((a,i)=>`
+          <tr><td style="padding:5px 8px 5px 0">${a}</td>
+            <td style="width:96px"><div style="height:6px;background:var(--line2)"><i style="display:block;height:100%;width:${perAsl[i]/Math.max(...perAsl)*100}%;background:var(--ink3)"></i></div></td>
+            <td class="num" style="width:92px">${eur(perAsl[i])}</td></tr>`).join("")}
+        </tbody>
+      </table>
+
+      <span class="eyebrow">Valorizzazione</span>
+      <dl class="kv" style="margin-top:6px">
+        <dt>Base</dt><dd>${eur(o.sp)}</dd>
+        ${inLoe
+          ? `<dt>Contendibile</dt><dd>35%</dd><dt>Differenziale</dt><dd>${Math.round(diff*100)}%</dd><dt>Anticipo</dt><dd>90 giorni</dd>`
+          : `<dt>Switchabile</dt><dd>50%</dd><dt>Differenziale</dt><dd>${Math.round(diff*100)}%</dd><dt>Attribuzione</dt><dd>30%</dd>`}
+        <dt>Valore</dt><dd style="color:var(--green);font-weight:600;font-size:15px">${eur(val)}</dd>
+      </dl>
+
+      <span class="eyebrow">Azione proposta</span>
+      <p style="font-size:12.5px;margin:6px 0 12px;line-height:1.55">
+        ${inLoe
+          ? `Anticipare l'istruttoria di gara e sospendere il rinnovo a prezzo pieno. La finestra utile chiude fra <b>${o.gg} giorni</b>: oltre quella data il differenziale resta indisponibile fino alla scadenza contrattuale.`
+          : `Portare la molecola in Commissione Terapeutica con la quota residua per Azienda e il differenziale normalizzato. Responsabile: Direzione di Farmacia, con l'Ufficio acquisti per l'esito di gara.`}
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="act ${inPlan?'on':''}" data-add="${esc(o.m)}" data-val="${val}">${inPlan?"Nel piano d'azione":"Aggiungi al piano d'azione"}</button>
+        <button class="act ghost" data-trace="${esc(o.m)}">Traccia fino al record di origine</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- M3 ---------- */
+V.M3 = () => {
+  const tot = D.reg.reduce((a,b)=>a+b.v,0);
+  const ico = s => s==="ok"?`<span class="pill p-green">superato</span>`: s==="warn"?`<span class="pill p-amber">da sanare</span>`:`<span class="pill p-rust">bloccante</span>`;
+  return `
+  ${roleNote()}
+  <div class="grid g4">
+    ${stat("Recupero potenziale", eur(tot), "Rimborsi da accordo negoziale non ancora richiesti", "warm")}
+    ${stat("Voci in lavorazione", D.reg.reduce((a,b)=>a+b.n,0), "Ordinate per valore e per termine utile")}
+    ${stat("Termine più vicino", "12 gg", "Trattamenti erogati e non registrati, ASL 2 Centro", "hot")}
+    ${stat("Controlli pre-invio", "2 bloccanti", "L'invio del flusso non è consentito finché restano aperti", "hot")}
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-h"><h2>Lista di lavorazione</h2><span class="note">destinata all'operatore che compila le schede</span></div>
+    <table>
+      <thead><tr><th>Disallineamento</th><th>Origine</th><th class="num">Voci</th><th class="num">Valore</th><th>Termine utile</th><th></th></tr></thead>
+      <tbody>${D.reg.map(r=>`
+        <tr>
+          <td><span class="mol">${r.t}</span><br><span class="sub">${r.az}</span></td>
+          <td><span class="pill p-grey">${r.reg}</span></td>
+          <td class="num">${r.n}</td>
+          <td class="num">${eur(r.v)}</td>
+          <td>${winBar(r.gg)}</td>
+          <td style="text-align:right"><button class="act ghost" data-work="${esc(r.t)}">Apri elenco</button></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <div class="card-h"><h2>Controlli di quadratura pre-invio</h2><span class="note">flusso di ottobre</span></div>
+      <table><tbody>${D.preInvio.map(c=>`
+        <tr><td style="padding-left:0"><b style="font-weight:600">${c.t}</b><br><span class="sub">${c.d}</span></td>
+            <td style="text-align:right;padding-right:0">${ico(c.s)}</td></tr>`).join("")}
+      </tbody></table>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Qualità del dato per Azienda</h2><span class="note">completezza e coerenza dei flussi</span></div>
+      <table><tbody>${[["ASL 1 Nord",.97],["ASL 2 Centro",.91],["ASL 3 Sud",.99],["AOU Riferimento",.86]].map(([a,v])=>`
+        <tr><td style="padding-left:0">${a}</td>
+            <td style="text-align:right;padding-right:0"><div class="pen" style="justify-content:flex-end"><div class="track"><i style="width:${v*100}%;background:${v<.9?'var(--amber)':'var(--tealD)'}"></i></div><span>${pct(v)}</span></div></td></tr>`).join("")}
+      </tbody></table>
+      <p style="font-size:11.5px;color:var(--slate2);margin-top:9px">Un problema tecnico diventa un indicatore di performance organizzativa confrontabile.</p>
+    </div>
+  </div>
+
+  <div class="limit hard"><span class="ic">M3</span><div><b>Limite invalicabile.</b> Il modulo segnala il disallineamento e ne quantifica il valore. Non accede ai registri di monitoraggio e non compila alcuna scheda in luogo dell'operatore. L'estrazione dai registri è a cura dell'Ente, in forma pseudonimizzata all'origine.</div></div>
+  ${foot("È la tappa che assorbe più tempo professionale dell'intero ciclo: 42 giornate/anno nella stima di riferimento, con una riduzione attesa del 45%.")}`;
+};
+
+/* ---------- M4 ---------- */
+V.M4 = () => `
+  ${roleNote()}
+  <div class="grid g4">
+    ${stat("Capitale immobilizzato", mln(D.immob), "Giacenze a valore di acquisizione")}
+    ${stat("Valore a rischio a 90 gg", eur(D.rischio.g90), "Finestra entro cui la redistribuzione è ancora praticabile", "warm")}
+    ${stat("Recuperabile con redistribuzione", eur(D.redistr.reduce((a,b)=>a+b.v,0)), "4 proposte fra strutture del perimetro", "good")}
+    ${stat("Carenze con impatto", "2", "Su prodotti a consumo rilevante", "hot")}
+  </div>
+
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <div class="card-h"><h2>Valore a rischio di deterioramento</h2><span class="note">per finestra residua</span></div>
+      ${riskBars()}
+      <div class="limit"><span class="ic">i</span><div>Segnalare a 30 giorni significa segnalare troppo tardi: a quella distanza la redistribuzione fra strutture non è più praticabile.</div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Carenze dichiarate</h2><span class="note">elenco nazionale, incrociato con i consumi previsti</span></div>
+      <table><tbody>${D.carenze.map(c=>`
+        <tr><td style="padding-left:0"><b style="font-weight:600">${c.m}</b><br><span class="sub">Copertura stimata ${c.cop}</span></td>
+            <td style="text-align:right;padding-right:0">
+              ${c.st==="Rientrata"?`<span class="pill p-green">rientrata</span>`:`<span class="pill ${c.imp==="alto"?"p-rust":"p-amber"}">impatto ${c.imp}</span>`}
+            </td></tr>`).join("")}
+      </tbody></table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-h"><h2>Proposte di redistribuzione</h2><span class="note">ordinate per valore recuperabile</span></div>
+    <table>
+      <thead><tr><th>Molecola</th><th>Da</th><th>A</th><th class="num">Valore</th><th>Scadenza lotto</th><th></th></tr></thead>
+      <tbody>${D.redistr.map(r=>`
+        <tr><td class="mol">${r.m}</td><td>${r.da}</td><td>${r.a}</td>
+            <td class="num">${eur(r.v)}</td><td>${winBar(r.gg)}</td>
+            <td style="text-align:right"><button class="act ghost" data-work="Redistribuzione ${esc(r.m)}">Trasmetti alla logistica</button></td></tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="limit hard"><span class="ic">M4</span><div><b>Limite invalicabile.</b> Il modulo propone la redistribuzione e la trasmette alla funzione competente. Non emette ordini e non movimenta stock.</div></div>
+  ${foot("Il risparmio da minori scaduti e da minor capitale immobilizzato non è valorizzato nella stima di offerta: si misura sul perimetro dell'Ente durante il periodo di verifica.")}`;
+
+/* ---------- M5 ---------- */
+V.M5 = () => {
+  const tot = D.centri.reduce((a,b)=>a+b.res,0);
+  const rec = Math.round(tot * (S.scen===5?0:(S.scen===4?.18:(S.scen===3?.34:.47))));
+  const maxW = Math.max(...D.settimana);
+  return `
+  ${roleNote()}
+  <div class="grid g4">
+    ${stat("Residuo non recuperato", eur(tot), "Differenza fra quantità acquistata e quantità allestita, base annua", "warm")}
+    ${stat("Preparazioni nel perimetro", nf.format(D.centri.reduce((a,b)=>a+b.prep,0)), "Registro aggregato per molecola, centro e giornata")}
+    ${stat("Quota della spesa diretta", "47%", "Antineoplastici e immunomodulatori")}
+    ${stat("Recupero nello scenario", eur(rec), `Consolidando le sedute su ${S.scen} giorni a settimana`, "good")}
+  </div>
+
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <div class="card-h"><h2>Residuo per centro di allestimento</h2><span class="note">valorizzato, base annua</span></div>
+      <table>
+        <thead><tr><th>Centro</th><th class="num">Preparazioni</th><th class="num">Residuo</th><th class="num">Sedute/sett.</th></tr></thead>
+        <tbody>${D.centri.map(c=>`
+          <tr><td class="mol" style="font-weight:500">${c.c}</td>
+              <td class="num">${nf.format(c.prep)}</td>
+              <td class="num" style="color:var(--rust)">${eur(c.res)}</td>
+              <td class="num">${c.sedute}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Concentrazione settimanale</h2><span class="note">determinante organizzativa dello spreco</span></div>
+      <div class="week">
+        <div class="lab">LUN</div><div class="lab">MAR</div><div class="lab">MER</div><div class="lab">GIO</div><div class="lab">VEN</div>
+        ${D.settimana.map(v=>{
+          const a = .16 + (v/maxW)*.72;
+          return `<div style="background:rgba(11,23,41,${a});color:${a>.5?'#fff':'var(--ink)'}">${v}%</div>`;
+        }).join("")}
+      </div>
+      <p style="font-size:12px;color:var(--slate);margin-top:11px">Quando le sedute sono disperse su cinque giorni, la quota di flacone non utilizzata cresce. La leva è organizzativa, non clinica.</p>
+      <span class="eyebrow" style="display:block;margin-top:12px">Scenario di consolidamento</span>
+      <div class="slider">
+        <input type="range" min="2" max="5" step="1" value="${S.scen}" id="scen" aria-label="Giorni di seduta a settimana">
+        <span class="out">${S.scen} giorni</span>
+      </div>
+      <p style="font-size:12px;color:var(--slate)">Recupero stimato <b class="mono" style="color:var(--green)">${eur(rec)}</b> all'anno. Lo scenario non tiene conto dei vincoli di personale e di sala, che vanno valutati dall'Ente.</p>
+    </div>
+  </div>
+
+  <div class="limit hard"><span class="ic">M5</span><div><b>Limite invalicabile.</b> Qualsiasi funzione che calcoli, proponga o verifichi la dose per un singolo paziente ricade nella Regola 11 del Regolamento UE 2017/745 ed è esclusa dal perimetro contrattuale. Il modulo si ferma alla dimensione aggregata e organizzativa: molecola, centro, giornata.</div></div>
+  ${foot("Il registro delle preparazioni è richiesto all'Ente in forma già aggregata. Nessun identificativo di paziente entra nel sistema.")}`;
+};
+
+/* ---------- M6 ---------- */
+V.M6 = () => {
+  if(S.role!=="regione") return locked(
+    "Confronto fra Aziende",
+    "Questa funzione richiede i dati di tutte le Aziende del perimetro, quindi è disponibile soltanto nella titolarità regionale. Non è una limitazione commerciale: nella vista aziendale il confronto è impossibile per costruzione.",
+    "Passa al profilo Servizio Farmaceutico Regionale per vederla in funzione.");
+
+  const cell = v => {
+    if(v>=.5){
+      const a=.18+Math.min((v-.5)/.5,1)*.55;
+      return `<td style="background:rgba(44,122,88,${a});color:${a>.45?'#fff':'var(--green)'}">${pct(v)}</td>`;
+    }
+    const a=.12+((.5-v)/.5)*.72;
+    return `<td style="background:rgba(163,55,42,${a});color:${a>.5?'#fff':'var(--rust)'}">${pct(v)}</td>`;
+  };
+  const scarti = D.pen.map(r=> Math.max(...r.v)-Math.min(...r.v));
+  const maxSc  = Math.max(...scarti);
+
+  return `
+  ${roleNote()}
+  <div class="grid g4">
+    ${stat("Variabilità massima", Math.round(maxSc*100)+" punti", "Trastuzumab, fra l'Azienda più avanti e quella più indietro", "hot")}
+    ${stat("Spesa allineabile", eur(2_910_000), "Portando ogni Azienda alla penetrazione già raggiunta dalla migliore del perimetro", "good")}
+    ${stat("Differenza di prezzo unitario", "fino a 21%", "Stessa molecola, stesso confezionamento, esiti di gara diversi", "warm")}
+    ${stat("Tempo di reazione mediano", "118 gg", "Da 61 giorni in ASL 3 Sud a 197 in AOU Riferimento")}
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-h"><h2>Penetrazione biosimilare per molecola e per Azienda</h2>
+      <span class="note">verde: conversione avvenuta . rosso: quota ancora sull'originator</span></div>
+    <table class="mx">
+      <thead><tr><th class="rowh">Molecola</th>${ASL.map(a=>`<th>${a}</th>`).join("")}<th>Scarto</th><th class="rowh" style="text-align:left">Lettura</th></tr></thead>
+      <tbody>${D.pen.map((r,i)=>`
+        <tr><td class="rowh">${r.m}<br><span class="sub mono">${r.atc}</span></td>
+          ${r.v.map(v=>cell(v)).join("")}
+          <td style="background:var(--panel2);font-weight:600;color:${scarti[i]>.4?'var(--rust)':'var(--slate)'}">${Math.round(scarti[i]*100)}</td>
+          <td class="rowh" style="font-family:'IBM Plex Sans';font-weight:400;font-size:11.5px;color:var(--slate);padding-left:8px">${r.n}</td></tr>`).join("")}
+      </tbody>
+    </table>
+    <div class="limit"><span class="ic">!</span><div><b>Su Trastuzumab tre Aziende su quattro hanno convertito e la quarta è ferma al 19%.</b> La differenza non è clinica: è organizzativa, ed è ora documentata. Su Ustekinumab e Aflibercept invece nessuna Azienda ha convertito: lì il problema non è la singola Azienda ma il prontuario regionale.</div></div>
+  </div>
+
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <div class="card-h"><h2>Prezzi di aggiudicazione a confronto</h2><span class="note">normalizzati per unità di contenuto</span></div>
+      <table>
+        <thead><tr><th>Molecola</th><th>Unità</th>${ASL.map(a=>`<th class="num">${a.split(" ").slice(-1)}</th>`).join("")}</tr></thead>
+        <tbody>${D.prezzi.map(p=>{
+          const min=Math.min(...p.p);
+          return `<tr><td class="mol">${p.m}</td><td class="mono" style="font-size:11px;color:var(--slate)">${p.u}</td>
+            ${p.p.map(v=>`<td class="num" style="${v===min?'color:var(--green);font-weight:600':(v>min*1.12?'color:var(--rust)':'')}">${v.toLocaleString("it-IT",{minimumFractionDigits:2})}</td>`).join("")}</tr>`;
+        }).join("")}
+        </tbody>
+      </table>
+      <p style="font-size:11.5px;color:var(--slate2);margin-top:9px">Argomento diretto verso la centrale di committenza. Il confronto è possibile solo dopo la normalizzazione, perché i confezionamenti differiscono.</p>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Simulazione di aggregazione della domanda</h2></div>
+      <p style="font-size:12.5px;color:var(--slate);margin-bottom:11px">Effetto stimato dell'acquisto a perimetro regionale anziché per singola Azienda, applicando a tutte il prezzo migliore già ottenuto nel perimetro.</p>
+      <dl class="kv">
+        <dt>Volume aggregato</dt><dd>4 Aziende, 3 canali</dd>
+        <dt>Prezzo di riferimento</dt><dd>miglior esito già ottenuto</dd>
+        <dt>Recupero stimato</dt><dd style="color:var(--green);font-weight:600;font-size:15px">${eur(1_240_000)}</dd>
+      </dl>
+      <div class="limit"><span class="ic">i</span><div>Stima di ordine di grandezza. Non tiene conto dei vincoli di lotto, di continuità di fornitura e delle regole della centrale di committenza.</div></div>
+    </div>
+  </div>
+  ${foot("Il confronto fra Aziende è la funzione a maggiore valore del prodotto e l'unica non replicabile in una vista aziendale. Richiede il contratto a perimetro regionale.")}`;
+};
+
+/* ---------- M7 ---------- */
+V.M7 = () => {
+  if(S.role==="farmacia") return locked(
+    "Orizzonte e simulazione di impatto",
+    "Il modulo è attivo nella configurazione che include M7. La vista aziendale corrente non lo comprende.",
+    "Passa al profilo Direzione Generale o Servizio Farmaceutico Regionale per vederlo in funzione.");
+  const f = D.arrivo[0];
+  const impatto = Math.round(S.coorte * f.cic * 2.6);
+  return `
+  ${roleNote()}
+  <div class="grid g4">
+    ${stat("Farmaci in orizzonte", D.arrivo.length, "Con impatto atteso sul perimetro entro 18 mesi")}
+    ${stat("Impatto lordo stimato", eur(D.arrivo.reduce((a,b)=>a+b.pop*b.cic,0)*1.0), "Somma degli scenari centrali, primo anno pieno", "warm")}
+    ${stat("Ingresso più vicino", "6 mesi", "Bispecifico linfoma, classificazione attesa", "hot")}
+    ${stat("Copertura del budget", "non allocato", "Nessuna delle voci è oggi prevista nel budget assegnato", "hot")}
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-h"><h2>Farmaci attesi</h2><span class="note">opinioni CHMP ed EMA, negoziazioni AIFA in corso</span></div>
+    <table>
+      <thead><tr><th>Molecola</th><th>Stato regolatorio</th><th>Indicazione</th><th class="num">Popolazione attesa</th><th class="num">Costo per ciclo</th><th>Ingresso</th></tr></thead>
+      <tbody>${D.arrivo.map(a=>`
+        <tr><td class="mol">${a.m}</td>
+            <td><span class="pill p-grey">${a.f}</span></td>
+            <td style="color:var(--slate);font-size:12px">${a.ind}</td>
+            <td class="num">${nf.format(a.pop)}</td>
+            <td class="num">${eur(a.cic)}</td>
+            <td>${winBar(a.mesi*30)}</td></tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <div class="card-h"><h2>Simulazione di coorte</h2><span class="note">${f.m}</span></div>
+      <p style="font-size:12.5px;color:var(--slate);margin-bottom:8px">Numerosità attesa della popolazione trattabile sul perimetro, per un impatto di budget a dodici mesi.</p>
+      <div class="slider">
+        <input type="range" min="60" max="420" step="10" value="${S.coorte}" id="coorte" aria-label="Popolazione attesa">
+        <span class="out">${nf.format(S.coorte)} pazienti</span>
+      </div>
+      <dl class="kv" style="margin-top:10px">
+        <dt>Costo per ciclo</dt><dd>${eur(f.cic)}</dd>
+        <dt>Cicli medi/anno</dt><dd>2,6</dd>
+        <dt>Impatto a 12 mesi</dt><dd style="color:var(--rust);font-weight:600;font-size:16px">${eur(impatto)}</dd>
+        <dt>Sul perimetro</dt><dd>${pct(impatto/D.perimetro)}</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Che cosa produce</h2></div>
+      <p style="font-size:12.5px;line-height:1.6;color:var(--slate)">La Commissione Terapeutica riceve la valutazione economica <b style="color:var(--ink)">insieme</b> alla richiesta, non mesi dopo. La stima è costruita sullo stesso perimetro e con le stesse unità di misura del cruscotto di spesa, quindi è confrontabile con il budget assegnato senza rielaborazioni.</p>
+      <div class="limit hard" style="margin-top:12px"><span class="ic">M7</span><div><b>Limite invalicabile.</b> Il modulo lavora su numerosità attese e spesa aggregata. Non identifica pazienti eleggibili, non accede a dati clinici individuali e non produce alcuna valutazione riferita a un individuo.</div></div>
+    </div>
+  </div>
+  ${foot("Le numerosità attese derivano da fonti epidemiologiche pubbliche e dai consumi storici del perimetro sulle indicazioni corrispondenti.")}`;
+};
+
+/* ============================================================
+   COMPONENTI CONDIVISI
+   ============================================================ */
+function stat(k,v,d,cls=""){
+  return `<div class="stat ${cls}"><span class="k">${k}</span><div class="v">${v}</div><div class="d">${d}</div>
+    <div class="ticks"><i></i><i></i><i></i><i></i><i></i></div></div>`;
+}
+function roleNote(){
+  const r = RUOLI[S.role];
+  return `<div class="forrole"><span class="who">${r.nome}</span><div>${r.intro}</div></div>`;
+}
+function locked(t,p,cta){
+  return `<div class="locked">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style="margin-bottom:10px" aria-hidden="true">
+      <rect x="4" y="10" width="16" height="11" rx="2" stroke="#5D6C86" stroke-width="1.5"/>
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#5D6C86" stroke-width="1.5"/></svg>
+    <h2>${t}</h2><p>${p}</p><p style="color:var(--tealD);font-weight:600">${cta}</p></div>`;
+}
+function foot(t){
+  return `<p class="foot"><b>Nota.</b> ${t} Ogni elaborazione è ricostruibile fino al record di origine. Nessuna funzione automatizza una decisione sanitaria.</p>`;
+}
+
+/* ============================================================
+   PIANO D'AZIONE
+   ============================================================ */
+function togglePlan(m,val){
+  const i = S.plan.findIndex(p=>p.m===m);
+  if(i>=0) S.plan.splice(i,1);
+  else{
+    const o = D.loe.find(x=>x.m===m) || D.orig.find(x=>x.m===m);
+    S.plan.push({m, val:+val, gg:o&&o.gg?o.gg:null, sp:o?o.sp:0,
+                 resp: o&&o.gg ? "Ufficio acquisti" : "Commissione Terapeutica"});
+  }
+  render(); renderPlan();
+}
+function renderPlan(){
+  const n = S.plan.length, tot = S.plan.reduce((a,b)=>a+b.val,0);
+  $("#planN").textContent = n;
+  $("#planTot").textContent = eur(tot);
+  $("#planSub").textContent = n ? `${n} ${n===1?"voce":"voci"} . valore quantificato` : "Nessuna voce selezionata";
+  $("#planBody").innerHTML = n ? S.plan.map(p=>`
+    <div class="plan-item">
+      <div class="r1"><b>${p.m}</b><span class="mono" style="color:var(--green);font-weight:600">${eur(p.val)}</span></div>
+      <div class="meta">Spesa esposta ${eur(p.sp)} . responsabile ${p.resp}${p.gg?` . finestra utile ${p.gg} giorni`:""}</div>
+      <button class="act ghost" style="margin-top:8px" data-rm="${esc(p.m)}">Togli dal piano</button>
+    </div>`).join("")
+    : `<div class="empty"><span class="big">Il piano è vuoto</span>Apri una molecola nel modulo M2 e aggiungila. Il piano raccoglie le voci con valore, finestra utile e funzione responsabile.</div>`;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  // plancia
+  $("#nav").innerHTML = MODULI.map((m,i)=>{
+    const locked = (m.id==="M6" && S.role!=="regione") || (m.id==="M7" && S.role==="farmacia");
+    return (i===5?`<div class="rail-sep"></div>`:"") +
+      `<button class="mbtn" data-mod="${m.id}" data-locked="${locked?1:0}"
+        aria-current="${S.mod===m.id}" title="${esc(m.t)}">
+        <span class="code">${m.id}</span><span class="lbl">${m.lbl}</span></button>`;
+  }).join("");
+
+  // barra
+  $("#enteName").textContent = RUOLI[S.role].ente;
+  document.querySelectorAll(".role").forEach(b=> b.setAttribute("aria-pressed", b.dataset.role===S.role));
+  const ttr = {farmacia:118, dg:118, regione:118}[S.role];
+  $("#ttrVal").textContent = ttr;
+  $("#hzSub").textContent = S.mod==="M2"
+    ? "I segni evidenziati sono le perdite di esclusiva sul perimetro. Ogni segno è una data oltre la quale il differenziale resta indisponibile."
+    : "Finestre aperte sul perimetro. Ogni segno è una data entro cui l'azione resta utile.";
+
+  // contenuto
+  const m = MODULI.find(x=>x.id===S.mod);
+  $("#work").innerHTML = `
+    <div class="mhead">
+      <span class="num">${m.id}</span>
+      <div><h1>${m.t}</h1>
+        <p>${{
+          M1:"Vista unificata e riconciliata di spesa e consumi, con scostamenti rilevati mentre l'esercizio è ancora aperto.",
+          M2:"La spesa effettiva incrociata con il calendario delle perdite di esclusiva e con la quota residua su originator.",
+          M3:"Coerenza fra consumo erogato, posizione a registro e File F, con il valore di ciò che non è stato ancora richiesto.",
+          M4:"Capitale immobilizzato, valore a rischio di deterioramento e esposizione alle carenze dichiarate.",
+          M5:"Residuo di allestimento non recuperato e condizioni organizzative che lo generano, a livello aggregato.",
+          M6:"La stessa molecola e lo stesso canale confrontati fra tutte le Aziende del perimetro regionale.",
+          M7:"Farmaci in arrivo e impatto di budget stimato prima dell'ingresso in prontuario."
+        }[m.id]}</p></div>
+    </div>` + V[S.mod]();
+
+  bind();
+  drawHorizon();
+}
+
+function bind(){
+  document.querySelectorAll(".mbtn").forEach(b=> b.onclick = ()=>{ S.mod=b.dataset.mod; S.sel=null; render(); $("#work").scrollTop=0; });
+  document.querySelectorAll("[data-mol]").forEach(r=>{
+    const go = ()=>{ S.sel = (S.sel===r.dataset.mol) ? null : r.dataset.mol; render(); };
+    r.onclick = go;
+    r.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();go();} };
+  });
+  document.querySelectorAll("[data-add]").forEach(b=> b.onclick = ()=> togglePlan(b.dataset.add, b.dataset.val));
+  document.querySelectorAll("[data-rm]").forEach(b=> b.onclick = ()=> togglePlan(b.dataset.rm));
+  document.querySelectorAll("[data-work],[data-verify],[data-trace]").forEach(b=> b.onclick = ()=>{
+    const t = b.dataset.trace
+      ? "Tracciabilità\n\nOgni valore è ricostruibile fino al record di origine: flusso, periodo, struttura erogante, codice AIC.\nNel prototipo la funzione è illustrativa."
+      : "Azione dimostrativa\n\nNel prodotto questa azione apre l'elenco di lavorazione o trasmette la segnalazione alla funzione competente.\nIl prototipo non esegue operazioni sui sistemi dell'Ente.";
+    alert(t);
+  });
+  const sc = $("#scen"); if(sc) sc.oninput = e=>{ S.scen=+e.target.value; render(); };
+  const co = $("#coorte"); if(co) co.oninput = e=>{ S.coorte=+e.target.value; render(); };
+}
+
+/* eventi globali */
+document.querySelectorAll(".role").forEach(b=> b.onclick = ()=>{
+  S.role = b.dataset.role; S.mod = RUOLI[S.role].home; S.sel=null; render();
+});
+$("#planBtn").onclick = ()=>{ $("#drawer").classList.add("open"); $("#scrim").classList.add("on"); };
+const closeDrawer = ()=>{ $("#drawer").classList.remove("open"); $("#scrim").classList.remove("on"); };
+$("#drawerClose").onclick = closeDrawer;
+$("#scrim").onclick = closeDrawer;
+$("#planExport").onclick = ()=> alert(S.plan.length
+  ? `Scheda per la Commissione Terapeutica\n\n${S.plan.length} voci . valore ${eur(S.plan.reduce((a,b)=>a+b.val,0))}\n\nNel prodotto la scheda viene generata in PDF con molecola, valore, finestra utile e funzione responsabile.\nNon contiene dati riferibili a singoli pazienti.`
+  : "Il piano è vuoto.\n\nApri una molecola nel modulo M2 e aggiungila al piano.");
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeDrawer(); });
+
+render(); renderPlan();
+</script>
+</body>
+</html>
