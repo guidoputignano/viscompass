@@ -233,3 +233,35 @@ create policy "upload for own approved org" on uploads for insert
     select 1 from user_organizations uo
     where uo.user_id = auth.uid() and uo.status = 'approved' and uo.org_code = uploads.org_code
   ));
+
+-- ============================================================
+-- 5. Fix INSERT policies to prevent client-side status escalation
+-- (approval/response/reconciliation must happen via the service-role
+-- key — same key load_to_supabase.mjs uses — not through a logged-in
+-- user's own insert. No admin UI for this exists yet; until it does,
+-- flip these values directly in the Supabase dashboard.)
+-- ============================================================
+drop policy if exists "request own membership" on user_organizations;
+create policy "request own membership" on user_organizations for insert
+  with check (user_id = auth.uid() and status = 'pending');
+
+drop policy if exists "submit own requests" on feature_requests;
+create policy "submit own requests" on feature_requests for insert
+  with check (
+    submitted_by = auth.uid()
+    and status = 'pending'
+    and response is null
+    and responded_by is null
+    and responded_at is null
+  );
+
+drop policy if exists "upload for own approved org" on uploads;
+create policy "upload for own approved org" on uploads for insert
+  with check (
+    exists (select 1 from user_organizations uo
+            where uo.user_id = auth.uid() and uo.status = 'approved'
+              and uo.org_code = uploads.org_code)
+    and status = 'uploaded'
+    and reconciliation_summary is null
+    and reconciled_at is null
+  );
