@@ -1,28 +1,27 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { resolveScope, searchMolecules } from "@/lib/dashboard-review/queries";
+import { searchMolecules } from "@/lib/dashboard-review/actions";
 import type { CanonicalFact } from "@/lib/dashboard-review/types";
 import { formatEur, formatEurPrecise } from "@/lib/dashboard-review/format";
 
 export default function RicercaPage() {
-  const searchParams = useSearchParams();
-  const org = searchParams.get("org") ?? undefined;
-
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CanonicalFact[]>([]);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
     startTransition(async () => {
-      const scope = await resolveScope(org);
-      const rows = await searchMolecules(query, scope);
+      const rows = await searchMolecules(query);
       setResults(rows);
     });
-  }, [query, org]);
+  }, [query]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -30,7 +29,7 @@ export default function RicercaPage() {
         <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary">Ricerca</p>
         <h1 className="font-display mt-1 text-2xl md:text-3xl">Ricerca molecole</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Cerca per principio attivo, marca, AIC o codice ATC nell&apos;ambito selezionato.
+          Cerca per principio attivo, marca, AIC o codice ATC nel proprio ambito.
         </p>
       </div>
 
@@ -45,7 +44,7 @@ export default function RicercaPage() {
         <CardContent className="overflow-x-auto p-0">
           {query.trim() === "" ? (
             <p className="p-8 text-sm text-muted-foreground">
-              Digita per cercare fra i record dell&apos;ambito selezionato.
+              Digita per cercare fra i record del proprio ambito.
             </p>
           ) : results.length === 0 ? (
             <p className="p-8 text-sm text-muted-foreground">

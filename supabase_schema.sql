@@ -265,3 +265,108 @@ create policy "upload for own approved org" on uploads for insert
     and reconciliation_summary is null
     and reconciled_at is null
   );
+
+-- ============================================================
+-- 6. Anonymized cross-ASL objective ranking
+--
+-- "You're 3rd" without exposing who's 1st and 2nd can't be done with a
+-- plain RLS-scoped select — an ASL-scoped caller's RLS never grants it
+-- other ASLs' identity, by design. This SECURITY DEFINER function derives
+-- the caller's own org purely from auth.uid() (never from p_metric or any
+-- other client input), computes the rank internally across every ASL in
+-- that org's region, and returns only the caller's own row.
+--
+-- Metric coverage: only objectives with a non-null atc_scope have a
+-- confirmed formula here — biosimilar spend share within that ATC scope,
+-- for the objective's own period. Metrics without an atc_scope (e.g.
+-- "Spesa diretta su FSN", "Giorni di copertura scorte critiche") have no
+-- agreed formula derivable from canonical_fact alone; rather than invent
+-- one, the function returns zero rows for them so the caller can render
+-- "ranking not available for this metric" instead of a fabricated number.
+-- If/when those formulas are confirmed, extend the branch below — don't
+-- guess at them here.
+-- ============================================================
+create or replace function my_objective_rank(p_metric text)
+returns table(
+  my_org_code text,
+  my_value numeric,
+  my_rank int,
+  total_orgs int,
+  target_value numeric
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller_org_code text;
+  v_caller_region_code text;
+  v_atc_scope text;
+  v_target_value numeric;
+  v_period_start date;
+  v_period_end date;
+begin
+  -- Derive the caller's own ASL membership purely from auth.uid() — never
+  -- from a client parameter. Only an ASL has its own spend row to rank; a
+  -- regione-type caller isn't itself one of the ranked entities.
+  select o.org_code, o.region_code
+    into v_caller_org_code, v_caller_region_code
+  from user_organizations uo
+  join organizations o on o.org_code = uo.org_code
+  where uo.user_id = auth.uid()
+    and uo.status = 'approved'
+    and o.org_type = 'asl'
+  order by uo.approved_at asc nulls last
+  limit 1;
+
+  if v_caller_org_code is null then
+    return; -- no approved ASL membership: nothing to rank
+  end if;
+
+  select ob.atc_scope, ob.target_value, ob.period_start, ob.period_end
+    into v_atc_scope, v_target_value, v_period_start, v_period_end
+  from objectives ob
+  where ob.region_code = v_caller_region_code
+    and ob.metric = p_metric
+  order by ob.period_start desc
+  limit 1;
+
+  if v_atc_scope is null then
+    return; -- objective not found, or found but has no confirmed formula
+  end if;
+
+  return query
+  with per_asl as (
+    select
+      o.org_code as asl_org_code,
+      coalesce(sum(cf.total_cost_eur) filter (where cf.biosimilar_flag), 0) as bio_spend,
+      coalesce(sum(cf.total_cost_eur), 0) as total_spend
+    from organizations o
+    left join canonical_fact cf
+      on cf.asl_code = o.org_code
+     and (cf.atc5 = v_atc_scope or cf.atc4 = v_atc_scope)
+     and (cf.year * 12 + coalesce(cf.month, 1)) between
+         (extract(year from v_period_start)::int * 12 + extract(month from v_period_start)::int)
+         and (extract(year from v_period_end)::int * 12 + extract(month from v_period_end)::int)
+    where o.org_type = 'asl'
+      and o.region_code = v_caller_region_code
+    group by o.org_code
+  ),
+  ranked as (
+    select
+      asl_org_code,
+      case when total_spend = 0 then 0 else bio_spend / total_spend end as value,
+      rank() over (order by
+        case when total_spend = 0 then 0 else bio_spend / total_spend end desc
+      ) as rnk,
+      count(*) over () as n
+    from per_asl
+  )
+  select asl_org_code, value, rnk::int, n::int, v_target_value
+  from ranked
+  where asl_org_code = v_caller_org_code;
+end;
+$$;
+
+revoke all on function my_objective_rank(text) from public;
+grant execute on function my_objective_rank(text) to authenticated;

@@ -12,14 +12,6 @@ export interface Organization {
   region_code: string | null;
 }
 
-// What RLS actually scopes by: an approved membership in one org, which is
-// either a single ASL or a whole region (every ASL sharing that region_code).
-export interface Scope {
-  org_code: string;
-  org_type: OrgType;
-  region_code: string | null;
-}
-
 export type MappingConfidence =
   | "Authoritative"
   | "Validated"
@@ -95,13 +87,12 @@ export interface UploadRecord {
   reconciled_at: string | null;
 }
 
-// Only the columns a client insert is actually allowed to set — status
-// defaults to 'pending' and response/responded_by/responded_at must stay
-// null on insert per the feature_requests RLS policy, so the submission
-// form never touches them. submitted_by comes from the authenticated
-// session server-side, not from form input.
+// Only the columns the submission form actually collects. submitted_by
+// and org_code both come from the authenticated session server-side, not
+// from form input; status defaults to 'pending' and
+// response/responded_by/responded_at must stay null on insert per the
+// feature_requests RLS policy, so the form never touches them either.
 export interface FeatureRequestSubmission {
-  org_code: string | null;
   description: string;
   decision_impact: string | null;
   frequency: string | null;
@@ -131,4 +122,18 @@ export interface BiosimilarComparisonRow {
   biosimilar_spend_eur: number;
   originator_share: number; // 0-1, share of combined spend still on originator
   potential_savings_eur: number;
+}
+
+// Result of the my_objective_rank(p_metric) Postgres function: the
+// caller's own position among the ASLs in its region, with no other org's
+// identity or value ever included. null (not a zero-value row) means no
+// ranking is available for this metric — either the caller has no
+// approved ASL membership, or the objective has no confirmed formula
+// (atc_scope is null) — the UI must tell these apart from "you're last."
+export interface ObjectiveRank {
+  my_org_code: string;
+  my_value: number;
+  my_rank: number;
+  total_orgs: number;
+  target_value: number;
 }

@@ -1,53 +1,35 @@
 // Typed data-access layer for the dashboard-review modules.
 //
-// canonical_fact has no real rows yet, so every function below returns
-// mock data shaped exactly like the real schema (see types.ts) and reads
-// from the fixtures in mock-data.ts, filtered by `scope` the same way the
-// real RLS policies would scope a live query. When canonical_fact is
-// populated, each function body becomes a Supabase query returning this
-// same shape — callers (the page/components) do not need to change.
+// Every function queries Supabase directly and applies no org/asl
+// filtering of its own — visibility is enforced entirely by the RLS
+// policies in supabase_schema.sql. A plain `select *` already returns
+// exactly the rows the caller's approved membership(s) allow, nothing
+// more, so there is nothing here to keep in sync with the policies.
+//
+// Only ever called from Server Components. searchMolecules and
+// submitFeatureRequest are called from Client Components instead, and
+// live in ./actions.ts as Server Actions — see that file for why they
+// can't just be exported from here too.
 
-import { MOCK_CANONICAL_FACTS, MOCK_OBJECTIVES, MOCK_ORGS, MOCK_UPLOADS } from "./mock-data";
+import { createClient } from "@/lib/supabase/server";
 import type {
   BiosimilarComparisonRow,
   CanonicalFact,
-  FeatureRequestSubmission,
   Objective,
-  Organization,
+  ObjectiveRank,
   SankeyData,
-  Scope,
   UploadRecord,
 } from "./types";
 
-const DEFAULT_ORG_CODE = "ASL01";
-
-export function listScopeOptions(): Organization[] {
-  return MOCK_ORGS;
+async function selectCanonicalFacts(): Promise<CanonicalFact[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("canonical_fact").select("*");
+  if (error) throw new Error(`canonical_fact query failed: ${error.message}`);
+  return (data ?? []) as CanonicalFact[];
 }
 
-// Mirrors how a real session resolves to a scope: look up the org the
-// caller is asking to view as. Falls back to a default org rather than
-// throwing, since this is a review surface with no real session yet.
-export async function resolveScope(orgCode?: string): Promise<Scope> {
-  const org =
-    MOCK_ORGS.find((o) => o.org_code === orgCode) ??
-    MOCK_ORGS.find((o) => o.org_code === DEFAULT_ORG_CODE)!;
-  return { org_code: org.org_code, org_type: org.org_type, region_code: org.region_code };
-}
-
-// Same predicate the canonical_fact RLS policy encodes: an ASL-scoped
-// caller sees only its own asl_code; a regione-scoped caller sees every
-// ASL's rows sharing its region_code.
-function factsInScope(scope: Scope): CanonicalFact[] {
-  return MOCK_CANONICAL_FACTS.filter((f) =>
-    scope.org_type === "asl"
-      ? f.asl_code === scope.org_code
-      : f.region_code === scope.region_code,
-  );
-}
-
-export async function getSpendFlows(scope: Scope): Promise<SankeyData> {
-  const facts = factsInScope(scope);
+export async function getSpendFlows(): Promise<SankeyData> {
+  const facts = await selectCanonicalFacts();
 
   const channels = Array.from(new Set(facts.map((f) => f.channel ?? "Non specificato")));
   const atc1Names: Record<string, string> = { L: "Antineoplastici e immunomodulatori", J: "Antimicrobici generali" };
@@ -81,19 +63,8 @@ export async function getSpendFlows(scope: Scope): Promise<SankeyData> {
   return { nodes: nodeNames.map((name) => ({ name })), links };
 }
 
-export async function searchMolecules(query: string, scope: Scope): Promise<CanonicalFact[]> {
-  const facts = factsInScope(scope);
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return facts.filter((f) =>
-    [f.active_substance, f.brand_name, f.aic, f.atc4, f.atc5]
-      .filter(Boolean)
-      .some((field) => field!.toLowerCase().includes(q)),
-  );
-}
-
-export async function getBiosimilarComparison(scope: Scope): Promise<BiosimilarComparisonRow[]> {
-  const facts = factsInScope(scope);
+export async function getBiosimilarComparison(): Promise<BiosimilarComparisonRow[]> {
+  const facts = await selectCanonicalFacts();
 
   const byMolecule = new Map<string, CanonicalFact[]>();
   for (const f of facts) {
@@ -136,26 +107,40 @@ export async function getBiosimilarComparison(scope: Scope): Promise<BiosimilarC
   return out.sort((a, b) => b.potential_savings_eur - a.potential_savings_eur);
 }
 
-export async function getObjectives(scope: Scope): Promise<Objective[]> {
-  return MOCK_OBJECTIVES.filter((o) => o.region_code === scope.region_code);
+export async function getObjectives(): Promise<Objective[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("objectives")
+    .select("*")
+    .order("period_start", { ascending: false });
+  if (error) throw new Error(`objectives query failed: ${error.message}`);
+  return (data ?? []) as Objective[];
 }
 
-export async function getUploads(scope: Scope): Promise<UploadRecord[]> {
-  // Deliberately a strict org_code match, no region-wide expansion — this
-  // mirrors the real uploads RLS policy exactly (verified: a regione-scoped
-  // caller does NOT automatically see ASL-level uploads, unlike
-  // canonical_fact/objectives).
-  return MOCK_UPLOADS.filter((u) => u.org_code === scope.org_code);
+// Calls the my_objective_rank(p_metric) SECURITY DEFINER function (see
+// supabase_schema.sql, section 6). It derives the caller's own org from
+// auth.uid() server-side and returns only the caller's own row — never
+// another org's identity or value. null means no ranking is available for
+// this metric (no approved ASL membership, or no confirmed formula for an
+// objective without an atc_scope), which the UI must show distinctly from
+// an actual last-place rank.
+export async function getObjectiveRank(metric: string): Promise<ObjectiveRank | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_objective_rank", { p_metric: metric });
+  if (error) {
+    console.error("my_objective_rank failed:", error.message);
+    return null;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row as ObjectiveRank | undefined) ?? null;
 }
 
-// Mock submit — logs and returns success, matching the shape a real insert
-// would return. status/response/responded_by/responded_at are never set
-// here: they either default ('pending') or must stay null on insert per
-// the feature_requests RLS policy.
-export async function submitFeatureRequest(
-  payload: FeatureRequestSubmission,
-): Promise<{ ok: true }> {
-  await new Promise((r) => setTimeout(r, 300));
-  console.log("[mock] feature_requests insert (not persisted):", payload);
-  return { ok: true };
+export async function getUploads(): Promise<UploadRecord[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("uploads")
+    .select("*")
+    .order("uploaded_at", { ascending: false });
+  if (error) throw new Error(`uploads query failed: ${error.message}`);
+  return (data ?? []) as UploadRecord[];
 }

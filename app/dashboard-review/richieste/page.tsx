@@ -1,12 +1,11 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { resolveScope, submitFeatureRequest } from "@/lib/dashboard-review/queries";
+import { submitFeatureRequest } from "@/lib/dashboard-review/actions";
 
 const FREQUENCY_OPTIONS = [
   { value: "quotidiana", label: "Quotidiana" },
@@ -16,9 +15,6 @@ const FREQUENCY_OPTIONS = [
 ];
 
 export default function RichiestePage() {
-  const searchParams = useSearchParams();
-  const org = searchParams.get("org") ?? undefined;
-
   const [description, setDescription] = useState("");
   const [decisionImpact, setDecisionImpact] = useState("");
   const [frequency, setFrequency] = useState("");
@@ -28,9 +24,7 @@ export default function RichiestePage() {
     e.preventDefault();
     if (!description.trim()) return;
     setStatus("submitting");
-    const scope = await resolveScope(org);
     await submitFeatureRequest({
-      org_code: scope.org_code,
       description: description.trim(),
       decision_impact: decisionImpact.trim() || null,
       frequency: frequency || null,

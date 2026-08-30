@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UploadShell } from "@/components/dashboard-review/upload-shell";
-import { getUploads, resolveScope } from "@/lib/dashboard-review/queries";
+import { getUploads } from "@/lib/dashboard-review/queries";
 import { formatDate } from "@/lib/dashboard-review/format";
 import type { UploadStatus } from "@/lib/dashboard-review/types";
 
@@ -18,14 +18,8 @@ const STATUS_STYLE: Record<UploadStatus, { bg: string; text: string }> = {
   discrepancy_found: { bg: "hsl(12 58% 42% / 0.12)", text: "hsl(12 58% 32%)" },
 };
 
-export default async function DatiPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ org?: string }>;
-}) {
-  const { org } = await searchParams;
-  const scope = await resolveScope(org);
-  const uploads = await getUploads(scope);
+export default async function DatiPage() {
+  const uploads = await getUploads();
 
   return (
     <div className="flex flex-col gap-6">

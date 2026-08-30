@@ -1,15 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SpendSankey } from "@/components/dashboard-review/spend-sankey";
-import { getSpendFlows, resolveScope } from "@/lib/dashboard-review/queries";
+import { getSpendFlows } from "@/lib/dashboard-review/queries";
 
-export default async function SpendPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ org?: string }>;
-}) {
-  const { org } = await searchParams;
-  const scope = await resolveScope(org);
-  const flows = await getSpendFlows(scope);
+export default async function SpendPage() {
+  const flows = await getSpendFlows();
 
   return (
     <div className="flex flex-col gap-6">
@@ -17,7 +11,7 @@ export default async function SpendPage({
         <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary">M1</p>
         <h1 className="font-display mt-1 text-2xl md:text-3xl">Cruscotto direzionale della spesa</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Come la spesa nell&apos;ambito selezionato si distribuisce per canale, categoria ATC ed
+          Come la spesa nel proprio ambito si distribuisce per canale, categoria ATC ed
           esito originator/biosimilare.
         </p>
       </div>
