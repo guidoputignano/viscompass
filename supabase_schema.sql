@@ -119,8 +119,117 @@ create table if not exists aic_normalization_resolved (
 );
 
 -- ============================================================
--- 3. Row Level Security — enable and scope per role as tenancy is built
--- (Left permissive for initial load; tighten before any external access.)
+-- 3. Tenancy — organizations, memberships, objectives, feature requests, uploads
 -- ============================================================
+create table if not exists organizations (
+  org_code      text primary key,
+  org_name      text not null,
+  org_type      text not null check (org_type in ('asl','regione')),
+  region_code   text,
+  created_at    timestamptz default now()
+);
+
+create table if not exists user_organizations (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  org_code      text not null references organizations(org_code),
+  status        text not null default 'pending' check (status in ('pending','approved','rejected')),
+  requested_at  timestamptz default now(),
+  approved_at   timestamptz,
+  approved_by   uuid references auth.users(id),
+  unique (user_id, org_code)
+);
+
+create table if not exists objectives (
+  id              bigint generated always as identity primary key,
+  region_code     text not null,
+  metric          text not null,
+  atc_scope       text,
+  target_value    numeric not null,
+  period_start    date not null,
+  period_end      date not null,
+  created_by      uuid references auth.users(id),
+  created_at      timestamptz default now()
+);
+
+create table if not exists feature_requests (
+  id              bigint generated always as identity primary key,
+  submitted_by    uuid not null references auth.users(id),
+  org_code        text references organizations(org_code),
+  description     text not null,
+  decision_impact text,
+  frequency       text,
+  status          text not null default 'pending' check (status in ('pending','answered','declined')),
+  response        text,
+  responded_by    uuid references auth.users(id),
+  responded_at    timestamptz,
+  created_at      timestamptz default now()
+);
+
+create table if not exists uploads (
+  id                     bigint generated always as identity primary key,
+  org_code               text not null references organizations(org_code),
+  uploaded_by            uuid not null references auth.users(id),
+  file_name              text not null,
+  storage_path           text not null,
+  period_covered_start   date,
+  period_covered_end     date,
+  status                 text not null default 'uploaded' check (status in ('uploaded','processing','reconciled','discrepancy_found')),
+  reconciliation_summary jsonb,
+  uploaded_at            timestamptz default now(),
+  reconciled_at          timestamptz
+);
+
+-- ============================================================
+-- 4. Row Level Security — scoped per organization membership
+-- ============================================================
+drop policy if exists "authenticated read" on canonical_fact;
+
+alter table organizations enable row level security;
+create policy "read org list" on organizations for select
+  using (auth.role() = 'authenticated');
+
+alter table user_organizations enable row level security;
+create policy "read own memberships" on user_organizations for select
+  using (user_id = auth.uid());
+create policy "request own membership" on user_organizations for insert
+  with check (user_id = auth.uid());
+
 alter table canonical_fact enable row level security;
-create policy "authenticated read" on canonical_fact for select using (auth.role() = 'authenticated');
+create policy "read approved orgs' facts" on canonical_fact for select
+  using (exists (
+    select 1 from user_organizations uo
+    join organizations o on o.org_code = uo.org_code
+    where uo.user_id = auth.uid() and uo.status = 'approved'
+      and (
+        (o.org_type = 'asl' and o.org_code = canonical_fact.asl_code)
+        or (o.org_type = 'regione' and o.region_code = canonical_fact.region_code)
+      )
+  ));
+
+alter table objectives enable row level security;
+create policy "read objectives in scope" on objectives for select
+  using (exists (
+    select 1 from user_organizations uo
+    join organizations o on o.org_code = uo.org_code
+    where uo.user_id = auth.uid() and uo.status = 'approved'
+      and o.region_code = objectives.region_code
+  ));
+
+alter table feature_requests enable row level security;
+create policy "read own requests" on feature_requests for select
+  using (submitted_by = auth.uid());
+create policy "submit own requests" on feature_requests for insert
+  with check (submitted_by = auth.uid());
+
+alter table uploads enable row level security;
+create policy "read own org uploads" on uploads for select
+  using (exists (
+    select 1 from user_organizations uo
+    where uo.user_id = auth.uid() and uo.status = 'approved' and uo.org_code = uploads.org_code
+  ));
+create policy "upload for own approved org" on uploads for insert
+  with check (exists (
+    select 1 from user_organizations uo
+    where uo.user_id = auth.uid() and uo.status = 'approved' and uo.org_code = uploads.org_code
+  ));

@@ -24,10 +24,36 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-async function loadCsvInBatches(table, filePath, mapRow, batchSize = 500) {
+// Fails the whole run (not a silent skip) — a present-but-wrong-shaped file means our
+// column assumptions are stale and every mapped field is suspect, not just the missing one.
+function assertExpectedColumns(table, filePath, headerRow, expectedColumns) {
+  if (!expectedColumns) return;
+  const missing = expectedColumns.filter((c) => !headerRow.includes(c));
+  if (missing.length > 0) {
+    throw new Error(
+      `${table}: "${filePath}" is missing expected column(s): ${missing.join(", ")}.\n` +
+        `  Found columns: ${headerRow.join(", ")}.\n` +
+        `  This source file's header doesn't match what the mapping function in ` +
+        `load_to_supabase.mjs assumes. Update the mapping to match the real file — ` +
+        `do not run this loader as-is, it would silently load nulls for these fields.`
+    );
+  }
+}
+
+async function loadCsvInBatches(table, filePath, mapRow, { batchSize = 500, expectedColumns } = {}) {
+  if (!fs.existsSync(filePath)) {
+    console.warn(`Skipping ${table}: no file at ${filePath}. Place it there first (see comment above this loader) and re-run.`);
+    return;
+  }
+
   console.log(`Loading ${filePath} -> ${table} ...`);
   const raw = fs.readFileSync(filePath, "utf-8");
-  const records = parse(raw, { columns: true, skip_empty_lines: true, delimiter: filePath.endsWith(".csv") && raw.split("\n")[0].includes(";") ? ";" : "," });
+  const delimiter = filePath.endsWith(".csv") && raw.split("\n")[0].includes(";") ? ";" : ",";
+
+  const [headerRow] = parse(raw, { to_line: 1, delimiter });
+  assertExpectedColumns(table, filePath, headerRow ?? [], expectedColumns);
+
+  const records = parse(raw, { columns: true, skip_empty_lines: true, delimiter });
 
   let inserted = 0;
   for (let i = 0; i < records.length; i += batchSize) {
@@ -58,30 +84,94 @@ await loadCsvInBatches(
     content_per_unit_mg: r.content_per_unit_mg ? parseFloat(r.content_per_unit_mg) : null,
     total_content_mg: r.total_content_mg ? parseFloat(r.total_content_mg) : null,
     source_note: r.source_note || null,
-  })
+  }),
+  {
+    expectedColumns: [
+      "aic", "description", "spend_eur", "resolved", "confidence", "method",
+      "unresolved_category", "units", "content_per_unit_mg", "total_content_mg", "source_note",
+    ],
+  }
 );
 
 // ---- AIFA shortage list (fetch fresh at load time — do not commit this file to git) ----
-// Uncomment once you've downloaded a fresh copy locally:
-//
-// await loadCsvInBatches(
-//   "aifa_shortage_list",
-//   "./elenco_medicinali_carenti.csv",
-//   (r) => ({
-//     nome_medicinale: r["Nome medicinale"],
-//     aic: r["Codice AIC"],
-//     principio_attivo: r["Principio attivo"],
-//     forma_dosaggio: r["Forma farmaceutica e dosaggio"],
-//     titolare_aic: r["Titolare AIC"],
-//     data_inizio: r["Data inizio"] || null,
-//     fine_presunta: r["Fine presunta"] || null,
-//     equivalente: r["Equivalente"],
-//     motivazioni: r["Motivazioni"],
-//     suggerimenti: r["Suggerimenti/Indicazioni AIFA"],
-//     nota_aifa: r["Nota AIFA"],
-//     classe_rimborso: r["Classe di rimborsabilit\u00e0"],
-//     codice_atc: r["Codice ATC"],
-//   })
-// );
+// Download from https://www.aifa.gov.it (elenco dei medicinali carenti) and place at
+// ./elenco_medicinali_carenti.csv before running.
+await loadCsvInBatches(
+  "aifa_shortage_list",
+  "./elenco_medicinali_carenti.csv",
+  (r) => ({
+    nome_medicinale: r["Nome medicinale"],
+    aic: r["Codice AIC"],
+    principio_attivo: r["Principio attivo"],
+    forma_dosaggio: r["Forma farmaceutica e dosaggio"],
+    titolare_aic: r["Titolare AIC"],
+    data_inizio: r["Data inizio"] || null,
+    fine_presunta: r["Fine presunta"] || null,
+    equivalente: r["Equivalente"],
+    motivazioni: r["Motivazioni"],
+    suggerimenti: r["Suggerimenti/Indicazioni AIFA"],
+    nota_aifa: r["Nota AIFA"],
+    classe_rimborso: r["Classe di rimborsabilità"],
+    codice_atc: r["Codice ATC"],
+  }),
+  {
+    expectedColumns: [
+      "Nome medicinale", "Codice AIC", "Principio attivo", "Forma farmaceutica e dosaggio",
+      "Titolare AIC", "Data inizio", "Fine presunta", "Equivalente", "Motivazioni",
+      "Suggerimenti/Indicazioni AIFA", "Nota AIFA", "Classe di rimborsabilità", "Codice ATC",
+    ],
+  }
+);
+
+// ---- S05 — AIFA product master (drive.aifa.gov.it) ----
+// Not yet exported into this repo. Export from the source and place at
+// ./aifa_product_master.csv before running. Column names below are a best guess at
+// what the export uses (matching the schema's own column names) — if the real file's
+// header differs, this loader throws naming exactly which columns don't match, rather
+// than silently loading nulls. Fix the mapping below, don't just rename the CSV header.
+await loadCsvInBatches(
+  "aifa_product_master",
+  "./aifa_product_master.csv",
+  (r) => ({
+    aic: r.aic,
+    cod_farmaco: r.cod_farmaco || null,
+    cod_confezione: r.cod_confezione || null,
+    denominazione: r.denominazione || null,
+    descrizione: r.descrizione || null,
+    codice_ditta: r.codice_ditta || null,
+    ragione_sociale: r.ragione_sociale || null,
+    stato_amministrativo: r.stato_amministrativo || null,
+    tipo_procedura: r.tipo_procedura || null,
+    forma: r.forma || null,
+    codice_atc: r.codice_atc || null,
+    pa_associati: r.pa_associati || null,
+    fornitura: r.fornitura || null,
+  }),
+  {
+    expectedColumns: [
+      "aic", "cod_farmaco", "cod_confezione", "denominazione", "descrizione",
+      "codice_ditta", "ragione_sociale", "stato_amministrativo", "tipo_procedura",
+      "forma", "codice_atc", "pa_associati", "fornitura",
+    ],
+  }
+);
+
+// ---- S06 — AIFA ingredient master (drive.aifa.gov.it) ----
+// Not yet exported into this repo. Export from the source and place at
+// ./aifa_ingredient_master.csv before running. Same caveat as product master above:
+// column names are a best guess, verify against the real header once the file exists.
+await loadCsvInBatches(
+  "aifa_ingredient_master",
+  "./aifa_ingredient_master.csv",
+  (r) => ({
+    aic: r.aic,
+    principio_attivo: r.principio_attivo || null,
+    quantita: r.quantita ? parseFloat(r.quantita) : null,
+    unita_misura: r.unita_misura || null,
+  }),
+  {
+    expectedColumns: ["aic", "principio_attivo", "quantita", "unita_misura"],
+  }
+);
 
 console.log("Load complete.");
