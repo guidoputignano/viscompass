@@ -27,3 +27,10 @@ export function formatPercent(value: number): string {
 export function formatDate(value: string): string {
   return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(new Date(value));
 }
+
+export function formatNumber(value: number, decimals = 1): string {
+  return new Intl.NumberFormat("it-IT", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value);
+}

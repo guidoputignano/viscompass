@@ -137,3 +137,47 @@ export interface ObjectiveRank {
   total_orgs: number;
   target_value: number;
 }
+
+export type AwareCategory = "A" | "W" | "R" | "T";
+
+export interface AntibioticConsumptionFact {
+  id: number;
+  org_code: string;
+  unit_code: string | null;
+  aware_category: AwareCategory;
+  year: number;
+  cost_eur: number | null;
+  ddd_count: number | null;
+  bed_days: number | null;
+  source_note: string | null;
+  loaded_at: string;
+}
+
+// One year's AWaRe cost breakdown. unclassified is the gap between the
+// declared total (aware_category 'T') and A+W+R summed, clamped to >= 0 —
+// see hasNegativeGap for the opposite case (components exceed the total).
+export interface AwareYearRow {
+  year: number;
+  access: number;
+  watch: number;
+  reserve: number;
+  unclassified: number;
+  hasNegativeGap: boolean;
+}
+
+export interface AntibioticIndicatorSet {
+  dddPer100BedDays: number | null;
+  costPerBedDay: number | null;
+  costPerDdd: number | null;
+}
+
+export interface AntibioticStewardshipData {
+  awareByYear: AwareYearRow[];
+  latestYear: number | null;
+  orgIndicators: AntibioticIndicatorSet | null;
+  // null when no peer org's data is visible to compute a benchmark from —
+  // always the case for an asl-type caller today, since RLS only ever
+  // hands them their own org's rows. Not a bug: no benchmark is fabricated
+  // when there's nothing real to compare against.
+  regionalAverage: (AntibioticIndicatorSet & { peerOrgCount: number }) | null;
+}

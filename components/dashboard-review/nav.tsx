@@ -12,6 +12,7 @@ const MODULES = [
   { href: "/dashboard-review/obiettivi", label: "Obiettivi" },
   { href: "/dashboard-review/richieste", label: "Richieste" },
   { href: "/dashboard-review/dati", label: "Dati" },
+  { href: "/dashboard-review/antibiotici", label: "Antibiotici" },
 ];
 
 const ORG_TYPE_LABEL: Record<Organization["org_type"], string> = {
