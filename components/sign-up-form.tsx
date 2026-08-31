@@ -47,7 +47,7 @@ export function SignUpForm({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/protected`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard-review/spend`,
           data: {
             full_name: fullName,
             organization: organization,

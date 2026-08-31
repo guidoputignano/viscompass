@@ -113,6 +113,38 @@ export interface SankeyData {
   links: SankeyLink[];
 }
 
+export interface SpendTrendPoint {
+  key: string;
+  label: string;
+  spend_eur: number;
+}
+
+export interface SpendAtcSummary {
+  code: string;
+  label: string;
+  spend_eur: number;
+  share: number;
+}
+
+export interface SpendDashboardData {
+  flows: SankeyData;
+  latest_year: number | null;
+  total_spend_eur: number;
+  total_packs: number;
+  cost_per_pack_eur: number | null;
+  record_count: number;
+  source_version_count: number;
+  geography_count: number;
+  latest_loaded_at: string | null;
+  normalized_record_count: number;
+  normalization_eligible_count: number;
+  normalization_coverage: number | null;
+  unresolved_record_count: number;
+  trend_granularity: "month" | "year";
+  trend: SpendTrendPoint[];
+  atc_breakdown: SpendAtcSummary[];
+}
+
 export interface BiosimilarComparisonRow {
   active_substance: string;
   atc4: string | null;

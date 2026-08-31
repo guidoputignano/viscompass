@@ -16,6 +16,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+function loginErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "Invalid login credentials") return "Email o password non validi.";
+  if (message.toLowerCase().includes("email not confirmed")) {
+    return "Conferma il tuo indirizzo email prima di accedere.";
+  }
+  return message || "Accesso non riuscito. Riprova tra qualche istante.";
+}
+
 export function LoginForm({
   className,
   ...props
@@ -28,20 +37,31 @@ export function LoginForm({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    if (!email.trim() || !password) {
+      setError("Inserisci sia l'email sia la password.");
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError("Inserisci un indirizzo email valido.");
+      return;
+    }
+
     const supabase = createClient();
     setIsLoading(true);
-    setError(null);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
-      router.push("/protected");
+      router.push("/dashboard-review/spend");
+      router.refresh();
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(loginErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +77,7 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleLogin} noValidate>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>

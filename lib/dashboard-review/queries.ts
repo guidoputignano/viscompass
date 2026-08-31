@@ -24,6 +24,7 @@ import type {
   Objective,
   ObjectiveRank,
   SankeyData,
+  SpendDashboardData,
   UploadRecord,
 } from "./types";
 
@@ -34,12 +35,28 @@ async function selectCanonicalFacts(): Promise<CanonicalFact[]> {
   return (data ?? []) as CanonicalFact[];
 }
 
-export async function getSpendFlows(): Promise<SankeyData> {
-  const facts = await selectCanonicalFacts();
+const ATC1_NAMES: Record<string, string> = {
+  A: "Apparato gastrointestinale e metabolismo",
+  B: "Sangue e organi emopoietici",
+  C: "Sistema cardiovascolare",
+  D: "Dermatologici",
+  G: "Sistema genito-urinario e ormoni sessuali",
+  H: "Preparati ormonali sistemici",
+  J: "Antimicrobici per uso sistemico",
+  L: "Antineoplastici e immunomodulatori",
+  M: "Sistema muscolo-scheletrico",
+  N: "Sistema nervoso",
+  P: "Antiparassitari, insetticidi e repellenti",
+  R: "Sistema respiratorio",
+  S: "Organi di senso",
+  V: "Vari",
+};
 
+function spendFlowsFromFacts(facts: CanonicalFact[]): SankeyData {
   const channels = Array.from(new Set(facts.map((f) => f.channel ?? "Non specificato")));
-  const atc1Names: Record<string, string> = { L: "Antineoplastici e immunomodulatori", J: "Antimicrobici generali" };
-  const categories = Array.from(new Set(facts.map((f) => atc1Names[f.atc1 ?? ""] ?? f.atc1 ?? "Altro")));
+  const categories = Array.from(
+    new Set(facts.map((f) => ATC1_NAMES[f.atc1 ?? ""] ?? f.atc1 ?? "Altro")),
+  );
   const kinds = ["Originator", "Biosimilare"];
 
   const nodeNames = [...channels, ...categories, ...kinds];
@@ -54,7 +71,7 @@ export async function getSpendFlows(): Promise<SankeyData> {
 
   for (const f of facts) {
     const channel = f.channel ?? "Non specificato";
-    const category = atc1Names[f.atc1 ?? ""] ?? f.atc1 ?? "Altro";
+    const category = ATC1_NAMES[f.atc1 ?? ""] ?? f.atc1 ?? "Altro";
     const kind = f.biosimilar_flag ? "Biosimilare" : "Originator";
     const value = f.total_cost_eur ?? 0;
     addLink(channel, category, value);
@@ -67,6 +84,123 @@ export async function getSpendFlows(): Promise<SankeyData> {
   });
 
   return { nodes: nodeNames.map((name) => ({ name })), links };
+}
+
+export async function getSpendFlows(): Promise<SankeyData> {
+  return spendFlowsFromFacts(await selectCanonicalFacts());
+}
+
+export async function getSpendDashboardData(): Promise<SpendDashboardData> {
+  const facts = await selectCanonicalFacts();
+  const years = facts.map((f) => f.year).filter(Number.isFinite);
+  const latestYear = years.length > 0 ? Math.max(...years) : null;
+  const currentFacts = latestYear === null ? [] : facts.filter((f) => f.year === latestYear);
+
+  const totalSpendEur = currentFacts.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
+  const totalPacks = currentFacts.reduce((sum, f) => sum + (f.quantity_packs ?? 0), 0);
+  const normalizationEligible = currentFacts.filter((f) => (f.total_cost_eur ?? 0) > 0);
+  const normalizedRecordCount = normalizationEligible.filter(
+    (f) => f.cost_per_mg !== null || f.cost_per_ddd !== null,
+  ).length;
+  const unresolvedRecordCount = currentFacts.filter(
+    (f) =>
+      f.mapping_confidence === "Unresolved" ||
+      f.quality_status?.toLowerCase().includes("unresolved"),
+  ).length;
+
+  const atcTotals = new Map<string, number>();
+  for (const fact of currentFacts) {
+    const code = fact.atc1 ?? "Altro";
+    atcTotals.set(code, (atcTotals.get(code) ?? 0) + (fact.total_cost_eur ?? 0));
+  }
+  const atcBreakdown = Array.from(atcTotals.entries())
+    .map(([code, spend]) => ({
+      code,
+      label: ATC1_NAMES[code] ?? "Categoria non classificata",
+      spend_eur: spend,
+      share: totalSpendEur > 0 ? spend / totalSpendEur : 0,
+    }))
+    .sort((a, b) => b.spend_eur - a.spend_eur)
+    .slice(0, 6);
+
+  const hasMonthlyFacts = currentFacts.some(
+    (f) => f.month !== null && f.month >= 1 && f.month <= 12,
+  );
+  const monthLabels = [
+    "Gen",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mag",
+    "Giu",
+    "Lug",
+    "Ago",
+    "Set",
+    "Ott",
+    "Nov",
+    "Dic",
+  ];
+
+  let trend: SpendDashboardData["trend"];
+  let trendGranularity: SpendDashboardData["trend_granularity"];
+  if (hasMonthlyFacts) {
+    const monthlyTotals = new Map<number, number>();
+    for (const fact of currentFacts) {
+      if (fact.month === null || fact.month < 1 || fact.month > 12) continue;
+      monthlyTotals.set(
+        fact.month,
+        (monthlyTotals.get(fact.month) ?? 0) + (fact.total_cost_eur ?? 0),
+      );
+    }
+    trend = Array.from(monthlyTotals.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([month, spend]) => ({
+        key: `${latestYear}-${String(month).padStart(2, "0")}`,
+        label: monthLabels[month - 1],
+        spend_eur: spend,
+      }));
+    trendGranularity = "month";
+  } else {
+    const annualTotals = new Map<number, number>();
+    for (const fact of facts) {
+      annualTotals.set(fact.year, (annualTotals.get(fact.year) ?? 0) + (fact.total_cost_eur ?? 0));
+    }
+    trend = Array.from(annualTotals.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([year, spend]) => ({ key: String(year), label: String(year), spend_eur: spend }));
+    trendGranularity = "year";
+  }
+
+  const sourceVersionCount = new Set(currentFacts.map((f) => f.source_version_id)).size;
+  const geographyCount = new Set(
+    currentFacts.map((f) => f.asl_code ?? f.region_code).filter((value): value is string => !!value),
+  ).size;
+  const loadedTimes = currentFacts
+    .map((f) => Date.parse(f.created_at))
+    .filter((value) => Number.isFinite(value));
+
+  return {
+    flows: spendFlowsFromFacts(currentFacts),
+    latest_year: latestYear,
+    total_spend_eur: totalSpendEur,
+    total_packs: totalPacks,
+    cost_per_pack_eur: totalPacks > 0 ? totalSpendEur / totalPacks : null,
+    record_count: currentFacts.length,
+    source_version_count: sourceVersionCount,
+    geography_count: geographyCount,
+    latest_loaded_at:
+      loadedTimes.length > 0 ? new Date(Math.max(...loadedTimes)).toISOString() : null,
+    normalized_record_count: normalizedRecordCount,
+    normalization_eligible_count: normalizationEligible.length,
+    normalization_coverage:
+      normalizationEligible.length > 0
+        ? normalizedRecordCount / normalizationEligible.length
+        : null,
+    unresolved_record_count: unresolvedRecordCount,
+    trend_granularity: trendGranularity,
+    trend,
+    atc_breakdown: atcBreakdown,
+  };
 }
 
 export async function getBiosimilarComparison(): Promise<BiosimilarComparisonRow[]> {
