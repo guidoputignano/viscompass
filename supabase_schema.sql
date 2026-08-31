@@ -407,3 +407,55 @@ create policy "read own approved org folder" on storage.objects
         and uo.org_code = (storage.foldername(name))[1]
     )
   );
+
+-- ============================================================
+-- 8. Antibiotic stewardship (AWaRe) consumption fact
+--
+-- One row per org x unit x AWaRe category x year. unit_code is null for
+-- ASL-level rows (loaded now); department-level (UU.OO.) rows will carry
+-- a real unit_code once the department-name legend is confirmed — see
+-- load_antibiotic_consumption.mjs for why those aren't loaded yet.
+--
+-- RLS reuses the exact org-scoping predicate already proven on
+-- canonical_fact: an asl-type caller sees only its own org_code; a
+-- regione-type caller sees every org sharing its region_code.
+-- ============================================================
+create table if not exists antibiotic_consumption_fact (
+  id             bigint generated always as identity primary key,
+  org_code       text not null references organizations(org_code),
+  unit_code      text,              -- hospital dept code (AL/DC/DM/EM/PN/PO/TI),
+                                     -- null when the row is ASL-level, not dept-level
+  aware_category text not null check (aware_category in ('A','W','R','T')),
+  year           int not null,
+  cost_eur       numeric,
+  ddd_count      numeric,
+  bed_days       numeric,           -- denominator for DDD/100 bed-days
+  source_note    text,              -- e.g. "OSMED methodology, Flusso Traccia/NSIS CO"
+  loaded_at      timestamptz default now(),
+  unique (org_code, unit_code, aware_category, year)
+);
+
+-- The table-level unique(...) above does NOT dedupe ASL-level rows: SQL
+-- unique constraints treat NULL as distinct from NULL, and unit_code is
+-- always null for the ASL-level rows loaded by
+-- load_antibiotic_consumption.mjs (verified: two rows with identical
+-- org_code/aware_category/year and unit_code null both insert cleanly
+-- without this index). This partial index closes that gap without
+-- touching the constraint above, which still applies as-is once
+-- department-level rows (non-null unit_code) are loaded.
+create unique index if not exists antibiotic_consumption_fact_asl_level_uniq
+  on antibiotic_consumption_fact (org_code, aware_category, year)
+  where unit_code is null;
+
+alter table antibiotic_consumption_fact enable row level security;
+create policy "read approved orgs' antibiotic data" on antibiotic_consumption_fact
+  for select using (exists (
+    select 1 from user_organizations uo
+    join organizations o on o.org_code = uo.org_code
+    where uo.user_id = auth.uid() and uo.status = 'approved'
+      and (
+        (o.org_type = 'asl' and o.org_code = antibiotic_consumption_fact.org_code)
+        or (o.org_type = 'regione' and o.region_code = (
+              select region_code from organizations where org_code = antibiotic_consumption_fact.org_code))
+      )
+  ));
