@@ -8,8 +8,10 @@
 // every export is a Server Action, which is what the top-level
 // "use server" here declares.
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
+import { reconcileUpload } from "@/lib/uploads/reconcile";
 import type { CanonicalFact, FeatureRequestSubmission } from "./types";
 
 export async function searchMolecules(query: string): Promise<CanonicalFact[]> {
@@ -63,5 +65,52 @@ export async function submitFeatureRequest(
     frequency: payload.frequency,
   });
   if (error) throw new Error(`feature_requests insert failed: ${error.message}`);
+  return { ok: true };
+}
+
+export interface RecordUploadInput {
+  storagePath: string;
+  fileName: string;
+  periodCoveredStart: string | null;
+  periodCoveredEnd: string | null;
+}
+
+// Records a file already uploaded to Supabase Storage (see
+// components/dashboard-review/upload-shell.tsx, which uploads directly
+// from the browser under Storage RLS before calling this). org_code and
+// uploaded_by come from the live session, never from client input — the
+// insert itself relies on the existing "upload for own approved org"
+// policy for enforcement (status defaults to 'uploaded', reconciliation
+// fields stay null, exactly as designed; nothing here re-implements that
+// check client-side).
+export async function recordUpload(input: RecordUploadInput): Promise<{ ok: true }> {
+  const supabase = await createClient();
+  const { data: authData, error: authError } = await supabase.auth.getClaims();
+  if (authError || !authData?.claims) {
+    throw new Error("Devi essere autenticato per caricare un file.");
+  }
+
+  const org = await getCurrentOrg();
+  if (!org) {
+    throw new Error("Nessuna organizzazione approvata per il tuo account.");
+  }
+
+  const { data, error } = await supabase
+    .from("uploads")
+    .insert({
+      org_code: org.org_code,
+      uploaded_by: authData.claims.sub,
+      file_name: input.fileName,
+      storage_path: input.storagePath,
+      period_covered_start: input.periodCoveredStart,
+      period_covered_end: input.periodCoveredEnd,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(`uploads insert failed: ${error.message}`);
+
+  await reconcileUpload(data.id);
+
+  revalidatePath("/dashboard-review/dati");
   return { ok: true };
 }

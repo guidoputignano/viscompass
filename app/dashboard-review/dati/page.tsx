@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UploadShell } from "@/components/dashboard-review/upload-shell";
 import { getUploads } from "@/lib/dashboard-review/queries";
+import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { formatDate } from "@/lib/dashboard-review/format";
 import type { UploadStatus } from "@/lib/dashboard-review/types";
 
@@ -19,7 +20,7 @@ const STATUS_STYLE: Record<UploadStatus, { bg: string; text: string }> = {
 };
 
 export default async function DatiPage() {
-  const uploads = await getUploads();
+  const [uploads, org] = await Promise.all([getUploads(), getCurrentOrg()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -37,7 +38,13 @@ export default async function DatiPage() {
           <CardTitle className="text-base">Nuovo caricamento</CardTitle>
         </CardHeader>
         <CardContent>
-          <UploadShell />
+          {org ? (
+            <UploadShell orgCode={org.org_code} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nessuna organizzazione approvata per il tuo account.
+            </p>
+          )}
         </CardContent>
       </Card>
 

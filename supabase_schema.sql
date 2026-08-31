@@ -370,3 +370,40 @@ $$;
 
 revoke all on function my_objective_rank(text) from public;
 grant execute on function my_objective_rank(text) to authenticated;
+
+-- ============================================================
+-- 7. Storage — the "uploads" bucket backing the dati module
+--
+-- Objects are stored at "<org_code>/<file>" so the same org-membership
+-- predicate already used by the uploads table's own RLS (see section 4)
+-- can be applied to the path's first segment. storage.objects already
+-- has RLS enabled by default on every Supabase project — only the bucket
+-- and policies need to be declared here.
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('uploads', 'uploads', false)
+on conflict (id) do nothing;
+
+drop policy if exists "upload to own approved org folder" on storage.objects;
+create policy "upload to own approved org folder" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'uploads'
+    and exists (
+      select 1 from user_organizations uo
+      where uo.user_id = auth.uid() and uo.status = 'approved'
+        and uo.org_code = (storage.foldername(name))[1]
+    )
+  );
+
+drop policy if exists "read own approved org folder" on storage.objects;
+create policy "read own approved org folder" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'uploads'
+    and exists (
+      select 1 from user_organizations uo
+      where uo.user_id = auth.uid() and uo.status = 'approved'
+        and uo.org_code = (storage.foldername(name))[1]
+    )
+  );
