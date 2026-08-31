@@ -11,7 +11,6 @@
 // live in ./actions.ts as Server Actions — see that file for why they
 // can't just be exported from here too.
 
-import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import type {
@@ -21,65 +20,20 @@ import type {
   AwareCategory,
   AwareYearRow,
   BiosimilarComparisonRow,
-  BenchmarkData,
-  BenchmarkRow,
   CanonicalFact,
-  ExplorerData,
-  ExplorerFilters,
-  ExplorerLevel,
-  ExplorerNode,
-  LineageData,
-  LineageSource,
-  MoleculeSignal,
   Objective,
   ObjectiveRank,
-  Organization,
-  ReviewSignal,
-  ReviewWorkspaceData,
   SankeyData,
   SpendDashboardData,
   UploadRecord,
 } from "./types";
 
-const PAGE_SIZE = 1000;
-
-// Supabase/PostgREST caps a response at the configured API page size (1,000
-// in this project). The previous implementation silently analysed only that
-// first page. Fetch every RLS-visible page so totals remain reconcilable to
-// the source. React cache keeps repeated reads inside one server render from
-// refetching the same tenant-scoped dataset.
-const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
+async function selectCanonicalFacts(): Promise<CanonicalFact[]> {
   const supabase = await createClient();
-  const first = await supabase
-    .from("canonical_fact")
-    .select("*", { count: "exact" })
-    .range(0, PAGE_SIZE - 1);
-  const { data, error, count } = first;
+  const { data, error } = await supabase.from("canonical_fact").select("*");
   if (error) throw new Error(`canonical_fact query failed: ${error.message}`);
-  const facts = [...((data ?? []) as CanonicalFact[])];
-  const total = count ?? facts.length;
-
-  for (let start = PAGE_SIZE; start < total; start += PAGE_SIZE * 8) {
-    const offsets = Array.from(
-      { length: Math.min(8, Math.ceil((total - start) / PAGE_SIZE)) },
-      (_, index) => start + index * PAGE_SIZE,
-    );
-    const pages = await Promise.all(
-      offsets.map((offset) =>
-        supabase
-          .from("canonical_fact")
-          .select("*")
-          .range(offset, Math.min(offset + PAGE_SIZE - 1, total - 1)),
-      ),
-    );
-    for (const page of pages) {
-      if (page.error) throw new Error(`canonical_fact query failed: ${page.error.message}`);
-      facts.push(...((page.data ?? []) as CanonicalFact[]));
-    }
-  }
-
-  return facts;
-});
+  return (data ?? []) as CanonicalFact[];
+}
 
 const ATC1_NAMES: Record<string, string> = {
   A: "Apparato gastrointestinale e metabolismo",
@@ -97,81 +51,6 @@ const ATC1_NAMES: Record<string, string> = {
   S: "Organi di senso",
   V: "Vari",
 };
-
-const EXPLORER_LEVEL_LABEL: Record<ExplorerLevel, string> = {
-  asl: "Azienda sanitaria",
-  atc1: "ATC livello 1",
-  atc2: "ATC livello 2",
-  atc3: "ATC livello 3",
-  atc4: "ATC livello 4",
-  atc5: "ATC livello 5",
-  molecule: "Molecola",
-  aic: "Confezione AIC",
-};
-
-function ratio(change: number, baseline: number): number | null {
-  return baseline !== 0 ? (change - baseline) / baseline : null;
-}
-
-function isUnresolved(fact: CanonicalFact): boolean {
-  return (
-    fact.mapping_confidence === "Unresolved" ||
-    fact.quality_status?.toLowerCase().includes("unresolved") === true
-  );
-}
-
-function normalizationCoverage(facts: CanonicalFact[]): number | null {
-  const eligible = facts.filter((fact) => (fact.total_cost_eur ?? 0) > 0);
-  if (eligible.length === 0) return null;
-  const normalized = eligible.filter(
-    (fact) => fact.cost_per_mg !== null || fact.cost_per_ddd !== null,
-  );
-  return normalized.length / eligible.length;
-}
-
-function normalizedVolumeMg(facts: CanonicalFact[]): number {
-  return facts.reduce((sum, fact) => {
-    if ((fact.total_content_mg ?? 0) <= 0 || (fact.quantity_packs ?? 0) <= 0) return sum;
-    return sum + fact.total_content_mg! * fact.quantity_packs!;
-  }, 0);
-}
-
-function biosimilarPenetration(facts: CanonicalFact[]): {
-  value: number | null;
-  basis: "mg" | "packs" | "spend" | null;
-} {
-  const relevant = facts.filter(
-    (fact) => fact.biosimilar_flag !== null || fact.originator_flag === true,
-  );
-  if (relevant.length === 0) return { value: null, basis: null };
-
-  const totalMg = normalizedVolumeMg(relevant);
-  const bioMg = normalizedVolumeMg(relevant.filter((fact) => fact.biosimilar_flag === true));
-  if (totalMg > 0) return { value: bioMg / totalMg, basis: "mg" };
-
-  const totalPacks = relevant.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
-  const bioPacks = relevant
-    .filter((fact) => fact.biosimilar_flag === true)
-    .reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
-  if (totalPacks > 0) return { value: bioPacks / totalPacks, basis: "packs" };
-
-  const totalSpend = relevant.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-  const bioSpend = relevant
-    .filter((fact) => fact.biosimilar_flag === true)
-    .reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-  return totalSpend > 0
-    ? { value: bioSpend / totalSpend, basis: "spend" }
-    : { value: null, basis: null };
-}
-
-function median(values: number[]): number | null {
-  if (values.length === 0) return null;
-  const ordered = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(ordered.length / 2);
-  return ordered.length % 2 === 0
-    ? (ordered[middle - 1] + ordered[middle]) / 2
-    : ordered[middle];
-}
 
 function spendFlowsFromFacts(facts: CanonicalFact[]): SankeyData {
   const channels = Array.from(new Set(facts.map((f) => f.channel ?? "Non specificato")));
@@ -212,30 +91,21 @@ export async function getSpendFlows(): Promise<SankeyData> {
 }
 
 export async function getSpendDashboardData(): Promise<SpendDashboardData> {
-  const [facts, uploads, objectives] = await Promise.all([
-    selectCanonicalFacts(),
-    getUploads(),
-    getObjectives(),
-  ]);
+  const facts = await selectCanonicalFacts();
   const years = facts.map((f) => f.year).filter(Number.isFinite);
   const latestYear = years.length > 0 ? Math.max(...years) : null;
-  const previousYear = latestYear === null
-    ? null
-    : [...new Set(years)].filter((year) => year < latestYear).sort((a, b) => b - a)[0] ?? null;
   const currentFacts = latestYear === null ? [] : facts.filter((f) => f.year === latestYear);
-  const previousFacts = previousYear === null ? [] : facts.filter((f) => f.year === previousYear);
 
   const totalSpendEur = currentFacts.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
   const totalPacks = currentFacts.reduce((sum, f) => sum + (f.quantity_packs ?? 0), 0);
-  const previousSpendEur = previousFacts.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
-  const previousPacks = previousFacts.reduce((sum, f) => sum + (f.quantity_packs ?? 0), 0);
   const normalizationEligible = currentFacts.filter((f) => (f.total_cost_eur ?? 0) > 0);
   const normalizedRecordCount = normalizationEligible.filter(
     (f) => f.cost_per_mg !== null || f.cost_per_ddd !== null,
   ).length;
   const unresolvedRecordCount = currentFacts.filter(
     (f) =>
-      isUnresolved(f),
+      f.mapping_confidence === "Unresolved" ||
+      f.quality_status?.toLowerCase().includes("unresolved"),
   ).length;
 
   const atcTotals = new Map<string, number>();
@@ -309,57 +179,6 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     .map((f) => Date.parse(f.created_at))
     .filter((value) => Number.isFinite(value));
 
-  const currentBio = buildBiosimilarRows(currentFacts, latestYear);
-  const overallPenetration = biosimilarPenetration(currentFacts);
-  const biosimilarOpportunity = currentBio.reduce(
-    (sum, row) => sum + row.potential_savings_eur,
-    0,
-  );
-
-  const previousMoleculeSpend = new Map<string, number>();
-  for (const fact of previousFacts) {
-    if (!fact.active_substance) continue;
-    previousMoleculeSpend.set(
-      fact.active_substance,
-      (previousMoleculeSpend.get(fact.active_substance) ?? 0) + (fact.total_cost_eur ?? 0),
-    );
-  }
-  const currentMoleculeFacts = new Map<string, CanonicalFact[]>();
-  for (const fact of currentFacts) {
-    if (!fact.active_substance) continue;
-    const group = currentMoleculeFacts.get(fact.active_substance) ?? [];
-    group.push(fact);
-    currentMoleculeFacts.set(fact.active_substance, group);
-  }
-  const opportunityByMolecule = new Map(
-    currentBio.map((row) => [row.active_substance, row.potential_savings_eur]),
-  );
-  const topMolecules: MoleculeSignal[] = Array.from(currentMoleculeFacts.entries())
-    .map(([activeSubstance, group]) => {
-      const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-      const previousSpend = previousMoleculeSpend.get(activeSubstance) ?? 0;
-      return {
-        active_substance: activeSubstance,
-        atc_code: group.find((fact) => fact.atc5)?.atc5 ?? group[0]?.atc4 ?? null,
-        spend_eur: spend,
-        spend_yoy: ratio(spend, previousSpend),
-        biosimilar_penetration: biosimilarPenetration(group).value,
-        opportunity_eur: opportunityByMolecule.get(activeSubstance) ?? 0,
-      };
-    })
-    .sort((a, b) => b.spend_eur - a.spend_eur)
-    .slice(0, 8);
-
-  const reviewSignals = buildReviewSignals({
-    biosimilarRows: currentBio,
-    unresolvedRecordCount,
-    currentRecordCount: currentFacts.length,
-    uploads,
-    objectives: objectives.filter(
-      (objective) => latestYear === null || new Date(objective.period_end).getUTCFullYear() >= latestYear,
-    ),
-  });
-
   return {
     flows: spendFlowsFromFacts(currentFacts),
     latest_year: latestYear,
@@ -381,37 +200,11 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     trend_granularity: trendGranularity,
     trend,
     atc_breakdown: atcBreakdown,
-    previous_year: previousYear,
-    spend_yoy: ratio(totalSpendEur, previousSpendEur),
-    packs_yoy: ratio(totalPacks, previousPacks),
-    biosimilar_penetration: overallPenetration.value,
-    biosimilar_penetration_basis: overallPenetration.basis,
-    biosimilar_opportunity_eur: biosimilarOpportunity,
-    active_review_count: reviewSignals.length,
-    review_items: reviewSignals.slice(0, 6),
-    top_molecules: topMolecules,
   };
 }
 
-function costPerMg(facts: CanonicalFact[]): number | null {
-  const volume = normalizedVolumeMg(facts);
-  const spend = facts.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-  if (volume > 0 && spend > 0) return spend / volume;
-
-  const rows = facts.filter((fact) => (fact.cost_per_mg ?? 0) > 0);
-  const weight = rows.reduce((sum, fact) => sum + Math.max(fact.quantity_packs ?? 1, 1), 0);
-  if (weight === 0) return null;
-  return rows.reduce(
-    (sum, fact) => sum + fact.cost_per_mg! * Math.max(fact.quantity_packs ?? 1, 1),
-    0,
-  ) / weight;
-}
-
-function buildBiosimilarRows(
-  facts: CanonicalFact[],
-  latestYear: number | null,
-): BiosimilarComparisonRow[] {
-  if (latestYear === null) return [];
+export async function getBiosimilarComparison(): Promise<BiosimilarComparisonRow[]> {
+  const facts = await selectCanonicalFacts();
 
   const byMolecule = new Map<string, CanonicalFact[]>();
   for (const f of facts) {
@@ -423,21 +216,16 @@ function buildBiosimilarRows(
 
   const out: BiosimilarComparisonRow[] = [];
   for (const [activeSubstance, group] of byMolecule) {
-    const orig = group.filter((f) => f.originator_flag === true || f.biosimilar_flag === false);
+    const orig = group.filter((f) => !f.biosimilar_flag);
     const bio = group.filter((f) => f.biosimilar_flag);
-
-    if (bio.length === 0) continue;
 
     const origSpend = orig.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
     const bioSpend = bio.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
-    const origCostPerMg = costPerMg(orig);
-    const bioCostPerMg = costPerMg(bio);
+    const origCostPerMg = orig[0]?.cost_per_mg ?? null;
+    const bioCostPerMg = bio[0]?.cost_per_mg ?? null;
 
     const totalSpend = origSpend + bioSpend;
     const originatorShare = totalSpend > 0 ? origSpend / totalSpend : 0;
-    const penetration = biosimilarPenetration(group);
-    const coverage = normalizationCoverage(group);
-    const totalVolume = normalizedVolumeMg(group);
 
     const potentialSavings =
       origCostPerMg !== null && bioCostPerMg !== null && origCostPerMg > bioCostPerMg
@@ -453,109 +241,10 @@ function buildBiosimilarRows(
       biosimilar_spend_eur: bioSpend,
       originator_share: originatorShare,
       potential_savings_eur: potentialSavings,
-      biosimilar_penetration: penetration.value,
-      penetration_basis: penetration.basis ?? "spend",
-      normalized_volume_mg: totalVolume > 0 ? totalVolume : null,
-      normalization_coverage: coverage,
-      evidence_status:
-        origCostPerMg !== null && bioCostPerMg !== null
-          ? coverage !== null && coverage >= 0.8
-            ? "ready"
-            : "partial"
-          : "unresolved",
-      latest_year: latestYear,
     });
   }
 
   return out.sort((a, b) => b.potential_savings_eur - a.potential_savings_eur);
-}
-
-export async function getBiosimilarComparison(): Promise<BiosimilarComparisonRow[]> {
-  const facts = await selectCanonicalFacts();
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
-  return buildBiosimilarRows(
-    latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear),
-    latestYear,
-  );
-}
-
-function compactEur(value: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
-function buildReviewSignals({
-  biosimilarRows,
-  unresolvedRecordCount,
-  currentRecordCount,
-  uploads,
-  objectives,
-}: {
-  biosimilarRows: BiosimilarComparisonRow[];
-  unresolvedRecordCount: number;
-  currentRecordCount: number;
-  uploads: UploadRecord[];
-  objectives: Objective[];
-}): ReviewSignal[] {
-  const signals: ReviewSignal[] = biosimilarRows
-    .filter((row) => row.potential_savings_eur > 0)
-    .slice(0, 5)
-    .map((row) => ({
-      id: `bio-${row.active_substance}`,
-      kind: "biosimilar" as const,
-      title: row.active_substance,
-      context: `Confronto originator/biosimilare su base ${row.penetration_basis}.`,
-      value_label: `${compactEur(row.potential_savings_eur)} opportunità`,
-      href: "/dashboard-review/biosimilar-to-euros",
-      severity: row.potential_savings_eur >= 100000 ? "high" as const : "medium" as const,
-    }));
-
-  if (unresolvedRecordCount > 0) {
-    signals.push({
-      id: "quality-unresolved",
-      kind: "quality",
-      title: "Normalizzazione da completare",
-      context: `${unresolvedRecordCount} record non sono ancora idonei a un confronto €/mg o €/DDD.`,
-      value_label: currentRecordCount > 0
-        ? `${Math.round((unresolvedRecordCount / currentRecordCount) * 100)}% dei record`
-        : `${unresolvedRecordCount} record`,
-      href: "/dashboard-review/dati",
-      severity: "high",
-    });
-  }
-
-  const discrepancies = uploads.filter((upload) => upload.status === "discrepancy_found");
-  if (discrepancies.length > 0) {
-    signals.push({
-      id: "upload-discrepancies",
-      kind: "upload",
-      title: "Scarti di riconciliazione",
-      context: "Uno o più caricamenti richiedono una verifica prima della pubblicazione.",
-      value_label: `${discrepancies.length} file`,
-      href: "/dashboard-review/dati",
-      severity: "high",
-    });
-  }
-
-  for (const objective of objectives.slice(0, 3)) {
-    signals.push({
-      id: `objective-${objective.id}`,
-      kind: "objective",
-      title: objective.metric,
-      context: `Periodo ${objective.period_start} – ${objective.period_end}`,
-      value_label: `Target ${objective.target_value}`,
-      href: "/dashboard-review/obiettivi",
-      severity: "info",
-    });
-  }
-
-  const priority = { high: 0, medium: 1, info: 2 } as const;
-  return signals.sort((a, b) => priority[a.severity] - priority[b.severity]);
 }
 
 export async function getObjectives(): Promise<Objective[]> {
@@ -594,322 +283,6 @@ export async function getUploads(): Promise<UploadRecord[]> {
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(`uploads query failed: ${error.message}`);
   return (data ?? []) as UploadRecord[];
-}
-
-export async function getBenchmarkData(): Promise<BenchmarkData> {
-  const [facts, org] = await Promise.all([selectCanonicalFacts(), getCurrentOrg()]);
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
-  if (!org || latestYear === null) {
-    return {
-      latest_year: latestYear,
-      rows: [],
-      peer_count: 0,
-      median_spend_eur: null,
-      median_cost_per_pack_eur: null,
-      median_biosimilar_penetration: null,
-      benchmark_available: false,
-      limitation: "Nessun perimetro territoriale disponibile.",
-    };
-  }
-
-  const supabase = await createClient();
-  let orgQuery = supabase
-    .from("organizations")
-    .select("org_code, org_name, org_type, region_code")
-    .eq("org_type", "asl");
-  if (org.region_code) orgQuery = orgQuery.eq("region_code", org.region_code);
-  const { data: organizationRows } = await orgQuery;
-  const orgNames = new Map(
-    ((organizationRows ?? []) as Organization[]).map((item) => [item.org_code, item.org_name]),
-  );
-
-  const previousYear = [...new Set(years)]
-    .filter((year) => year < latestYear)
-    .sort((a, b) => b - a)[0] ?? null;
-  const current = facts.filter((fact) => fact.year === latestYear && fact.asl_code);
-  const previous = previousYear === null
-    ? []
-    : facts.filter((fact) => fact.year === previousYear && fact.asl_code);
-  const byOrg = new Map<string, CanonicalFact[]>();
-  const previousSpend = new Map<string, number>();
-  for (const fact of current) {
-    const code = fact.asl_code!;
-    const group = byOrg.get(code) ?? [];
-    group.push(fact);
-    byOrg.set(code, group);
-  }
-  for (const fact of previous) {
-    const code = fact.asl_code!;
-    previousSpend.set(code, (previousSpend.get(code) ?? 0) + (fact.total_cost_eur ?? 0));
-  }
-
-  const baseRows = Array.from(byOrg.entries()).map(([code, group]) => {
-    const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-    const packs = group.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
-    return {
-      org_code: code,
-      org_name: orgNames.get(code) ?? code,
-      spend_eur: spend,
-      packs,
-      spend_yoy: ratio(spend, previousSpend.get(code) ?? 0),
-      cost_per_pack_eur: packs > 0 ? spend / packs : null,
-      biosimilar_penetration: biosimilarPenetration(group).value,
-      normalization_coverage: normalizationCoverage(group),
-      is_current_org: org.org_code === code,
-    };
-  });
-  const medianSpend = median(baseRows.map((row) => row.spend_eur));
-  const rows: BenchmarkRow[] = baseRows
-    .map((row) => ({
-      ...row,
-      spend_index: medianSpend && medianSpend > 0 ? (row.spend_eur / medianSpend) * 100 : null,
-    }))
-    .sort((a, b) => b.spend_eur - a.spend_eur);
-  const benchmarkAvailable = rows.length > 1;
-
-  return {
-    latest_year: latestYear,
-    rows,
-    peer_count: org.org_type === "asl" ? Math.max(rows.length - 1, 0) : rows.length,
-    median_spend_eur: medianSpend,
-    median_cost_per_pack_eur: median(
-      rows.map((row) => row.cost_per_pack_eur).filter((value): value is number => value !== null),
-    ),
-    median_biosimilar_penetration: median(
-      rows
-        .map((row) => row.biosimilar_penetration)
-        .filter((value): value is number => value !== null),
-    ),
-    benchmark_available: benchmarkAvailable,
-    limitation: benchmarkAvailable
-      ? null
-      : org.org_type === "asl"
-        ? "La policy RLS dell’ASL espone solo i dati della propria azienda. Il confronto identificabile è disponibile esclusivamente alla Regione."
-        : "Servono almeno due ASL con dati nello stesso periodo per costruire il benchmark.",
-  };
-}
-
-const UNCLASSIFIED = "__unclassified__";
-
-function filterExplorerFacts(facts: CanonicalFact[], filters: ExplorerFilters): CanonicalFact[] {
-  const matches = (actual: string | null, expected: string | undefined) =>
-    !expected || (actual ?? UNCLASSIFIED) === expected;
-  return facts.filter(
-    (fact) =>
-      matches(fact.asl_code, filters.asl) &&
-      matches(fact.atc1, filters.atc1) &&
-      matches(fact.atc2, filters.atc2) &&
-      matches(fact.atc3, filters.atc3) &&
-      matches(fact.atc4, filters.atc4) &&
-      matches(fact.atc5, filters.atc5) &&
-      matches(fact.active_substance, filters.molecule),
-  );
-}
-
-function explorerValue(fact: CanonicalFact, level: ExplorerLevel): string {
-  if (level === "asl") return fact.asl_code ?? UNCLASSIFIED;
-  if (level === "molecule") return fact.active_substance ?? UNCLASSIFIED;
-  if (level === "aic") return fact.aic ?? UNCLASSIFIED;
-  return fact[level] ?? UNCLASSIFIED;
-}
-
-function explorerLabel(
-  code: string,
-  level: ExplorerLevel,
-  facts: CanonicalFact[],
-  orgNames: Map<string, string>,
-): string {
-  if (code === UNCLASSIFIED) return "Non classificato";
-  if (level === "asl") return orgNames.get(code) ?? code;
-  if (level === "atc1") return ATC1_NAMES[code] ?? code;
-  if (level === "aic") {
-    const match = facts.find((fact) => fact.aic === code);
-    return match?.brand_name ?? match?.product_description_raw ?? code;
-  }
-  return code;
-}
-
-function explorerHref(filters: ExplorerFilters): string {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) {
-    if (value) params.set(key, value);
-  }
-  const query = params.toString();
-  return query ? `/dashboard-review/ricerca?${query}` : "/dashboard-review/ricerca";
-}
-
-export async function getExplorerData(filters: ExplorerFilters): Promise<ExplorerData> {
-  const [facts, org] = await Promise.all([selectCanonicalFacts(), getCurrentOrg()]);
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
-  const levels: ExplorerLevel[] = org?.org_type === "regione"
-    ? ["asl", "atc1", "atc2", "atc3", "atc4", "atc5", "molecule", "aic"]
-    : ["atc1", "atc2", "atc3", "atc4", "atc5", "molecule", "aic"];
-  const filterOrder: Array<[ExplorerLevel, keyof ExplorerFilters]> = [
-    ["asl", "asl"],
-    ["atc1", "atc1"],
-    ["atc2", "atc2"],
-    ["atc3", "atc3"],
-    ["atc4", "atc4"],
-    ["atc5", "atc5"],
-    ["molecule", "molecule"],
-  ];
-  const level = levels.find((candidate) => {
-    const filterKey = filterOrder.find(([item]) => item === candidate)?.[1];
-    return candidate === "aic" || (filterKey ? !filters[filterKey] : false);
-  }) ?? "aic";
-
-  const supabase = await createClient();
-  let orgQuery = supabase
-    .from("organizations")
-    .select("org_code, org_name, org_type, region_code")
-    .eq("org_type", "asl");
-  if (org?.region_code) orgQuery = orgQuery.eq("region_code", org.region_code);
-  const { data: organizationRows } = await orgQuery;
-  const orgNames = new Map(
-    ((organizationRows ?? []) as Organization[]).map((item) => [item.org_code, item.org_name]),
-  );
-
-  const previousYear = latestYear === null
-    ? null
-    : [...new Set(years)].filter((year) => year < latestYear).sort((a, b) => b - a)[0] ?? null;
-  const currentBase = filterExplorerFacts(
-    latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear),
-    filters,
-  );
-  const previousBase = filterExplorerFacts(
-    previousYear === null ? [] : facts.filter((fact) => fact.year === previousYear),
-    filters,
-  );
-  const totalSpend = currentBase.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-  const currentGroups = new Map<string, CanonicalFact[]>();
-  const previousSpend = new Map<string, number>();
-  for (const fact of currentBase) {
-    const key = explorerValue(fact, level);
-    const group = currentGroups.get(key) ?? [];
-    group.push(fact);
-    currentGroups.set(key, group);
-  }
-  for (const fact of previousBase) {
-    const key = explorerValue(fact, level);
-    previousSpend.set(key, (previousSpend.get(key) ?? 0) + (fact.total_cost_eur ?? 0));
-  }
-  const filterKey = filterOrder.find(([candidate]) => candidate === level)?.[1];
-  const nodes: ExplorerNode[] = Array.from(currentGroups.entries())
-    .map(([key, group]) => {
-      const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-      const packs = group.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
-      const nextFilters = filterKey ? { ...filters, [filterKey]: key } : filters;
-      return {
-        key,
-        code: key === UNCLASSIFIED ? "—" : key,
-        label: explorerLabel(key, level, group, orgNames),
-        href: level === "aic" ? null : explorerHref(nextFilters),
-        spend_eur: spend,
-        spend_share: totalSpend > 0 ? spend / totalSpend : 0,
-        packs,
-        spend_yoy: ratio(spend, previousSpend.get(key) ?? 0),
-        biosimilar_penetration: biosimilarPenetration(group).value,
-        normalization_coverage: normalizationCoverage(group),
-        record_count: group.length,
-      };
-    })
-    .sort((a, b) => b.spend_eur - a.spend_eur);
-
-  const breadcrumbs = [{ label: org?.org_name ?? "Perimetro", href: "/dashboard-review/ricerca" }];
-  const accumulated: ExplorerFilters = {};
-  for (const [candidate, key] of filterOrder) {
-    const value = filters[key];
-    if (!value || !levels.includes(candidate)) continue;
-    accumulated[key] = value;
-    breadcrumbs.push({
-      label: explorerLabel(value, candidate, currentBase, orgNames),
-      href: explorerHref(accumulated),
-    });
-  }
-
-  return {
-    latest_year: latestYear,
-    level,
-    level_label: EXPLORER_LEVEL_LABEL[level],
-    breadcrumbs,
-    nodes,
-    total_spend_eur: totalSpend,
-    total_packs: currentBase.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0),
-    filters,
-  };
-}
-
-export async function getLineageData(): Promise<LineageData> {
-  const facts = await selectCanonicalFacts();
-  const bySource = new Map<string, CanonicalFact[]>();
-  for (const fact of facts) {
-    const group = bySource.get(fact.source_version_id) ?? [];
-    group.push(fact);
-    bySource.set(fact.source_version_id, group);
-  }
-  const sources: LineageSource[] = Array.from(bySource.entries())
-    .map(([sourceVersionId, group]) => {
-      const timestamps = group
-        .map((fact) => Date.parse(fact.created_at))
-        .filter(Number.isFinite);
-      const years = group.map((fact) => fact.year).filter(Number.isFinite);
-      return {
-        source_version_id: sourceVersionId,
-        latest_loaded_at: timestamps.length > 0
-          ? new Date(Math.max(...timestamps)).toISOString()
-          : null,
-        first_year: years.length > 0 ? Math.min(...years) : null,
-        latest_year: years.length > 0 ? Math.max(...years) : null,
-        record_count: group.length,
-        spend_eur: group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0),
-        geography_count: new Set(
-          group.map((fact) => fact.asl_code ?? fact.region_code).filter(Boolean),
-        ).size,
-        normalized_coverage: normalizationCoverage(group),
-        unresolved_count: group.filter(isUnresolved).length,
-      };
-    })
-    .sort((a, b) => (b.latest_loaded_at ?? "").localeCompare(a.latest_loaded_at ?? ""));
-  const allTimestamps = facts.map((fact) => Date.parse(fact.created_at)).filter(Number.isFinite);
-
-  return {
-    sources,
-    total_records: facts.length,
-    latest_loaded_at: allTimestamps.length > 0
-      ? new Date(Math.max(...allTimestamps)).toISOString()
-      : null,
-    unresolved_records: facts.filter(isUnresolved).length,
-    normalization_coverage: normalizationCoverage(facts),
-  };
-}
-
-export async function getReviewWorkspaceData(): Promise<ReviewWorkspaceData> {
-  const [facts, objectives, uploads] = await Promise.all([
-    selectCanonicalFacts(),
-    getObjectives(),
-    getUploads(),
-  ]);
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
-  const current = latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear);
-  const signals = buildReviewSignals({
-    biosimilarRows: buildBiosimilarRows(current, latestYear),
-    unresolvedRecordCount: current.filter(isUnresolved).length,
-    currentRecordCount: current.length,
-    uploads,
-    objectives: objectives.filter(
-      (objective) => latestYear === null || new Date(objective.period_end).getUTCFullYear() >= latestYear,
-    ),
-  });
-  return {
-    latest_year: latestYear,
-    signals,
-    objectives,
-    discrepancy_uploads: uploads.filter((upload) => upload.status === "discrepancy_found"),
-    high_priority_count: signals.filter((signal) => signal.severity === "high").length,
-  };
 }
 
 interface CategoryTotals {
