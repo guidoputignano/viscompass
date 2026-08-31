@@ -4,36 +4,39 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
+  ChartSpline,
   ChartNoAxesCombined,
   Database,
-  FlaskConical,
-  Goal,
+  ListTree,
+  ClipboardList,
   MessageSquareText,
   ShieldPlus,
 } from "lucide-react";
 import { VisLogo } from "@/components/vis-logo";
+import { LogoutButton } from "@/components/logout-button";
 import type { Organization } from "@/lib/dashboard-review/types";
 
 const NAV_GROUPS = [
   {
     label: "Monitoraggio",
     items: [
-      { href: "/dashboard-review/spend", label: "Spesa", icon: ChartNoAxesCombined },
-      { href: "/dashboard-review/biosimilar-to-euros", label: "Biosimilare → Euro", icon: ArrowLeftRight },
-      { href: "/dashboard-review/antibiotici", label: "Antibiotici", icon: ShieldPlus },
+      { href: "/dashboard-review/spend", label: "Quadro esecutivo", icon: ChartNoAxesCombined },
+      { href: "/dashboard-review/benchmark", label: "Benchmark territoriale", icon: ChartSpline },
+      { href: "/dashboard-review/biosimilar-to-euros", label: "Biosimilari → Euro", icon: ArrowLeftRight },
     ],
   },
   {
-    label: "Decision support",
+    label: "Esplorazione",
     items: [
-      { href: "/dashboard-review/ricerca", label: "Ricerca molecole", icon: FlaskConical },
-      { href: "/dashboard-review/obiettivi", label: "Obiettivi", icon: Goal },
+      { href: "/dashboard-review/ricerca", label: "Regione → AIC", icon: ListTree },
+      { href: "/dashboard-review/antibiotici", label: "Antibiotici AWaRe", icon: ShieldPlus },
     ],
   },
   {
-    label: "Operazioni",
+    label: "Governance",
     items: [
-      { href: "/dashboard-review/dati", label: "Dati e caricamenti", icon: Database },
+      { href: "/dashboard-review/obiettivi", label: "Revisioni e obiettivi", icon: ClipboardList },
+      { href: "/dashboard-review/dati", label: "Fonti e qualità", icon: Database },
       { href: "/dashboard-review/richieste", label: "Richieste", icon: MessageSquareText },
     ],
   },
@@ -54,7 +57,7 @@ export function DashboardReviewNav({
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-svh w-full flex-col md:flex-row">
+    <div className="flex min-h-svh w-full max-w-full flex-col overflow-x-hidden md:flex-row">
       <aside className="flex w-full flex-col gap-6 border-b border-border bg-card px-5 py-5 md:sticky md:top-0 md:min-h-svh md:w-64 md:self-start md:border-b-0 md:border-r md:px-6 md:py-6">
         <Link href="/dashboard-review/spend" aria-label="Vai alla panoramica della spesa">
           <VisLogo size="sm" />
@@ -107,18 +110,19 @@ export function DashboardReviewNav({
           ))}
         </nav>
 
-        <div className="mt-auto hidden md:block">
+        <div className="mt-auto hidden space-y-3 md:block">
           <span
             className="inline-block rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
             style={{ backgroundColor: "hsl(38 92% 50% / 0.14)", color: "hsl(32 70% 32%)" }}
           >
             Evidenza operativa · non clinica
           </span>
+          <LogoutButton label="Esci" className="w-full text-muted-foreground hover:text-foreground" />
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 bg-background px-5 py-6 md:px-8 md:py-8 xl:px-10">
-        <div className="mx-auto w-full max-w-[1480px]">{children}</div>
+      <main className="min-w-0 max-w-full flex-1 overflow-x-hidden bg-background px-5 py-6 md:px-8 md:py-8 xl:px-10">
+        <div className="mx-auto min-w-0 w-full max-w-[1480px]">{children}</div>
       </main>
     </div>
   );

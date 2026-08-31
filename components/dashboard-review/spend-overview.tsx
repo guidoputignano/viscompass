@@ -1,278 +1,232 @@
+import Link from "next/link";
 import {
-  CalendarRange,
+  Activity,
+  ArrowRight,
+  BadgeEuro,
   CircleAlert,
-  Database,
-  Package,
+  ClipboardCheck,
+  PackageOpen,
   ReceiptEuro,
-  Scale,
-  ShieldCheck,
 } from "lucide-react";
-import type { SpendDashboardData } from "@/lib/dashboard-review/types";
 import {
-  formatDate,
-  formatEur,
-  formatEurPrecise,
-  formatNumber,
-  formatPercent,
-} from "@/lib/dashboard-review/format";
+  DecisionFrame,
+  Delta,
+  EmptyState,
+  KpiCard,
+  MethodologyPanel,
+  StatusPill,
+} from "@/components/dashboard-review/analytics-ui";
+import type { ReviewSeverity, SpendDashboardData } from "@/lib/dashboard-review/types";
+import { formatDate, formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 
-function MetricCard({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  primary = false,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  icon: typeof ReceiptEuro;
-  primary?: boolean;
-}) {
-  return (
-    <article
-      className={
-        "relative overflow-hidden rounded-xl border p-5 shadow-sm " +
-        (primary
-          ? "border-[hsl(174_45%_28%)] bg-[hsl(174_46%_24%)] text-white"
-          : "border-border bg-card text-card-foreground")
-      }
-    >
-      <div
-        className={
-          "mb-5 flex size-9 items-center justify-center rounded-lg " +
-          (primary ? "bg-white/10 text-[hsl(78_75%_60%)]" : "bg-secondary text-primary")
-        }
-      >
-        <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
-      </div>
-      <p
-        className={
-          "text-[11px] font-semibold uppercase tracking-[0.12em] " +
-          (primary ? "text-white/65" : "text-muted-foreground")
-        }
-      >
-        {label}
-      </p>
-      <p className="font-display mt-1 text-3xl leading-none">{value}</p>
-      <p className={"mt-3 text-xs " + (primary ? "text-white/70" : "text-muted-foreground")}>
-        {detail}
-      </p>
-      {primary && (
-        <span className="absolute -bottom-16 -right-12 size-40 rounded-full border border-white/10" />
-      )}
-    </article>
-  );
-}
+const REVIEW_STYLE: Record<ReviewSeverity, "danger" | "warning" | "neutral"> = {
+  high: "danger",
+  medium: "warning",
+  info: "neutral",
+};
 
-function SpendTrend({ data }: { data: SpendDashboardData }) {
+const BASIS_LABEL = {
+  mg: "volume normalizzato in mg",
+  packs: "confezioni",
+  spend: "spesa",
+} as const;
+
+function TrendPanel({ data }: { data: SpendDashboardData }) {
   const max = Math.max(...data.trend.map((point) => point.spend_eur), 0);
-
   return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-sm md:p-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-            Traiettoria osservata
-          </p>
-          <h2 className="font-display mt-1 text-xl text-foreground">Andamento della spesa</h2>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
+          <h2 className="font-display mt-1 text-xl">Spesa nel tempo</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {data.trend_granularity === "month"
-              ? `Valori mensili ${data.latest_year ?? ""}`
-              : "Confronto tra annualità disponibili"}
+            {data.trend_granularity === "month" ? `Mesi disponibili nel ${data.latest_year}` : "Annualità disponibili"}
           </p>
         </div>
-        <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:mt-0">
-          <Database aria-hidden="true" size={12} /> Dati nel perimetro RLS
-        </span>
+        <Delta value={data.spend_yoy} />
       </div>
-
       {data.trend.length === 0 ? (
-        <div className="mt-6 flex h-52 items-center justify-center rounded-lg bg-secondary/40 text-sm text-muted-foreground">
-          Nessuna serie temporale disponibile.
-        </div>
+        <div className="mt-5"><EmptyState title="Serie non disponibile" detail="Carica almeno un periodo con spesa per visualizzare la traiettoria." /></div>
       ) : (
-        <>
-          <div className="mt-6 flex items-center justify-between gap-4 text-[11px] text-muted-foreground">
-            <span>
-              Picco osservato <strong className="font-mono text-foreground">{formatEur(max)}</strong>
-            </span>
-            <span className="hidden sm:inline">Passa sulle barre per il valore puntuale</span>
-          </div>
-          <div className="mt-3 flex h-52 items-end gap-2 border-b border-border sm:gap-3">
-            {data.trend.map((point) => {
-              const height = max > 0 ? Math.max((point.spend_eur / max) * 100, 3) : 3;
-              return (
-                <div key={point.key} className="flex h-full min-w-0 flex-1 flex-col justify-end">
-                  <div
-                    className="w-full rounded-t-md bg-[hsl(var(--chart-1))] transition-opacity hover:opacity-80"
-                    style={{ height: `${height}%` }}
-                    role="img"
-                    aria-label={`${point.label}: ${formatEur(point.spend_eur)}`}
-                    title={`${point.label}: ${formatEur(point.spend_eur)}`}
-                  />
-                  <span className="mt-2 text-center text-[10px] text-muted-foreground">
-                    <span className="sm:hidden">
-                      {data.trend_granularity === "month" ? point.label.slice(0, 1) : point.label}
-                    </span>
-                    <span className="hidden sm:inline">{point.label}</span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </section>
-  );
-}
-
-function AtcComposition({ data }: { data: SpendDashboardData }) {
-  return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-sm md:p-6">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-        Mix terapeutico
-      </p>
-      <h2 className="font-display mt-1 text-xl text-foreground">Categorie ATC principali</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Quota della spesa osservata nel periodo più recente
-      </p>
-
-      {data.atc_breakdown.length === 0 ? (
-        <p className="mt-6 text-sm text-muted-foreground">Nessuna categoria ATC disponibile.</p>
-      ) : (
-        <div className="mt-5 divide-y divide-border">
-          {data.atc_breakdown.map((item) => (
-            <div key={item.code} className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-3 py-3">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-secondary font-mono text-xs font-bold text-foreground">
-                {item.code}
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="truncate text-xs font-medium text-foreground">{item.label}</span>
-                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                    {formatPercent(item.share)}
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${item.share * 100}%` }} />
-                </div>
+        <div className="mt-7 flex h-56 items-end gap-2 border-b border-border sm:gap-3">
+          {data.trend.map((point) => {
+            const height = max > 0 ? Math.max((point.spend_eur / max) * 100, 3) : 3;
+            return (
+              <div key={point.key} className="group flex h-full min-w-0 flex-1 flex-col justify-end">
+                <span className="mb-2 hidden text-center font-mono text-[9px] text-muted-foreground group-hover:block">
+                  {formatEur(point.spend_eur)}
+                </span>
+                <div
+                  className="w-full rounded-t bg-[hsl(174_45%_38%)] transition-all group-hover:bg-primary"
+                  style={{ height: `${height}%` }}
+                  title={`${point.label}: ${formatEur(point.spend_eur)}`}
+                />
+                <span className="mt-2 truncate text-center text-[10px] text-muted-foreground">{point.label}</span>
               </div>
-              <strong className="font-mono text-xs text-foreground">{formatEur(item.spend_eur)}</strong>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
   );
 }
 
-function EvidencePanel({ data }: { data: SpendDashboardData }) {
-  const coverageLabel =
-    data.normalization_coverage === null ? "Non calcolabile" : formatPercent(data.normalization_coverage);
-
+function AtcPanel({ data }: { data: SpendDashboardData }) {
   return (
-    <section className="rounded-xl border border-[hsl(174_28%_82%)] bg-[hsl(165_30%_96%)] p-5 md:p-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-sm">
-            <ShieldCheck aria-hidden="true" size={19} />
-          </span>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
-              Stato dell&apos;evidenza
-            </p>
-            <h2 className="mt-1 text-sm font-semibold text-foreground">
-              Perimetro autenticato, indicatori riconciliabili alla fonte
-            </h2>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-              Ogni valore deriva esclusivamente dai record visibili all&apos;organizzazione. Nessun dato
-              paziente e nessuna raccomandazione clinica sono utilizzati.
-            </p>
-          </div>
-        </div>
-
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
-          <div>
-            <dt className="text-muted-foreground">Record</dt>
-            <dd className="mt-1 font-mono font-semibold text-foreground">
-              {formatNumber(data.record_count, 0)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Versioni fonte</dt>
-            <dd className="mt-1 font-mono font-semibold text-foreground">
-              {formatNumber(data.source_version_count, 0)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Copertura €/mg o €/DDD</dt>
-            <dd className="mt-1 font-mono font-semibold text-foreground">{coverageLabel}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Ultimo caricamento</dt>
-            <dd className="mt-1 font-semibold text-foreground">
-              {data.latest_loaded_at ? formatDate(data.latest_loaded_at) : "—"}
-            </dd>
-          </div>
-        </dl>
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione</p>
+      <h2 className="font-display mt-1 text-xl">Dove si concentra la spesa</h2>
+      <p className="mt-1 text-xs text-muted-foreground">Prime categorie ATC nel periodo più recente</p>
+      <div className="mt-5 divide-y divide-border">
+        {data.atc_breakdown.map((item) => (
+          <Link
+            key={item.code}
+            href={`/dashboard-review/ricerca?atc1=${encodeURIComponent(item.code)}`}
+            className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-3 py-3 transition-colors hover:bg-secondary/35"
+          >
+            <span className="flex size-9 items-center justify-center rounded-lg bg-secondary font-mono text-xs font-bold">{item.code}</span>
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <span className="truncate text-xs font-medium">{item.label}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{formatPercent(item.share)}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${item.share * 100}%` }} />
+              </div>
+            </div>
+            <span className="font-mono text-xs font-semibold">{formatEur(item.spend_eur)}</span>
+          </Link>
+        ))}
       </div>
+    </section>
+  );
+}
 
-      {data.unresolved_record_count > 0 && (
-        <div className="mt-5 flex items-start gap-2 border-t border-[hsl(174_28%_85%)] pt-4 text-xs text-muted-foreground">
-          <CircleAlert aria-hidden="true" className="mt-0.5 shrink-0 text-[hsl(38_72%_42%)]" size={15} />
-          <p>
-            <strong className="text-foreground">
-              {formatNumber(data.unresolved_record_count, 0)} record da verificare.
-            </strong>{" "}
-            Restano nella coda di normalizzazione e non vengono presentati come confronto economico
-            risolto.
-          </p>
+function MoleculePanel({ data }: { data: SpendDashboardData }) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-border p-5 sm:flex-row sm:items-end sm:justify-between md:p-6">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Intelligence per molecola</p>
+          <h2 className="font-display mt-1 text-xl">Molecole a maggiore materialità</h2>
+        </div>
+        <Link href="/dashboard-review/ricerca" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+          Esplora la gerarchia <ArrowRight size={13} />
+        </Link>
+      </div>
+      {data.top_molecules.length === 0 ? (
+        <div className="p-5"><EmptyState title="Nessuna molecola classificata" detail="I record disponibili non contengono ancora il principio attivo." /></div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+                <th className="px-5 py-3 font-semibold">Molecola</th>
+                <th className="px-5 py-3 text-right font-semibold">Spesa</th>
+                <th className="px-5 py-3 text-right font-semibold">Var. a/a</th>
+                <th className="px-5 py-3 text-right font-semibold">Penetrazione bio</th>
+                <th className="px-5 py-3 text-right font-semibold">Opportunità</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.top_molecules.map((row) => (
+                <tr key={row.active_substance} className="border-b border-border last:border-0 hover:bg-secondary/25">
+                  <td className="px-5 py-3.5">
+                    <Link href={`/dashboard-review/ricerca?molecule=${encodeURIComponent(row.active_substance)}`} className="font-semibold hover:text-primary">
+                      {row.active_substance}
+                    </Link>
+                    <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{row.atc_code ?? "ATC non disponibile"}</p>
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-mono text-xs">{formatEur(row.spend_eur)}</td>
+                  <td className="px-5 py-3.5 text-right font-mono text-xs">{row.spend_yoy === null ? "—" : formatPercent(row.spend_yoy)}</td>
+                  <td className="px-5 py-3.5 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}</td>
+                  <td className="px-5 py-3.5 text-right font-mono text-xs font-semibold text-primary">{row.opportunity_eur > 0 ? formatEur(row.opportunity_eur) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+    </section>
+  );
+}
+
+function ReviewQueue({ data }: { data: SpendDashboardData }) {
+  return (
+    <section className="min-w-0 rounded-2xl border border-border bg-[hsl(204_48%_15%)] p-5 text-white shadow-sm md:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(78_75%_60%)]">Coda di revisione</p>
+          <h2 className="font-display mt-1 text-xl">Evidenze da aprire</h2>
+        </div>
+        <span className="flex size-9 items-center justify-center rounded-full bg-white/10"><ClipboardCheck size={17} /></span>
+      </div>
+      <div className="mt-5 divide-y divide-white/10">
+        {data.review_items.length === 0 ? (
+          <p className="py-5 text-xs leading-5 text-white/65">Nessun segnale attivo nel perimetro corrente.</p>
+        ) : data.review_items.slice(0, 4).map((item) => (
+          <Link key={item.id} href={item.href} className="group flex items-start justify-between gap-4 py-3.5">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold">{item.title}</p>
+                <StatusPill tone={REVIEW_STYLE[item.severity]}>{item.value_label}</StatusPill>
+              </div>
+              <p className="mt-1 text-xs leading-5 text-white/55">{item.context}</p>
+            </div>
+            <ArrowRight className="mt-1 shrink-0 text-white/40 transition-transform group-hover:translate-x-1" size={15} />
+          </Link>
+        ))}
+      </div>
+      <Link href="/dashboard-review/obiettivi" className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[hsl(78_75%_60%)] hover:underline">
+        Apri tutte le revisioni <ArrowRight size={13} />
+      </Link>
     </section>
   );
 }
 
 export function SpendOverview({ data }: { data: SpendDashboardData }) {
+  const topAtc = data.atc_breakdown[0];
+  const firstReview = data.review_items[0];
+  const unresolvedShare = data.record_count > 0 ? data.unresolved_record_count / data.record_count : null;
+  const yoyText = data.spend_yoy === null
+    ? "Manca un periodo precedente omogeneo per il confronto."
+    : `La spesa è ${data.spend_yoy >= 0 ? "aumentata" : "diminuita"} del ${formatPercent(Math.abs(data.spend_yoy))} rispetto al ${data.previous_year}.`;
+
   return (
-    <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          primary
-          label="Spesa osservata"
-          value={formatEur(data.total_spend_eur)}
-          detail={data.latest_year ? `Ultima annualità completa: ${data.latest_year}` : "Nessun periodo disponibile"}
-          icon={ReceiptEuro}
-        />
-        <MetricCard
-          label="Confezioni"
-          value={formatNumber(data.total_packs, 0)}
-          detail={`${formatNumber(data.record_count, 0)} record nel perimetro`}
-          icon={Package}
-        />
-        <MetricCard
-          label="Costo medio per confezione"
-          value={data.cost_per_pack_eur === null ? "—" : formatEurPrecise(data.cost_per_pack_eur)}
-          detail="Rapporto descrittivo, non confronto terapeutico"
-          icon={Scale}
-        />
-        <MetricCard
-          label="Copertura normalizzazione"
-          value={
-            data.normalization_coverage === null ? "—" : formatPercent(data.normalization_coverage)
-          }
-          detail={`${formatNumber(data.normalized_record_count, 0)} di ${formatNumber(data.normalization_eligible_count, 0)} record eleggibili`}
-          icon={CalendarRange}
-        />
+    <div className="flex flex-col gap-6">
+      <DecisionFrame
+        changed={yoyText}
+        variance={topAtc ? `${topAtc.label} concentra il ${formatPercent(topAtc.share)} della spesa osservata.` : "Classificazione ATC non disponibile."}
+        materiality={data.biosimilar_opportunity_eur > 0 ? `${formatEur(data.biosimilar_opportunity_eur)} di opportunità normalizzata osservabile.` : "Nessuna opportunità €/mg dimostrabile con i record normalizzati disponibili."}
+        nextEvidence={firstReview ? `${firstReview.title}: ${firstReview.context}` : "Nessun segnale attivo; verificare freschezza e copertura al prossimo caricamento."}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <KpiCard accent label="Spesa" value={formatEur(data.total_spend_eur)} detail={<Delta value={data.spend_yoy} />} icon={ReceiptEuro} />
+        <KpiCard label="Consumo" value={formatNumber(data.total_packs, 0)} detail={<Delta value={data.packs_yoy} suffix=" confezioni" />} icon={PackageOpen} />
+        <KpiCard label="Variazione a/a" value={data.spend_yoy === null ? "—" : formatPercent(data.spend_yoy)} detail={data.previous_year ? `Confronto con ${data.previous_year}` : "Periodo non confrontabile"} icon={Activity} />
+        <KpiCard label="Opportunità biosim." value={formatEur(data.biosimilar_opportunity_eur)} detail={data.biosimilar_penetration === null ? "Penetrazione non calcolabile" : `${formatPercent(data.biosimilar_penetration)} su ${BASIS_LABEL[data.biosimilar_penetration_basis!]}`} icon={BadgeEuro} />
+        <KpiCard label="Qualità irrisolta" value={formatNumber(data.unresolved_record_count, 0)} detail={unresolvedShare === null ? "Nessun record" : `${formatPercent(unresolvedShare)} del periodo`} icon={CircleAlert} />
+        <KpiCard label="Revisioni attive" value={formatNumber(data.active_review_count, 0)} detail="Segnali economici, obiettivi e qualità" icon={ClipboardCheck} />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(19rem,0.85fr)]">
-        <SpendTrend data={data} />
-        <AtcComposition data={data} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.8fr)]">
+        <TrendPanel data={data} />
+        <AtcPanel data={data} />
       </div>
 
-      <EvidencePanel data={data} />
-    </>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.8fr)]">
+        <MoleculePanel data={data} />
+        <ReviewQueue data={data} />
+      </div>
+
+      <MethodologyPanel>
+        <div className="grid gap-5 md:grid-cols-3">
+          <div><p className="font-semibold text-foreground">Definizioni</p><p className="mt-1">Spesa e confezioni sono somme dei record dell’ultima annualità visibile. La variazione usa l’ultima annualità precedente disponibile, senza interpolazioni.</p></div>
+          <div><p className="font-semibold text-foreground">Opportunità</p><p className="mt-1">Il differenziale biosimilare usa il costo effettivo per mg aggregato. In assenza di volume normalizzato il valore economico resta non dimostrato, anche se sono disponibili spesa o confezioni.</p></div>
+          <div><p className="font-semibold text-foreground">Linea dati</p><p className="mt-1">{formatNumber(data.record_count, 0)} record, {formatNumber(data.source_version_count, 0)} versioni fonte. Ultimo caricamento {data.latest_loaded_at ? formatDate(data.latest_loaded_at) : "non disponibile"}. Copertura €/mg o €/DDD {data.normalization_coverage === null ? "non calcolabile" : formatPercent(data.normalization_coverage)}.</p></div>
+        </div>
+      </MethodologyPanel>
+    </div>
   );
 }

@@ -143,6 +143,15 @@ export interface SpendDashboardData {
   trend_granularity: "month" | "year";
   trend: SpendTrendPoint[];
   atc_breakdown: SpendAtcSummary[];
+  previous_year: number | null;
+  spend_yoy: number | null;
+  packs_yoy: number | null;
+  biosimilar_penetration: number | null;
+  biosimilar_penetration_basis: "mg" | "packs" | "spend" | null;
+  biosimilar_opportunity_eur: number;
+  active_review_count: number;
+  review_items: ReviewSignal[];
+  top_molecules: MoleculeSignal[];
 }
 
 export interface BiosimilarComparisonRow {
@@ -154,6 +163,127 @@ export interface BiosimilarComparisonRow {
   biosimilar_spend_eur: number;
   originator_share: number; // 0-1, share of combined spend still on originator
   potential_savings_eur: number;
+  biosimilar_penetration: number | null;
+  penetration_basis: "mg" | "packs" | "spend";
+  normalized_volume_mg: number | null;
+  normalization_coverage: number | null;
+  evidence_status: "ready" | "partial" | "unresolved";
+  latest_year: number;
+}
+
+export type ReviewSeverity = "high" | "medium" | "info";
+
+export interface ReviewSignal {
+  id: string;
+  kind: "biosimilar" | "quality" | "objective" | "upload";
+  title: string;
+  context: string;
+  value_label: string;
+  href: string;
+  severity: ReviewSeverity;
+}
+
+export interface MoleculeSignal {
+  active_substance: string;
+  atc_code: string | null;
+  spend_eur: number;
+  spend_yoy: number | null;
+  biosimilar_penetration: number | null;
+  opportunity_eur: number;
+}
+
+export interface BenchmarkRow {
+  org_code: string;
+  org_name: string;
+  spend_eur: number;
+  packs: number;
+  spend_yoy: number | null;
+  cost_per_pack_eur: number | null;
+  biosimilar_penetration: number | null;
+  normalization_coverage: number | null;
+  spend_index: number | null;
+  is_current_org: boolean;
+}
+
+export interface BenchmarkData {
+  latest_year: number | null;
+  rows: BenchmarkRow[];
+  peer_count: number;
+  median_spend_eur: number | null;
+  median_cost_per_pack_eur: number | null;
+  median_biosimilar_penetration: number | null;
+  benchmark_available: boolean;
+  limitation: string | null;
+}
+
+export type ExplorerLevel = "asl" | "atc1" | "atc2" | "atc3" | "atc4" | "atc5" | "molecule" | "aic";
+
+export interface ExplorerFilters {
+  asl?: string;
+  atc1?: string;
+  atc2?: string;
+  atc3?: string;
+  atc4?: string;
+  atc5?: string;
+  molecule?: string;
+}
+
+export interface ExplorerBreadcrumb {
+  label: string;
+  href: string;
+}
+
+export interface ExplorerNode {
+  key: string;
+  code: string;
+  label: string;
+  href: string | null;
+  spend_eur: number;
+  spend_share: number;
+  packs: number;
+  spend_yoy: number | null;
+  biosimilar_penetration: number | null;
+  normalization_coverage: number | null;
+  record_count: number;
+}
+
+export interface ExplorerData {
+  latest_year: number | null;
+  level: ExplorerLevel;
+  level_label: string;
+  breadcrumbs: ExplorerBreadcrumb[];
+  nodes: ExplorerNode[];
+  total_spend_eur: number;
+  total_packs: number;
+  filters: ExplorerFilters;
+}
+
+export interface LineageSource {
+  source_version_id: string;
+  latest_loaded_at: string | null;
+  first_year: number | null;
+  latest_year: number | null;
+  record_count: number;
+  spend_eur: number;
+  geography_count: number;
+  normalized_coverage: number | null;
+  unresolved_count: number;
+}
+
+export interface LineageData {
+  sources: LineageSource[];
+  total_records: number;
+  latest_loaded_at: string | null;
+  unresolved_records: number;
+  normalization_coverage: number | null;
+}
+
+export interface ReviewWorkspaceData {
+  latest_year: number | null;
+  signals: ReviewSignal[];
+  objectives: Objective[];
+  discrepancy_uploads: UploadRecord[];
+  high_priority_count: number;
 }
 
 // Result of the my_objective_rank(p_metric) Postgres function: the
