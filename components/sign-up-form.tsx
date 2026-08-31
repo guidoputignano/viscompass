@@ -21,8 +21,6 @@ export function SignUpForm({
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [fullName, setFullName] = useState("");
-  const [organization, setOrganization] = useState("");
-  const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
@@ -47,11 +45,9 @@ export function SignUpForm({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard-review/spend`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/access`,
           data: {
             full_name: fullName,
-            organization: organization,
-            role: role,
           },
         },
       });
@@ -85,29 +81,6 @@ export function SignUpForm({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Ruolo</Label>
-                <Input
-                  id="role"
-                  type="text"
-                  placeholder="e.g. Direttore del Servizio Farmaceutico"
-                  required
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor="organization">
-                  Organization (Azienda Sanitaria / Regione)
-                </Label>
-                <Input
-                  id="organization"
-                  type="text"
-                  required
-                  value={organization}
-                  onChange={(e) => setOrganization(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2 sm:col-span-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -152,6 +125,10 @@ export function SignUpForm({
               >
                 {isLoading ? "Creazione account..." : "Registrati"}
               </Button>
+              <p className="text-xs leading-5 text-muted-foreground sm:col-span-2">
+                Dopo la conferma dell&apos;email potrai candidarti alla demo selezionando la tua
+                organizzazione e indicando il ruolo professionale.
+              </p>
             </div>
             <div className="mt-4 text-center text-sm">
               Hai già un account?{" "}

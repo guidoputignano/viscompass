@@ -9,6 +9,7 @@ import {
   Database,
   ListTree,
   ClipboardList,
+  KeyRound,
   MessageSquareText,
   ShieldPlus,
 } from "lucide-react";
@@ -49,9 +50,11 @@ const ORG_TYPE_LABEL: Record<Organization["org_type"], string> = {
 
 export function DashboardReviewNav({
   org,
+  isAdmin = false,
   children,
 }: {
   org: Organization;
+  isAdmin?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -109,6 +112,21 @@ export function DashboardReviewNav({
             </div>
           ))}
         </nav>
+
+        {isAdmin && (
+          <div className="border-t border-border pt-4">
+            <span className="hidden px-3 pb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:block">
+              Amministrazione
+            </span>
+            <Link
+              href="/admin/control-center"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <KeyRound className="text-muted-foreground" size={15} strokeWidth={1.8} />
+              Control Center
+            </Link>
+          </div>
+        )}
 
         <div className="mt-auto hidden space-y-3 md:block">
           <span

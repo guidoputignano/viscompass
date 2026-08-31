@@ -1,6 +1,9 @@
 import { DashboardReviewNav } from "@/components/dashboard-review/nav";
 import { VisLogo } from "@/components/vis-logo";
+import { AccessPortal } from "@/components/access/access-portal";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
+import { getAccessOverview } from "@/lib/access/queries";
+import { getAdminEmail } from "@/lib/auth/admin";
 
 // Reads the live session on every request — there's no meaningful static
 // shell to prerender for a page whose entire content depends on who is
@@ -10,20 +13,19 @@ export const instant = false;
 export default async function DashboardReviewLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const org = await getCurrentOrg();
+  const [org, adminEmail] = await Promise.all([getCurrentOrg(), getAdminEmail()]);
 
   if (!org) {
-    return (
-      <div className="flex min-h-svh w-full flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-        <VisLogo size="sm" />
-        <h1 className="font-display text-xl">Nessuna organizzazione approvata</h1>
-        <p className="max-w-md text-sm text-muted-foreground">
-          Il tuo accesso è in fase di verifica. Questa sezione diventa visibile non appena
-          un&apos;organizzazione approva la tua richiesta di adesione.
-        </p>
-      </div>
-    );
+    const overview = await getAccessOverview();
+    if (!overview) {
+      return (
+        <div className="flex min-h-svh items-center justify-center">
+          <VisLogo size="sm" />
+        </div>
+      );
+    }
+    return <AccessPortal overview={overview} isAdmin={Boolean(adminEmail)} />;
   }
 
-  return <DashboardReviewNav org={org}>{children}</DashboardReviewNav>;
+  return <DashboardReviewNav org={org} isAdmin={Boolean(adminEmail)}>{children}</DashboardReviewNav>;
 }

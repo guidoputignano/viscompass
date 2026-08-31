@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
+export function hasServiceRoleConfig(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
 // Deliberately bypasses RLS. Only ever call this from a server-side path
 // that has already checked the caller is authorized for the specific
 // write it's about to make (e.g. an admin email allow-list check) — this
