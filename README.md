@@ -1,3 +1,13 @@
+# VIS PHARMA COMPASS
+
+Evidence-led pharmaceutical analytics for Italian regions and hospital pharmacies. The application
+uses Supabase authentication, organization-scoped Row Level Security, and a dedicated access
+Control Center for demo applications, invitations, approvals and revocations.
+
+Before deploying the access workflow, follow [docs/ACCESS_CONTROL.md](docs/ACCESS_CONTROL.md).
+
+The remaining notes below document the upstream Next.js + Supabase starter foundation.
+
 <a href="https://demo-nextjs-with-supabase.vercel.app/">
   <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
   <h1 align="center">Next.js and Supabase Starter Kit</h1>
