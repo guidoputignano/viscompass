@@ -1,350 +1,295 @@
 import Link from "next/link";
-import { Check, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  Check,
+  CircleDollarSign,
+  DatabaseZap,
+  FileCheck2,
+  LineChart,
+  Route,
+  SearchCheck,
+  ShieldCheck,
+  UploadCloud,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { DemoPrompt } from "@/components/demo-prompt";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { VisLogo } from "@/components/vis-logo";
-import { Reveal } from "@/components/reveal";
-
-const NAV_LINKS = [
-  { href: "#come-funziona", label: "Come funziona" },
-  { href: "#percorso", label: "Percorso" },
-  { href: "#moduli", label: "Moduli" },
-  { href: "#sicurezza", label: "Sicurezza" },
-];
-
-const TRUST_ROW = [
-  "Dati aggregati, non clinici",
-  "Basato su dati AIFA e regionali",
-  "Conforme al confine EU MDR",
-  "Tempo di reazione misurabile",
-];
 
 const PROOF_STATS = [
-  { value: "73,8%", label: "copertura prodotti" },
-  { value: "€832M", label: "spesa analizzata" },
-  { value: "261.153", label: "righe di dispensazione" },
-  { value: "21", label: "regioni" },
+  { value: "€29,7 mld", label: "spesa nazionale 2025" },
+  { value: "529.979", label: "record nazionali" },
+  { value: "21", label: "regioni e province" },
+  { value: "73,8%", label: "prodotti interpretati" },
 ];
 
-const OGGI = [
-  "Cruscotti Excel scollegati fra loro",
-  "Dati regionali frammentati",
-  "Opportunità di risparmio scoperte in ritardo",
-  "Tempo professionale assorbito da ricerca manuale",
-];
+const BENEFITS = [
+  {
+    icon: LineChart,
+    kicker: "Vedi prima",
+    title: "Scopri lo scostamento mentre puoi ancora agire.",
+    visual: "trend",
+  },
+  {
+    icon: CircleDollarSign,
+    kicker: "Confronta bene",
+    title: "Misura il costo vero, non il prezzo della confezione.",
+    visual: "cost",
+  },
+  {
+    icon: SearchCheck,
+    kicker: "Verifica subito",
+    title: "Dal segnale alla fonte, senza ricostruire PDF.",
+    visual: "evidence",
+  },
+] as const;
 
-const CON_VIS = [
-  "Un'unica vista consolidata",
-  "Opportunità segnalate con finestra temporale utile",
-  "Decisioni tracciabili e verificabili da terzi",
-];
+function DashboardPreview() {
+  return (
+    <div className="relative mx-auto w-full max-w-2xl">
+      <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_top_left,hsl(174_70%_79%/0.55),transparent_48%),radial-gradient(circle_at_bottom_right,hsl(204_65%_82%/0.45),transparent_46%)] blur-2xl" />
+      <div className="overflow-hidden rounded-[1.7rem] border border-white/80 bg-white shadow-[0_36px_100px_-42px_rgba(13,43,52,0.6)]">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-rose-300" />
+            <span className="size-2 rounded-full bg-amber-300" />
+            <span className="size-2 rounded-full bg-emerald-300" />
+          </div>
+          <span className="rounded-full bg-teal-50 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-teal-700">Dati verificabili</span>
+        </div>
+        <div className="grid min-h-[29rem] grid-cols-[5rem_1fr] sm:grid-cols-[8.5rem_1fr]">
+          <aside className="bg-[hsl(204_48%_17%)] p-3 text-white sm:p-4">
+            <div className="mb-7 flex size-9 items-center justify-center rounded-xl bg-[hsl(174_66%_40%)] text-[11px] font-bold">VIS</div>
+            <div className="space-y-2">
+              {[BarChart3, DatabaseZap, Route, FileCheck2].map((Icon, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center gap-2 rounded-lg px-2.5 py-2.5 ${index === 0 ? "bg-[hsl(174_66%_40%)]" : "text-white/55"}`}
+                >
+                  <Icon size={14} />
+                  <span className="hidden text-[10px] font-medium sm:block">{["Spesa", "Biosimilari", "Benchmark", "Qualità"][index]}</span>
+                </div>
+              ))}
+            </div>
+          </aside>
+          <div className="min-w-0 bg-[hsl(210_25%_98%)] p-4 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-700">Quadro esecutivo</p>
+                <h2 className="mt-1 text-xl font-semibold text-slate-900">Spesa e consumo</h2>
+              </div>
+              <span className="text-[10px] text-slate-400">Italia · 2025</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {[
+                ["Spesa", "€29,7 mld"],
+                ["Var. a/a", "+5,9%"],
+                ["Copertura", "73,8%"],
+                ["Regioni", "21"],
+              ].map(([label, value], index) => (
+                <div key={label} className={`rounded-xl border p-3 ${index === 0 ? "border-teal-200 bg-teal-50" : "border-slate-100 bg-white"}`}>
+                  <p className="text-[8px] uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-[1.45fr_0.75fr]">
+              <div className="rounded-xl border border-slate-100 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-slate-700">Spesa per categoria ATC</p>
+                  <span className="text-[8px] text-slate-400">milioni €</span>
+                </div>
+                <div className="mt-5 flex h-36 items-end justify-around gap-3 border-b border-slate-100 px-2">
+                  {[84, 44, 31, 24, 18].map((height, index) => (
+                    <div key={index} className="flex h-full flex-1 items-end gap-1">
+                      <div className="w-1/2 rounded-t bg-slate-200" style={{ height: `${height - 5}%` }} />
+                      <div className="w-1/2 rounded-t bg-[hsl(174_66%_40%)]" style={{ height: `${height}%` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex justify-around text-[8px] text-slate-400"><span>L</span><span>B</span><span>A</span><span>J</span><span>N</span></div>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-white p-4">
+                <p className="text-[10px] font-semibold text-slate-700">Segnali</p>
+                <div className="mt-4 space-y-3">
+                  {["ATC L", "Biosimilari", "Mapping"].map((label, index) => (
+                    <div key={label} className="flex items-center justify-between gap-2">
+                      <span className="text-[9px] text-slate-500">{label}</span>
+                      <span className={`text-[9px] font-semibold ${index === 1 ? "text-emerald-600" : "text-rose-500"}`}>{["+€608M", "91,4%", "73,8%"][index]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="absolute -bottom-5 -left-3 rounded-2xl border border-white bg-white px-4 py-3 shadow-xl sm:-left-8">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-teal-700">Segnale pronto</p>
+        <p className="mt-1 text-sm font-semibold text-slate-900">ATC L · +7,4%</p>
+      </div>
+    </div>
+  );
+}
 
-const PERCORSO = [
-  {
-    n: "0",
-    name: "Programmazione",
-    desc: "ricerca sui farmaci in arrivo, stime d'impatto",
-  },
-  {
-    n: "1",
-    name: "Reportistica",
-    desc: "analisi di spesa direzionale e ad hoc",
-  },
-  {
-    n: "2",
-    name: "Acquisto",
-    desc: "istruttoria gare, Commissione Terapeutica",
-  },
-  {
-    n: "3",
-    name: "Scorte",
-    desc: "monitoraggio scadenze e redistribuzioni",
-  },
-  {
-    n: "4",
-    name: "Allestimento",
-    desc: "quadrature consumi oncologici",
-  },
-  {
-    n: "5",
-    name: "Rendicontazione",
-    desc: "riconciliazione File F, registri AIFA",
-  },
-  {
-    n: "6",
-    name: "Confronto e chiusura",
-    desc: "benchmark fra Aziende (solo titolarità regionale)",
-  },
-];
-
-const MODULES = [
-  { id: "M1", outcome: "Scostamenti di spesa rilevati mentre l'esercizio è ancora aperto" },
-  { id: "M2", outcome: "Nessuna scadenza brevettuale scoperta in ritardo" },
-  { id: "M3", outcome: "Nessun rimborso perso per termini scaduti" },
-  { id: "M4", outcome: "Scorte a rischio di scadenza segnalate prima che diventino una perdita" },
-  { id: "M5", outcome: "Sprechi di allestimento oncologico misurati in aggregato, mai per paziente" },
-  { id: "M6", outcome: "Ogni Azienda confrontata sulla stessa molecola, stesso canale — solo titolarità regionale" },
-  { id: "M7", outcome: "Impatto di budget stimato prima che il farmaco entri in prontuario" },
-];
-
-const CORE_LINE = "Ogni euro farmaceutico segue un percorso. Ora è visibile.";
+function BenefitVisual({ type }: { type: (typeof BENEFITS)[number]["visual"] }) {
+  if (type === "trend") {
+    return (
+      <div className="flex h-32 items-end gap-2 rounded-2xl bg-white p-5">
+        {[38, 48, 45, 63, 59, 78, 91].map((height, index) => (
+          <div key={index} className="flex h-full flex-1 items-end">
+            <div className="w-full rounded-t bg-primary" style={{ height: `${height}%`, opacity: 0.35 + index * 0.08 }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (type === "cost") {
+    return (
+      <div className="flex h-32 flex-col justify-center gap-4 rounded-2xl bg-white p-5">
+        <div><div className="mb-1 flex justify-between text-[9px] text-slate-400"><span>Prezzo confezione</span><span>€124</span></div><div className="h-2 rounded-full bg-slate-100"><div className="h-full w-4/5 rounded-full bg-slate-300" /></div></div>
+        <div><div className="mb-1 flex justify-between text-[9px] font-semibold text-teal-700"><span>Costo normalizzato</span><span>€0,42/mg</span></div><div className="h-2 rounded-full bg-teal-50"><div className="h-full w-2/5 rounded-full bg-primary" /></div></div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-32 items-center justify-center rounded-2xl bg-white p-5">
+      {[UploadCloud, DatabaseZap, FileCheck2].map((Icon, index) => (
+        <div key={index} className="flex items-center">
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-secondary text-primary"><Icon size={20} /></span>
+          {index < 2 && <span className="mx-2 h-px w-6 bg-primary/35" />}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="flex min-h-svh w-full flex-col">
-      {/* Nav */}
-      <nav className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3 md:px-10">
+    <div className="min-h-svh overflow-hidden bg-background">
+      <DemoPrompt />
+
+      <nav className="sticky top-0 z-30 border-b border-border/80 bg-white/90 backdrop-blur-xl dark:bg-background/90">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-5 py-3.5 md:px-8">
           <VisLogo size="sm" />
-          <div className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            {NAV_LINKS.map((l) => (
-              <a key={l.href} href={l.href} className="hover:text-foreground">
-                {l.label}
-              </a>
-            ))}
+          <div className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
+            <a href="#benefici" className="hover:text-foreground">Benefici</a>
+            <a href="#come-funziona" className="hover:text-foreground">Come funziona</a>
+            <a href="#evidenze" className="hover:text-foreground">Evidenze</a>
           </div>
-          <Button asChild size="sm">
-            <Link href="/auth/login">Accedi</Link>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <ThemeSwitcher />
+            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link href="/auth/login">Accedi</Link></Button>
+            <Button asChild size="sm"><Link href="/auth/sign-up">Registrati</Link></Button>
+          </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="w-full px-6 pb-16 pt-16 md:px-10 md:pt-24">
-        <div className="mx-auto max-w-3xl text-center">
-          <Reveal>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
-              Governance della spesa farmaceutica
-            </p>
-          </Reveal>
-          <Reveal delay={80}>
-            <h1 className="font-display mt-5 text-3xl leading-tight md:text-5xl">
-              Ogni euro farmaceutico segue <span className="text-primary">un percorso</span>. Ora è
-              visibile.
-            </h1>
-          </Reveal>
-          <Reveal delay={160}>
-            <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground md:text-lg">
-              <strong className="font-semibold text-foreground">
-                La piattaforma non genera il risparmio.
-              </strong>{" "}
-              Riduce il ritardo tra un&apos;opportunità e la decisione di
-              coglierla.
-            </p>
-          </Reveal>
-          <Reveal delay={240}>
-            <div className="mt-8">
-              <Button asChild size="lg">
-                <Link href="/auth/login">Accedi alla piattaforma</Link>
-              </Button>
+      <main>
+        <section className="relative px-5 pb-24 pt-16 md:px-8 md:pb-32 md:pt-24">
+          <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-[0.82fr_1.18fr]">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary shadow-sm dark:bg-card">
+                <ShieldCheck size={14} /> Governance farmaceutica, non clinica
+              </div>
+              <h1 className="mt-7 max-w-xl text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-foreground md:text-7xl">
+                Vedi prima.<br /><span className="text-primary">Decidi meglio.</span>
+              </h1>
+              <p className="mt-6 max-w-lg text-lg leading-8 text-muted-foreground md:text-xl">
+                Trasforma i dati farmaceutici già disponibili in segnali economici verificabili.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button asChild size="lg" className="rounded-xl px-6"><Link href="/auth/sign-up">Registrati per la demo <ArrowRight size={17} /></Link></Button>
+                <Button asChild size="lg" variant="outline" className="rounded-xl px-6"><Link href="/auth/login">Accedi</Link></Button>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
+                {["Dati AIFA e regionali", "€/mg e €/DDD", "Nessun dato paziente"].map((item) => (
+                  <span key={item} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Check size={14} className="text-primary" /> {item}</span>
+                ))}
+              </div>
             </div>
-          </Reveal>
-          <Reveal delay={320}>
-            <div className="mx-auto mt-10 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-3">
-              {TRUST_ROW.map((t) => (
-                <span
-                  key={t}
-                  className="flex items-center gap-1.5 text-sm text-muted-foreground"
-                >
-                  <Check className="h-4 w-4 shrink-0 text-primary" />
-                  {t}
-                </span>
-              ))}
+            <DashboardPreview />
+          </div>
+        </section>
+
+        <section id="evidenze" className="border-y border-border bg-white px-5 py-8 dark:bg-card md:px-8">
+          <div className="mx-auto grid max-w-6xl grid-cols-2 gap-7 md:grid-cols-4">
+            {PROOF_STATS.map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">{stat.value}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="benefici" className="px-5 py-20 md:px-8 md:py-28">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Il beneficio, subito</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">Meno ricerca. Più tempo per agire.</h2>
             </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* Proof strip */}
-      <section className="w-full border-y border-border bg-secondary/40 px-6 py-12 md:px-10">
-        <div className="mx-auto max-w-5xl">
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-            {PROOF_STATS.map((s, i) => (
-              <Reveal key={s.label} delay={i * 100}>
-                <div className="text-center">
-                  <p className="font-display text-3xl text-foreground md:text-4xl">
-                    {s.value}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {s.label}
-                  </p>
-                </div>
-              </Reveal>
-            ))}
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {BENEFITS.map((benefit) => {
+                const Icon = benefit.icon;
+                return (
+                  <article key={benefit.kicker} className="rounded-3xl border border-border bg-secondary/35 p-5 md:p-6">
+                    <BenefitVisual type={benefit.visual} />
+                    <div className="mt-6 flex items-start gap-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm dark:bg-card"><Icon size={19} /></span>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-primary">{benefit.kicker}</p>
+                        <h3 className="mt-2 text-xl font-semibold leading-7 text-foreground">{benefit.title}</h3>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Il contesto */}
-      <section id="come-funziona" className="w-full px-6 py-16 md:px-10">
-        <div className="mx-auto max-w-4xl">
-          <Reveal>
-            <h2 className="font-display text-center text-2xl md:text-3xl">
-              Il contesto
-            </h2>
-          </Reveal>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <Reveal>
-              <Card className="h-full">
-                <div className="p-6">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Oggi
-                  </p>
-                  <ul className="mt-4 flex flex-col gap-3">
-                    {OGGI.map((row) => (
-                      <li
-                        key={row}
-                        className="flex gap-2 text-sm text-muted-foreground"
-                      >
-                        <span>−</span>
-                        <span>{row}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Card>
-            </Reveal>
-            <Reveal delay={100}>
-              <Card className="h-full">
-                <div className="p-6">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                    Con VIS PHARMA COMPASS
-                  </p>
-                  <ul className="mt-4 flex flex-col gap-3">
-                    {CON_VIS.map((row) => (
-                      <li
-                        key={row}
-                        className="flex gap-2 text-sm text-foreground"
-                      >
-                        <span className="text-primary">＋</span>
-                        <span>{row}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Card>
-            </Reveal>
+        <section id="come-funziona" className="px-5 pb-20 md:px-8 md:pb-28">
+          <div className="mx-auto max-w-6xl rounded-[2rem] bg-[hsl(204_48%_17%)] px-6 py-10 text-white md:px-10 md:py-12">
+            <div className="grid gap-8 md:grid-cols-[0.72fr_1.28fr] md:items-center">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[hsl(174_70%_62%)]">Un percorso semplice</p>
+                <h2 className="mt-3 text-3xl font-semibold leading-tight md:text-4xl">Dal file alla decisione.</h2>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  [UploadCloud, "1", "Carica"],
+                  [DatabaseZap, "2", "Normalizza"],
+                  [FileCheck2, "3", "Verifica"],
+                ].map(([Icon, number, label]) => {
+                  const StepIcon = Icon as typeof UploadCloud;
+                  return (
+                    <div key={label as string} className="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
+                      <span className="flex size-11 items-center justify-center rounded-xl bg-white/10 text-[hsl(174_70%_62%)]"><StepIcon size={20} /></span>
+                      <div><p className="text-[9px] text-white/45">{number as string}</p><p className="font-semibold">{label as string}</p></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* MDR callout */}
-      <section id="sicurezza" className="w-full px-6 pb-16 md:px-10">
-        <Reveal>
-          <div className="mx-auto flex max-w-3xl items-start gap-4 rounded-lg border border-border bg-card p-6">
-            <ShieldCheck className="h-6 w-6 shrink-0 text-primary" />
-            <p className="text-sm leading-relaxed text-foreground">
-              <strong className="font-semibold">
-                Conforme al confine EU MDR.
-              </strong>{" "}
-              Ogni modulo restituisce dati aggregati a livello organizzativo
-              — nessuna raccomandazione clinica per singolo paziente.
-            </p>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* Il percorso dell'euro farmaceutico */}
-      <section id="percorso" className="w-full bg-secondary/40 px-6 py-16 md:px-10">
-        <div className="mx-auto max-w-6xl">
-          <Reveal>
-            <h2 className="font-display text-center text-2xl md:text-3xl">
-              Il percorso dell&apos;euro farmaceutico
-            </h2>
-          </Reveal>
-          <div className="mt-12 flex flex-col gap-6 md:flex-row md:flex-wrap md:justify-center md:gap-4">
-            {PERCORSO.map((t, i) => (
-              <Reveal key={t.n} delay={i * 60} className="md:w-[calc(25%-0.75rem)] md:min-w-[180px]">
-                <div className="flex gap-4 md:flex-col md:gap-2">
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                    style={{
-                      backgroundColor: "hsl(174 82% 39% / 0.12)",
-                      color: "hsl(174 70% 28%)",
-                    }}
-                  >
-                    {t.n}
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {t.name}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {t.desc}
-                    </p>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-          <Reveal delay={480}>
-            <p className="mx-auto mt-12 max-w-xl text-center text-sm text-muted-foreground">
-              114 giornate/anno oggi, 60 liberate — una riduzione del 53%.
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* I moduli */}
-      <section id="moduli" className="w-full px-6 py-16 md:px-10">
-        <div className="mx-auto max-w-5xl">
-          <Reveal>
-            <h2 className="font-display text-center text-2xl md:text-3xl">
-              I moduli
-            </h2>
-          </Reveal>
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {MODULES.map((m, i) => (
-              <Reveal key={m.id} delay={(i % 3) * 80}>
-                <Card className="h-full">
-                  <div className="p-6">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {m.id}
-                    </span>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {m.outcome}
-                    </p>
-                  </div>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Closing CTA */}
-      <section className="w-full border-y border-border bg-secondary/40 px-6 py-16 md:px-10">
-        <Reveal>
-          <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 text-center">
-            <h2 className="font-display text-2xl md:text-3xl">
-              {CORE_LINE}
-            </h2>
-            <Button asChild size="lg">
-              <Link href="/auth/login">Accedi alla piattaforma</Link>
+        <section className="px-5 pb-20 md:px-8 md:pb-28">
+          <div className="mx-auto max-w-5xl rounded-[2.2rem] bg-[linear-gradient(135deg,hsl(174_66%_38%),hsl(174_58%_31%))] px-6 py-14 text-center text-white shadow-[0_30px_80px_-45px_rgba(13,148,136,0.8)] md:px-12 md:py-20">
+            <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">Porta i tuoi dati. Trova il prossimo segnale.</h2>
+            <Button asChild size="lg" variant="secondary" className="mt-7 rounded-xl bg-white px-7 text-[hsl(174_58%_28%)] hover:bg-white/90">
+              <Link href="/auth/sign-up">Registrati per la demo <ArrowRight size={17} /></Link>
             </Button>
           </div>
-        </Reveal>
-      </section>
+        </section>
+      </main>
 
-      {/* Footer */}
-      <footer className="w-full px-6 py-10 md:px-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8">
-          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <VisLogo size="sm" />
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              {NAV_LINKS.map((l) => (
-                <a key={l.href} href={l.href} className="hover:text-foreground">
-                  {l.label}
-                </a>
-              ))}
-            </div>
-          </div>
-          <div className="border-t border-border pt-6">
-            <p className="text-center text-xs leading-relaxed text-muted-foreground">
-              Strumento di governance organizzativa — non genera
-              raccomandazioni cliniche né dosaggi per singolo paziente.
-            </p>
-          </div>
+      <footer className="border-t border-border bg-white px-5 py-7 dark:bg-card md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <VisLogo size="sm" />
+          <p>Governance organizzativa · dati aggregati · nessuna raccomandazione clinica</p>
         </div>
       </footer>
     </div>

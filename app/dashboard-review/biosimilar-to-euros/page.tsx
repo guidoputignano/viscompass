@@ -2,11 +2,11 @@ import Link from "next/link";
 import { ArrowRight, BadgeEuro, Beaker, CircleGauge, ShieldCheck } from "lucide-react";
 import {
   DecisionFrame,
-  EmptyState,
   KpiCard,
   MethodologyPanel,
   PageHeader,
   StatusPill,
+  TemplateNotice,
 } from "@/components/dashboard-review/analytics-ui";
 import { getBiosimilarComparison } from "@/lib/dashboard-review/queries";
 import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
@@ -15,6 +15,7 @@ const BASIS = { mg: "mg", packs: "confezioni", spend: "spesa" } as const;
 
 export default async function BiosimilarToEurosPage() {
   const rows = await getBiosimilarComparison();
+  const isTemplate = rows.length === 0;
   const totalSavings = rows.reduce((sum, row) => sum + row.potential_savings_eur, 0);
   const originatorSpend = rows.reduce((sum, row) => sum + row.originator_spend_eur, 0);
   const readyRows = rows.filter((row) => row.evidence_status === "ready");
@@ -27,28 +28,52 @@ export default async function BiosimilarToEurosPage() {
     <div className="flex flex-col gap-7">
       <PageHeader
         eyebrow="Intelligence biosimilari"
-        title="Dalla penetrazione alla materialità economica."
-        description="Il radar mette la molecola al centro: esposizione originator, penetrazione biosimilare, costo normalizzato e opportunità osservabile. Nessuna equivalenza clinica viene inferita dal prezzo."
+        title="Penetrazione, costo, opportunità."
+        description="Confronti economici normalizzati, molecola per molecola."
         period={rows[0] ? `Periodo ${rows[0].latest_year}` : "Periodo non disponibile"}
         scope={`${rows.length} molecole osservate`}
       />
 
-      <DecisionFrame
-        changed={top ? `${top.active_substance} presenta il segnale economico più rilevante nel periodo.` : "Nessun confronto originator/biosimilare disponibile."}
-        variance={top?.biosimilar_penetration !== null && top ? `Per ${top.active_substance} la penetrazione osservata è ${formatPercent(top.biosimilar_penetration!)} su base ${BASIS[top.penetration_basis]}.` : "La penetrazione richiede almeno una misura di volume, confezioni o spesa."}
-        materiality={totalSavings > 0 ? `${formatEur(totalSavings)} di differenziale teorico complessivo supportato dai confronti €/mg disponibili.` : "Nessuna opportunità economica normalizzata dimostrabile."}
-        nextEvidence={top ? `Verificare per ${top.active_substance}: copertura della normalizzazione, canale, AIC inclusi e validità del mapping originator/biosimilare.` : "Completare il mapping AIC e la normalizzazione del contenuto per confezione."}
-      />
+      {isTemplate ? (
+        <TemplateNotice source="Abruzzo · eritropoietina · 2025" />
+      ) : (
+        <DecisionFrame
+          changed={top ? `${top.active_substance} guida il segnale` : "Nessun confronto"}
+          variance={top?.biosimilar_penetration !== null && top ? `${formatPercent(top.biosimilar_penetration!)} · ${BASIS[top.penetration_basis]}` : "Penetrazione da calcolare"}
+          materiality={totalSavings > 0 ? `${formatEur(totalSavings)} osservabili` : "€/mg da completare"}
+          nextEvidence={top ? `Verifica ${top.active_substance}` : "Completa il mapping AIC"}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard accent label="Opportunità osservabile" value={formatEur(totalSavings)} detail="Differenziale teorico, non risparmio garantito" icon={BadgeEuro} />
-        <KpiCard label="Spesa originator" value={formatEur(originatorSpend)} detail={weightedOriginatorShare === null ? "Quota non calcolabile" : `${formatPercent(weightedOriginatorShare)} della spesa nelle molecole mappate`} icon={Beaker} />
-        <KpiCard label="Molecole confrontate" value={formatNumber(rows.length, 0)} detail={`${readyRows.length} con evidenza pronta`} icon={CircleGauge} />
-        <KpiCard label="Copertura pronta" value={rows.length === 0 ? "—" : formatPercent(readyRows.length / rows.length)} detail="Costo originator e biosimilare normalizzato" icon={ShieldCheck} />
+        {isTemplate ? (
+          <>
+            <KpiCard accent label="Penetrazione" value={formatPercent(67_894 / (67_894 + 6_355))} detail="BINOCRIT vs EPREX" icon={BadgeEuro} />
+            <KpiCard label="Spesa biosim." value={formatEur(2_759_668.27)} icon={Beaker} />
+            <KpiCard label="Spesa originator" value={formatEur(548_476.54)} icon={CircleGauge} />
+            <KpiCard label="ASL" value="4" icon={ShieldCheck} />
+          </>
+        ) : (
+          <>
+            <KpiCard accent label="Opportunità" value={formatEur(totalSavings)} icon={BadgeEuro} />
+            <KpiCard label="Spesa originator" value={formatEur(originatorSpend)} detail={weightedOriginatorShare === null ? undefined : formatPercent(weightedOriginatorShare)} icon={Beaker} />
+            <KpiCard label="Molecole" value={formatNumber(rows.length, 0)} detail={`${readyRows.length} pronte`} icon={CircleGauge} />
+            <KpiCard label="Copertura" value={formatPercent(readyRows.length / rows.length)} icon={ShieldCheck} />
+          </>
+        )}
       </div>
 
-      {rows.length === 0 ? (
-        <EmptyState title="Nessun confronto disponibile" detail="Servono molecole classificate come originator o biosimilare nel perimetro autorizzato." />
+      {isTemplate ? (
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Esempio</p><h2 className="mt-1 text-xl font-semibold">Biosimilare vs originator</h2></div>
+            <Link href="/dashboard-review/dati" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Carica dati <ArrowRight size={13} /></Link>
+          </div>
+          <div className="mt-7 space-y-5">
+            <div><div className="mb-2 flex justify-between text-xs"><span>BINOCRIT</span><span className="font-semibold">67.894 confezioni</span></div><div className="h-3 rounded-full bg-secondary"><div className="h-full w-[91.4%] rounded-full bg-primary" /></div></div>
+            <div><div className="mb-2 flex justify-between text-xs"><span>EPREX</span><span className="font-semibold">6.355 confezioni</span></div><div className="h-3 rounded-full bg-secondary"><div className="h-full w-[8.6%] rounded-full bg-slate-300" /></div></div>
+          </div>
+        </section>
       ) : (
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border p-5 md:p-6">

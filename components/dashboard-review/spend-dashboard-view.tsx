@@ -9,8 +9,8 @@ export function SpendDashboardView({ dashboard }: { dashboard: SpendDashboardDat
     <div className="flex flex-col gap-7">
       <PageHeader
         eyebrow="Quadro esecutivo"
-        title="Dai dati mensili alla prossima decisione verificabile."
-        description="Spesa, consumo, variazioni, opportunità biosimilari e qualità in un’unica lettura. Ogni segnale apre il dettaglio territoriale, terapeutico e metodologico che lo sostiene."
+        title="Spesa e opportunità, in sintesi."
+        description="Variazioni, priorità e qualità del dato in un’unica vista."
         period={dashboard.latest_year ? `Periodo ${dashboard.latest_year}` : "Periodo non disponibile"}
         scope={dashboard.geography_count > 0 ? `${dashboard.geography_count} ambiti autorizzati` : "Perimetro RLS"}
       />

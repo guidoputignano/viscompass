@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { VisLogo } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,7 +94,7 @@ function MetricCard({
             </div>
             <div
               className={`rounded-lg p-2.5 ${
-                active ? "bg-[hsl(174_46%_24%)] text-white" : "bg-secondary text-muted-foreground"
+                active ? "bg-primary text-primary-foreground shadow-sm" : "bg-secondary text-muted-foreground"
               }`}
             >
               <Icon size={17} />
@@ -454,6 +455,7 @@ export function AccessControlCenter({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeSwitcher />
             <Button asChild variant="outline" size="sm">
               <Link href="/dashboard-review/spend">
                 <ArrowLeft size={14} />
@@ -472,11 +474,8 @@ export function AccessControlCenter({
               <ShieldCheck size={15} />
               Governance degli accessi
             </div>
-            <h1 className="font-display text-3xl md:text-5xl">Permessi, inviti e candidature.</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Una vista operativa per concedere il minimo accesso necessario, documentare ogni
-              decisione e revocare immediatamente i permessi quando cambiano le responsabilità.
-            </p>
+            <h1 className="font-display text-3xl md:text-5xl">Accessi e inviti.</h1>
+            <p className="mt-3 text-sm text-muted-foreground">Approva, invita o revoca da un’unica vista.</p>
           </div>
           <div className="rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
             Sessione amministratore

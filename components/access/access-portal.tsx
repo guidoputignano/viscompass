@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { VisLogo } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,7 +76,7 @@ function InvitationCard({ invitation }: { invitation: OrganizationInvitation }) 
       <CardContent className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center">
         <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Badge className="border-0 bg-[hsl(174_46%_24%)] text-white hover:bg-[hsl(174_46%_24%)]">
+            <Badge className="border-0 bg-primary text-primary-foreground hover:bg-primary">
               Invito ricevuto
             </Badge>
             <span className="text-xs text-muted-foreground">
@@ -164,6 +165,7 @@ export function AccessPortal({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 md:px-8">
           <VisLogo size="sm" />
           <div className="flex items-center gap-2">
+            <ThemeSwitcher />
             {isAdmin && (
               <Button asChild variant="outline" size="sm">
                 <Link href="/admin/control-center">
@@ -185,26 +187,22 @@ export function AccessPortal({
               Accesso organizzativo
             </div>
             <h1 className="font-display max-w-3xl text-3xl leading-tight md:text-5xl">
-              Richiedi l&apos;accesso al perimetro dati della tua organizzazione.
+              Richiedi accesso alla demo.
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-              Ogni richiesta viene verificata prima di rendere visibili dati, confronti e moduli di
-              governance. L&apos;accesso resta separato dall&apos;autenticazione e viene tracciato.
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
+              Scegli organizzazione e ruolo. Un amministratore verifica la richiesta.
             </p>
           </div>
 
-          <Card className="bg-[hsl(204_63%_12%)] text-white shadow-none">
+          <Card className="border-primary/20 bg-[hsl(174_46%_96%)] shadow-none dark:bg-primary/10">
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
-                <div className="rounded-full bg-white/10 p-2.5 text-[hsl(78_75%_60%)]">
+                <div className="rounded-xl bg-white p-2.5 text-primary shadow-sm dark:bg-card">
                   <UserRoundCheck size={18} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.14em] text-white/55">Account verificato</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Account verificato</p>
                   <p className="mt-1 truncate text-sm font-medium">{overview.email}</p>
-                  <p className="mt-2 text-xs leading-5 text-white/60">
-                    L&apos;identità è confermata. Manca solo il perimetro organizzativo.
-                  </p>
                 </div>
               </div>
             </CardContent>
@@ -246,9 +244,6 @@ export function AccessPortal({
                 </div>
                 <div>
                   <CardTitle className="font-display text-2xl">Candidatura demo</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Seleziona il perimetro e spiega brevemente il tuo ruolo.
-                  </p>
                 </div>
               </div>
             </CardHeader>
@@ -291,7 +286,7 @@ export function AccessPortal({
                   <Textarea
                     id="access-message"
                     maxLength={1200}
-                    rows={4}
+                    rows={3}
                     value={requestMessage}
                     onChange={(event) => setRequestMessage(event.target.value)}
                     placeholder="Quali analisi o decisioni desideri supportare con la demo?"

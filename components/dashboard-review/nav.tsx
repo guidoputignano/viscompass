@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { VisLogo } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import type { Organization } from "@/lib/dashboard-review/types";
 
 const NAV_GROUPS = [
@@ -62,9 +63,12 @@ export function DashboardReviewNav({
   return (
     <div className="flex min-h-svh w-full max-w-full flex-col overflow-x-hidden md:flex-row">
       <aside className="flex w-full flex-col gap-6 border-b border-border bg-card px-5 py-5 md:sticky md:top-0 md:min-h-svh md:w-64 md:self-start md:border-b-0 md:border-r md:px-6 md:py-6">
-        <Link href="/dashboard-review/spend" aria-label="Vai alla panoramica della spesa">
-          <VisLogo size="sm" />
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/dashboard-review/spend" aria-label="Vai alla panoramica della spesa">
+            <VisLogo size="sm" />
+          </Link>
+          <ThemeSwitcher />
+        </div>
 
         <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary/35 p-3.5">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -94,13 +98,13 @@ export function DashboardReviewNav({
                       className={
                         "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors " +
                         (active
-                          ? "bg-[hsl(174_46%_24%)] text-white"
+                          ? "bg-primary text-primary-foreground shadow-sm"
                           : "text-foreground hover:bg-secondary")
                       }
                     >
                       <Icon
                         aria-hidden="true"
-                        className={active ? "text-[hsl(78_75%_60%)]" : "text-muted-foreground"}
+                        className={active ? "text-white" : "text-muted-foreground"}
                         size={15}
                         strokeWidth={1.8}
                       />

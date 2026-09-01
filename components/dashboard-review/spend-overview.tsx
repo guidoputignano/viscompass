@@ -15,6 +15,7 @@ import {
   KpiCard,
   MethodologyPanel,
   StatusPill,
+  TemplateNotice,
 } from "@/components/dashboard-review/analytics-ui";
 import type { ReviewSeverity, SpendDashboardData } from "@/lib/dashboard-review/types";
 import { formatDate, formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
@@ -31,8 +32,27 @@ const BASIS_LABEL = {
   spend: "spesa",
 } as const;
 
+// Verified figures from the project's National_Profile workbook sheet.
+// They are presentation-only and are never merged into organization data.
+const TEMPLATE_NATIONAL_TREND = [
+  { key: "template-2023", label: "2023", spend_eur: 26_299_621_615.61 },
+  { key: "template-2024", label: "2024", spend_eur: 28_100_038_686.97 },
+  { key: "template-2025", label: "2025", spend_eur: 29_749_144_556.31 },
+];
+
+const TEMPLATE_ATC = [
+  {
+    code: "L",
+    label: "Antineoplastici e immunomodulatori",
+    spend_eur: 8_808_129_065.17,
+    share: 8_808_129_065.17 / 29_749_144_556.31,
+  },
+];
+
 function TrendPanel({ data }: { data: SpendDashboardData }) {
-  const max = Math.max(...data.trend.map((point) => point.spend_eur), 0);
+  const isTemplate = data.trend.length === 0;
+  const trend = isTemplate ? TEMPLATE_NATIONAL_TREND : data.trend;
+  const max = Math.max(...trend.map((point) => point.spend_eur), 0);
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
       <div className="flex items-start justify-between gap-4">
@@ -40,16 +60,13 @@ function TrendPanel({ data }: { data: SpendDashboardData }) {
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
           <h2 className="font-display mt-1 text-xl">Spesa nel tempo</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {data.trend_granularity === "month" ? `Mesi disponibili nel ${data.latest_year}` : "Annualità disponibili"}
+            {isTemplate ? "Template nazionale · 2023–2025" : data.trend_granularity === "month" ? `Mesi · ${data.latest_year}` : "Annualità"}
           </p>
         </div>
-        <Delta value={data.spend_yoy} />
+        <Delta value={isTemplate ? 0.0587 : data.spend_yoy} />
       </div>
-      {data.trend.length === 0 ? (
-        <div className="mt-5"><EmptyState title="Serie non disponibile" detail="Carica almeno un periodo con spesa per visualizzare la traiettoria." /></div>
-      ) : (
-        <div className="mt-7 flex h-56 items-end gap-2 border-b border-border sm:gap-3">
-          {data.trend.map((point) => {
+      <div className="mt-7 flex h-48 items-end gap-3 border-b border-border sm:gap-5">
+          {trend.map((point) => {
             const height = max > 0 ? Math.max((point.spend_eur / max) * 100, 3) : 3;
             return (
               <div key={point.key} className="group flex h-full min-w-0 flex-1 flex-col justify-end">
@@ -57,31 +74,32 @@ function TrendPanel({ data }: { data: SpendDashboardData }) {
                   {formatEur(point.spend_eur)}
                 </span>
                 <div
-                  className="w-full rounded-t bg-[hsl(174_45%_38%)] transition-all group-hover:bg-primary"
+                  className={`w-full rounded-t bg-[hsl(174_55%_42%)] transition-all group-hover:bg-primary ${isTemplate ? "opacity-55" : ""}`}
                   style={{ height: `${height}%` }}
-                  title={`${point.label}: ${formatEur(point.spend_eur)}`}
+                  title={`${isTemplate ? "Template nazionale · " : ""}${point.label}: ${formatEur(point.spend_eur)}`}
                 />
                 <span className="mt-2 truncate text-center text-[10px] text-muted-foreground">{point.label}</span>
               </div>
             );
           })}
-        </div>
-      )}
+      </div>
     </section>
   );
 }
 
 function AtcPanel({ data }: { data: SpendDashboardData }) {
+  const isTemplate = data.atc_breakdown.length === 0;
+  const items = isTemplate ? TEMPLATE_ATC : data.atc_breakdown;
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
       <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione</p>
       <h2 className="font-display mt-1 text-xl">Dove si concentra la spesa</h2>
-      <p className="mt-1 text-xs text-muted-foreground">Prime categorie ATC nel periodo più recente</p>
+      <p className="mt-1 text-xs text-muted-foreground">{isTemplate ? "Template nazionale · 2025" : "Categorie principali"}</p>
       <div className="mt-5 divide-y divide-border">
-        {data.atc_breakdown.map((item) => (
+        {items.map((item) => (
           <Link
             key={item.code}
-            href={`/dashboard-review/ricerca?atc1=${encodeURIComponent(item.code)}`}
+            href={isTemplate ? "/dashboard-review/dati" : `/dashboard-review/ricerca?atc1=${encodeURIComponent(item.code)}`}
             className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-3 py-3 transition-colors hover:bg-secondary/35"
           >
             <span className="flex size-9 items-center justify-center rounded-lg bg-secondary font-mono text-xs font-bold">{item.code}</span>
@@ -153,17 +171,17 @@ function MoleculePanel({ data }: { data: SpendDashboardData }) {
 
 function ReviewQueue({ data }: { data: SpendDashboardData }) {
   return (
-    <section className="min-w-0 rounded-2xl border border-border bg-[hsl(204_48%_15%)] p-5 text-white shadow-sm md:p-6">
+    <section className="min-w-0 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(78_75%_60%)]">Coda di revisione</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Coda di revisione</p>
           <h2 className="font-display mt-1 text-xl">Evidenze da aprire</h2>
         </div>
-        <span className="flex size-9 items-center justify-center rounded-full bg-white/10"><ClipboardCheck size={17} /></span>
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary"><ClipboardCheck size={18} /></span>
       </div>
-      <div className="mt-5 divide-y divide-white/10">
+      <div className="mt-5 divide-y divide-border">
         {data.review_items.length === 0 ? (
-          <p className="py-5 text-xs leading-5 text-white/65">Nessun segnale attivo nel perimetro corrente.</p>
+          <p className="py-5 text-xs text-muted-foreground">Nessun segnale attivo.</p>
         ) : data.review_items.slice(0, 4).map((item) => (
           <Link key={item.id} href={item.href} className="group flex items-start justify-between gap-4 py-3.5">
             <div>
@@ -171,13 +189,13 @@ function ReviewQueue({ data }: { data: SpendDashboardData }) {
                 <p className="text-sm font-semibold">{item.title}</p>
                 <StatusPill tone={REVIEW_STYLE[item.severity]}>{item.value_label}</StatusPill>
               </div>
-              <p className="mt-1 text-xs leading-5 text-white/55">{item.context}</p>
+              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{item.context}</p>
             </div>
-            <ArrowRight className="mt-1 shrink-0 text-white/40 transition-transform group-hover:translate-x-1" size={15} />
+            <ArrowRight className="mt-1 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" size={15} />
           </Link>
         ))}
       </div>
-      <Link href="/dashboard-review/obiettivi" className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[hsl(78_75%_60%)] hover:underline">
+      <Link href="/dashboard-review/obiettivi" className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
         Apri tutte le revisioni <ArrowRight size={13} />
       </Link>
     </section>
@@ -185,29 +203,31 @@ function ReviewQueue({ data }: { data: SpendDashboardData }) {
 }
 
 export function SpendOverview({ data }: { data: SpendDashboardData }) {
+  const hasData = data.record_count > 0;
   const topAtc = data.atc_breakdown[0];
   const firstReview = data.review_items[0];
   const unresolvedShare = data.record_count > 0 ? data.unresolved_record_count / data.record_count : null;
   const yoyText = data.spend_yoy === null
-    ? "Manca un periodo precedente omogeneo per il confronto."
+    ? "Confronto da attivare"
     : `La spesa è ${data.spend_yoy >= 0 ? "aumentata" : "diminuita"} del ${formatPercent(Math.abs(data.spend_yoy))} rispetto al ${data.previous_year}.`;
 
   return (
     <div className="flex flex-col gap-6">
+      {!hasData && <TemplateNotice source="Anteprima con dati pubblici verificati" />}
       <DecisionFrame
         changed={yoyText}
-        variance={topAtc ? `${topAtc.label} concentra il ${formatPercent(topAtc.share)} della spesa osservata.` : "Classificazione ATC non disponibile."}
-        materiality={data.biosimilar_opportunity_eur > 0 ? `${formatEur(data.biosimilar_opportunity_eur)} di opportunità normalizzata osservabile.` : "Nessuna opportunità €/mg dimostrabile con i record normalizzati disponibili."}
-        nextEvidence={firstReview ? `${firstReview.title}: ${firstReview.context}` : "Nessun segnale attivo; verificare freschezza e copertura al prossimo caricamento."}
+        variance={topAtc ? `${topAtc.label}: ${formatPercent(topAtc.share)}` : "ATC da caricare"}
+        materiality={data.biosimilar_opportunity_eur > 0 ? `${formatEur(data.biosimilar_opportunity_eur)} osservabili` : "€/mg da normalizzare"}
+        nextEvidence={firstReview ? firstReview.title : "Carica il primo periodo"}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <KpiCard accent label="Spesa" value={formatEur(data.total_spend_eur)} detail={<Delta value={data.spend_yoy} />} icon={ReceiptEuro} />
-        <KpiCard label="Consumo" value={formatNumber(data.total_packs, 0)} detail={<Delta value={data.packs_yoy} suffix=" confezioni" />} icon={PackageOpen} />
-        <KpiCard label="Variazione a/a" value={data.spend_yoy === null ? "—" : formatPercent(data.spend_yoy)} detail={data.previous_year ? `Confronto con ${data.previous_year}` : "Periodo non confrontabile"} icon={Activity} />
-        <KpiCard label="Opportunità biosim." value={formatEur(data.biosimilar_opportunity_eur)} detail={data.biosimilar_penetration === null ? "Penetrazione non calcolabile" : `${formatPercent(data.biosimilar_penetration)} su ${BASIS_LABEL[data.biosimilar_penetration_basis!]}`} icon={BadgeEuro} />
-        <KpiCard label="Qualità irrisolta" value={formatNumber(data.unresolved_record_count, 0)} detail={unresolvedShare === null ? "Nessun record" : `${formatPercent(unresolvedShare)} del periodo`} icon={CircleAlert} />
-        <KpiCard label="Revisioni attive" value={formatNumber(data.active_review_count, 0)} detail="Segnali economici, obiettivi e qualità" icon={ClipboardCheck} />
+        <KpiCard accent label="Spesa" value={hasData ? formatEur(data.total_spend_eur) : "—"} detail={hasData ? <Delta value={data.spend_yoy} /> : "Da caricare"} icon={ReceiptEuro} />
+        <KpiCard label="Confezioni" value={hasData ? formatNumber(data.total_packs, 0) : "—"} detail={hasData ? <Delta value={data.packs_yoy} suffix=" confezioni" /> : "Da caricare"} icon={PackageOpen} />
+        <KpiCard label="Var. a/a" value={data.spend_yoy === null ? "—" : formatPercent(data.spend_yoy)} detail={data.previous_year ? `vs ${data.previous_year}` : undefined} icon={Activity} />
+        <KpiCard label="Opportunità" value={hasData ? formatEur(data.biosimilar_opportunity_eur) : "—"} detail={data.biosimilar_penetration === null ? undefined : `${formatPercent(data.biosimilar_penetration)} · ${BASIS_LABEL[data.biosimilar_penetration_basis!]}`} icon={BadgeEuro} />
+        <KpiCard label="Irrisolti" value={hasData ? formatNumber(data.unresolved_record_count, 0) : "—"} detail={unresolvedShare === null ? undefined : formatPercent(unresolvedShare)} icon={CircleAlert} />
+        <KpiCard label="Revisioni" value={hasData ? formatNumber(data.active_review_count, 0) : "—"} icon={ClipboardCheck} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.8fr)]">

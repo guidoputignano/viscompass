@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 160 13% 95%;
-    --foreground: 204 63% 12%;
+    --background: 210 25% 98%;
+    --foreground: 204 48% 16%;
     --card: 0 0% 100%;
-    --card-foreground: 204 63% 12%;
+    --card-foreground: 204 48% 16%;
     --popover: 0 0% 100%;
-    --popover-foreground: 204 63% 12%;
-    --primary: 174 82% 39%;
-    --primary-foreground: 204 63% 12%;
-    --secondary: 180 15% 91%;
-    --secondary-foreground: 204 40% 20%;
-    --muted: 180 12% 93%;
-    --muted-foreground: 204 15% 40%;
-    --accent: 174 30% 90%;
-    --accent-foreground: 204 63% 14%;
+    --popover-foreground: 204 48% 16%;
+    --primary: 174 66% 36%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 174 22% 94%;
+    --secondary-foreground: 204 36% 22%;
+    --muted: 210 20% 95%;
+    --muted-foreground: 204 14% 42%;
+    --accent: 174 35% 92%;
+    --accent-foreground: 204 48% 16%;
     --destructive: 12 58% 42%;
     --destructive-foreground: 0 0% 100%;
-    --border: 180 13% 88%;
-    --input: 180 13% 88%;
-    --ring: 174 82% 39%;
+    --border: 204 18% 88%;
+    --input: 204 18% 86%;
+    --ring: 174 66% 36%;
     --chart-1: 174 45% 42%;
     --chart-2: 160 25% 55%;
     --chart-3: 204 35% 28%;
@@ -66,7 +66,7 @@
     @apply bg-background text-foreground;
   }
   .font-display {
-    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
-      "Times New Roman", serif;
+    font-family: var(--font-source-sans), "Segoe UI", Arial, sans-serif;
+    font-weight: 600;
   }
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownRight,
@@ -8,6 +9,8 @@ import {
   Euro,
   FileSearch,
   MapPinned,
+  Sparkles,
+  UploadCloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -76,16 +79,16 @@ export function KpiCard({
 }: {
   label: string;
   value: string;
-  detail: React.ReactNode;
+  detail?: React.ReactNode;
   icon: LucideIcon;
   accent?: boolean;
 }) {
   return (
     <article
       className={cn(
-        "relative overflow-hidden rounded-2xl border p-5 shadow-[0_12px_30px_-24px_rgba(13,43,52,0.55)]",
+        "relative overflow-hidden rounded-2xl border p-5 shadow-[0_12px_30px_-24px_rgba(13,43,52,0.35)]",
         accent
-          ? "border-[hsl(174_48%_25%)] bg-[hsl(174_46%_22%)] text-white"
+          ? "border-primary/25 bg-[hsl(174_46%_95%)] text-card-foreground dark:border-[hsl(174_38%_30%)] dark:bg-[hsl(174_32%_20%)] dark:text-white"
           : "border-border bg-card text-card-foreground",
       )}
     >
@@ -93,32 +96,38 @@ export function KpiCard({
         <p
           className={cn(
             "text-[10px] font-semibold uppercase tracking-[0.14em]",
-            accent ? "text-white/65" : "text-muted-foreground",
+            accent ? "text-[hsl(174_52%_28%)] dark:text-white/65" : "text-muted-foreground",
           )}
         >
           {label}
         </p>
         <span
           className={cn(
-            "flex size-8 items-center justify-center rounded-lg",
-            accent ? "bg-white/10 text-[hsl(78_75%_60%)]" : "bg-secondary text-primary",
+            "flex size-11 items-center justify-center rounded-xl",
+            accent ? "bg-white text-primary shadow-sm dark:bg-white/10 dark:text-[hsl(78_75%_60%)]" : "bg-secondary text-primary",
           )}
         >
-          <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
+          <Icon aria-hidden="true" size={20} strokeWidth={1.8} />
         </span>
       </div>
-      <p className="font-display mt-4 text-3xl leading-none tracking-[-0.03em]">{value}</p>
-      <div className={cn("mt-3 text-xs leading-5", accent ? "text-white/70 [&>span]:text-white/80" : "text-muted-foreground")}>
-        {detail}
-      </div>
-      {accent && <span className="absolute -bottom-20 -right-16 size-48 rounded-full border border-white/10" />}
+      <p className="mt-4 text-3xl font-semibold leading-none tracking-[-0.03em]">{value}</p>
+      {detail && (
+        <div
+          className={cn(
+            "mt-3 line-clamp-1 text-xs leading-5",
+            accent ? "text-muted-foreground dark:text-white/70 [&>span]:dark:text-white/80" : "text-muted-foreground",
+          )}
+        >
+          {detail}
+        </div>
+      )}
     </article>
   );
 }
 
 export function Delta({ value, suffix = " vs periodo precedente" }: { value: number | null; suffix?: string }) {
   if (value === null) {
-    return <span className="inline-flex items-center gap-1"><CircleMinus size={13} /> confronto non disponibile</span>;
+    return <span className="inline-flex items-center gap-1" title="Confronto non disponibile"><CircleMinus size={13} /> N/D</span>;
   }
   const UpOrDown = value >= 0 ? ArrowUpRight : ArrowDownRight;
   return (
@@ -150,15 +159,18 @@ export function DecisionFrame({
     ["Cosa verificare", nextEvidence],
   ];
   return (
-    <section className="grid overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:grid-cols-2 xl:grid-cols-4">
+    <section className="grid overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:grid-cols-2 xl:grid-cols-4">
       {items.map(([label, text], index) => {
         const Icon = DECISION_ICONS[index];
         return (
-          <div key={label} className="border-b border-border p-4 last:border-b-0 sm:odd:border-r sm:[&:nth-child(3)]:border-b-0 xl:border-b-0 xl:border-r xl:last:border-r-0">
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
-              <Icon size={14} strokeWidth={1.8} /> {label}
+          <div key={label} className="border-b border-border p-3.5 last:border-b-0 sm:odd:border-r sm:[&:nth-child(3)]:border-b-0 xl:border-b-0 xl:border-r xl:last:border-r-0">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
+                <Icon size={17} strokeWidth={1.8} />
+              </span>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
             </div>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">{text}</p>
+            <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-foreground/75" title={text}>{text}</p>
           </div>
         );
       })}
@@ -167,7 +179,7 @@ export function DecisionFrame({
 }
 
 export function MethodologyPanel({
-  title = "Metodo, definizioni e tracciabilità",
+  title = "Metodo e fonti",
   children,
 }: {
   title?: string;
@@ -191,10 +203,32 @@ export function MethodologyPanel({
 
 export function EmptyState({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-secondary/25 px-6 text-center">
+    <div className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-secondary/25 px-6 text-center">
       <FileSearch className="text-muted-foreground" size={22} />
       <p className="mt-3 text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+export function TemplateNotice({
+  source,
+  href = "/dashboard-review/dati",
+}: {
+  source: string;
+  href?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-[hsl(174_46%_96%)] px-3.5 py-2.5 dark:bg-primary/10">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary shadow-sm dark:bg-card">
+          <Sparkles size={12} /> Template
+        </span>
+        <span className="truncate text-xs text-muted-foreground">{source}</span>
+      </div>
+      <Link href={href} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+        <UploadCloud size={14} /> Carica i tuoi dati
+      </Link>
     </div>
   );
 }
