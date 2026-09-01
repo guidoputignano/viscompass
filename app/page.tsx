@@ -2,14 +2,21 @@ import Link from "next/link";
 import {
   ArrowRight,
   BarChart3,
+  Boxes,
+  CalendarClock,
   Check,
   CircleDollarSign,
+  Columns3,
   DatabaseZap,
   FileCheck2,
+  FlaskConical,
   LineChart,
+  Radar,
+  ReceiptText,
   Route,
   SearchCheck,
   ShieldCheck,
+  ShoppingCart,
   UploadCloud,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +49,96 @@ const BENEFITS = [
     kicker: "Verifica subito",
     title: "Dal segnale alla fonte, senza ricostruire PDF.",
     visual: "evidence",
+  },
+] as const;
+
+const PHASES = [
+  {
+    number: "0",
+    icon: CalendarClock,
+    title: "Programmazione",
+    description: "Farmaci in arrivo e stime d’impatto.",
+  },
+  {
+    number: "1",
+    icon: BarChart3,
+    title: "Reportistica",
+    description: "Analisi di spesa direzionale e ad hoc.",
+  },
+  {
+    number: "2",
+    icon: ShoppingCart,
+    title: "Acquisto",
+    description: "Istruttoria gare e Commissione Terapeutica.",
+  },
+  {
+    number: "3",
+    icon: Boxes,
+    title: "Scorte",
+    description: "Scadenze e redistribuzioni sotto controllo.",
+  },
+  {
+    number: "4",
+    icon: FlaskConical,
+    title: "Allestimento",
+    description: "Quadratura aggregata dei consumi oncologici.",
+  },
+  {
+    number: "5",
+    icon: ReceiptText,
+    title: "Rendicontazione",
+    description: "Riconciliazione File F e registri AIFA.",
+  },
+  {
+    number: "6",
+    icon: Columns3,
+    title: "Confronto e chiusura",
+    description: "Benchmark tra aziende, su mandato regionale.",
+  },
+] as const;
+
+const MODULES = [
+  {
+    id: "M1",
+    icon: LineChart,
+    title: "Spesa e consumi",
+    description: "Scostamenti rilevati mentre l’esercizio è ancora aperto.",
+  },
+  {
+    id: "M2",
+    icon: Radar,
+    title: "Biosimilari e brevetti",
+    description: "Opportunità e scadenze identificate prima che sia tardi.",
+  },
+  {
+    id: "M3",
+    icon: ShieldCheck,
+    title: "File F e rimborsi",
+    description: "Termini e anomalie verificati prima di perdere il rimborso.",
+  },
+  {
+    id: "M4",
+    icon: Boxes,
+    title: "Scorte e carenze",
+    description: "Scorte a rischio segnalate prima che diventino una perdita.",
+  },
+  {
+    id: "M5",
+    icon: FlaskConical,
+    title: "Allestimenti",
+    description: "Sprechi oncologici misurati in aggregato, mai per paziente.",
+  },
+  {
+    id: "M6",
+    icon: Columns3,
+    title: "Confronto tra aziende",
+    description: "Stessa molecola e stesso canale, con titolarità regionale.",
+  },
+  {
+    id: "M7",
+    icon: CircleDollarSign,
+    title: "Budget impact",
+    description: "Impatto stimato prima dell’ingresso del farmaco in prontuario.",
   },
 ] as const;
 
@@ -175,8 +272,9 @@ export default function Home() {
           <VisLogo size="sm" />
           <div className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
             <a href="#benefici" className="hover:text-foreground">Benefici</a>
+            <a href="#percorso" className="hover:text-foreground">Percorso</a>
+            <a href="#moduli" className="hover:text-foreground">Moduli</a>
             <a href="#come-funziona" className="hover:text-foreground">Come funziona</a>
-            <a href="#evidenze" className="hover:text-foreground">Evidenze</a>
           </div>
           <div className="flex items-center gap-1.5">
             <ThemeSwitcher />
@@ -246,6 +344,70 @@ export default function Home() {
                   </article>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        <section id="percorso" className="border-y border-border bg-white px-5 py-20 dark:bg-card md:px-8 md:py-24">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Il percorso operativo</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">Dalla programmazione alla chiusura.</h2>
+              </div>
+              <p className="max-w-sm text-sm leading-6 text-muted-foreground">Un filo unico rende visibile dove nasce un segnale e chi può trasformarlo in azione.</p>
+            </div>
+
+            <div className="relative mt-12 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+              <div className="absolute left-[7%] right-[7%] top-7 hidden h-px bg-primary/20 xl:block" />
+              {PHASES.map((phase) => {
+                const Icon = phase.icon;
+                return (
+                  <article key={phase.number} className="relative rounded-2xl border border-border bg-background p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="relative z-10 flex size-11 items-center justify-center rounded-xl bg-secondary text-primary"><Icon size={19} /></span>
+                      <span className="text-[10px] font-semibold text-primary">{phase.number.padStart(2, "0")}</span>
+                    </div>
+                    <h3 className="mt-5 text-sm font-semibold text-foreground">{phase.title}</h3>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{phase.description}</p>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="moduli" className="px-5 py-20 md:px-8 md:py-28">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-3xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">M1–M7</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">Sette moduli. Un’unica vista decisionale.</h2>
+            </div>
+
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {MODULES.map((module, index) => {
+                const Icon = module.icon;
+                return (
+                  <article
+                    key={module.id}
+                    className={`group rounded-3xl border p-5 transition-transform hover:-translate-y-1 ${index === 0 ? "border-primary/30 bg-primary text-primary-foreground" : "border-border bg-white dark:bg-card"}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`flex size-11 items-center justify-center rounded-xl ${index === 0 ? "bg-white/15" : "bg-secondary text-primary"}`}><Icon size={20} /></span>
+                      <span className={`text-xs font-semibold ${index === 0 ? "text-white/70" : "text-primary"}`}>{module.id}</span>
+                    </div>
+                    <h3 className="mt-6 text-lg font-semibold">{module.title}</h3>
+                    <p className={`mt-2 text-sm leading-6 ${index === 0 ? "text-white/75" : "text-muted-foreground"}`}>{module.description}</p>
+                  </article>
+                );
+              })}
+              <div className="flex min-h-48 flex-col justify-between rounded-3xl border border-dashed border-primary/35 bg-secondary/45 p-5">
+                <Route className="text-primary" size={24} />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Un percorso, non sette silos.</p>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">Ogni modulo conserva metodo, fonte e responsabilità.</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
