@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { registerUser } from "@/app/auth/sign-up/actions";
 
 export function SignUpForm({
   className,
@@ -24,34 +25,32 @@ export function SignUpForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
+  const [visNewsletter, setVisNewsletter] = useState(false);
+  const [partnerNewsletter, setPartnerNewsletter] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
     if (password !== repeatPassword) {
-      setError("Passwords do not match");
+      setError("Le password non coincidono");
       setIsLoading(false);
       return;
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const result = await registerUser({
+        fullName,
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/access`,
-          data: {
-            full_name: fullName,
-          },
-        },
+        visNewsletter,
+        partnerNewsletter,
       });
-      if (error) throw error;
+      if (!result.ok) throw new Error(result.message);
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -75,6 +74,7 @@ export function SignUpForm({
                 <Input
                   id="full-name"
                   type="text"
+                  autoComplete="name"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -85,6 +85,7 @@ export function SignUpForm({
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="m@example.com"
                   required
                   value={email}
@@ -98,6 +99,9 @@ export function SignUpForm({
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  maxLength={128}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -110,10 +114,41 @@ export function SignUpForm({
                 <Input
                   id="repeat-password"
                   type="password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  maxLength={128}
                   required
                   value={repeatPassword}
                   onChange={(e) => setRepeatPassword(e.target.value)}
                 />
+              </div>
+              <div className="grid gap-3 rounded-xl border border-border bg-secondary/30 p-4 sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Comunicazioni facoltative
+                </p>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="vis-newsletter"
+                    checked={visNewsletter}
+                    onCheckedChange={(checked) => setVisNewsletter(checked === true)}
+                  />
+                  <Label htmlFor="vis-newsletter" className="cursor-pointer text-sm font-normal leading-5">
+                    Desidero ricevere aggiornamenti da VIS Pharma Compass.
+                  </Label>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="partner-newsletter"
+                    checked={partnerNewsletter}
+                    onCheckedChange={(checked) => setPartnerNewsletter(checked === true)}
+                  />
+                  <Label htmlFor="partner-newsletter" className="cursor-pointer text-sm font-normal leading-5">
+                    Desidero ricevere comunicazioni dai partner selezionati di VIS Pharma Compass.
+                  </Label>
+                </div>
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  Entrambe le scelte sono opzionali e non influenzano la richiesta di accesso.
+                </p>
               </div>
               {error && (
                 <p className="text-sm text-red-500 sm:col-span-2">{error}</p>

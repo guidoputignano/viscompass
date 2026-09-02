@@ -1,7 +1,6 @@
 // VIS PHARMA COMPASS — antibiotic stewardship (AWaRe) data loader
-// Loads ASL-level rows only into antibiotic_consumption_fact (see
-// supabase_schema.sql section 8). Department-level (UU.OO.) rows are
-// deliberately NOT loaded here — see the comment above ASL_CODES below.
+// Loads ASL-level and confirmed ASL 203 unit-level rows into
+// antibiotic_consumption_fact (see supabase_schema.sql section 8).
 //
 // Usage:
 //   npm install @supabase/supabase-js exceljs
@@ -28,8 +27,7 @@
 //   sheet (A3/B3 = "DATI CO - NORMALIZZATI"/"CO1") confirms CO1 is the reconciled
 //   figure actually used downstream, so only CO1 rows are loaded as cost_eur/ddd_count.
 //   org_code is either a numeric ASL code ('201'..'204'), '130' (the whole-region
-//   total, "Abruzzo" — not an ASL, excluded), or a department code (excluded, see
-//   ASL_CODES below).
+//   total, "Abruzzo" — excluded), or one of the seven confirmed ASL 203 unit codes.
 //
 //   Dati_GG sheet: columns A=year, B=flag, C=org_code, D=T, E=T1, F=blank, G=GG.
 //   flag distinguishes three bed-days methodologies (legend: A1/A2/A3 = different
@@ -50,7 +48,8 @@ import fs from "fs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const WORKBOOK_PATH = process.argv[2] ?? "./Dati_Analisi_v02.xlsm";
+const DRY_RUN = process.argv.includes("--dry-run");
+const WORKBOOK_PATH = process.argv.slice(2).find((arg) => arg !== "--dry-run") ?? "./Dati_Analisi_v02.xlsm";
 const YEARS = [2023, 2024, 2025];
 
 // The four real Abruzzo ASL codes carried in the source workbook, used as
@@ -60,14 +59,21 @@ const YEARS = [2023, 2024, 2025];
 // 'ASL201'), the insert below fails on the org_code foreign key — update
 // ASL_CODES to match rather than silently loading under the wrong key.
 //
-// Anything else in the sheets (department codes AL/DC/DM/EM/PN/PO/TI, the
-// 'AZ' whole-ASL check row, and '130' the region total) is excluded: this
-// loader is ASL-level only. Department rows need the real unit-name legend
-// confirmed first — loading them under a placeholder risks shipping wrong
-// clinical-unit labels.
 const ASL_CODES = new Set(["201", "202", "203", "204"]);
+// Confirmed against Table 30 of the companion 2023-2025 hospital-antibiotic
+// report. All seven units belong to ASL 203; AZ is the whole-ASL check row
+// and 130 is the region total, so neither is loaded as a department.
+const UNIT_NAMES = new Map([
+  ["DM", "Dipartimento medico"],
+  ["DC", "Dipartimento chirurgico"],
+  ["EM", "Ematologia"],
+  ["TI", "Terapia intensiva"],
+  ["PN", "Presidio di Penne"],
+  ["PO", "Presidio di Popoli"],
+  ["AL", "Altre unità operative"],
+]);
 
-if (!SUPABASE_URL || !SERVICE_KEY) {
+if (!DRY_RUN && (!SUPABASE_URL || !SERVICE_KEY)) {
   console.error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables first.");
   process.exit(1);
 }
@@ -79,7 +85,7 @@ if (!fs.existsSync(WORKBOOK_PATH)) {
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+const supabase = DRY_RUN ? null : createClient(SUPABASE_URL, SERVICE_KEY);
 
 function getSheet(wb, name) {
   const sheet = wb.getWorksheet(name);
@@ -123,8 +129,8 @@ export function assertLegend(wb) {
   }
 }
 
-// Dati_CO: cost_eur + ddd_count, CO1 (normalized) rows only, ASL-level only.
-// Returns Map<"org|category|year", { cost, ddd }>.
+// Dati_CO: cost_eur + ddd_count, CO1 (normalized) rows for ASLs and confirmed units.
+// Returns Map<"org|unit|category|year", { cost, ddd }>.
 export function readCostAndDdd(wb) {
   const sheet = getSheet(wb, "Dati_CO");
   const out = new Map();
@@ -134,7 +140,10 @@ export function readCostAndDdd(wb) {
     const org = col(row, 3);
     const org2 = col(row, 8);
     if (tag !== "CO1") return;
-    if (!ASL_CODES.has(String(org))) return;
+    const sourceCode = String(org);
+    const isAsl = ASL_CODES.has(sourceCode);
+    const isUnit = UNIT_NAMES.has(sourceCode);
+    if (!isAsl && !isUnit) return;
     if (!["T", "A", "W", "R"].includes(category)) return;
     if (String(org2) !== String(org)) {
       throw new Error(
@@ -145,28 +154,97 @@ export function readCostAndDdd(wb) {
     const costs = { 2023: col(row, 4), 2024: col(row, 5), 2025: col(row, 6) };
     const ddds = { 2023: col(row, 9), 2024: col(row, 10), 2025: col(row, 11) };
     for (const year of YEARS) {
-      out.set(`${org}|${category}|${year}`, { cost: costs[year], ddd: ddds[year] });
+      const targetOrg = isAsl ? sourceCode : "203";
+      const unitCode = isUnit ? sourceCode : "";
+      out.set(`${targetOrg}|${unitCode}|${category}|${year}`, { cost: costs[year], ddd: ddds[year] });
     }
   });
   return out;
 }
 
-// Dati_GG: bed_days, flag='A2' rows only, ASL-level only.
-// Returns Map<"org|year", bedDays>.
+// Dati_GG: bed_days, using the report-confirmed methodology for each row type.
+// Returns Map<"org|unit|year", bedDays>.
 export function readBedDays(wb) {
   const sheet = getSheet(wb, "Dati_GG");
   const out = new Map();
   sheet.eachRow((row) => {
     const yearRaw = col(row, 1);
     const flag = col(row, 2);
-    const org = col(row, 3);
-    if (flag !== "A2") return;
-    if (!ASL_CODES.has(String(org))) return;
+    const sourceCode = String(col(row, 3));
+    const isAsl = ASL_CODES.has(sourceCode);
+    const isUnit = UNIT_NAMES.has(sourceCode);
+    if (!isAsl && !isUnit) return;
+    if (isAsl && flag !== "A2") return;
+    if (isUnit && flag !== (sourceCode === "AL" ? "A2" : "A4")) return;
     const year = Number(yearRaw);
     if (!YEARS.includes(year)) return;
-    out.set(`${org}|${year}`, col(row, 5)); // column E = T1
+    const targetOrg = isAsl ? sourceCode : "203";
+    const unitCode = isUnit ? sourceCode : "";
+    out.set(`${targetOrg}|${unitCode}|${year}`, col(row, 5)); // column E = T1
   });
   return out;
+}
+
+// Dati_Rpt: ASL population denominators, rows 12-15 and columns D-F.
+export function readPopulation(wb) {
+  const sheet = getSheet(wb, "Dati_Rpt");
+  if (col(sheet.getRow(10), 3) !== "POP") {
+    throw new Error('Dati_Rpt!C10 no longer contains the expected "POP" legend.');
+  }
+  const out = new Map();
+  for (let rowNumber = 12; rowNumber <= 15; rowNumber += 1) {
+    const row = sheet.getRow(rowNumber);
+    const org = String(col(row, 3));
+    if (!ASL_CODES.has(org)) continue;
+    const values = { 2023: col(row, 4), 2024: col(row, 5), 2025: col(row, 6) };
+    for (const year of YEARS) out.set(`${org}|${year}`, values[year]);
+  }
+  return out;
+}
+
+export function assertCompleteness(rows) {
+  const expectedScopes = [
+    ...Array.from(ASL_CODES, (org) => [org, ""]),
+    ...Array.from(UNIT_NAMES.keys(), (unit) => ["203", unit]),
+  ];
+  const byKey = new Map(
+    rows.map((row) => [
+      `${row.org_code}|${row.unit_code ?? ""}|${row.aware_category}|${row.year}`,
+      row,
+    ]),
+  );
+  if (byKey.size !== rows.length) throw new Error("Duplicate antibiotic natural keys were extracted.");
+
+  const problems = [];
+  for (const [org, unit] of expectedScopes) {
+    for (const year of YEARS) {
+      const categoryRows = ["A", "W", "R", "T"].map((category) =>
+        byKey.get(`${org}|${unit}|${category}|${year}`),
+      );
+      if (categoryRows.some((row) => !row)) {
+        problems.push(`${org}/${unit || "ASL"}/${year}: missing AWaRe category`);
+        continue;
+      }
+      for (const row of categoryRows) {
+        if (!Number.isFinite(row.cost_eur) || !Number.isFinite(row.ddd_count)) {
+          problems.push(`${org}/${unit || "ASL"}/${year}/${row.aware_category}: missing cost or DDD`);
+        }
+        if (!(row.bed_days > 0)) problems.push(`${org}/${unit || "ASL"}/${year}: missing hospital days`);
+        if (!unit && !(row.population > 0)) problems.push(`${org}/ASL/${year}: missing population`);
+      }
+      const [access, watch, reserve, total] = categoryRows;
+      for (const field of ["cost_eur", "ddd_count"]) {
+        const parts = access[field] + watch[field] + reserve[field];
+        const tolerance = Math.max(0.01, Math.abs(total[field]) * 0.000001);
+        if (Math.abs(total[field] - parts) > tolerance) {
+          problems.push(`${org}/${unit || "ASL"}/${year}: ${field} A+W+R does not reconcile to T`);
+        }
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(`Antibiotic completeness validation failed:\n  ${problems.join("\n  ")}`);
+  }
 }
 
 export async function main() {
@@ -176,30 +254,49 @@ export async function main() {
 
   const costDdd = readCostAndDdd(wb);
   const bedDaysByOrgYear = readBedDays(wb);
+  const populationByOrgYear = readPopulation(wb);
 
   const rows = Array.from(costDdd.entries()).map(([key, { cost, ddd }]) => {
-    const [org, category, yearStr] = key.split("|");
+    const [org, unitCode, category, yearStr] = key.split("|");
     const year = Number(yearStr);
     return {
       org_code: org,
-      unit_code: null,
+      unit_code: unitCode || null,
+      unit_name: unitCode ? UNIT_NAMES.get(unitCode) : null,
       aware_category: category,
       year,
       cost_eur: cost,
       ddd_count: ddd,
-      bed_days: bedDaysByOrgYear.get(`${org}|${year}`) ?? null,
-      source_note:
-        "OSMED methodology; cost/DDD from Dati_CO (CO1, normalizzati); bed-days from Dati_GG " +
-        '(flag A2: degenza + accessi, esclude onere "4" e DRG 391)',
+      bed_days: bedDaysByOrgYear.get(`${org}|${unitCode}|${year}`) ?? null,
+      population: unitCode ? null : populationByOrgYear.get(`${org}|${year}`) ?? null,
+      period_status: "complete",
+      source_note: unitCode
+        ? "Hospital antibiotics 2023-2025; cost/DDD from Dati_CO (CO1, normalizzati); " +
+          "hospital days from the Dati_GG unit-level report denominator"
+        : "Hospital antibiotics 2023-2025; cost/DDD from Dati_CO (CO1, normalizzati); " +
+          'hospital days from Dati_GG A2 (degenza + accessi, esclude onere "4" e DRG 391)',
     };
   });
+
+  assertCompleteness(rows);
 
   if (rows.length === 0) {
     console.warn("No ASL-level rows extracted — check ASL_CODES and the sheet contents.");
     return;
   }
 
-  console.log(`Loading ${rows.length} ASL-level antibiotic_consumption_fact rows...`);
+  if (DRY_RUN) {
+    const aslRows = rows.filter((row) => row.unit_code === null).length;
+    const unitRows = rows.length - aslRows;
+    const rows2025 = rows.filter((row) => row.year === 2025).length;
+    console.log(
+      `Dry run complete: ${rows.length} rows (${aslRows} ASL, ${unitRows} unit); ` +
+        `2025 validated complete (${rows2025} rows, all AWaRe categories and denominators).`,
+    );
+    return;
+  }
+
+  console.log(`Loading ${rows.length} ASL and unit-level antibiotic_consumption_fact rows...`);
 
   // Delete-then-insert per natural key rather than .upsert(): the ASL-level
   // uniqueness is enforced by a PARTIAL index (unit_code is null — see
@@ -210,11 +307,10 @@ export async function main() {
   const { error: deleteError } = await supabase
     .from("antibiotic_consumption_fact")
     .delete()
-    .is("unit_code", null)
     .in("org_code", orgCodes)
     .in("year", YEARS);
   if (deleteError) {
-    console.error("Failed to clear existing ASL-level rows before reload:", deleteError.message);
+    console.error("Failed to clear existing antibiotic rows before reload:", deleteError.message);
     process.exit(1);
   }
 

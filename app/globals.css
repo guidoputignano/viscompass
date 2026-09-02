@@ -70,3 +70,41 @@
     font-weight: 600;
   }
 }
+
+@layer utilities {
+  @keyframes vis-line-draw {
+    from {
+      stroke-dasharray: 520;
+      stroke-dashoffset: 520;
+    }
+    to {
+      stroke-dasharray: 520;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes vis-soft-float {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -7px, 0); }
+  }
+
+  .vis-line-draw {
+    animation: vis-line-draw 1.15s ease-out both;
+  }
+
+  .vis-line-draw-delay {
+    animation-delay: 160ms;
+  }
+
+  .vis-soft-float {
+    animation: vis-soft-float 5s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vis-line-draw,
+    .vis-line-draw-delay,
+    .vis-soft-float {
+      animation: none;
+    }
+  }
+}

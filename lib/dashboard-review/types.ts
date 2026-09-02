@@ -311,6 +311,9 @@ export interface AntibioticConsumptionFact {
   cost_eur: number | null;
   ddd_count: number | null;
   bed_days: number | null;
+  population: number | null;
+  unit_name: string | null;
+  period_status: "complete" | "provisional" | null;
   source_note: string | null;
   loaded_at: string;
 }
@@ -324,6 +327,10 @@ export interface AwareYearRow {
   watch: number;
   reserve: number;
   unclassified: number;
+  accessDdd: number;
+  watchDdd: number;
+  reserveDdd: number;
+  unclassifiedDdd: number;
   hasNegativeGap: boolean;
 }
 
@@ -331,10 +338,35 @@ export interface AntibioticIndicatorSet {
   dddPer100BedDays: number | null;
   costPerBedDay: number | null;
   costPerDdd: number | null;
+  dddPer1000ResidentsDay: number | null;
+  costPerCapita: number | null;
+}
+
+export interface AntibioticAnnualRow extends AntibioticIndicatorSet {
+  year: number;
+  costEur: number;
+  dddCount: number;
+  bedDays: number;
+  population: number;
+  costYoy: number | null;
+  dddYoy: number | null;
+}
+
+export interface AntibioticUnitRow extends AntibioticIndicatorSet {
+  orgCode: string;
+  unitCode: string;
+  unitName: string;
+  costEur: number;
+  dddCount: number;
+  bedDays: number;
 }
 
 export interface AntibioticStewardshipData {
+  mode: "real" | "synthetic";
+  sourceLabel: string;
   awareByYear: AwareYearRow[];
+  annual: AntibioticAnnualRow[];
+  units: AntibioticUnitRow[];
   latestYear: number | null;
   orgIndicators: AntibioticIndicatorSet | null;
   // null when no peer org's data is visible to compute a benchmark from —

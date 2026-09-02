@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DemoPrompt } from "@/components/demo-prompt";
+import { DecisionDemo } from "@/components/home/decision-demo";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { VisLogo } from "@/components/vis-logo";
 
@@ -144,7 +145,7 @@ const MODULES = [
 
 function DashboardPreview() {
   return (
-    <div className="relative mx-auto w-full max-w-2xl">
+    <div className="vis-soft-float relative mx-auto w-full max-w-2xl">
       <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_top_left,hsl(174_70%_79%/0.55),transparent_48%),radial-gradient(circle_at_bottom_right,hsl(204_65%_82%/0.45),transparent_46%)] blur-2xl" />
       <div className="overflow-hidden rounded-[1.7rem] border border-white/80 bg-white shadow-[0_36px_100px_-42px_rgba(13,43,52,0.6)]">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
@@ -315,7 +316,13 @@ export default function Home() {
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-7 md:grid-cols-4">
             {PROOF_STATS.map((stat) => (
               <div key={stat.label} className="text-center">
-                <p className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">{stat.value}</p>
+                <p className="inline-flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-40 motion-reduce:animate-none" />
+                    <span className="relative inline-flex size-2 rounded-full bg-primary" />
+                  </span>
+                  {stat.value}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
               </div>
             ))}
@@ -364,10 +371,7 @@ export default function Home() {
                 const Icon = phase.icon;
                 return (
                   <article key={phase.number} className="relative rounded-2xl border border-border bg-background p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="relative z-10 flex size-11 items-center justify-center rounded-xl bg-secondary text-primary"><Icon size={19} /></span>
-                      <span className="text-[10px] font-semibold text-primary">{phase.number.padStart(2, "0")}</span>
-                    </div>
+                    <span className="relative z-10 flex size-11 items-center justify-center rounded-xl bg-secondary text-primary"><Icon size={19} /></span>
                     <h3 className="mt-5 text-sm font-semibold text-foreground">{phase.title}</h3>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">{phase.description}</p>
                   </article>
@@ -380,7 +384,7 @@ export default function Home() {
         <section id="moduli" className="px-5 py-20 md:px-8 md:py-28">
           <div className="mx-auto max-w-7xl">
             <div className="max-w-3xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">M1–M7</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Aree connesse</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">Sette moduli. Un’unica vista decisionale.</h2>
             </div>
 
@@ -394,7 +398,7 @@ export default function Home() {
                   >
                     <div className="flex items-center justify-between">
                       <span className={`flex size-11 items-center justify-center rounded-xl ${index === 0 ? "bg-white/15" : "bg-secondary text-primary"}`}><Icon size={20} /></span>
-                      <span className={`text-xs font-semibold ${index === 0 ? "text-white/70" : "text-primary"}`}>{module.id}</span>
+                      <ArrowRight className={index === 0 ? "text-white/55" : "text-primary/50"} size={16} />
                     </div>
                     <h3 className="mt-6 text-lg font-semibold">{module.title}</h3>
                     <p className={`mt-2 text-sm leading-6 ${index === 0 ? "text-white/75" : "text-muted-foreground"}`}>{module.description}</p>
@@ -413,28 +417,44 @@ export default function Home() {
         </section>
 
         <section id="come-funziona" className="px-5 pb-20 md:px-8 md:pb-28">
-          <div className="mx-auto max-w-6xl rounded-[2rem] bg-[hsl(204_48%_17%)] px-6 py-10 text-white md:px-10 md:py-12">
+          <div className="mx-auto max-w-6xl rounded-[2rem] border border-teal-100 bg-[linear-gradient(120deg,hsl(174_56%_94%),hsl(203_70%_96%),hsl(76_65%_94%))] px-6 py-10 text-[hsl(204_48%_16%)] shadow-[0_28px_80px_-58px_rgba(13,43,52,0.55)] md:px-10 md:py-12">
             <div className="grid gap-8 md:grid-cols-[0.72fr_1.28fr] md:items-center">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[hsl(174_70%_62%)]">Un percorso semplice</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Un percorso semplice</p>
                 <h2 className="mt-3 text-3xl font-semibold leading-tight md:text-4xl">Dal file alla decisione.</h2>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
                 {[
-                  [UploadCloud, "1", "Carica"],
-                  [DatabaseZap, "2", "Normalizza"],
-                  [FileCheck2, "3", "Verifica"],
-                ].map(([Icon, number, label]) => {
+                  [UploadCloud, "Carica"],
+                  [DatabaseZap, "Normalizza"],
+                  [FileCheck2, "Verifica"],
+                ].map(([Icon, label], index) => {
                   const StepIcon = Icon as typeof UploadCloud;
                   return (
-                    <div key={label as string} className="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
-                      <span className="flex size-11 items-center justify-center rounded-xl bg-white/10 text-[hsl(174_70%_62%)]"><StepIcon size={20} /></span>
-                      <div><p className="text-[9px] text-white/45">{number as string}</p><p className="font-semibold">{label as string}</p></div>
+                    <div key={label as string} className="contents">
+                      <div className="flex items-center gap-3 rounded-2xl border border-white/80 bg-white/75 p-4 shadow-sm">
+                        <span className="flex size-11 items-center justify-center rounded-xl bg-secondary text-primary"><StepIcon size={20} /></span>
+                        <p className="font-semibold">{label as string}</p>
+                      </div>
+                      {index < 2 && <ArrowRight className="mx-auto hidden text-primary/45 sm:block" size={18} />}
                     </div>
                   );
                 })}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="px-5 pb-20 md:px-8 md:pb-28">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Provalo</p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">Un segnale, prima della dashboard.</h2>
+              </div>
+              <p className="max-w-sm text-sm text-muted-foreground">Tocca un anno. Il dato cambia, l’interpretazione emerge.</p>
+            </div>
+            <DecisionDemo />
           </div>
         </section>
 

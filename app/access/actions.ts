@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { sendAccessRequestReceivedEmail } from "@/lib/email/vis-email";
 
 export interface AccessActionResult {
   ok: boolean;
@@ -29,8 +30,8 @@ function errorMessage(error: unknown, fallback: string): string {
 async function requireSession() {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
-  if (error || !data?.claims?.sub) throw new Error("Sessione non valida.");
-  return supabase;
+  if (error || !data?.claims?.sub || !data.claims.email) throw new Error("Sessione non valida.");
+  return { supabase, email: String(data.claims.email) };
 }
 
 export async function requestOrganizationAccess(input: {
@@ -47,13 +48,27 @@ export async function requestOrganizationAccess(input: {
   }
 
   try {
-    const supabase = await requireSession();
+    const { supabase, email } = await requireSession();
+    const { data: organization } = await supabase
+      .from("organizations")
+      .select("org_name")
+      .eq("org_code", orgCode)
+      .maybeSingle();
     const { error } = await supabase.rpc("request_organization_membership", {
       p_org_code: orgCode,
       p_requested_role: requestedRole,
       p_request_message: message || null,
     });
     if (error) throw error;
+
+    try {
+      const delivery = await sendAccessRequestReceivedEmail(email, organization?.org_name ?? orgCode);
+      if (!delivery.sent && delivery.reason !== "VIS email is not configured") {
+        console.error("access request email failed", delivery.reason);
+      }
+    } catch (deliveryError) {
+      console.error("access request email failed", deliveryError);
+    }
 
     revalidatePath("/access");
     revalidatePath("/dashboard-review", "layout");
@@ -81,7 +96,7 @@ export async function respondToOrganizationInvitation(input: {
   }
 
   try {
-    const supabase = await requireSession();
+    const { supabase } = await requireSession();
     const rpc =
       input.outcome === "accept"
         ? "accept_organization_invitation"

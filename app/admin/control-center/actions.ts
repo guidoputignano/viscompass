@@ -6,6 +6,7 @@ import { getAdminEmail } from "@/lib/auth/admin";
 import { findAuthUserByEmail } from "@/lib/access/admin";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { sendAccessDecisionEmail } from "@/lib/email/vis-email";
 
 export interface ControlCenterActionResult {
   ok: boolean;
@@ -116,6 +117,12 @@ export async function decideMembership(input: {
       return { ok: false, message: "Richiesta non valida." };
     }
 
+    const { data: membership } = await admin
+      .from("user_organizations")
+      .select("user_id, organizations(org_name)")
+      .eq("id", input.membershipId)
+      .maybeSingle();
+
     const { error } = await admin.rpc("admin_decide_organization_membership", {
       p_membership_id: input.membershipId,
       p_outcome: input.outcome,
@@ -123,6 +130,25 @@ export async function decideMembership(input: {
       p_decision_note: note || null,
     });
     if (error) throw error;
+
+    if (membership?.user_id) {
+      try {
+        const { data: userData } = await admin.auth.admin.getUserById(membership.user_id);
+        const organization = membership.organizations as unknown as { org_name: string } | null;
+        if (userData.user?.email) {
+          const delivery = await sendAccessDecisionEmail(
+            userData.user.email,
+            organization?.org_name ?? "l’organizzazione richiesta",
+            input.outcome,
+          );
+          if (!delivery.sent && delivery.reason !== "VIS email is not configured") {
+            console.error("access decision email failed", delivery.reason);
+          }
+        }
+      } catch (deliveryError) {
+        console.error("access decision email failed", deliveryError);
+      }
+    }
 
     revalidatePath("/admin/control-center");
     revalidatePath("/dashboard-review", "layout");

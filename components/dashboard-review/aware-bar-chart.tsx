@@ -1,8 +1,9 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useState } from "react";
 import type { AwareYearRow } from "@/lib/dashboard-review/types";
-import { formatEur } from "@/lib/dashboard-review/format";
+import { formatEur, formatNumber } from "@/lib/dashboard-review/format";
 
 // WHO's AWaRe classification has an internationally recognized
 // traffic-light color code (Access=green, Watch=amber, Reserve=red) that
@@ -16,6 +17,7 @@ const RESERVE_COLOR = "hsl(12 58% 42%)";
 const UNCLASSIFIED_COLOR = "hsl(204 15% 55%)";
 
 export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
+  const [metric, setMetric] = useState<"cost" | "ddd">("cost");
   if (data.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
@@ -24,31 +26,45 @@ export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
     );
   }
 
+  const chartData = data.map((row) => ({
+    year: row.year,
+    access: metric === "cost" ? row.access : row.accessDdd,
+    watch: metric === "cost" ? row.watch : row.watchDdd,
+    reserve: metric === "cost" ? row.reserve : row.reserveDdd,
+    unclassified: metric === "cost" ? row.unclassified : row.unclassifiedDdd,
+  }));
+  const formatter = metric === "cost" ? formatEur : (value: number) => formatNumber(value, 0);
+
   return (
-    <ResponsiveContainer width="100%" height={340}>
-      <BarChart data={data} margin={{ top: 16, right: 16, bottom: 8, left: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-        <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          fontSize={12}
-          width={70}
-          tickFormatter={(v: number) => formatEur(v)}
-        />
-        <Tooltip formatter={(value: number) => formatEur(value)} />
-        <Legend />
-        <Bar dataKey="access" name="Access" stackId="cost" fill={ACCESS_COLOR} />
-        <Bar dataKey="watch" name="Watch" stackId="cost" fill={WATCH_COLOR} />
-        <Bar dataKey="reserve" name="Reserve" stackId="cost" fill={RESERVE_COLOR} />
-        <Bar
-          dataKey="unclassified"
-          name="Non classificato"
-          stackId="cost"
-          fill={UNCLASSIFIED_COLOR}
-          radius={[4, 4, 0, 0]}
-        />
-      </BarChart>
-    </ResponsiveContainer>
+    <div>
+      <div className="mb-3 flex justify-end">
+        <div className="flex rounded-lg bg-secondary p-1" aria-label="Metrica del grafico AWaRe">
+          {(["cost", "ddd"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setMetric(option)}
+              className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition ${metric === option ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
+              aria-pressed={metric === option}
+            >
+              {option === "cost" ? "Spesa" : "DDD"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={chartData} margin={{ top: 10, right: 8, bottom: 4, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+          <YAxis tickLine={false} axisLine={false} fontSize={11} width={68} tickFormatter={formatter} />
+          <Tooltip formatter={(value: number) => formatter(Number(value))} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Bar dataKey="access" name="Access" stackId="aware" fill={ACCESS_COLOR} />
+          <Bar dataKey="watch" name="Watch" stackId="aware" fill={WATCH_COLOR} />
+          <Bar dataKey="reserve" name="Reserve" stackId="aware" fill={RESERVE_COLOR} />
+          <Bar dataKey="unclassified" name="Non classificato" stackId="aware" fill={UNCLASSIFIED_COLOR} radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

@@ -32,26 +32,40 @@ const BASIS_LABEL = {
   spend: "spesa",
 } as const;
 
-// Verified figures from the project's National_Profile workbook sheet.
-// They are presentation-only and are never merged into organization data.
-const TEMPLATE_NATIONAL_TREND = [
-  { key: "template-2023", label: "2023", spend_eur: 26_299_621_615.61 },
-  { key: "template-2024", label: "2024", spend_eur: 28_100_038_686.97 },
-  { key: "template-2025", label: "2025", spend_eur: 29_749_144_556.31 },
+// Deliberately synthetic presentation data. It demonstrates the analytical
+// shape without exposing an ASL's values or entering the production fact table.
+const DEMO_NATIONAL_TREND = [
+  { key: "demo-2023", label: "2023", spend_eur: 25_420_000_000 },
+  { key: "demo-2024", label: "2024", spend_eur: 27_100_000_000 },
+  { key: "demo-2025", label: "2025", spend_eur: 28_620_000_000 },
 ];
 
-const TEMPLATE_ATC = [
+const DEMO_ATC = [
   {
     code: "L",
     label: "Antineoplastici e immunomodulatori",
-    spend_eur: 8_808_129_065.17,
-    share: 8_808_129_065.17 / 29_749_144_556.31,
+    spend_eur: 8_410_000_000,
+    share: 0.294,
   },
+  { code: "B", label: "Sangue e organi emopoietici", spend_eur: 3_290_000_000, share: 0.115 },
+  { code: "A", label: "Apparato gastrointestinale", spend_eur: 2_630_000_000, share: 0.092 },
+  { code: "J", label: "Antimicrobici sistemici", spend_eur: 2_120_000_000, share: 0.074 },
 ];
 
-function TrendPanel({ data }: { data: SpendDashboardData }) {
-  const isTemplate = data.trend.length === 0;
-  const trend = isTemplate ? TEMPLATE_NATIONAL_TREND : data.trend;
+const DEMO_MOLECULES = [
+  { active_substance: "Molecola Alfa", atc_code: "L04XX", spend_eur: 418_000_000, spend_yoy: 0.084, biosimilar_penetration: 0.63, opportunity_eur: 28_400_000 },
+  { active_substance: "Molecola Beta", atc_code: "L01XX", spend_eur: 346_000_000, spend_yoy: -0.031, biosimilar_penetration: 0.78, opportunity_eur: 13_700_000 },
+  { active_substance: "Molecola Gamma", atc_code: "B03XX", spend_eur: 271_000_000, spend_yoy: 0.112, biosimilar_penetration: null, opportunity_eur: 0 },
+];
+
+const DEMO_REVIEWS: SpendDashboardData["review_items"] = [
+  { id: "demo-bio", kind: "biosimilar", title: "Variabilità biosimilare", context: "Scostamento da approfondire", value_label: "Alta", href: "/dashboard-review/biosimilari", severity: "high" },
+  { id: "demo-quality", kind: "quality", title: "Normalizzazione incompleta", context: "Descrizioni da verificare", value_label: "42.860", href: "/dashboard-review/dati", severity: "medium" },
+  { id: "demo-upload", kind: "upload", title: "Aggiornamento mensile", context: "Nuovo periodo da riconciliare", value_label: "Pronto", href: "/dashboard-review/dati", severity: "info" },
+];
+
+function TrendPanel({ data, demo }: { data: SpendDashboardData; demo: boolean }) {
+  const trend = data.trend;
   const max = Math.max(...trend.map((point) => point.spend_eur), 0);
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
@@ -60,10 +74,10 @@ function TrendPanel({ data }: { data: SpendDashboardData }) {
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
           <h2 className="font-display mt-1 text-xl">Spesa nel tempo</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {isTemplate ? "Template nazionale · 2023–2025" : data.trend_granularity === "month" ? `Mesi · ${data.latest_year}` : "Annualità"}
+            {demo ? "Scenario demo · 2023–2025" : data.trend_granularity === "month" ? `Mesi · ${data.latest_year}` : "Annualità"}
           </p>
         </div>
-        <Delta value={isTemplate ? 0.0587 : data.spend_yoy} />
+        <Delta value={data.spend_yoy} />
       </div>
       <div className="mt-7 flex h-48 items-end gap-3 border-b border-border sm:gap-5">
           {trend.map((point) => {
@@ -74,9 +88,9 @@ function TrendPanel({ data }: { data: SpendDashboardData }) {
                   {formatEur(point.spend_eur)}
                 </span>
                 <div
-                  className={`w-full rounded-t bg-[hsl(174_55%_42%)] transition-all group-hover:bg-primary ${isTemplate ? "opacity-55" : ""}`}
+                  className="w-full rounded-t bg-[hsl(174_55%_42%)] transition-all group-hover:bg-primary"
                   style={{ height: `${height}%` }}
-                  title={`${isTemplate ? "Template nazionale · " : ""}${point.label}: ${formatEur(point.spend_eur)}`}
+                  title={`${demo ? "Scenario demo · " : ""}${point.label}: ${formatEur(point.spend_eur)}`}
                 />
                 <span className="mt-2 truncate text-center text-[10px] text-muted-foreground">{point.label}</span>
               </div>
@@ -87,19 +101,18 @@ function TrendPanel({ data }: { data: SpendDashboardData }) {
   );
 }
 
-function AtcPanel({ data }: { data: SpendDashboardData }) {
-  const isTemplate = data.atc_breakdown.length === 0;
-  const items = isTemplate ? TEMPLATE_ATC : data.atc_breakdown;
+function AtcPanel({ data, demo }: { data: SpendDashboardData; demo: boolean }) {
+  const items = data.atc_breakdown;
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
       <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione</p>
       <h2 className="font-display mt-1 text-xl">Dove si concentra la spesa</h2>
-      <p className="mt-1 text-xs text-muted-foreground">{isTemplate ? "Template nazionale · 2025" : "Categorie principali"}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{demo ? "Scenario demo · 2025" : "Categorie principali"}</p>
       <div className="mt-5 divide-y divide-border">
         {items.map((item) => (
           <Link
             key={item.code}
-            href={isTemplate ? "/dashboard-review/dati" : `/dashboard-review/ricerca?atc1=${encodeURIComponent(item.code)}`}
+            href={demo ? "/dashboard-review/dati" : `/dashboard-review/ricerca?atc1=${encodeURIComponent(item.code)}`}
             className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-3 py-3 transition-colors hover:bg-secondary/35"
           >
             <span className="flex size-9 items-center justify-center rounded-lg bg-secondary font-mono text-xs font-bold">{item.code}</span>
@@ -203,48 +216,74 @@ function ReviewQueue({ data }: { data: SpendDashboardData }) {
 }
 
 export function SpendOverview({ data }: { data: SpendDashboardData }) {
-  const hasData = data.record_count > 0;
-  const topAtc = data.atc_breakdown[0];
-  const firstReview = data.review_items[0];
-  const unresolvedShare = data.record_count > 0 ? data.unresolved_record_count / data.record_count : null;
-  const yoyText = data.spend_yoy === null
+  const demo = data.record_count === 0;
+  const displayData: SpendDashboardData = demo
+    ? {
+        ...data,
+        latest_year: 2025,
+        total_spend_eur: 28_620_000_000,
+        total_packs: 1_382_000_000,
+        record_count: 529_979,
+        source_version_count: 3,
+        geography_count: 21,
+        normalized_record_count: 391_123,
+        normalization_eligible_count: 529_979,
+        normalization_coverage: 0.738,
+        unresolved_record_count: 42_860,
+        trend: DEMO_NATIONAL_TREND,
+        atc_breakdown: DEMO_ATC,
+        previous_year: 2024,
+        spend_yoy: 0.056,
+        packs_yoy: 0.021,
+        biosimilar_penetration: 0.78,
+        biosimilar_penetration_basis: "spend",
+        biosimilar_opportunity_eur: 196_000_000,
+        active_review_count: 8,
+        review_items: DEMO_REVIEWS,
+        top_molecules: DEMO_MOLECULES,
+      }
+    : data;
+  const topAtc = displayData.atc_breakdown[0];
+  const firstReview = displayData.review_items[0];
+  const unresolvedShare = displayData.unresolved_record_count / displayData.record_count;
+  const yoyText = displayData.spend_yoy === null
     ? "Confronto da attivare"
-    : `La spesa è ${data.spend_yoy >= 0 ? "aumentata" : "diminuita"} del ${formatPercent(Math.abs(data.spend_yoy))} rispetto al ${data.previous_year}.`;
+    : `Spesa ${displayData.spend_yoy >= 0 ? "in crescita" : "in calo"}: ${formatPercent(Math.abs(displayData.spend_yoy))} vs ${displayData.previous_year}.`;
 
   return (
     <div className="flex flex-col gap-6">
-      {!hasData && <TemplateNotice source="Anteprima con dati pubblici verificati" />}
+      {demo && <TemplateNotice label="Dati sintetici" source="Scenario dimostrativo · carica i tuoi dati per sostituirlo" />}
       <DecisionFrame
         changed={yoyText}
         variance={topAtc ? `${topAtc.label}: ${formatPercent(topAtc.share)}` : "ATC da caricare"}
-        materiality={data.biosimilar_opportunity_eur > 0 ? `${formatEur(data.biosimilar_opportunity_eur)} osservabili` : "€/mg da normalizzare"}
+        materiality={displayData.biosimilar_opportunity_eur > 0 ? `${formatEur(displayData.biosimilar_opportunity_eur)} osservabili` : "€/mg da normalizzare"}
         nextEvidence={firstReview ? firstReview.title : "Carica il primo periodo"}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <KpiCard accent label="Spesa" value={hasData ? formatEur(data.total_spend_eur) : "—"} detail={hasData ? <Delta value={data.spend_yoy} /> : "Da caricare"} icon={ReceiptEuro} />
-        <KpiCard label="Confezioni" value={hasData ? formatNumber(data.total_packs, 0) : "—"} detail={hasData ? <Delta value={data.packs_yoy} suffix=" confezioni" /> : "Da caricare"} icon={PackageOpen} />
-        <KpiCard label="Var. a/a" value={data.spend_yoy === null ? "—" : formatPercent(data.spend_yoy)} detail={data.previous_year ? `vs ${data.previous_year}` : undefined} icon={Activity} />
-        <KpiCard label="Opportunità" value={hasData ? formatEur(data.biosimilar_opportunity_eur) : "—"} detail={data.biosimilar_penetration === null ? undefined : `${formatPercent(data.biosimilar_penetration)} · ${BASIS_LABEL[data.biosimilar_penetration_basis!]}`} icon={BadgeEuro} />
-        <KpiCard label="Irrisolti" value={hasData ? formatNumber(data.unresolved_record_count, 0) : "—"} detail={unresolvedShare === null ? undefined : formatPercent(unresolvedShare)} icon={CircleAlert} />
-        <KpiCard label="Revisioni" value={hasData ? formatNumber(data.active_review_count, 0) : "—"} icon={ClipboardCheck} />
+        <KpiCard accent label="Spesa" value={formatEur(displayData.total_spend_eur)} detail={<Delta value={displayData.spend_yoy} />} icon={ReceiptEuro} />
+        <KpiCard label="Confezioni" value={formatNumber(displayData.total_packs, 0)} detail={<Delta value={displayData.packs_yoy} suffix=" confezioni" />} icon={PackageOpen} />
+        <KpiCard label="Var. a/a" value={displayData.spend_yoy === null ? "—" : formatPercent(displayData.spend_yoy)} detail={displayData.previous_year ? `vs ${displayData.previous_year}` : undefined} icon={Activity} />
+        <KpiCard label="Opportunità" value={formatEur(displayData.biosimilar_opportunity_eur)} detail={displayData.biosimilar_penetration === null ? undefined : `${formatPercent(displayData.biosimilar_penetration)} · ${BASIS_LABEL[displayData.biosimilar_penetration_basis!]}`} icon={BadgeEuro} />
+        <KpiCard label="Irrisolti" value={formatNumber(displayData.unresolved_record_count, 0)} detail={formatPercent(unresolvedShare)} icon={CircleAlert} />
+        <KpiCard label="Revisioni" value={formatNumber(displayData.active_review_count, 0)} icon={ClipboardCheck} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.8fr)]">
-        <TrendPanel data={data} />
-        <AtcPanel data={data} />
+        <TrendPanel data={displayData} demo={demo} />
+        <AtcPanel data={displayData} demo={demo} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.8fr)]">
-        <MoleculePanel data={data} />
-        <ReviewQueue data={data} />
+        <MoleculePanel data={displayData} />
+        <ReviewQueue data={displayData} />
       </div>
 
       <MethodologyPanel>
         <div className="grid gap-5 md:grid-cols-3">
           <div><p className="font-semibold text-foreground">Definizioni</p><p className="mt-1">Spesa e confezioni sono somme dei record dell’ultima annualità visibile. La variazione usa l’ultima annualità precedente disponibile, senza interpolazioni.</p></div>
           <div><p className="font-semibold text-foreground">Opportunità</p><p className="mt-1">Il differenziale biosimilare usa il costo effettivo per mg aggregato. In assenza di volume normalizzato il valore economico resta non dimostrato, anche se sono disponibili spesa o confezioni.</p></div>
-          <div><p className="font-semibold text-foreground">Linea dati</p><p className="mt-1">{formatNumber(data.record_count, 0)} record, {formatNumber(data.source_version_count, 0)} versioni fonte. Ultimo caricamento {data.latest_loaded_at ? formatDate(data.latest_loaded_at) : "non disponibile"}. Copertura €/mg o €/DDD {data.normalization_coverage === null ? "non calcolabile" : formatPercent(data.normalization_coverage)}.</p></div>
+          <div><p className="font-semibold text-foreground">Linea dati</p><p className="mt-1">{demo ? "Scenario sintetico, isolato dai dati organizzativi. I valori reali diventano visibili solo dopo approvazione e caricamento." : `${formatNumber(displayData.record_count, 0)} record, ${formatNumber(displayData.source_version_count, 0)} versioni fonte. Ultimo caricamento ${displayData.latest_loaded_at ? formatDate(displayData.latest_loaded_at) : "non disponibile"}. Copertura €/mg o €/DDD ${displayData.normalization_coverage === null ? "non calcolabile" : formatPercent(displayData.normalization_coverage)}.`}</p></div>
         </div>
       </MethodologyPanel>
     </div>

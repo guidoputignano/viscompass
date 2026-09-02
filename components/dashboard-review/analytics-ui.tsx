@@ -214,15 +214,17 @@ export function EmptyState({ title, detail }: { title: string; detail: string })
 export function TemplateNotice({
   source,
   href = "/dashboard-review/dati",
+  label = "Template",
 }: {
   source: string;
   href?: string;
+  label?: string;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-[hsl(174_46%_96%)] px-3.5 py-2.5 dark:bg-primary/10">
       <div className="flex min-w-0 items-center gap-2.5">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary shadow-sm dark:bg-card">
-          <Sparkles size={12} /> Template
+          <Sparkles size={12} /> {label}
         </span>
         <span className="truncate text-xs text-muted-foreground">{source}</span>
       </div>

@@ -430,6 +430,9 @@ create table if not exists antibiotic_consumption_fact (
   cost_eur       numeric,
   ddd_count      numeric,
   bed_days       numeric,           -- denominator for DDD/100 bed-days
+  population     numeric,           -- denominator for population-based indicators
+  unit_name      text,              -- confirmed display label for unit_code
+  period_status  text check (period_status in ('complete','provisional')),
   source_note    text,              -- e.g. "OSMED methodology, Flusso Traccia/NSIS CO"
   loaded_at      timestamptz default now(),
   unique (org_code, unit_code, aware_category, year)
@@ -459,6 +462,28 @@ create policy "read approved orgs' antibiotic data" on antibiotic_consumption_fa
               select region_code from organizations where org_code = antibiotic_consumption_fact.org_code))
       )
   ));
+
+-- Independent optional communication preferences captured at registration.
+-- The service-role registration action writes the audit row; authenticated
+-- users may read only their own current preferences.
+create table if not exists communication_consents (
+  user_id                          uuid primary key references auth.users(id) on delete cascade,
+  email                            text not null,
+  vis_newsletter_opt_in            boolean not null default false,
+  vis_newsletter_consented_at      timestamptz,
+  partner_newsletter_opt_in        boolean not null default false,
+  partner_newsletter_consented_at  timestamptz,
+  consent_version                  text not null,
+  created_at                       timestamptz not null default now(),
+  updated_at                       timestamptz not null default now(),
+  check (vis_newsletter_opt_in = (vis_newsletter_consented_at is not null)),
+  check (partner_newsletter_opt_in = (partner_newsletter_consented_at is not null))
+);
+
+alter table communication_consents enable row level security;
+create policy "read own communication consent" on communication_consents
+  for select to authenticated using (user_id = auth.uid());
+grant select on communication_consents to authenticated;
 
 -- ============================================================
 -- 9. Organization access lifecycle — applications and invitations

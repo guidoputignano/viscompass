@@ -14,6 +14,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
+import { getSyntheticAntibioticStewardship } from "@/lib/dashboard-review/antibiotic-demo";
 import type {
   AntibioticConsumptionFact,
   AntibioticIndicatorSet,
@@ -916,6 +917,7 @@ interface CategoryTotals {
   cost: number;
   ddd: number;
   bedDays: number;
+  population: number;
 }
 
 function indicatorsFromTotals(t: CategoryTotals | undefined): AntibioticIndicatorSet | null {
@@ -924,6 +926,8 @@ function indicatorsFromTotals(t: CategoryTotals | undefined): AntibioticIndicato
     dddPer100BedDays: t.bedDays > 0 ? (t.ddd / t.bedDays) * 100 : null,
     costPerBedDay: t.bedDays > 0 ? t.cost / t.bedDays : null,
     costPerDdd: t.ddd > 0 ? t.cost / t.ddd : null,
+    dddPer1000ResidentsDay: t.population > 0 ? t.ddd / (t.population / 1000) / 365 : null,
+    costPerCapita: t.population > 0 ? t.cost / t.population : null,
   };
 }
 
@@ -931,29 +935,29 @@ function average(values: number[]): number | null {
   return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
 }
 
-// Reads antibiotic_consumption_fact directly — no mock layer, RLS is the
-// only enforcement, same as every other query in this file. ASL-level
-// rows only (unit_code is null): department-level data isn't loaded yet,
-// so nothing here should imply it exists.
+function antibioticSchemaIsMissing(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  const message = error.message?.toLowerCase() ?? "";
+  return error.code === "42P01" || error.code === "PGRST205" || message.includes("does not exist") || message.includes("schema cache");
+}
+
+// Real rows always come from the RLS-scoped fact table. When the approved
+// organization has not loaded antibiotic data yet, the demo deliberately
+// falls back to a deterministic synthetic scenario. The UI labels that mode
+// prominently; synthetic rows are never written to Supabase.
 export async function getAntibioticStewardship(): Promise<AntibioticStewardshipData> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("antibiotic_consumption_fact")
     .select("*")
-    .is("unit_code", null)
     .gte("year", 2023)
     .lte("year", 2025);
+  if (antibioticSchemaIsMissing(error)) return getSyntheticAntibioticStewardship();
   if (error) throw new Error(`antibiotic_consumption_fact query failed: ${error.message}`);
   const rows = (data ?? []) as AntibioticConsumptionFact[];
 
   const org = await getCurrentOrg();
-  const empty: AntibioticStewardshipData = {
-    awareByYear: [],
-    latestYear: null,
-    orgIndicators: null,
-    regionalAverage: null,
-  };
-  if (!org || rows.length === 0) return empty;
+  if (!org || rows.length === 0) return getSyntheticAntibioticStewardship();
 
   const isRegione = org.org_type === "regione";
   // An asl-type caller's RLS-scoped query only ever returns their own
@@ -962,31 +966,42 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   // their region, so "their view" is the pooled total across those ASLs,
   // the same org.region_code join pattern the RLS policy itself uses.
   const ownRows = isRegione ? rows : rows.filter((r) => r.org_code === org.org_code);
+  const summaryRows = ownRows.filter((row) => row.unit_code === null);
+  if (summaryRows.length === 0) return getSyntheticAntibioticStewardship();
 
-  const yearGroups = new Map<number, Map<AwareCategory, number>>();
-  for (const r of ownRows) {
-    const catMap = yearGroups.get(r.year) ?? new Map<AwareCategory, number>();
-    catMap.set(r.aware_category, (catMap.get(r.aware_category) ?? 0) + (r.cost_eur ?? 0));
+  const yearGroups = new Map<number, Map<AwareCategory, { cost: number; ddd: number }>>();
+  for (const r of summaryRows) {
+    const catMap = yearGroups.get(r.year) ?? new Map<AwareCategory, { cost: number; ddd: number }>();
+    const current = catMap.get(r.aware_category) ?? { cost: 0, ddd: 0 };
+    catMap.set(r.aware_category, {
+      cost: current.cost + (r.cost_eur ?? 0),
+      ddd: current.ddd + (r.ddd_count ?? 0),
+    });
     yearGroups.set(r.year, catMap);
   }
 
   const awareByYear: AwareYearRow[] = Array.from(yearGroups.entries())
     .map(([year, cats]) => {
-      const access = cats.get("A") ?? 0;
-      const watch = cats.get("W") ?? 0;
-      const reserve = cats.get("R") ?? 0;
+      const access = cats.get("A") ?? { cost: 0, ddd: 0 };
+      const watch = cats.get("W") ?? { cost: 0, ddd: 0 };
+      const reserve = cats.get("R") ?? { cost: 0, ddd: 0 };
       const total = cats.get("T");
       // No "T" row for this year means there's nothing to check the
       // breakdown against — show A/W/R as given rather than guessing at a
       // gap that can't actually be computed.
-      const gap = total !== undefined ? total - (access + watch + reserve) : 0;
+      const costGap = total !== undefined ? total.cost - (access.cost + watch.cost + reserve.cost) : 0;
+      const dddGap = total !== undefined ? total.ddd - (access.ddd + watch.ddd + reserve.ddd) : 0;
       return {
         year,
-        access,
-        watch,
-        reserve,
-        unclassified: Math.max(gap, 0),
-        hasNegativeGap: gap < 0,
+        access: access.cost,
+        watch: watch.cost,
+        reserve: reserve.cost,
+        unclassified: Math.max(costGap, 0),
+        accessDdd: access.ddd,
+        watchDdd: watch.ddd,
+        reserveDdd: reserve.ddd,
+        unclassifiedDdd: Math.max(dddGap, 0),
+        hasNegativeGap: costGap < -0.01 || dddGap < -0.01,
       };
     })
     .sort((a, b) => a.year - b.year);
@@ -995,16 +1010,32 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   // DDD/100 bed-days, spend/bed-day and spend/DDD are overall stewardship
   // indicators, not per-AWaRe-category figures.
   const ownTotalsByYear = new Map<number, CategoryTotals>();
-  for (const r of ownRows) {
+  for (const r of summaryRows) {
     if (r.aware_category !== "T") continue;
-    const cur = ownTotalsByYear.get(r.year) ?? { cost: 0, ddd: 0, bedDays: 0 };
+    const cur = ownTotalsByYear.get(r.year) ?? { cost: 0, ddd: 0, bedDays: 0, population: 0 };
     cur.cost += r.cost_eur ?? 0;
     cur.ddd += r.ddd_count ?? 0;
     cur.bedDays += r.bed_days ?? 0;
+    cur.population += r.population ?? 0;
     ownTotalsByYear.set(r.year, cur);
   }
   const latestYear = ownTotalsByYear.size > 0 ? Math.max(...ownTotalsByYear.keys()) : null;
   const orgIndicators = latestYear !== null ? indicatorsFromTotals(ownTotalsByYear.get(latestYear)) : null;
+  const annual = Array.from(ownTotalsByYear.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([year, totals], index, all) => {
+      const previous = all[index - 1]?.[1];
+      return {
+        year,
+        costEur: totals.cost,
+        dddCount: totals.ddd,
+        bedDays: totals.bedDays,
+        population: totals.population,
+        ...indicatorsFromTotals(totals)!,
+        costYoy: previous?.cost ? totals.cost / previous.cost - 1 : null,
+        dddYoy: previous?.ddd ? totals.ddd / previous.ddd - 1 : null,
+      };
+    });
 
   // Regional average: the mean of each OTHER org's own indicator for the
   // same year (not a pooled ratio-of-sums) — for an asl-type caller,
@@ -1012,7 +1043,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   // rows, so no benchmark is fabricated from data that isn't there.
   let regionalAverage: AntibioticStewardshipData["regionalAverage"] = null;
   if (latestYear !== null) {
-    const peerRows = isRegione ? rows : rows.filter((r) => r.org_code !== org.org_code);
+    const peerRows = isRegione ? summaryRows : rows.filter((r) => r.unit_code === null && r.org_code !== org.org_code);
     const totalsByOrg = new Map<string, CategoryTotals>();
     for (const r of peerRows) {
       if (r.aware_category !== "T" || r.year !== latestYear) continue;
@@ -1020,6 +1051,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
         cost: r.cost_eur ?? 0,
         ddd: r.ddd_count ?? 0,
         bedDays: r.bed_days ?? 0,
+        population: r.population ?? 0,
       });
     }
     const perOrg = Array.from(totalsByOrg.values())
@@ -1031,10 +1063,47 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
         dddPer100BedDays: average(perOrg.map((i) => i.dddPer100BedDays).filter((v): v is number => v !== null)),
         costPerBedDay: average(perOrg.map((i) => i.costPerBedDay).filter((v): v is number => v !== null)),
         costPerDdd: average(perOrg.map((i) => i.costPerDdd).filter((v): v is number => v !== null)),
+        dddPer1000ResidentsDay: average(perOrg.map((i) => i.dddPer1000ResidentsDay).filter((v): v is number => v !== null)),
+        costPerCapita: average(perOrg.map((i) => i.costPerCapita).filter((v): v is number => v !== null)),
         peerOrgCount: perOrg.length,
       };
     }
   }
 
-  return { awareByYear, latestYear, orgIndicators, regionalAverage };
+  const units = latestYear === null
+    ? []
+    : ownRows
+        .filter((row) => row.unit_code !== null && row.aware_category === "T" && row.year === latestYear)
+        .map((row) => {
+          const totals: CategoryTotals = {
+            cost: row.cost_eur ?? 0,
+            ddd: row.ddd_count ?? 0,
+            bedDays: row.bed_days ?? 0,
+            population: 0,
+          };
+          return {
+            orgCode: row.org_code,
+            unitCode: row.unit_code!,
+            unitName: row.unit_name?.trim() || row.unit_code!,
+            costEur: totals.cost,
+            dddCount: totals.ddd,
+            bedDays: totals.bedDays,
+            ...indicatorsFromTotals(totals)!,
+          };
+        })
+        .sort((a, b) => b.costEur - a.costEur);
+
+  const provisional = summaryRows.some((row) => row.period_status === "provisional");
+  return {
+    mode: "real",
+    sourceLabel: provisional
+      ? "Dati reali del perimetro autorizzato · periodo provvisorio"
+      : "Dati reali del perimetro autorizzato · annualità completa",
+    awareByYear,
+    annual,
+    units,
+    latestYear,
+    orgIndicators,
+    regionalAverage,
+  };
 }

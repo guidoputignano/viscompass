@@ -17,6 +17,7 @@ Run the following file in the Supabase SQL editor, or apply it through the Supab
 
 ```text
 supabase/migrations/20260831224500_access_control_center.sql
+supabase/migrations/20260902120000_antibiotic_analytics_and_consents.sql
 ```
 
 The migration adds:
@@ -27,6 +28,8 @@ The migration adds:
 - authenticated functions for applying and accepting/declining invitations;
 - service-role-only transactional functions for approvals and revocations;
 - recipient-only Row Level Security for invitation inboxes.
+- separate VIS and partner communication-consent audit fields;
+- population, unit labels and period status for AWaRe analytics.
 
 Before applying it, resolve any user who already has more than one `approved` membership. The new
 partial unique index deliberately rejects that ambiguous state.
@@ -56,6 +59,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY
 ADMIN_EMAILS
 NEXT_PUBLIC_SITE_URL
+RESEND_API_KEY
+VIS_EMAIL_FROM
+VIS_EMAIL_REPLY_TO
 ```
 
 `ADMIN_EMAILS` is a comma-separated allow-list, for example:
@@ -69,6 +75,10 @@ The first administrator does not need an approved organization membership to ope
 `ADMIN_EMAILS`.
 
 Never prefix the service-role key with `NEXT_PUBLIC_`, commit it, or place it in client-side code.
+
+Use a dedicated VIS Resend account and verify the `eurekene.com` sender domain before setting, for
+example, `VIS_EMAIL_FROM="VIS Pharma Compass <access@eurekene.com>"`. Registration and access-control
+writes do not fail when email delivery is temporarily unavailable.
 
 ## 4. Configure Supabase authentication URLs
 
@@ -89,7 +99,10 @@ New users receive Supabase's invitation email. Existing users receive a password
 and then see the invitation in their in-app inbox. Customize the **Invite user** and **Magic Link**
 templates in Supabase so both clearly identify VIS PHARMA COMPASS and the expected action.
 
-For reliable external delivery, configure custom SMTP in Supabase and validate the sending domain.
+For reliable external delivery, configure **Authentication → Email → SMTP Settings** in Supabase
+with the dedicated VIS Resend SMTP credentials and the verified VIS sender domain. This makes the
+actual account-confirmation, passwordless-login and invitation messages use the VIS sender; the
+application's status notifications use the Resend API variables above.
 The Control Center records `email_sent` or `failed`; failed invitations can be retried without
 creating a second active invitation.
 
@@ -102,6 +115,27 @@ creating a second active invitation.
 5. Alternatively, an administrator sends an invitation. The recipient accepts or declines it in
    their invitation inbox.
 6. Revocation immediately removes the `approved` status used by every data RLS policy.
+
+The two registration communication choices are independent, optional and unchecked by default.
+The current value is stored in `communication_consents`, while the initial registration metadata
+provides a recovery trail if the database migration has not yet been applied.
+
+## 7. Antibiotic demo and real-data loading
+
+When no RLS-visible antibiotic rows exist, the dashboard shows a prominently labelled synthetic
+scenario. Synthetic rows live in application code only and are never merged into the production
+fact table. Once authorized rows exist, the page switches automatically to real mode.
+
+After applying the 2026-09-02 migration, load the provided workbook with the server-only service
+role key:
+
+```text
+node load_antibiotic_consumption.mjs "path/to/Dati_Analisi_v02.xlsm"
+```
+
+The loader imports 2023–2025 ASL and confirmed ASL 203 unit-level AWaRe rows, population and hospital
+day denominators, and marks the annual periods complete. Run with `--dry-run` first when validating
+a revised workbook.
 
 Vercel Deployment Protection is separate from this workflow. It controls who can open a preview
 URL; the Control Center controls what an authenticated person can see inside VIS PHARMA COMPASS.
