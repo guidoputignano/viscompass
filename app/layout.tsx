@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: "VIS Pharma Compass",
   description: "Governance della spesa farmaceutica",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: "/icon.svg",
+  },
 };
 
 const sourceSans = Source_Sans_3({
