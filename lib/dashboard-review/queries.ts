@@ -165,6 +165,32 @@ function biosimilarPenetration(facts: CanonicalFact[]): {
     : { value: null, basis: null };
 }
 
+// Cross-Azienda comparison basis. See docs/M6_DECISION.md: within a perimeter
+// purchases can be procured centrally by one Azienda while dispensing is
+// recorded locally, so acquistato totals are attributed to the buyer rather
+// than to the Azienda that consumed them. Only the dispensed (erogato) basis is
+// attributable per Azienda, and only it may feed a cross-Azienda comparison.
+// Returns null when a fact carries no value that is safe to compare.
+function comparableSpendEur(fact: CanonicalFact): number | null {
+  const erogato = fact.erogato_cost_eur ?? null;
+  if (erogato !== null) return erogato;
+  // total_cost_eur is usable only when it is known not to be a purchase total.
+  // Legacy rows carry no cost_basis at all; those are treated as unspecified.
+  const basis = fact.cost_basis ?? "unspecified";
+  if (basis === "acquistato") return null;
+  return fact.total_cost_eur ?? null;
+}
+
+// A fact that carries a value, but only one that cannot be compared between
+// Aziende. Used to tell "acquistato-only perimeter" apart from "no data".
+function isAcquistatoOnlyFact(fact: CanonicalFact): boolean {
+  if (comparableSpendEur(fact) !== null) return false;
+  return (fact.acquistato_cost_eur ?? null) !== null || (fact.total_cost_eur ?? null) !== null;
+}
+
+const ACQUISTATO_ONLY_LIMITATION =
+  "Per questo perimetro sono disponibili soltanto valori di acquistato. Gli acquisti possono essere attribuiti centralmente a una sola Azienda del perimetro, mentre l’erogazione è registrata localmente: i totali di acquisto non sono quindi confrontabili tra Aziende. Il confronto viene pubblicato solo quando è disponibile l’erogato.";
+
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const ordered = [...values].sort((a, b) => a - b);
@@ -628,10 +654,27 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
   const previousYear = [...new Set(years)]
     .filter((year) => year < latestYear)
     .sort((a, b) => b - a)[0] ?? null;
-  const current = facts.filter((fact) => fact.year === latestYear && fact.asl_code);
+  const currentAll = facts.filter((fact) => fact.year === latestYear && fact.asl_code);
+  // Cross-Azienda comparison is computed on the dispensed basis only.
+  const current = currentAll.filter((fact) => comparableSpendEur(fact) !== null);
+  if (current.length === 0 && currentAll.some(isAcquistatoOnlyFact)) {
+    return {
+      latest_year: latestYear,
+      rows: [],
+      peer_count: 0,
+      median_spend_eur: null,
+      median_cost_per_pack_eur: null,
+      median_biosimilar_penetration: null,
+      benchmark_available: false,
+      limitation: ACQUISTATO_ONLY_LIMITATION,
+    };
+  }
   const previous = previousYear === null
     ? []
-    : facts.filter((fact) => fact.year === previousYear && fact.asl_code);
+    : facts.filter(
+        (fact) =>
+          fact.year === previousYear && fact.asl_code && comparableSpendEur(fact) !== null,
+      );
   const byOrg = new Map<string, CanonicalFact[]>();
   const previousSpend = new Map<string, number>();
   for (const fact of current) {
@@ -642,11 +685,11 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
   }
   for (const fact of previous) {
     const code = fact.asl_code!;
-    previousSpend.set(code, (previousSpend.get(code) ?? 0) + (fact.total_cost_eur ?? 0));
+    previousSpend.set(code, (previousSpend.get(code) ?? 0) + (comparableSpendEur(fact) ?? 0));
   }
 
   const baseRows = Array.from(byOrg.entries()).map(([code, group]) => {
-    const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
+    const spend = group.reduce((sum, fact) => sum + (comparableSpendEur(fact) ?? 0), 0);
     const packs = group.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
     return {
       org_code: code,

@@ -189,25 +189,41 @@ the euro (tier `VERIFIED-EXACT`).
 | DD / DPC / CO cost | 234,349,987 / 80,065,583 / 137,171,848 € |
 | Costo erogato totale `(c)` | 451,587,418 € |
 | Sum of absolute cost deviations | 182,200,613 € = 40.3% |
-| Rows with cost deviation >20% / >50% | 53% / 41% of all 13,116 |
+| Rows with cost deviation >20% / >50% | 6,998 / 5,331 = 60.4% / 46.0% of the 11,586 rows carrying a deviation % |
 | Prezzo medio aziendale valorised | 4,567 / 13,116 = 34.8% |
-| Costo aziendale *rilevato* `(g)` | 140,857,366 € = 31% |
+| Costo aziendale *rilevato* `(g)` | 140,857,366 € = 32.4% by value, 4,586 / 10,367 = 44.2% of valued rows |
 | Distinct product codes | 5,399 |
-| Traccia-only / regional-only rows | 1,398 @ 9.2M € / 2,706 @ 23.9M € |
+| Traccia-only / regional-only rows (presence flags) | 1,398 @ 9.2M € / 2,706 @ 23.9M € |
+| Acquistato on zero-erogato rows / erogato on zero-acquistato rows (`h` vs `c`) | 9,818,286 € / 23,993,163 € |
 
-**Correction — do not repeat the 0.14% figure.** The document reports
-that regional spend reconciles to 0.14%, derived from summing column `h`
-(*Costo aziendale stimato*) alone = 450,956,253 €. But the file's own
-variance column defines `o = (g se disponibile oppure h) − c`. Under
-that convention acquistato is 434,337,550 € and the net gap is
-**17,249,869 € = 3.82%**. The cause is structural: `h` exists only where
-Traccia data does (of 2,761 rows lacking `h`, 2,715 are absent from
-Traccia), so 0.14% compares 10,355 rows against all 13,116. Never quote
-0.14% and 40.3% together — they rest on different bases.
+**The regional reconciliation is the evidence, not the problem.** On the
+`h` basis the file reconciles regionally: acquistato 450,956,253 €,
+erogato 451,587,418 €, net −631,165 € = −0.14% of erogato. Per Azienda
+it does not: 130201 −17,886,321, 130202 −21,377,263, 130203
++55,391,425, 130204 −17,808,771. Three Aziende dispense *more* than they
+purchase, which stock accumulation cannot explain, because an Azienda
+cannot dispense what it never purchased. Combined with the near-zero
+regional net, this is **central purchasing**: 130203 procures for the
+perimeter and dispensing is recorded locally. It is an accounting
+attribution convention, not a performance difference and not a data
+quality failure. Written up in `docs/M6_DECISION.md`.
 
-**Two thirds of any acquistato figure is an estimate** — only 31% is
-backed by an observed company price. Expose this as an attribute of the
-number, not a footnote.
+The consequence is a hard rule: **cross-Azienda comparison is computed
+on erogato only.** Acquistato totals are attributed to the buyer, so
+comparing them between Aziende is invalid by construction and must never
+be published. Acquistato stays valid within one Azienda and at regional
+total.
+
+On bases: the file's own variance column defines `o = (g se disponibile
+oppure h) − c`, under which acquistato is 434,337,550 € and the net gap
+is 17,249,869 € = 3.82%. `h` exists only where Traccia data does (of
+2,761 rows lacking `h`, 2,715 are absent from Traccia), so the two
+figures rest on different row sets. State which basis a number uses; do
+not quote 0.14% and 40.3% side by side without saying so.
+
+**Two thirds of any acquistato figure is an estimate.** Only 32.4% by
+value is backed by an observed company price. Expose this as an
+attribute of the number, not a footnote.
 
 **Product codes are 9-character strings with leading zeros.** The gold
 file stores all 13,116 as strings, but the document reports the supplied
@@ -277,12 +293,14 @@ documentation are English.
   (Alberto Costantini).
 - Pricing, commercial positioning, and the trademark status of the "VIS
   PHARMA COMPASS" name are business decisions.
-- **M6 is live but would fail the proposed quality gate.** Confronto fra
-  Aziende is in production, while the per-Azienda acquistato/erogato gap
-  measures −17.9M, −21.4M, −17.8M and +55.4M €. The v2.0 document's rule
-  set blocks publication of that comparison above a 5% gap. Whether to
-  gate it, caveat it, or leave it is governance, not engineering. Written
-  up in `docs/M6_DECISION.md`.
+- **M6's comparison basis is decided; one confirmation is outstanding.**
+  Cross-Azienda comparison is computed on erogato only, because
+  acquistato is centrally attributed within the perimeter. See
+  `docs/M6_DECISION.md`. What still needs a human is obtaining written
+  confirmation from the Region that 130203 is the central purchasing
+  point. Do not reopen the basis decision, and do not apply the v2.0 5%
+  rule as a per-Azienda publication gate: it belongs on the regional
+  reconciliation, which passes at 0.14%.
 - **The minimum publishable aggregation level is self-contradictory.**
   This file states *struttura erogante*; the antibiotics module already
   renders per unità operativa. One of the two has to change.

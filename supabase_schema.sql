@@ -730,3 +730,40 @@ grant execute on function accept_organization_invitation(uuid) to authenticated;
 grant execute on function decline_organization_invitation(uuid) to authenticated;
 grant execute on function admin_decide_organization_membership(bigint, text, uuid, text) to service_role;
 grant execute on function admin_revoke_organization_membership(bigint, uuid, text) to service_role;
+
+-- ============================================================
+-- 10. canonical_fact — purchased vs dispensed cost basis
+-- Append-only. See docs/M6_DECISION.md.
+--
+-- Within a regional perimeter, purchases can be procured centrally by one
+-- Azienda while dispensing is recorded at the Azienda that dispenses. The two
+-- bases therefore reconcile at regional level but not per Azienda, and a
+-- single total_cost_eur cannot represent both. These columns keep them apart.
+--
+-- acquistato_cost_eur: Traccia / sell-in basis. Attributed to the purchasing
+--   Azienda. Valid within one Azienda and at regional total; NEVER valid as a
+--   cross-Azienda comparison.
+-- erogato_cost_eur:    DD+DPC+CO / sell-out basis. Recorded where dispensing
+--   happens, so attributable to the Azienda by construction. This is the basis
+--   any cross-Azienda comparison must use.
+-- cost_basis:          which basis total_cost_eur carries, where the loader
+--   could determine it. 'unspecified' covers rows loaded before this section
+--   existed and rows whose source does not state a basis.
+--
+-- total_cost_eur is deliberately left in place and unmigrated: existing rows
+-- and every module other than the cross-Azienda comparison continue to read it.
+-- ============================================================
+alter table canonical_fact add column if not exists acquistato_cost_eur numeric;
+alter table canonical_fact add column if not exists erogato_cost_eur     numeric;
+alter table canonical_fact add column if not exists cost_basis           text;
+
+alter table canonical_fact drop constraint if exists canonical_fact_cost_basis_check;
+alter table canonical_fact add constraint canonical_fact_cost_basis_check
+  check (cost_basis is null or cost_basis in ('acquistato','erogato','unspecified'));
+
+comment on column canonical_fact.acquistato_cost_eur is
+  'Purchased (Traccia / sell-in) cost. Not comparable across Aziende under central purchasing.';
+comment on column canonical_fact.erogato_cost_eur is
+  'Dispensed (DD+DPC+CO / sell-out) cost. The only basis valid for cross-Azienda comparison.';
+comment on column canonical_fact.cost_basis is
+  'Which basis total_cost_eur carries: acquistato, erogato or unspecified.';

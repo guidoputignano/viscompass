@@ -83,6 +83,10 @@ export default async function BenchmarkPage() {
           <div><p className="font-semibold text-foreground">Indice</p><p className="mt-1">Spesa ASL ÷ mediana della spesa ASL × 100. È un segnale di dispersione; senza popolazione, attività e casistica non è un giudizio di efficienza.</p></div>
           <div><p className="font-semibold text-foreground">Privacy organizzativa</p><p className="mt-1">Un utente regionale vede le ASL della regione. Un utente ASL non riceve identità o valori delle altre aziende; l’assenza del benchmark è resa esplicita.</p></div>
         </div>
+        <div className="mt-5 border-t border-border pt-5">
+          <p className="font-semibold text-foreground">Base di confronto: erogato</p>
+          <p className="mt-1">Il confronto tra Aziende è calcolato sui valori erogati. Gli acquisti possono essere attribuiti centralmente a una sola Azienda del perimetro, mentre l’erogazione è registrata dove avviene: i totali di acquisto non sono quindi confrontabili tra Aziende e non vengono pubblicati in questa vista.</p>
+        </div>
       </MethodologyPanel>
     </div>
   );

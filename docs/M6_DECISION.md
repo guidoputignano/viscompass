@@ -1,27 +1,24 @@
-# Decision needed: M6 (Confronto fra Aziende) is live on data that does not reconcile
+# Decision: M6 (Confronto fra Aziende) compares on erogato only
 
 **For:** Guido Putignano, Foundation President
 **Prepared:** 2026-09-09
 **Decision owner:** Foundation President, with the external reviewer where relevant
-**Status:** open
+**Status:** decided, one confirmation outstanding
 
 ## The question in one line
 
-M6 publishes a comparison between Aziende. The purchase figures those
-comparisons rest on disagree with the dispensing figures by 18 to 55
-million euro per Azienda. Do we gate the module, caveat it, or leave it
-as is?
+M6 publishes a comparison between Aziende. Purchase figures and
+dispensing figures differ by 18 to 55 million euro per Azienda while
+reconciling almost exactly at regional level. Which of the two bases can
+carry a comparison between Aziende?
 
 ## Why this is being raised now
 
-The technical document *Governance della spesa farmaceutica* (v2.0)
-proposes a set of publication rules. One of them is a hard gate:
-
-> Azienda, anno — difference between acquistato and erogato — threshold
-> 5% — **blocks publication of the inter-Azienda comparison.**
-
-M6 is in production today. Measured against the gold file, it would not
-pass that gate.
+An earlier version of this note read the per-Azienda gap as a data
+quality failure and proposed gating M6 against the 5% threshold in
+*Governance della spesa farmaceutica* (v2.0). That reading was wrong.
+The direction of the gaps rules it out, and the corrected reading
+changes the decision rather than softening it.
 
 ## The measurement
 
@@ -29,99 +26,135 @@ Recomputed directly from
 `DIR_OSP_TRA_003AS_SellInSellOut_nuova_estrazione_2025.xlsx`, 2025,
 Abruzzo, 13,116 rows.
 
-| ASL | Acquistato | Erogato | Difference |
-|---|---:|---:|---:|
-| 130201 | 82,648,601 | 100,534,922 | **−17,886,321** |
-| 130202 | 97,913,030 | 119,290,293 | **−21,377,263** |
-| 130203 | 189,036,511 | 133,645,086 | **+55,391,425** |
-| 130204 | 80,308,346 | 98,117,117 | **−17,808,771** |
+At regional level the file reconciles:
+
+| | Value |
+|---|---:|
+| Acquistato | 450,956,253 |
+| Erogato | 451,587,418 |
+| Net | **−631,165** (−0.14% of erogato) |
+
+Per Azienda it does not:
+
+| ASL | Acquistato | Erogato | Difference | vs erogato |
+|---|---:|---:|---:|---:|
+| 130201 | 82,648,601 | 100,534,922 | **−17,886,321** | −17.8% |
+| 130202 | 97,913,030 | 119,290,293 | **−21,377,263** | −17.9% |
+| 130203 | 189,036,511 | 133,645,086 | **+55,391,425** | +41.5% |
+| 130204 | 80,308,346 | 98,117,117 | **−17,808,771** | −18.2% |
 
 The table uses *Costo aziendale stimato* `(h)` as the purchase basis,
 which is the basis the v2.0 document used. The file's own variance
 column instead uses `(g se disponibile oppure h)`, which gives −18.96M,
-−23.39M, +43.25M and −19.23M. **The choice of basis does not change the
-decision:** every Azienda exceeds the 5% threshold under either one.
+−23.39M, +43.25M and −19.23M. The choice of basis does not change the
+finding: the signs and the ordering are identical under either.
 
-Three Aziende record substantially less purchased than dispensed; the
-fourth records substantially more. The largest deviating items are
-products typically handled through *distribuzione per conto*. That
-pattern points to an **attribution problem** — purchases booked to one
-Azienda while the dispensing is recorded against another — rather than
-to real over- or under-consumption.
+A residual 1,049,765 of acquistato sits outside the four Aziende, in an
+out-of-perimeter ASL row (130106) and an unattributed `ND` bucket, with
+no erogato against it. The four Aziende plus that residual account for
+the regional total exactly.
 
-Two further facts bear on how much weight the comparison can carry:
+## What the numbers say
 
-- **Only 31% of the purchase valuation is backed by an observed company
-  price.** The remaining two thirds are estimated using the regional
-  average price. A comparison between Aziende is therefore partly a
-  comparison between estimates.
-- **At row level, 53% of rows deviate by more than 20% and 41% by more
-  than 50%,** even though the regional totals appear close. The totals
-  look reconciled because deviations of opposite sign cancel out.
+**Three Aziende dispense more than they purchase. One purchases far more
+than it dispenses.** Stock accumulation explains 130203 and only 130203.
+It cannot explain the other three, because an Azienda cannot dispense
+what it never purchased.
 
-## Why it matters commercially, not just technically
+Set that against a regional net of −0.14% and one explanation remains:
+**130203 procures on behalf of the perimeter, and dispensing is recorded
+locally.** The three deviations of the opposite sign cluster between
+−17.8% and −18.2%, which is what a shared central purchasing
+arrangement looks like and not what four independent procurement
+failures would look like.
+
+This is an **accounting attribution convention, not a performance
+difference, and not a data quality failure.** The regional
+reconciliation is in fact the evidence that the file is trustworthy: the
+euros are all present and accounted for, they are simply booked to the
+purchasing entity rather than the dispensing one.
+
+Two further facts bound how the data can be used:
+
+- **32.4% of the purchase valuation by value is backed by an observed
+  company price**, covering 44.2% of valued rows (4,586 of 10,367). The
+  remainder is estimated from the regional average price. A comparison
+  of purchase values between Aziende would therefore be partly a
+  comparison between estimates, on top of being mis-attributed.
+- **60.4% of rows deviate by more than 20% and 46.0% by more than 50%**
+  (6,998 and 5,331 of the 11,586 rows that carry a deviation
+  percentage). Row-level noise is high even where regional totals agree,
+  which is a further reason to compare on the measured side.
+- At record level, **9,818,286 EUR of acquistato sits on rows with zero
+  erogato, and 23,993,163 EUR of erogato sits on rows with zero
+  acquistato.** Same convention, visible one row at a time.
+
+## The decision
+
+**Cross-Azienda comparison in M6 is computed on erogato only.**
+
+Erogato is recorded where the dispensing happens, so it is attributable
+to the Azienda by construction. Acquistato is not, under central
+purchasing, and a comparison of purchase totals between Aziende is
+**invalid by construction and must never be published.** This is not a
+threshold to be tuned or a caveat to be attached. It is a statement
+about what the acquistato column means.
+
+Concretely:
+
+1. M6 aggregates the dispensed basis for every cross-Azienda view.
+2. Where only an acquistato basis is available for a perimeter, M6
+   returns unavailable with an explicit reason, rather than falling back
+   to a comparison it cannot support.
+3. Acquistato remains available and useful **within** a single Azienda,
+   and at regional total, where no attribution question arises.
+4. M6's availability rules by titolarità are unchanged. A regional user
+   sees the perimeter, an Azienda sees itself.
+
+The 5% gate in the v2.0 document should be read as a check on the
+*regional* reconciliation, where the file passes at 0.14%, not as a
+per-Azienda publication gate. Applied per Azienda it would suppress
+correct data on the strength of a bookkeeping convention.
+
+## Why this is the commercially stronger position
 
 M6 is described in our own materials as the module with the highest
 perceived value, and inter-Azienda comparison is the function a Region
-buys. It is also the most contestable thing we publish: the first
-competent reader who asks "why does my Azienda look worse than the one
-next door" will find the answer is an accounting attribution artefact,
-not performance.
+buys. Publishing it on erogato keeps the feature intact and makes it
+defensible: the first competent reader who asks "why does my Azienda
+look worse than the one next door" gets an answer about dispensing,
+measured where it happened, rather than an artefact of who signed the
+purchase order.
 
-The project's stated differentiator is that VIS ingests the
-institution's own reconciliation file and makes discrepancies
-explainable. Publishing a comparison built on an unexplained discrepancy
-runs directly against that.
+It also matches the stated differentiator. VIS ingests the institution's
+own reconciliation file and makes discrepancies explainable. Here the
+discrepancy is explained, and the explanation is what determines the
+product behaviour.
 
-## Options
-
-**A. Gate it.** Apply the 5% rule. M6 renders, but the comparison is
-withheld with an explicit reason and a link to the underlying
-discrepancy. Cost: the highest-value feature goes dark for Abruzzo until
-the attribution question is answered. Benefit: nothing indefensible is
-ever shown, and the gate itself demonstrates the quality engine working.
-
-**B. Caveat it.** Keep the comparison visible, attach the per-Azienda
-gap and the 31%-observed-price figure to every screen, and label the
-estimated portion. Cost: a reader may still take the ranking at face
-value. Benefit: the feature stays available and the limitation is
-disclosed rather than hidden.
-
-**C. Reframe it.** Compare only on quantities and unit prices actually
-observed, and drop the acquistato-versus-erogato comparison until the
-attribution rule exists. Cost: narrower feature. Benefit: everything
-shown is measured rather than estimated.
-
-**D. Leave as is.** Not recommended. It is the only option where a
-reader can be misled without any signal that they might be.
-
-## Recommendation
-
-**A now, B when the attribution rule is written, C as the durable
-shape.** The gate is cheap to implement, it is honest, and it doubles as
-a live demonstration of the quality engine. Reaching B or C requires one
-answer from the stakeholder, below.
-
-## What we need from the institution to resolve it
+## What we need from the institution to close it
 
 One question, addressed to whoever administers the reporting platform
 rather than to the administrative contact:
 
-> When purchases are made centrally or handled through *distribuzione
-> per conto*, which Azienda is the purchase attributed to, and does that
-> attribution follow the dispensing Azienda or the purchasing one?
+> We read the 2025 sell-in / sell-out file as showing that purchases for
+> the perimeter are procured centrally through 130203 while dispensing
+> is recorded at the Azienda that dispenses. Is that correct, and is
+> 130203 the central purchasing point for the perimeter?
 
-The answer determines whether the 18–55 million gap is a real difference
-to display, or a bookkeeping convention to normalise away before any
-comparison is published.
+We need this in writing. The product behaviour above does not depend on
+the answer, since erogato is the right basis for comparison either way.
+Written confirmation lets us state the reason for the gap to users
+rather than inferring it.
 
 ## Related open items
 
 - The v2.0 document's own list of pre-development decisions includes
   "perimetro aziendale o regionale", noting that inter-Azienda
-  comparison exists only at regional perimeter. That decision and this
-  one should be taken together.
+  comparison exists only at regional perimeter. That is consistent with
+  this decision and should be recorded alongside it.
 - Whether the minimum publishable aggregation level is the *struttura
   erogante* (as our working agreement states) or the *unità operativa*
   (as the antibiotics module already renders) is a separate but adjacent
   call.
+- The `ND` acquistato bucket (1,047,956) has no dispensing against it
+  and no Azienda attached. Worth raising in the same message.

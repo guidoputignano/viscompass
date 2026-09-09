@@ -18,6 +18,8 @@ export type MappingConfidence =
   | "Candidate"
   | "Unresolved";
 
+export type CostBasis = "acquistato" | "erogato" | "unspecified";
+
 export interface CanonicalFact {
   id: number;
   source_record_id: string;
@@ -39,6 +41,14 @@ export interface CanonicalFact {
   active_substance: string | null;
   quantity_packs: number | null;
   total_cost_eur: number | null;
+  /** Traccia / sell-in basis. Attributed to the purchasing Azienda, which under
+   *  central purchasing is not the dispensing one. Never comparable across Aziende. */
+  acquistato_cost_eur: number | null;
+  /** DD+DPC+CO / sell-out basis. Recorded where dispensing happens, so it is
+   *  attributable to the Azienda by construction. */
+  erogato_cost_eur: number | null;
+  /** Which basis `total_cost_eur` carries, where the loader could determine it. */
+  cost_basis: CostBasis | null;
   biosimilar_flag: boolean | null;
   originator_flag: boolean | null;
   units_per_pack: number | null;
