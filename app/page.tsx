@@ -289,10 +289,7 @@ export default function Home() {
         <section className="relative px-5 pb-24 pt-16 md:px-8 md:pb-32 md:pt-24">
           <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-[0.82fr_1.18fr]">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary shadow-sm dark:bg-card">
-                <ShieldCheck size={14} /> Governance farmaceutica, non clinica
-              </div>
-              <h1 className="mt-7 max-w-xl text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-foreground md:text-7xl">
+              <h1 className="max-w-xl text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-foreground md:text-7xl">
                 Vedi prima.<br /><span className="text-primary">Decidi meglio.</span>
               </h1>
               <p className="mt-6 max-w-lg text-lg leading-8 text-muted-foreground md:text-xl">

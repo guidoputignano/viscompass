@@ -54,7 +54,6 @@ async function sendVisEmail(input: {
               <p style="font-size:15px;line-height:1.7;color:#52646b;margin:0 0 24px">${safeMessage}</p>
               <a href="${url}" style="display:inline-block;background:#0f9f91;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">${safeAction}</a>
             </div>
-            <div style="padding:16px 28px;background:#f8fbfb;color:#73848a;font-size:12px">Evidenza organizzativa, non clinica.</div>
           </div>
         </div>`,
     }),
