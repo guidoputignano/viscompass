@@ -88,7 +88,7 @@ const PHASES = [
     number: "5",
     icon: ReceiptText,
     title: "Rendicontazione",
-    description: "Riconciliazione File F e registri AIFA.",
+    description: "Riconciliazione file ospedalieri.",
   },
   {
     number: "6",
@@ -114,7 +114,7 @@ const MODULES = [
   {
     id: "M3",
     icon: ShieldCheck,
-    title: "File F e rimborsi",
+    title: "File ospedalieri e rimborsi",
     description: "Termini e anomalie verificati prima di perdere il rimborso.",
   },
   {
