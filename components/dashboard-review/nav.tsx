@@ -132,13 +132,7 @@ export function DashboardReviewNav({
           </div>
         )}
 
-        <div className="mt-auto hidden space-y-3 md:block">
-          <span
-            className="inline-block rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
-            style={{ backgroundColor: "hsl(38 92% 50% / 0.14)", color: "hsl(32 70% 32%)" }}
-          >
-            Evidenza operativa · non clinica
-          </span>
+        <div className="mt-auto hidden md:block">
           <LogoutButton label="Esci" className="w-full text-muted-foreground hover:text-foreground" />
         </div>
       </aside>
