@@ -153,6 +153,31 @@ Verified directly (2026-09-06):
   need documented handling rules, not automatic rejection.
 - No formulas; results stored as values.
 
+Verified directly (2026-09-09):
+
+- **The AIC→ATC join reaches 100.0% coverage** on the 2025 file: 13,112
+  of 13,116 rows (99.97%), leaving 8,744 EUR unmapped across 4 rows.
+  `Abruzzo_AIC_Data` is the authoritative source (12,620 rows, the
+  Region's own classification of its own dispensing) and `AIFA_Products`
+  the fallback (492 rows, ATC7 split by substring). Note the unmapped
+  8,744 EUR is **acquistato**; all four rows have zero erogato, so no
+  dispensed euro is unclassified. See `load_gold_file.mjs`.
+- **AIC keys must be 9-digit zero-padded text on both sides of every
+  join.** Leading zeros are significant. Normalise before matching, and
+  reject rather than coerce: a key that is not 9 digits is left
+  `Unresolved`, never trimmed or stripped into range. 1,064 rows of
+  `Abruzzo_AIC_Data` are keyed by ATC code instead of AIC, and stripping
+  the letters out of `C08CA05` yields a real-looking but entirely wrong
+  AIC.
+- **2024 is NOT yet available.** The file supplied on 9 Sep as the 2024
+  extraction contains `Anno = 2025` on all 13,116 rows and is
+  byte-identical to the 2025 file already held (both md5
+  `3b638e61bd224ba0bae97f52c1f5d5e3`; both arrived under a filename
+  ending `_2025.xlsx`). A genuine 2024 `DIR_OSP_TRA_003AS` extraction is
+  still outstanding from the Region. Until it arrives there is one year
+  of data behind every year-on-year figure in the product: do not
+  present a trend.
+
 **`#DIV/0` is resolved — not corrupt data, not an open question.** All
 14 affected rows (42 cells, in `Prezzo (b)` plus columns 31 and 32) have
 quantity `(a) = 0`, so `b = c/a` divides by zero. 1,413 further rows
@@ -250,6 +275,38 @@ still requires the hospital activity extract (its step 3).
 
 ---
 
+## `Dati_Analisi_v02.xlsm` — a specification, not a method
+
+**It contains no analytical algorithm.** It is a presentation layer.
+Spend and DDD values per ASL × AWaRe tier × year arrive **already
+computed** in `Dati_CO` and `Dati_GG`; a selector pattern
+(`=IF($A5=$C$2,D5,0)` in `Dati_CO`, keyed off the channel chosen on the
+`Report` sheet) filters by channel; and 133,632 bytes of VBA drive the
+refresh. The OSMED indicators are *supplied to* this file, not derived
+in it.
+
+Verified across all 23 sheets (2026-09-09): 6,368 formulas, whose
+complete function inventory is `IF`, `INDIRECT`, `SUMIFS`, `VLOOKUP`,
+`ROUND`, `IFERROR`, `SUM`, `MINA`, `MAXA`, `OR`. Selection, lookup,
+summation and rounding. There is no division anywhere in the workbook,
+so no rate, ratio or per-DDD figure is calculated in it at all — which
+is the strongest evidence for the conclusion above.
+
+**Correction to an earlier description — do not repeat "the display
+sheets contain no formulas".** They do. `Report` carries 179 and each
+`Grf_*` sheet between 90 and 936, and all 31 charts live on the `Grf_*`
+sheets. The formula-free sheets are `OSMED`, `VS ITALIA`, `VS REGIONE`
+and `ASL 203`, which are empty navigation tabs (`A1:A1`, no drawings),
+plus the raw `Dati` sheet. This does not change the conclusion, since
+every one of those formulas is presentation plumbing, but the detail as
+stated is wrong.
+
+**Consequence:** treat the workbook as a specification of *what to
+display*, not as a source of method. VIS computes those indicators from
+the source flows directly.
+
+---
+
 ## Working conventions
 
 - **`supabase_schema.sql` is append-only.** Schema changes are added as
@@ -283,6 +340,32 @@ still requires the hospital activity extract (its step 3).
 User-facing copy is **Italian**. Code, comments, commit messages, and
 documentation are English.
 
+## Open questions for the Region — four, keep this list complete
+
+These go to whoever administers the reporting platform, not to the
+administrative contact. All four are outstanding. Do not answer any of
+them by inference, and do not let the list shrink without an answer on
+the record.
+
+1. **Central purchasing by 130203.** We read the 2025 file as showing
+   that purchases for the perimeter are procured centrally through
+   130203 while dispensing is recorded at the Azienda that dispenses.
+   Is that correct, and is 130203 the central purchasing point? The
+   product behaviour does not depend on the answer (erogato is the right
+   comparison basis either way, see `docs/M6_DECISION.md`) — written
+   confirmation lets us state the reason to users instead of inferring
+   it.
+2. **The `ND` bucket.** 50 rows, 1,047,956 EUR of acquistato, no erogato
+   against it and no Azienda attached. What is it, and which Azienda, if
+   any, should it be attributed to?
+3. **The `130106` Teramo code.** A single Traccia-only row under a
+   second, otherwise-unused code for Teramo, 1,809 EUR of acquistato,
+   regional quantity 0 against Traccia quantity 63. Is it in the
+   perimeter, and what rule applies to it?
+4. **The 2024 extraction.** Still not supplied. What arrived labelled
+   2024 was the 2025 file (see the gold file section). Needed before any
+   year-on-year figure can be published.
+
 ## Things that need a human decision — do not resolve unilaterally
 
 - `github.com/Lufemos/vis` is a separate, parallel Next.js application
@@ -298,7 +381,7 @@ documentation are English.
   acquistato is centrally attributed within the perimeter. See
   `docs/M6_DECISION.md`. What still needs a human is obtaining written
   confirmation from the Region that 130203 is the central purchasing
-  point. Do not reopen the basis decision, and do not apply the v2.0 5%
+  point (question 1 above). Do not reopen the basis decision, and do not apply the v2.0 5%
   rule as a per-Azienda publication gate: it belongs on the regional
   reconciliation, which passes at 0.14%.
 - **The minimum publishable aggregation level is self-contradictory.**
