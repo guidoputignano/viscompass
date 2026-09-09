@@ -37,7 +37,10 @@ import type {
   Organization,
   ReviewSignal,
   ReviewWorkspaceData,
-  SankeyData,
+  SpendFlowData,
+  SpendFlowNode,
+  SpendFlowLink,
+  SpendFlowClass,
   SpendDashboardData,
   UploadRecord,
 } from "./types";
@@ -200,41 +203,127 @@ function median(values: number[]): number | null {
     : ordered[middle];
 }
 
-function spendFlowsFromFacts(facts: CanonicalFact[]): SankeyData {
-  const channels = Array.from(new Set(facts.map((f) => f.channel ?? "Non specificato")));
-  const categories = Array.from(
-    new Set(facts.map((f) => ATC1_NAMES[f.atc1 ?? ""] ?? f.atc1 ?? "Altro")),
-  );
-  const kinds = ["Originator", "Biosimilare"];
+const CHANNEL_LABELS: Record<string, string> = {
+  DD: "Distribuzione diretta",
+  DPC: "Distribuzione per conto",
+  CO: "Consumi ospedalieri",
+};
+const RESIDUAL_NODE = "Residuo non erogato";
+const UNCLASSIFIED_CLASS = "Classe non attribuita";
 
-  const nodeNames = [...channels, ...categories, ...kinds];
-  const nodeIndex = new Map(nodeNames.map((n, i) => [n, i]));
+// Purchased → dispensed → undispensed, by ATC1 class. Each class node carries its
+// acquistato, which splits into the three dispensing channels and whatever is left
+// over. Classes that dispensed more than they purchased produce a negative residual;
+// a Sankey has no way to draw that, so they are separated out here rather than
+// clamped to zero, and the view renders them as their own band. The negative
+// residuals are the central-purchasing artefact described in docs/M6_DECISION.md,
+// not stock movement.
+function spendFlowsFromFacts(facts: CanonicalFact[]): SpendFlowData {
+  const classLabel = (fact: CanonicalFact) =>
+    fact.atc1 === null ? UNCLASSIFIED_CLASS : ATC1_NAMES[fact.atc1] ?? fact.atc1;
 
-  const linkMap = new Map<string, number>();
-  const addLink = (source: string, target: string, value: number) => {
-    if (value <= 0) return;
-    const key = `${source}|${target}`;
-    linkMap.set(key, (linkMap.get(key) ?? 0) + value);
-  };
-
-  for (const f of facts) {
-    const channel = f.channel ?? "Non specificato";
-    const category = ATC1_NAMES[f.atc1 ?? ""] ?? f.atc1 ?? "Altro";
-    const kind = f.biosimilar_flag ? "Biosimilare" : "Originator";
-    const value = f.total_cost_eur ?? 0;
-    addLink(channel, category, value);
-    addLink(category, kind, value);
+  const byClass = new Map<
+    string,
+    { code: string; label: string; acquistato: number; channels: Map<string, number> }
+  >();
+  for (const fact of facts) {
+    const code = fact.atc1 ?? UNCLASSIFIED_CLASS;
+    const entry = byClass.get(code) ?? {
+      code,
+      label: classLabel(fact),
+      acquistato: 0,
+      channels: new Map<string, number>(),
+    };
+    entry.acquistato += fact.acquistato_cost_eur ?? 0;
+    const dispensed = fact.erogato_cost_eur ?? 0;
+    if (dispensed !== 0) {
+      const channel = fact.channel ?? "Non specificato";
+      entry.channels.set(channel, (entry.channels.get(channel) ?? 0) + dispensed);
+    }
+    byClass.set(code, entry);
   }
 
-  const links = Array.from(linkMap.entries()).map(([key, value]) => {
-    const [source, target] = key.split("|");
-    return { source: nodeIndex.get(source)!, target: nodeIndex.get(target)!, value };
+  const summaries: (SpendFlowClass & { channels: Map<string, number> })[] = Array.from(
+    byClass.values(),
+  ).map((entry) => {
+    const erogato = Array.from(entry.channels.values()).reduce((sum, value) => sum + value, 0);
+    const residual = entry.acquistato - erogato;
+    return {
+      code: entry.code,
+      label: entry.label,
+      acquistato_eur: entry.acquistato,
+      erogato_eur: erogato,
+      residual_eur: residual,
+      residual_share: entry.acquistato > 0 ? residual / entry.acquistato : null,
+      channels: entry.channels,
+    };
   });
 
-  return { nodes: nodeNames.map((name) => ({ name })), links };
+  // Drop the per-channel working map; it is an implementation detail of the
+  // aggregation, not part of the shape the view consumes.
+  const strip = (summary: (typeof summaries)[number]): SpendFlowClass => ({
+    code: summary.code,
+    label: summary.label,
+    acquistato_eur: summary.acquistato_eur,
+    erogato_eur: summary.erogato_eur,
+    residual_eur: summary.residual_eur,
+    residual_share: summary.residual_share,
+  });
+  const drawable = summaries
+    .filter((summary) => summary.residual_eur >= 0 && summary.acquistato_eur > 0)
+    .sort((a, b) => b.residual_eur - a.residual_eur);
+  const negative = summaries
+    .filter((summary) => summary.residual_eur < 0)
+    .sort((a, b) => a.residual_eur - b.residual_eur)
+    .map(strip);
+
+  // Node order sets the Sankey's columns: classes first, then the destinations.
+  const channelCodes = Array.from(
+    new Set(drawable.flatMap((summary) => Array.from(summary.channels.keys()))),
+  ).sort(
+    (a, b) => Object.keys(CHANNEL_LABELS).indexOf(a) - Object.keys(CHANNEL_LABELS).indexOf(b),
+  );
+  const nodes: SpendFlowNode[] = [
+    ...drawable.map((summary) => ({ name: summary.label, kind: "class" as const })),
+    ...channelCodes.map((code) => ({ name: CHANNEL_LABELS[code] ?? code, kind: "channel" as const })),
+    { name: RESIDUAL_NODE, kind: "residual" as const },
+  ];
+  const channelNodeIndex = new Map(
+    channelCodes.map((code, offset) => [code, drawable.length + offset]),
+  );
+  const residualNodeIndex = nodes.length - 1;
+
+  const links: SpendFlowLink[] = [];
+  drawable.forEach((summary, index) => {
+    for (const [code, value] of summary.channels) {
+      if (value <= 0) continue;
+      links.push({ source: index, target: channelNodeIndex.get(code)!, value, kind: "dispensed" });
+    }
+    if (summary.residual_eur > 0) {
+      links.push({
+        source: index,
+        target: residualNodeIndex,
+        value: summary.residual_eur,
+        kind: "residual",
+      });
+    }
+  });
+
+  const totalAcquistato = summaries.reduce((sum, summary) => sum + summary.acquistato_eur, 0);
+  const totalErogato = summaries.reduce((sum, summary) => sum + summary.erogato_eur, 0);
+
+  return {
+    nodes,
+    links,
+    classes: drawable.map(strip),
+    negative_classes: negative,
+    total_acquistato_eur: totalAcquistato,
+    total_erogato_eur: totalErogato,
+    net_eur: totalAcquistato - totalErogato,
+  };
 }
 
-export async function getSpendFlows(): Promise<SankeyData> {
+export async function getSpendFlows(): Promise<SpendFlowData> {
   return spendFlowsFromFacts(await selectCanonicalFacts());
 }
 

@@ -25,11 +25,14 @@ export function SpendDashboardView({ dashboard }: { dashboard: SpendDashboardDat
         <Card className="mt-3">
           <CardHeader className="p-6 md:p-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione del flusso</p>
-            <CardTitle className="font-display text-xl">Canale → ATC → originator/biosimilare</CardTitle>
-            <CardDescription>Lo spessore è proporzionale alla spesa osservata nel periodo più recente.</CardDescription>
+            <CardTitle className="font-display text-xl">Acquistato → erogato → residuo</CardTitle>
+            <CardDescription>
+              Per classe ATC di primo livello: quanto è stato acquistato, quanto è stato erogato sui
+              tre canali e quanto resta non erogato. Lo spessore è proporzionale al valore.
+            </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto px-6 pb-6 md:px-8 md:pb-8">
-            <div className="min-w-[640px]"><SpendSankey data={dashboard.flows} /></div>
+            <div className="min-w-[680px]"><SpendSankey data={dashboard.flows} /></div>
           </CardContent>
         </Card>
       </details>

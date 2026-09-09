@@ -108,19 +108,49 @@ export interface FeatureRequestSubmission {
   frequency: string | null;
 }
 
-export interface SankeyNode {
+export type SpendFlowNodeKind = "class" | "channel" | "residual";
+
+export interface SpendFlowNode {
   name: string;
+  kind: SpendFlowNodeKind;
 }
 
-export interface SankeyLink {
+export interface SpendFlowLink {
   source: number;
   target: number;
   value: number;
+  /** "dispensed" reaches a channel, "residual" reaches the undispensed node. */
+  kind: "dispensed" | "residual";
 }
 
-export interface SankeyData {
-  nodes: SankeyNode[];
-  links: SankeyLink[];
+export interface SpendFlowClass {
+  code: string;
+  label: string;
+  acquistato_eur: number;
+  erogato_eur: number;
+  /** acquistato − erogato. Negative where a class dispensed more than it bought. */
+  residual_eur: number;
+  /** residual as a share of acquistato; null when there is no purchase to divide by. */
+  residual_share: number | null;
+}
+
+export interface SpendFlowData {
+  /** Sankey nodes and links, covering only classes with a non-negative residual. */
+  nodes: SpendFlowNode[];
+  links: SpendFlowLink[];
+  /** Classes rendered in the Sankey, ordered by residual value descending. */
+  classes: SpendFlowClass[];
+  /**
+   * Classes where erogato exceeds acquistato. A Sankey cannot draw a negative
+   * flow, and clamping these to zero would hide the central-purchasing effect
+   * that produces them, so they are carried separately and rendered as their own
+   * labelled band. See docs/M6_DECISION.md.
+   */
+  negative_classes: SpendFlowClass[];
+  total_acquistato_eur: number;
+  total_erogato_eur: number;
+  /** acquistato − erogato across every class, including the negative ones. */
+  net_eur: number;
 }
 
 export interface SpendTrendPoint {
@@ -137,7 +167,7 @@ export interface SpendAtcSummary {
 }
 
 export interface SpendDashboardData {
-  flows: SankeyData;
+  flows: SpendFlowData;
   latest_year: number | null;
   total_spend_eur: number;
   total_packs: number;
