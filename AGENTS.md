@@ -148,17 +148,27 @@ Verified directly (2026-09-06):
 - Only **4,245 rows have all 12 months**. Partial coverage is the norm
   (8,871 rows), with 1,783 single-month rows. "Every row must have 12
   months" is an incorrect completeness rule.
-- Contains `#DIV/0` cells, negative quantities/costs, extreme unit-price
-  outliers, and repeated ASL–AIC–manufacturer combinations. These need
-  documented handling rules, not automatic rejection.
+- Negative quantities (68 rows) and negative costs (42 rows), extreme
+  unit-price outliers, and 15 repeated ASL–AIC–manufacturer keys. These
+  need documented handling rules, not automatic rejection.
 - No formulas; results stored as values.
 
+**`#DIV/0` is resolved — not corrupt data, not an open question.** All
+14 affected rows (42 cells, in `Prezzo (b)` plus columns 31 and 32) have
+quantity `(a) = 0`, so `b = c/a` divides by zero. 1,413 further rows
+share that condition but leave the price blank instead. Rule: when
+`a = 0` the unit price is undefined — `null`, never `0` — and blank and
+`#DIV/0` are treated identically. Do not send this to the stakeholder.
+
 **Resolved ambiguity — do not re-raise with the stakeholder.** The two
-header rows disagree about column 19. Header row 1 says
-`DD + DPC + CO`; row 2's label says `(Distribuzione Diretta+Consumi
-Ospedalieri)(a)`, omitting DPC. Tested across all 2,076 rows with
-non-zero DPC: `DD + DPC + CO` equals the total in every case, `DD + CO`
-in none. **The group header is correct; the column label is wrong.**
+header rows disagree. Row 1 says `DD + DPC + CO`; row 2's labels omit
+DPC on **both** the quantity column 19 `(a)` and the cost column 21
+`(c)`. Tested: `DD + DPC + CO` matches the quantity total in 2,076/2,076
+rows with non-zero DPC and the cost total in 2,047/2,047, while
+`DD + CO` matches in none. The file also contradicts its own labels —
+variance columns 29/31/33 are captioned "confronto traccia vs
+**DD+DPC+CO**". **The group header is correct; both column labels are
+wrong.** A parser trusting the labels drops €80,065,583 of DPC.
 
 **Why this file matters strategically:** it is not merely a spend export.
 It reconciles regional flows (DD + DPC + CO) against Tracciabilità/NSIS,
@@ -167,6 +177,60 @@ flags for which source each record appears in. This is the M3 data the
 project previously concluded had no public equivalent. Verified ingestion
 and explainable discrepancy detection on the institution's own file is
 the product's differentiator — not an algorithm count.
+
+### What the reconciliation actually shows
+
+Source: `Governance_Spesa_Farmaceutica_Documento_Unico.pdf` v2.0, ch. 2.
+Every figure below was recomputed against the gold file and matches to
+the euro (tier `VERIFIED-EXACT`).
+
+| Quantity | Value |
+|---|---|
+| DD / DPC / CO cost | 234,349,987 / 80,065,583 / 137,171,848 € |
+| Costo erogato totale `(c)` | 451,587,418 € |
+| Sum of absolute cost deviations | 182,200,613 € = 40.3% |
+| Rows with cost deviation >20% / >50% | 53% / 41% of all 13,116 |
+| Prezzo medio aziendale valorised | 4,567 / 13,116 = 34.8% |
+| Costo aziendale *rilevato* `(g)` | 140,857,366 € = 31% |
+| Distinct product codes | 5,399 |
+| Traccia-only / regional-only rows | 1,398 @ 9.2M € / 2,706 @ 23.9M € |
+
+**Correction — do not repeat the 0.14% figure.** The document reports
+that regional spend reconciles to 0.14%, derived from summing column `h`
+(*Costo aziendale stimato*) alone = 450,956,253 €. But the file's own
+variance column defines `o = (g se disponibile oppure h) − c`. Under
+that convention acquistato is 434,337,550 € and the net gap is
+**17,249,869 € = 3.82%**. The cause is structural: `h` exists only where
+Traccia data does (of 2,761 rows lacking `h`, 2,715 are absent from
+Traccia), so 0.14% compares 10,355 rows against all 13,116. Never quote
+0.14% and 40.3% together — they rest on different bases.
+
+**Two thirds of any acquistato figure is an estimate** — only 31% is
+backed by an observed company price. Expose this as an attribute of the
+number, not a footnote.
+
+**Product codes are 9-character strings with leading zeros.** The gold
+file stores all 13,116 as strings, but the document reports the supplied
+files contain both string and numeric forms. A spreadsheet strips
+leading zeros silently, the join fails, and the row leaves the total
+with no error message. Blocking check: `^[0-9]{9}$` after zero-padding.
+
+**Not independently verified — needs the internal database file.** The
+document's central claim is that cost matches to the cent for 94.7% of
+product codes while quantity matches for only 38.9%, median ratio 2.26,
+with non-uniform pack conversions — so any consumption indicator could
+be wrong by a factor of 2 to 10, differently per product. That rests on
+a second file we do not hold. Tier: `UNVERIFIED`. It is the premise for
+"certify units before building indicators", and it bears directly on the
+live €/mg, €/DDD and DDD/100-bed-day figures. Confirm it before relying
+on it, and before repeating it.
+
+**Public sources cover two denominators we recorded as missing.** The
+document places ISTAT resident population and the Ministero SDO /
+posti-letto data at step 0 of its acquisition ladder: public, free, no
+request to anyone. The population-based antibiotic indicators are
+therefore obtainable now at Azienda level. Per-unità-operativa precision
+still requires the hospital activity extract (its step 3).
 
 ---
 
@@ -213,3 +277,12 @@ documentation are English.
   (Alberto Costantini).
 - Pricing, commercial positioning, and the trademark status of the "VIS
   PHARMA COMPASS" name are business decisions.
+- **M6 is live but would fail the proposed quality gate.** Confronto fra
+  Aziende is in production, while the per-Azienda acquistato/erogato gap
+  measures −17.9M, −21.4M, −17.8M and +55.4M €. The v2.0 document's rule
+  set blocks publication of that comparison above a 5% gap. Whether to
+  gate it, caveat it, or leave it is governance, not engineering. Written
+  up in `docs/M6_DECISION.md`.
+- **The minimum publishable aggregation level is self-contradictory.**
+  This file states *struttura erogante*; the antibiotics module already
+  renders per unità operativa. One of the two has to change.
