@@ -41,7 +41,7 @@ export default async function DataLineagePage() {
         changed={lineage.latest_loaded_at ? `L’ultimo record è stato caricato il ${formatDate(lineage.latest_loaded_at)}.` : "Nessun caricamento canonico disponibile."}
         variance={weakest ? `${weakest.source_version_id} ha la copertura di normalizzazione più bassa: ${formatPercent(weakest.normalized_coverage!)}.` : "Copertura per fonte non calcolabile."}
         materiality={`${formatNumber(lineage.unresolved_records, 0)} record restano esclusi dai confronti economici normalizzati.`}
-        nextEvidence={discrepancies.length > 0 ? `Riconciliare ${discrepancies.length} file con scarto prima del prossimo ciclo di pubblicazione.` : "Verificare le fonti con record irrisolti e documentare ogni mapping manuale."}
+        nextEvidence={discrepancies.length > 0 ? `Riconciliare ${discrepancies.length} file con scarto.` : "Documentare i mapping manuali."}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

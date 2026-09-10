@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   BookOpenCheck,
   CircleMinus,
@@ -162,6 +163,13 @@ export function DecisionFrame({
     <section className="grid overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:grid-cols-2 xl:grid-cols-4">
       {items.map(([label, text], index) => {
         const Icon = DECISION_ICONS[index];
+        // The first three slots read as findings because each carries a figure.
+        // The fourth carries an instruction, so under the same muted styling it
+        // read as filler beside them. It keeps the identical icon and label
+        // treatment — the four-slot structure is deliberately unchanged — and
+        // earns its weight through full-contrast medium text behind an action
+        // marker.
+        const isAction = index === items.length - 1;
         return (
           <div key={label} className="border-b border-border p-3.5 last:border-b-0 sm:odd:border-r sm:[&:nth-child(3)]:border-b-0 xl:border-b-0 xl:border-r xl:last:border-r-0">
             <div className="flex items-center gap-2.5">
@@ -170,7 +178,14 @@ export function DecisionFrame({
               </span>
               <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
             </div>
-            <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-foreground/75" title={text}>{text}</p>
+            {isAction ? (
+              <p className="mt-2 flex items-start gap-1.5 text-[11px] font-medium leading-4 text-foreground" title={text}>
+                <ArrowRight aria-hidden="true" className="mt-px shrink-0 text-primary" size={13} strokeWidth={2.2} />
+                <span className="line-clamp-2">{text}</span>
+              </p>
+            ) : (
+              <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-foreground/75" title={text}>{text}</p>
+            )}
           </div>
         );
       })}

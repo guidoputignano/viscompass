@@ -93,7 +93,7 @@ export function DemoPrompt() {
                 <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-teal-700">Spesa 2025</p>
                 <p className="mt-1 text-2xl font-semibold text-slate-900">€29,7 mld</p>
               </div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">21 regioni</span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">21 regioni e province</span>
             </div>
             <div className="mt-6 flex h-44 items-end gap-3 rounded-xl bg-slate-50 px-5 pb-4 pt-7">
               {[48, 72, 58, 88, 66, 94, 81].map((height, index) => (

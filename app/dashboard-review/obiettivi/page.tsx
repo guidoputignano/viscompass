@@ -34,7 +34,7 @@ export default async function ReviewsPage() {
         changed={first ? `${first.title} è il primo segnale nella coda corrente.` : "Nessun nuovo segnale generato dai dati disponibili."}
         variance={`${biosimilarCount} segnali molecolari, ${data.discrepancy_uploads.length} scarti di caricamento e ${data.objectives.length} obiettivi nel perimetro.`}
         materiality={data.high_priority_count > 0 ? `${data.high_priority_count} elementi hanno priorità alta perché bloccano la qualità o mostrano materialità economica elevata.` : "Nessuna priorità alta attiva."}
-        nextEvidence={first ? first.context : "Verificare la freschezza delle fonti e attendere il prossimo ciclo di caricamento."}
+        nextEvidence={first ? first.context : "Attendere il prossimo caricamento."}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

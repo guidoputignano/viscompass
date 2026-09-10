@@ -51,7 +51,7 @@ export default async function ExplorerPage({
         changed={fastest ? `${fastest.label} ha la variazione più ampia nel livello corrente: ${formatPercent(fastest.spend_yoy!)}.` : "Nessun periodo precedente confrontabile per questo livello."}
         variance={largest ? `${largest.label} concentra il ${formatPercent(largest.spend_share)} della spesa nel perimetro selezionato.` : "Nessuna voce disponibile nel percorso selezionato."}
         materiality={largest ? `${formatEur(largest.spend_eur)} osservati nella voce principale.` : "Materialità non calcolabile."}
-        nextEvidence={largest?.href ? `Aprire ${largest.label} per scendere al livello successivo e verificare quale componente genera lo scarto.` : "Il percorso ha raggiunto il livello AIC; verificare descrizione, mapping e costo normalizzato nei record di origine."}
+        nextEvidence={largest?.href ? `Aprire ${largest.label} per il livello successivo.` : "Livello AIC: verificare mapping e costo."}
       />
 
       <nav aria-label="Percorso di esplorazione" className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-xs">
