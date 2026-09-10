@@ -41,14 +41,11 @@ export async function registerUser(input: {
     email,
     password: input.password,
     options: {
-      // Must match the route the Supabase confirmation template links to.
-      // That template sends the user to /auth/confirm?token_hash=...&next=...,
-      // which verifies via verifyOtp; /auth/callback speaks the other dialect
-      // (?code= exchanged with exchangeCodeForSession) and would reject a
-      // token_hash. The two routes are not interchangeable, so this value and
-      // the template have to be changed together: if the template ever reverts
-      // to Supabase's default {{ .ConfirmationURL }}, the redirect arrives with
-      // ?code= instead and this must point back at /auth/callback.
+      // Matches the route the Supabase confirmation template links to.
+      // /auth/confirm accepts both dialects — token_hash + type via verifyOtp,
+      // and ?code= via exchangeCodeForSession — so this value and the template
+      // are no longer a pair that has to be changed together: editing one
+      // cannot break the other.
       emailRedirectTo: `${siteOrigin()}/auth/confirm?next=/access`,
       data: {
         full_name: fullName,
