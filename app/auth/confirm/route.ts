@@ -5,8 +5,15 @@ import { type NextRequest } from "next/server";
 
 // `next` arrives from the email link, so it is attacker-influenced: only ever
 // redirect within this site. Same guard as app/auth/callback/route.ts.
+//
+// Rejecting "//" alone is not enough. Browsers normalise a backslash to a
+// forward slash in the authority position, so "/\evil.example" is fetched as
+// "//evil.example" — a protocol-relative URL pointing off-site — and passes a
+// check that only looks for a second forward slash.
 function safeNext(value: string | null): string {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
+  const ok =
+    value?.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
+  return ok ? value! : "/";
 }
 
 // Accepts both confirmation dialects, so the route works whichever one the
