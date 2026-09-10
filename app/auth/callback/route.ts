@@ -1,20 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/auth/safe-next";
 import { NextResponse, type NextRequest } from "next/server";
-
-// Only ever redirect within this site. Rejecting "//" alone is not enough:
-// browsers normalise a backslash to a forward slash in the authority position,
-// so "/\evil.example" is fetched as "//evil.example" — a protocol-relative URL
-// pointing off-site — and passes a check that looks only for a second forward
-// slash. Same guard as app/auth/confirm/route.ts.
-function safeNext(value: string | null): string {
-  const ok =
-    value?.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
-  return ok ? value! : "/dashboard-review/spend";
-}
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
-  const next = safeNext(request.nextUrl.searchParams.get("next"));
+  const next = safeNext(request.nextUrl.searchParams.get("next"), "/dashboard-review/spend");
 
   if (code) {
     const supabase = await createClient();

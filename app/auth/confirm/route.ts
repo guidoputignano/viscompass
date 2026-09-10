@@ -1,20 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/auth/safe-next";
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { type NextRequest } from "next/server";
-
-// `next` arrives from the email link, so it is attacker-influenced: only ever
-// redirect within this site. Same guard as app/auth/callback/route.ts.
-//
-// Rejecting "//" alone is not enough. Browsers normalise a backslash to a
-// forward slash in the authority position, so "/\evil.example" is fetched as
-// "//evil.example" — a protocol-relative URL pointing off-site — and passes a
-// check that only looks for a second forward slash.
-function safeNext(value: string | null): string {
-  const ok =
-    value?.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
-  return ok ? value! : "/";
-}
 
 // Accepts both confirmation dialects, so the route works whichever one the
 // Supabase email template emits:
@@ -30,7 +18,7 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const code = searchParams.get("code");
-  const next = safeNext(searchParams.get("next"));
+  const next = safeNext(searchParams.get("next"), "/");
 
   if (token_hash && type) {
     const supabase = await createClient();
