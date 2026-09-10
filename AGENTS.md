@@ -322,6 +322,16 @@ the source flows directly.
   --noEmit` was actually run. Claims about RLS behaviour mean policies
   were actually exercised against a real Postgres instance with real
   sessions, including adversarial cases — not read and reasoned about.
+- **Do not verify TypeScript logic by running it as JavaScript.** A
+  harness that retypes the logic, or that strips the annotations off the
+  real source to execute it, cannot see type-level defects: removing the
+  types removes the bug along with them. The guard now in
+  `lib/auth/safe-next.ts` passed such a harness on all ten cases while
+  `tsc` rejected it, because the narrowing error disappeared with the
+  annotations. Stripping types off the real file is the more deceptive
+  version of this, since the harness looks like it is exercising
+  shipped code. Run `npx tsc --noEmit` against the real source: a
+  harness tests the logic you reproduced, not the code that ships.
 - **User-facing copy is not only in the repo.** Supabase holds the auth
   email templates (Authentication → Emails → Templates), and their
   content is invisible to a repo-wide grep. When verifying that a phrase
