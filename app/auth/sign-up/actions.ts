@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleConfig } from "@/lib/supabase/service-role";
-import { sendRegistrationReceivedEmail } from "@/lib/email/vis-email";
 
 const CONSENT_VERSION = "2026-09-02.v1";
 
@@ -42,7 +41,15 @@ export async function registerUser(input: {
     email,
     password: input.password,
     options: {
-      emailRedirectTo: `${siteOrigin()}/auth/callback?next=/access`,
+      // Must match the route the Supabase confirmation template links to.
+      // That template sends the user to /auth/confirm?token_hash=...&next=...,
+      // which verifies via verifyOtp; /auth/callback speaks the other dialect
+      // (?code= exchanged with exchangeCodeForSession) and would reject a
+      // token_hash. The two routes are not interchangeable, so this value and
+      // the template have to be changed together: if the template ever reverts
+      // to Supabase's default {{ .ConfirmationURL }}, the redirect arrives with
+      // ?code= instead and this must point back at /auth/callback.
+      emailRedirectTo: `${siteOrigin()}/auth/confirm?next=/access`,
       data: {
         full_name: fullName,
         vis_newsletter_opt_in: Boolean(input.visNewsletter),
@@ -76,14 +83,11 @@ export async function registerUser(input: {
     }
   }
 
-  try {
-    const delivery = await sendRegistrationReceivedEmail(email, fullName);
-    if (!delivery.sent && delivery.reason !== "VIS email is not configured") {
-      console.error("registration email failed", delivery.reason);
-    }
-  } catch (deliveryError) {
-    console.error("registration email failed", deliveryError);
-  }
-
+  // No confirmation email is sent from here. Supabase already sends one
+  // carrying the actual confirmation link; a second message arriving at the
+  // same time, telling the user to confirm but linking to /auth/login, sent
+  // them to a page that cannot work until they have used the Supabase link.
+  // sendRegistrationReceivedEmail stays defined in lib/email/vis-email.ts for
+  // a future genuine use.
   return { ok: true, message: "Account creato. Controlla la tua email per confermare." };
 }
