@@ -322,6 +322,14 @@ the source flows directly.
   --noEmit` was actually run. Claims about RLS behaviour mean policies
   were actually exercised against a real Postgres instance with real
   sessions, including adversarial cases — not read and reasoned about.
+- **User-facing copy is not only in the repo.** Supabase holds the auth
+  email templates (Authentication → Emails → Templates), and their
+  content is invisible to a repo-wide grep. When verifying that a phrase
+  has been removed from the product, check the Supabase templates as
+  well as the codebase. Precedent: "Governance farmaceutica, non
+  clinica" was reported as removed on the basis of a repo search while
+  it was still live in the confirmation email template. A clean `grep`
+  is evidence about the repo, not about the product.
 - **Fail loudly, never silently.** Loaders assert their column mappings
   at runtime and abort if a source file changes shape, rather than
   loading nulls. See `load_antibiotic_consumption.mjs`'s `assertLegend()`.
