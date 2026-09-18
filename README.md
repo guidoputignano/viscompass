@@ -5,6 +5,7 @@ uses Supabase authentication, organization-scoped Row Level Security, and a dedi
 Control Center for demo applications, invitations, approvals and revocations.
 
 Before deploying the access workflow, follow [docs/ACCESS_CONTROL.md](docs/ACCESS_CONTROL.md).
+For the Pillar A public activity proxy, read [docs/PILLAR_A_ACTIVITY_PROXY_STATUS.md](docs/PILLAR_A_ACTIVITY_PROXY_STATUS.md).
 
 The remaining notes below document the upstream Next.js + Supabase starter foundation.
 

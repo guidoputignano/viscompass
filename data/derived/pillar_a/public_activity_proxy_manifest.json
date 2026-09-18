@@ -1,0 +1,274 @@
+{
+  "generatedAt": "2026-09-18T20:15:44.117Z",
+  "scriptVersion": "2026-09-18.1",
+  "nodeVersion": "v24.18.1",
+  "proxyLabel": "public_inpatient_activity_proxy",
+  "a2SelectorVerbatim": "DEGENZA + ACCESSI - ESCLUDI ONERE \"4\" E DRG 391",
+  "a2SelectorPolicy": "The public proxy is never labelled A2. Exact A2 requires Azienda-supplied DEGENZA, ACCESSI, ONERE and DRG fields.",
+  "trustedCaseRegion": {
+    "regionCode": "130",
+    "regionalTotalAziendaCode": "130",
+    "aziendaCodes": [
+      "201",
+      "202",
+      "203",
+      "204"
+    ],
+    "evidence": "docs/PILLAR_A_WORKBOOK_RECONCILIATION.md names the actual side Abruzzo; asl_registry_2010_2026.csv lists 201-204 under region 130; the workbook row 130 equals the sum of 201-204 in every year."
+  },
+  "trustedExtract": {
+    "file": "tmp/pillar_a_inputs.json",
+    "sha256": "5fb0d20cb8e6555aedf5633de31912a714db2e8f71a5df2ca6a44392b113e7cd",
+    "workbook": "C:\\Users\\HP\\Desktop\\Dati_Analisi_v02 (1).xlsm",
+    "cases": 15
+  },
+  "sources": [
+    {
+      "id": "hospital_structure_activity_2022",
+      "file": "data/raw/denominators/ministry/hospital_structure_activity_2022.csv",
+      "year": 2022,
+      "sha256": "fb82ae112921fe776126dec9d621cc963b9bf9ee3382c803552788d43a3c53a1",
+      "official": "https://www.dati.salute.gov.it/it/dataset/dati-di-struttura-e-di-attivita-dei-reparti-presenti-ciascuna-struttura-di-ricovero/"
+    },
+    {
+      "id": "beds_2023",
+      "file": "data/raw/denominators/ministry/beds_2023.csv",
+      "year": 2023,
+      "sha256": "5678641553a0fdaf9b62891634524d61198af20de24211210e9ea87e5398bbce",
+      "official": "https://www.dati.salute.gov.it/it/dataset/posti-letto-struttura-ospedaliera-2023/"
+    },
+    {
+      "id": "discharges_by_institute_2022",
+      "file": "data/raw/denominators/ministry/discharges_by_institute.csv",
+      "year": 2022,
+      "sha256": "58cee316fd499a15c5752fe4593c8b646fe2edcbfff7bdfdabc266b6df7f6827",
+      "official": "https://www.dati.salute.gov.it/it/dataset/dimissioni-ospedaliere-istituto-e-tipologia-di-dimissione/"
+    },
+    {
+      "id": "sdo_discharges_age_sex_2022",
+      "file": "data/raw/denominators/ministry/sdo_discharges_age_sex_2022.csv",
+      "year": 2022,
+      "sha256": "79a148b2b59c3d45103b63c5bce8129755be7d0f239eb0eb24162945ea6a4898",
+      "official": "https://www.dati.salute.gov.it/"
+    },
+    {
+      "id": "asl_structures_activity_2022",
+      "file": "data/raw/denominators/ministry/asl_structures_activity.csv",
+      "year": 2022,
+      "sha256": "da832410b394b466e259bb0051a7a9b7cf5ec98343b0f51adc74aa1079b1e26a",
+      "official": "https://www.dati.salute.gov.it/it/dataset/strutture-e-attivita-asl/"
+    },
+    {
+      "id": "asl_registry_2010_2026",
+      "file": "data/raw/denominators/ministry/asl_registry_2010_2026.csv",
+      "year": null,
+      "sha256": "f76eeea9a390462827e553ba1e5eef6d45346b241f178526b44ec32cc36f08ab",
+      "official": "https://www.dati.salute.gov.it/"
+    },
+    {
+      "id": "ao_aou_irccs_registry_2010_2022",
+      "file": "data/raw/denominators/ministry/ao_aou_irccs_registry_2010_2022.csv",
+      "year": null,
+      "sha256": "912ee76a3bafdcf87831b7e09f6ee467346687882f8642394047601129c1df08",
+      "official": "https://www.dati.salute.gov.it/it/dataset/aziende-ospedaliere-aziende-ospedaliere-universitarie-e-irccs-pubblici-anche-costituiti/"
+    },
+    {
+      "id": "sdo_report_2024_cap2",
+      "file": "data/raw/denominators/ministry/sdo_reports/2024/Cap2_2024.xlsx",
+      "year": 2024,
+      "sha256": "b0ac4c363763ed869f4ae593216766a725c2460321427a17a61dc3332b7e6be1",
+      "official": "https://www.salute.gov.it/new/it/tema/assistenza-ospedaliera/rapporti-annuali-sui-ricoveri-ospedalieri/"
+    },
+    {
+      "id": "sdo_report_2024_cap6",
+      "file": "data/raw/denominators/ministry/sdo_reports/2024/Cap6_2024.xlsx",
+      "year": 2024,
+      "sha256": "53da0e6aa0b260a89a119b3e0e7e487e2bc6fb9b6bf97378e901472ea8c79be3",
+      "official": "https://www.salute.gov.it/new/it/tema/assistenza-ospedaliera/rapporti-annuali-sui-ricoveri-ospedalieri/"
+    },
+    {
+      "id": "sdo_report_2024_cap8",
+      "file": "data/raw/denominators/ministry/sdo_reports/2024/Cap8_2024.xlsx",
+      "year": 2024,
+      "sha256": "66d9588fdedc4ad49bee67282fd2f084c70be1f853168dbe208015dbef96da25",
+      "official": "https://www.salute.gov.it/new/it/tema/assistenza-ospedaliera/rapporti-annuali-sui-ricoveri-ospedalieri/"
+    },
+    {
+      "id": "pillar_a_inputs_workbook_extract",
+      "file": "tmp/pillar_a_inputs.json",
+      "year": null,
+      "sha256": "5fb0d20cb8e6555aedf5633de31912a714db2e8f71a5df2ca6a44392b113e7cd",
+      "official": "Dati_Analisi_v02 (1).xlsm (SHA-256 3DCF691A…12B7B, see docs/PILLAR_A_SOURCE_AUDIT.md)"
+    }
+  ],
+  "counts": {
+    "componentRows": 23291,
+    "bySource": {
+      "hospital_structure_activity_2022": 4893,
+      "beds_2023": 9230,
+      "discharges_by_institute_2022": 4071,
+      "sdo_discharges_age_sex_2022": 2726,
+      "asl_structures_activity_2022": 106,
+      "sdo_report_2024_cap2": 982,
+      "sdo_report_2024_cap6": 1199,
+      "sdo_report_2024_cap8": 84
+    },
+    "byGrain": {
+      "facility": 19315,
+      "azienda": 1711,
+      "region": 2110,
+      "national": 155
+    },
+    "byProxyStatus": {
+      "derived_aggregate": 2307,
+      "capacity_not_activity": 12725,
+      "observed_public": 5155,
+      "suppressed": 2381,
+      "unavailable": 723
+    },
+    "byConfidence": {
+      "DERIVED": 5959,
+      "VERIFIED-SOURCE": 13502,
+      "SUPPRESSED": 2381,
+      "UNAVAILABLE": 723,
+      "INFERRED": 643,
+      "PROXY-CANDIDATE": 83
+    },
+    "suppressedRows": 2381,
+    "nullValueRows": 3104,
+    "hospitalStructureWardRows": 6989,
+    "hospitalStructureFacilities": 504,
+    "hospitalStructureAziende": 195,
+    "hospitalStructureUnattributedFacilities": 71,
+    "hospitalStructureFacilitiesAttributedByRegistryOverCodiceAsl": 27,
+    "bedsRecords": 1798,
+    "dischargeTypeRecords": 1357,
+    "dischargeTypeSuppressedCells": 488,
+    "dischargeTypeDatoErratoRows": 4,
+    "sdoAgeSexRecords": 2726,
+    "sdoAgeSexSuppressedCells": 6615,
+    "sdoAgeSexDatoErratoRows": 7,
+    "aslActivityRecords": 106,
+    "regionsWithSdo2024Compositions": 21
+  },
+  "onereColumnLabelsTavola622": [
+    {
+      "position": 1,
+      "label": "A totale carico del SSN"
+    },
+    {
+      "position": 2,
+      "label": "A prevalente carico del SSN (differenza alberghiera)"
+    },
+    {
+      "position": 3,
+      "label": "Senza oneri per il SSN"
+    },
+    {
+      "position": 4,
+      "label": "A prevalente carico del SSN (in conv. con libera professione)"
+    },
+    {
+      "position": 5,
+      "label": "A prevalente carico del SSN (in conv. con libera professione e con differenza alberghiera)"
+    },
+    {
+      "position": 6,
+      "label": "A carico del SSN (stranieri da Paesi convenzionati a carico del SSN)"
+    },
+    {
+      "position": 7,
+      "label": "A carico del SSN (stranieri con dichiarazione di indigenza)"
+    },
+    {
+      "position": 8,
+      "label": "A carico del Ministero della Salute (stranieri con dichiarazione di indigenza)"
+    },
+    {
+      "position": 9,
+      "label": "Altro"
+    },
+    {
+      "position": 10,
+      "label": "Non attribuibile"
+    }
+  ],
+  "calibration": {
+    "comparedObservations": 4,
+    "summaries": [
+      {
+        "composition": "sdo_region_acute_ro_days_plus_dh_accesses",
+        "observations": 1,
+        "distinctRegions": 1,
+        "distinctAziende": 0,
+        "distinctYears": 1,
+        "ratioMin": 0.942008997086071,
+        "ratioMax": 0.942008997086071,
+        "ratioMean": 0.942008997086071,
+        "generalization": {
+          "status": "blocked",
+          "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+        }
+      },
+      {
+        "composition": "sdo_region_acute_ro_days_only",
+        "observations": 1,
+        "distinctRegions": 1,
+        "distinctAziende": 0,
+        "distinctYears": 1,
+        "ratioMin": 1.0579052477557638,
+        "ratioMax": 1.0579052477557638,
+        "ratioMean": 1.0579052477557638,
+        "generalization": {
+          "status": "blocked",
+          "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+        }
+      },
+      {
+        "composition": "sdo_region_all_activity_days_plus_accesses",
+        "observations": 1,
+        "distinctRegions": 1,
+        "distinctAziende": 0,
+        "distinctYears": 1,
+        "ratioMin": 0.8029784690092309,
+        "ratioMax": 0.8029784690092309,
+        "ratioMean": 0.8029784690092309,
+        "generalization": {
+          "status": "blocked",
+          "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+        }
+      },
+      {
+        "composition": "sdo_region_all_days_excluding_accesses",
+        "observations": 1,
+        "distinctRegions": 1,
+        "distinctAziende": 0,
+        "distinctYears": 1,
+        "ratioMin": 0.8858200903439084,
+        "ratioMax": 0.8858200903439084,
+        "ratioMean": 0.8858200903439084,
+        "generalization": {
+          "status": "blocked",
+          "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+        }
+      },
+      {
+        "composition": "hsp_azienda_public_ordinary_days",
+        "observations": 0,
+        "distinctRegions": 0,
+        "distinctAziende": 0,
+        "distinctYears": 0,
+        "ratioMin": null,
+        "ratioMax": null,
+        "ratioMean": null,
+        "generalization": {
+          "status": "blocked",
+          "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+        }
+      }
+    ]
+  },
+  "warnings": [
+    "sdo_report_2024_cap6 Tavola 6.25: region 020 (VALLE D'AOSTA) has no row in this table; nothing is emitted for it."
+  ]
+}

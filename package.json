@@ -4,7 +4,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:pillar-a": "node --test tests/pillar-a-*.test.mjs",
+    "build:activity-proxy": "node scripts/build_pillar_a_activity_proxy.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",

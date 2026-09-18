@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-09-18T20:15:44.117Z",
+  "proxyLabel": "public_inpatient_activity_proxy",
+  "comparedObservations": [
+    {
+      "year": 2024,
+      "grain": "region",
+      "regionCode": "130",
+      "aziendaCode": null,
+      "composition": "sdo_region_acute_ro_days_plus_dh_accesses",
+      "trustedValue": 963045,
+      "proxyValue": 1022331,
+      "trustedOverProxy": 0.942008997086071,
+      "proxyRelativeDifference": 0.06156098624674859
+    },
+    {
+      "year": 2024,
+      "grain": "region",
+      "regionCode": "130",
+      "aziendaCode": null,
+      "composition": "sdo_region_acute_ro_days_only",
+      "trustedValue": 963045,
+      "proxyValue": 910332,
+      "trustedOverProxy": 1.0579052477557638,
+      "proxyRelativeDifference": -0.05473576001121443
+    },
+    {
+      "year": 2024,
+      "grain": "region",
+      "regionCode": "130",
+      "aziendaCode": null,
+      "composition": "sdo_region_all_activity_days_plus_accesses",
+      "trustedValue": 963045,
+      "proxyValue": 1199341,
+      "trustedOverProxy": 0.8029784690092309,
+      "proxyRelativeDifference": 0.24536340461764508
+    },
+    {
+      "year": 2024,
+      "grain": "region",
+      "regionCode": "130",
+      "aziendaCode": null,
+      "composition": "sdo_region_all_days_excluding_accesses",
+      "trustedValue": 963045,
+      "proxyValue": 1087179,
+      "trustedOverProxy": 0.8858200903439084,
+      "proxyRelativeDifference": 0.1288974035481208
+    }
+  ],
+  "summaries": [
+    {
+      "composition": "sdo_region_acute_ro_days_plus_dh_accesses",
+      "observations": 1,
+      "distinctRegions": 1,
+      "distinctAziende": 0,
+      "distinctYears": 1,
+      "ratioMin": 0.942008997086071,
+      "ratioMax": 0.942008997086071,
+      "ratioMean": 0.942008997086071,
+      "generalization": {
+        "status": "blocked",
+        "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+      }
+    },
+    {
+      "composition": "sdo_region_acute_ro_days_only",
+      "observations": 1,
+      "distinctRegions": 1,
+      "distinctAziende": 0,
+      "distinctYears": 1,
+      "ratioMin": 1.0579052477557638,
+      "ratioMax": 1.0579052477557638,
+      "ratioMean": 1.0579052477557638,
+      "generalization": {
+        "status": "blocked",
+        "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+      }
+    },
+    {
+      "composition": "sdo_region_all_activity_days_plus_accesses",
+      "observations": 1,
+      "distinctRegions": 1,
+      "distinctAziende": 0,
+      "distinctYears": 1,
+      "ratioMin": 0.8029784690092309,
+      "ratioMax": 0.8029784690092309,
+      "ratioMean": 0.8029784690092309,
+      "generalization": {
+        "status": "blocked",
+        "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+      }
+    },
+    {
+      "composition": "sdo_region_all_days_excluding_accesses",
+      "observations": 1,
+      "distinctRegions": 1,
+      "distinctAziende": 0,
+      "distinctYears": 1,
+      "ratioMin": 0.8858200903439084,
+      "ratioMax": 0.8858200903439084,
+      "ratioMean": 0.8858200903439084,
+      "generalization": {
+        "status": "blocked",
+        "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+      }
+    },
+    {
+      "composition": "hsp_azienda_public_ordinary_days",
+      "observations": 0,
+      "distinctRegions": 0,
+      "distinctAziende": 0,
+      "distinctYears": 0,
+      "ratioMin": null,
+      "ratioMax": null,
+      "ratioMean": null,
+      "generalization": {
+        "status": "blocked",
+        "reason": "No approved generalization thresholds exist; a correction factor cannot be applied beyond the observed cases."
+      }
+    }
+  ],
+  "generalizationPolicy": "not_yet_approved"
+}
