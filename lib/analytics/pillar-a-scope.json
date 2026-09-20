@@ -1,0 +1,14 @@
+{
+  "version": "2026-09-20.1",
+  "status": "working_scope_under_user_delegation",
+  "authority": "User authorized appropriate scope decisions pending Alberto review",
+  "groups": [
+    { "prefix": "J01", "id": "antibiotics", "label": "Systemic antibacterials" },
+    { "prefix": "J02A", "id": "antifungals", "label": "Systemic antifungals" },
+    { "prefix": "J04A", "id": "tuberculosis", "label": "Tuberculosis medicines" }
+  ],
+  "awarePolicy": "Exact WHO reference match only; antifungals always not_applicable; group membership does not assign AWaRe",
+  "historicalPolicy": "2025 AWaRe and current AIFA mapping are explicit retrospective reference views, not verified historical classifications",
+  "exclusions": "Other ATC groups, including dermatological/local antifungals and J04B, excluded from this first working scope",
+  "publicationPolicy": "Keep group totals separate; working scope does not certify DDD conversion, A2, benchmark equivalence or historical product coverage"
+}
