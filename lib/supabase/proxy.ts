@@ -3,6 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
+  // These exact routes contain public-source aggregates only. Private
+  // hospital data and every dashboard route retain the existing auth checks.
+  if (["/pillar-a", "/data/pillar-a.json", "/data/pillar-a-annual.csv"].includes(request.nextUrl.pathname)) {
+    return NextResponse.next({ request });
+  }
   let supabaseResponse = NextResponse.next({
     request,
   });

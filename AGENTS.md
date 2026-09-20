@@ -107,6 +107,13 @@ without understanding them:
 
 ## Current state (update this section when it changes)
 
+**20 Sep 2026 public-data addition:** `/pillar-a` adds separate public
+AIFA 2016–2025 trends, ISTAT 2019–2025 per-resident spending and SDO
+2021–2024 activity context. See `docs/PILLAR_A_PUBLIC_RELEASE.md` for
+verified scope, reproduction and limits. This does not populate private
+hospital fact tables or certify local A2/DDD calculations. The owner's
+latest request authorized the plots supporting this data release.
+
 **Live in production** (`eurekene.com`, Vercel project `viscompass-217a`):
 homepage, Italian auth flow, dashboard modules under
 `app/dashboard-review/` (spend, benchmark, biosimilar-to-euros,

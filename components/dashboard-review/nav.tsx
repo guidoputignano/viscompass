@@ -30,6 +30,7 @@ const NAV_GROUPS = [
   {
     label: "Esplorazione",
     items: [
+      { href: "/pillar-a", label: "Pillar A · fonti pubbliche", icon: ChartSpline },
       { href: "/dashboard-review/ricerca", label: "Regione → AIC", icon: ListTree },
       { href: "/dashboard-review/antibiotici", label: "Antibiotici AWaRe", icon: ShieldPlus },
     ],

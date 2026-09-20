@@ -278,6 +278,7 @@ export default function Home() {
             <a href="#come-funziona" className="hover:text-foreground">Come funziona</a>
           </div>
           <div className="flex items-center gap-1.5">
+            <Button asChild variant="ghost" size="sm"><Link href="/pillar-a">Pillar A</Link></Button>
             <ThemeSwitcher />
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link href="/auth/login">Accedi</Link></Button>
             <Button asChild size="sm"><Link href="/auth/sign-up">Registrati</Link></Button>
