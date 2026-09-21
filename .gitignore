@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/private-staging/
 
 # next.js
 /.next/
