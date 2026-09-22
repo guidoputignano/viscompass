@@ -17,6 +17,7 @@ import {
   StatusPill,
   TemplateNotice,
 } from "@/components/dashboard-review/analytics-ui";
+import { TrendLineChart } from "@/components/dashboard-review/trend-line-chart";
 import type { ReviewSeverity, SpendDashboardData } from "@/lib/dashboard-review/types";
 import { formatDate, formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 
@@ -66,7 +67,6 @@ const DEMO_REVIEWS: SpendDashboardData["review_items"] = [
 
 function TrendPanel({ data, demo }: { data: SpendDashboardData; demo: boolean }) {
   const trend = data.trend;
-  const max = Math.max(...trend.map((point) => point.spend_eur), 0);
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
       <div className="flex items-start justify-between gap-4">
@@ -79,23 +79,15 @@ function TrendPanel({ data, demo }: { data: SpendDashboardData; demo: boolean })
         </div>
         <Delta value={data.spend_yoy} />
       </div>
-      <div className="mt-7 flex h-48 items-end gap-3 border-b border-border sm:gap-5">
-          {trend.map((point) => {
-            const height = max > 0 ? Math.max((point.spend_eur / max) * 100, 3) : 3;
-            return (
-              <div key={point.key} className="group flex h-full min-w-0 flex-1 flex-col justify-end">
-                <span className="mb-2 hidden text-center font-mono text-[9px] text-muted-foreground group-hover:block">
-                  {formatEur(point.spend_eur)}
-                </span>
-                <div
-                  className="w-full rounded-t bg-[hsl(174_55%_42%)] transition-all group-hover:bg-primary"
-                  style={{ height: `${height}%` }}
-                  title={`${demo ? "Scenario demo · " : ""}${point.label}: ${formatEur(point.spend_eur)}`}
-                />
-                <span className="mt-2 truncate text-center text-[10px] text-muted-foreground">{point.label}</span>
-              </div>
-            );
-          })}
+      <div className="mt-6">
+        <TrendLineChart
+          points={trend.map((point) => ({ label: point.label, spesa: point.spend_eur }))}
+          series={[{ key: "spesa", name: "Spesa", color: "hsl(174 66% 40%)" }]}
+          format="eur"
+          ariaLabel={`${demo ? "Scenario demo · " : ""}spesa nel tempo`}
+          table
+          tableLabel={data.trend_granularity === "month" ? "Mese" : "Anno"}
+        />
       </div>
     </section>
   );

@@ -1,9 +1,9 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useState } from "react";
+import { TrendLineChart } from "@/components/dashboard-review/trend-line-chart";
 import type { AwareYearRow } from "@/lib/dashboard-review/types";
-import { formatEur, formatNumber } from "@/lib/dashboard-review/format";
+
 
 // WHO's AWaRe classification has an internationally recognized
 // traffic-light color code (Access=green, Watch=amber, Reserve=red) that
@@ -33,7 +33,6 @@ export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
     reserve: metric === "cost" ? row.reserve : row.reserveDdd,
     unclassified: metric === "cost" ? row.unclassified : row.unclassifiedDdd,
   }));
-  const formatter = metric === "cost" ? formatEur : (value: number) => formatNumber(value, 0);
 
   return (
     <div>
@@ -52,19 +51,24 @@ export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData} margin={{ top: 10, right: 8, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-          <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-          <YAxis tickLine={false} axisLine={false} fontSize={11} width={68} tickFormatter={formatter} />
-          <Tooltip formatter={(value: number) => formatter(Number(value))} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="access" name="Access" stackId="aware" fill={ACCESS_COLOR} />
-          <Bar dataKey="watch" name="Watch" stackId="aware" fill={WATCH_COLOR} />
-          <Bar dataKey="reserve" name="Reserve" stackId="aware" fill={RESERVE_COLOR} />
-          <Bar dataKey="unclassified" name="Non classificato" stackId="aware" fill={UNCLASSIFIED_COLOR} radius={[4, 4, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      <TrendLineChart
+        points={chartData.map((row) => ({
+          label: String(row.year),
+          access: row.access,
+          watch: row.watch,
+          reserve: row.reserve,
+          unclassified: row.unclassified,
+        }))}
+        series={[
+          { key: "access", name: "Access", color: ACCESS_COLOR },
+          { key: "watch", name: "Watch", color: WATCH_COLOR },
+          { key: "reserve", name: "Reserve", color: RESERVE_COLOR },
+          { key: "unclassified", name: "Non classificato", color: UNCLASSIFIED_COLOR },
+        ]}
+        format={metric === "cost" ? "eur" : "number"}
+        height={300}
+        ariaLabel={`Andamento per categoria AWaRe, ${metric === "cost" ? "spesa" : "DDD"}`}
+      />
     </div>
   );
 }
