@@ -31,16 +31,3 @@ an empty-table-only transactional import and private regression fixture to
 gitignored `private-staging/`. It does not overwrite existing data. Keep these
 files local; never publish them. The ordinary TypeScript typecheck is required
 in addition to runtime tests against the TypeScript calculation module.
-
-## Activation — 22 September 2026
-
-Commit `a52e14c` deployed successfully. The guarded import committed 48 rows.
-Canonical ordered org/year/category/cost/DDD serialization matched the local
-workbook fixture MD5 `fa2777c06bda4cfebc8c9e20e1f402a0` in PostgreSQL.
-All bed-days/population/unit columns remained null; source tags were checked.
-Real-data RLS assertions passed: existing ASL membership sees 12 own rows,
-regional membership sees 48, nonmember sees zero. Prior fixture tests cover
-anonymous access, out-of-region exclusion and authenticated write denial.
-No memberships or policies were modified. Unauthenticated live route redirects
-to login. Authenticated browser rendering still awaits the owner's VIS login;
-Supabase dashboard authentication is a separate session.
