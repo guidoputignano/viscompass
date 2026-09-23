@@ -1,0 +1,14 @@
+colonna,descrizione,unita,note
+year,Anno di riferimento della rilevazione AIFA,anno,Serie 2016-2025
+region,Codice territorio ISTAT a tre cifre,codice,000 = Italia; 041 = PA Bolzano; 042 = PA Trento (Province autonome, non Regioni)
+group,Famiglia ATC pubblicata,categoria,antibiotics = J01 antibatterici sistemici; antifungals = J02A antifungini sistemici
+channel,Flusso AIFA,categoria,direct = acquisti diretti (flusso tracciabilita); convenzionata = farmaceutica convenzionata. I due flussi non equivalgono ai canali locali DD e CO
+spend,Spesa riportata nel flusso,euro,Somma delle celle numeriche riportate; le celle vuote non diventano zero
+packs,Confezioni riportate nel flusso,numero di confezioni,Unita commerciali. Non sono DDD e non sono convertibili in DDD senza quantita e riferimento DDD di prodotto
+spendYoy,Variazione della spesa rispetto all'anno precedente,rapporto,0.05 = +5%. Vuoto quando manca l'anno precedente per lo stesso territorio famiglia e flusso
+population,Popolazione residente al 1 gennaio,persone,Non e popolazione pesata ne media annuale
+perResident,Spesa per residente,euro per residente,spend diviso population. Non corregge per eta ne per complessita della casistica
+populationBasis,Origine del dato di popolazione,testo,Ricostruzione intercensuaria ISTAT per 2016-2018 (confini 2019); POSAS dal 2019
+missingSpendCells,Celle di spesa vuote nel flusso di origine,conteggio,Misura di completezza: un valore alto indica che la somma copre una parte dei record
+missingPackCells,Celle di confezioni vuote nel flusso di origine,conteggio,Come sopra per le confezioni
+months,Mesi presenti nell'anno,conteggio,12 indica copertura mensile completa
