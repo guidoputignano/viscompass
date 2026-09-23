@@ -153,3 +153,5 @@ route before its table/access gate is satisfied. This handover is local; the use
 must pass it to their actual Claude Code session. Final command results are
 recorded in the accompanying assistant response and git checkpoint. Full runtime
 suite: 26 passed, 2 pre-existing fixture skips, 0 failed. TypeScript passed.
+Webpack production build completed successfully. Implementation commit: 58ffab3.
+No preview server was started for these new private charts. Browser QA is pending.
