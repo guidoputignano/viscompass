@@ -24,11 +24,13 @@ function Select({label,value,onChange,options}:{label:string;value:string;onChan
 
 export function PillarAPublic(){
   const [data,setData]=useState<Data|null>(null),[error,setError]=useState(false);
+  const [loadedKey,setLoadedKey]=useState('');
   const [region,setRegion]=useState("000"),[group,setGroup]=useState("antibiotics"),[channel,setChannel]=useState("direct"),[metric,setMetric]=useState("spend"),[activityRegion,setActivityRegion]=useState("ITALIA"),[query,setQuery]=useState("");
-  useEffect(()=>{const controller=new AbortController();fetch('/api/pillar-a/series',{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(setData).catch(e=>{if(e.name!=="AbortError")setError(true);});return()=>controller.abort();},[]);
+  const requestKey=`${region}/${group}/${channel}`;
+  useEffect(()=>{const controller=new AbortController();setError(false);fetch(`/api/pillar-a/series?${new URLSearchParams({region,group,channel})}`,{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(result=>{if(!controller.signal.aborted){setData(result);setLoadedKey(requestKey);}}).catch(e=>{if(e.name!=="AbortError")setError(true);});return()=>controller.abort();},[region,group,channel,requestKey]);
   const annual=useMemo(()=>data?.annual.filter(r=>r.region===region&&r.group===group&&r.channel===channel)??[],[data,region,group,channel]);
   if(error)return <div className="mx-auto max-w-7xl p-10" role="alert">Dati temporaneamente non disponibili. Ricarica la pagina.</div>;
-  if(!data)return <div className="mx-auto max-w-7xl p-10" role="status">Caricamento delle serie verificate…</div>;
+  if(!data||loadedKey!==requestKey)return <div className="mx-auto max-w-7xl p-10" role="status">Caricamento delle serie verificate…</div>;
   const latest=annual.at(-1), metricKey=metric as "spend"|"packs"|"perResident";
   const metricLabel=metric==="spend"?"Spesa riportata (€)":metric==="packs"?"Confezioni riportate":"Spesa per residente (€)";
   const ranked=data.annual.filter(r=>r.year===2025&&r.region!=="000"&&r.group===group&&r.channel===channel&&r[metricKey]!==null).sort((a,b)=>(b[metricKey]??0)-(a[metricKey]??0));

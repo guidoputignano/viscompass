@@ -9,9 +9,11 @@
 // read back out of the page. What it does is stop the entire compiled dataset
 // being retrievable as one file from a permanent, guessable URL, and it keeps
 // internal provenance out of every response.
+import "server-only";
 import annual from "@/data/public-compiled/pillar-a.json";
 import atc4 from "@/data/public-compiled/pillar-a-atc4.json";
 import osmed from "@/data/public-compiled/pillar-a-osmed.json";
+import {slicePublicSeries} from './series-slice';
 
 // Keys that describe how VIS produced a figure rather than the figure itself.
 // They are stripped on load and asserted absent, so a regenerated input cannot
@@ -73,8 +75,8 @@ const publicOsmed = strip(osmed);
 assertClean("pillar-a.json", publicSeries);
 assertClean("pillar-a-osmed.json", publicOsmed);
 
-export function getPublicSeries() {
-  return publicSeries;
+export function getPublicSeries(region:string,group:string,channel:string) {
+  return slicePublicSeries(publicSeries,region,group,channel);
 }
 
 export function getPublicOsmed() {
