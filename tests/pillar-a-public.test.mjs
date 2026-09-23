@@ -13,7 +13,9 @@ test('public series has unique annual keys and reconciles national sums',()=>{
 });
 test('population rates and annual variations use matching periods and scopes',()=>{
   for(const r of data.annual){
-    if(r.year<2019||['041','042'].includes(r.region))assert.equal(r.perResident,null);
+    assert.ok(r.population>0);
+    assert.ok(r.populationBasis.includes(r.year<2019?'reconstruction':'POSAS'));
+    if(r.year>=2019&&['041','042'].includes(r.region))assert.ok(r.population>0&&r.perResident!==null);
     if(r.perResident!==null)assert.ok(Math.abs(r.perResident-r.spend/r.population)<1e-10);
     if(r.spendYoy!==null){const p=data.annual.find(p=>p.year===r.year-1&&p.region===r.region&&p.group===r.group&&p.channel===r.channel);assert.ok(Math.abs(r.spendYoy-(r.spend/p.spend-1))<1e-10);}
   }
@@ -23,7 +25,15 @@ test('only public coverage is delivered and antifungals cannot carry AWaRe',()=>
     assert.equal(Object.keys(r).some(k=>/hospital|aic_count|cost/i.test(k)),false);
     if(r.group==='antifungals'){assert.equal(r.aware,'');assert.equal(r.aware_status,'not_applicable');}
   }
-  assert.equal(data.monthly.length,720);
+  assert.equal(data.monthly.length,15840);
   assert.equal(data.activity.length,88);
   assert.equal(JSON.stringify(data).includes('activity_a2'),false);
+});
+
+test('regional monthly sums reproduce each annual spending value',()=>{
+  for(const a of data.annual){
+    const rows=data.monthly.filter(r=>r.region===a.region&&r.year===a.year&&r.group===a.group&&r.channel===a.channel);
+    assert.equal(rows.length,12);
+    assert.ok(Math.abs(rows.reduce((sum,r)=>sum+(r.spend??0),0)-(a.spend??0))<0.01);
+  }
 });

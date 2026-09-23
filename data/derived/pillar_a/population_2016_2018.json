@@ -1,0 +1,352 @@
+{
+  "basis": "ISTAT intercensal reconstruction; January 1; 2019 territorial boundaries",
+  "sources": [
+    {
+      "file": "PopolazioneEta-Territorio-Regioni.zip",
+      "sha256": "4b41f8703caaaefb683c0027db77965dd4edfd4d05ab1054d21f325f55567b06",
+      "url": "https://demo.istat.it/data/ricostruzione/PopolazioneEta-Territorio-Regioni.zip"
+    },
+    {
+      "file": "PopolazioneEta-Territorio-Province.zip",
+      "sha256": "570adf81e95b67175699918688f46c0d17b7e875fe360123c3287e33752e13f4",
+      "url": "https://demo.istat.it/data/ricostruzione/PopolazioneEta-Territorio-Province.zip"
+    },
+    {
+      "file": "PopolazioneEta-Territorio-Italia-Ripartizioni.zip",
+      "sha256": "2d25cba01a41c24e35759c10d020465ae2648258ce375b613310eba4f6fd5eda",
+      "url": "https://demo.istat.it/data/ricostruzione/PopolazioneEta-Territorio-Italia-Ripartizioni.zip"
+    }
+  ],
+  "rows": [
+    {
+      "year": 2016,
+      "region": "010",
+      "population": 4384226
+    },
+    {
+      "year": 2016,
+      "region": "020",
+      "population": 127030
+    },
+    {
+      "year": 2016,
+      "region": "030",
+      "population": 9958447
+    },
+    {
+      "year": 2016,
+      "region": "050",
+      "population": 4890648
+    },
+    {
+      "year": 2016,
+      "region": "060",
+      "population": 1216208
+    },
+    {
+      "year": 2016,
+      "region": "070",
+      "population": 1557742
+    },
+    {
+      "year": 2016,
+      "region": "080",
+      "population": 4435480
+    },
+    {
+      "year": 2016,
+      "region": "090",
+      "population": 3726422
+    },
+    {
+      "year": 2016,
+      "region": "100",
+      "population": 884092
+    },
+    {
+      "year": 2016,
+      "region": "110",
+      "population": 1538442
+    },
+    {
+      "year": 2016,
+      "region": "120",
+      "population": 5761508
+    },
+    {
+      "year": 2016,
+      "region": "130",
+      "population": 1319294
+    },
+    {
+      "year": 2016,
+      "region": "140",
+      "population": 310026
+    },
+    {
+      "year": 2016,
+      "region": "150",
+      "population": 5790783
+    },
+    {
+      "year": 2016,
+      "region": "160",
+      "population": 4043735
+    },
+    {
+      "year": 2016,
+      "region": "170",
+      "population": 569887
+    },
+    {
+      "year": 2016,
+      "region": "180",
+      "population": 1943085
+    },
+    {
+      "year": 2016,
+      "region": "190",
+      "population": 5004400
+    },
+    {
+      "year": 2016,
+      "region": "200",
+      "population": 1642492
+    },
+    {
+      "year": 2016,
+      "region": "041",
+      "population": 520252
+    },
+    {
+      "year": 2016,
+      "region": "042",
+      "population": 539513
+    },
+    {
+      "year": 2016,
+      "region": "000",
+      "population": 60163712
+    },
+    {
+      "year": 2017,
+      "region": "010",
+      "population": 4370348
+    },
+    {
+      "year": 2017,
+      "region": "020",
+      "population": 126677
+    },
+    {
+      "year": 2017,
+      "region": "030",
+      "population": 9970419
+    },
+    {
+      "year": 2017,
+      "region": "050",
+      "population": 4883373
+    },
+    {
+      "year": 2017,
+      "region": "060",
+      "population": 1212809
+    },
+    {
+      "year": 2017,
+      "region": "070",
+      "population": 1551379
+    },
+    {
+      "year": 2017,
+      "region": "080",
+      "population": 4439768
+    },
+    {
+      "year": 2017,
+      "region": "090",
+      "population": 3721391
+    },
+    {
+      "year": 2017,
+      "region": "100",
+      "population": 880992
+    },
+    {
+      "year": 2017,
+      "region": "110",
+      "population": 1532460
+    },
+    {
+      "year": 2017,
+      "region": "120",
+      "population": 5774092
+    },
+    {
+      "year": 2017,
+      "region": "130",
+      "population": 1313930
+    },
+    {
+      "year": 2017,
+      "region": "140",
+      "population": 308400
+    },
+    {
+      "year": 2017,
+      "region": "150",
+      "population": 5776654
+    },
+    {
+      "year": 2017,
+      "region": "160",
+      "population": 4024067
+    },
+    {
+      "year": 2017,
+      "region": "170",
+      "population": 566405
+    },
+    {
+      "year": 2017,
+      "region": "180",
+      "population": 1935097
+    },
+    {
+      "year": 2017,
+      "region": "190",
+      "population": 4977900
+    },
+    {
+      "year": 2017,
+      "region": "200",
+      "population": 1636839
+    },
+    {
+      "year": 2017,
+      "region": "041",
+      "population": 523454
+    },
+    {
+      "year": 2017,
+      "region": "042",
+      "population": 540280
+    },
+    {
+      "year": 2017,
+      "region": "000",
+      "population": 60066734
+    },
+    {
+      "year": 2018,
+      "region": "010",
+      "population": 4349911
+    },
+    {
+      "year": 2018,
+      "region": "020",
+      "population": 126213
+    },
+    {
+      "year": 2018,
+      "region": "030",
+      "population": 9986962
+    },
+    {
+      "year": 2018,
+      "region": "050",
+      "population": 4880936
+    },
+    {
+      "year": 2018,
+      "region": "060",
+      "population": 1211155
+    },
+    {
+      "year": 2018,
+      "region": "070",
+      "population": 1541541
+    },
+    {
+      "year": 2018,
+      "region": "080",
+      "population": 4445920
+    },
+    {
+      "year": 2018,
+      "region": "090",
+      "population": 3712048
+    },
+    {
+      "year": 2018,
+      "region": "100",
+      "population": 876477
+    },
+    {
+      "year": 2018,
+      "region": "110",
+      "population": 1526331
+    },
+    {
+      "year": 2018,
+      "region": "120",
+      "population": 5774606
+    },
+    {
+      "year": 2018,
+      "region": "130",
+      "population": 1306059
+    },
+    {
+      "year": 2018,
+      "region": "140",
+      "population": 306564
+    },
+    {
+      "year": 2018,
+      "region": "150",
+      "population": 5762889
+    },
+    {
+      "year": 2018,
+      "region": "160",
+      "population": 4000966
+    },
+    {
+      "year": 2018,
+      "region": "170",
+      "population": 562968
+    },
+    {
+      "year": 2018,
+      "region": "180",
+      "population": 1924257
+    },
+    {
+      "year": 2018,
+      "region": "190",
+      "population": 4942188
+    },
+    {
+      "year": 2018,
+      "region": "200",
+      "population": 1631040
+    },
+    {
+      "year": 2018,
+      "region": "041",
+      "population": 526772
+    },
+    {
+      "year": 2018,
+      "region": "042",
+      "population": 541966
+    },
+    {
+      "year": 2018,
+      "region": "000",
+      "population": 59937769
+    }
+  ]
+}
