@@ -278,7 +278,7 @@ export default function Home() {
             <a href="#come-funziona" className="hover:text-foreground">Come funziona</a>
           </div>
           <div className="flex items-center gap-1.5">
-            <Button asChild variant="ghost" size="sm"><Link href="/pillar-a">Pillar A</Link></Button>
+            <Button asChild size="sm" className="group shrink-0 rounded-full border border-primary/25 bg-primary px-3 text-primary-foreground shadow-sm transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none"><Link href="/pillar-a"><BarChart3 aria-hidden="true" className="mr-1.5 size-4" />Pillar A<ArrowRight aria-hidden="true" className="ml-1 hidden size-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none sm:block" /></Link></Button>
             <ThemeSwitcher />
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link href="/auth/login">Accedi</Link></Button>
             <Button asChild size="sm"><Link href="/auth/sign-up">Registrati</Link></Button>

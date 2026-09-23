@@ -17,6 +17,7 @@ import { VisLogo } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import type { Organization } from "@/lib/dashboard-review/types";
+import { PRIVATE_PILLAR_A_ACTIVE } from "@/lib/analytics/private-pillar-activation";
 
 const NAV_GROUPS = [
   {
@@ -31,7 +32,8 @@ const NAV_GROUPS = [
     label: "Esplorazione",
     items: [
       { href: "/pillar-a", label: "Pillar A · fonti pubbliche", icon: ChartSpline },
-      { href: "/dashboard-review/pillar-a", label: "Pillar A · la mia Azienda", icon: ShieldPlus },
+      // Hidden until private activation is approved and the fact table exists.
+      ...(PRIVATE_PILLAR_A_ACTIVE ? [{ href: "/dashboard-review/pillar-a", label: "Pillar A · la mia Azienda", icon: ShieldPlus }] : []),
       { href: "/dashboard-review/ricerca", label: "Regione → AIC", icon: ListTree },
       { href: "/dashboard-review/antibiotici", label: "Antibiotici AWaRe", icon: ShieldPlus },
     ],
