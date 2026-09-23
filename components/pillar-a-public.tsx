@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PillarAActivityChart } from "@/components/pillar-a-activity-chart";
 import { PillarAReference } from "@/components/pillar-a-reference";
+import { PillarAFlowVisuals } from "@/components/pillar-a-flow-visuals";
 import { PillarAOsmed } from "@/components/pillar-a-osmed";
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts";
 
@@ -68,6 +69,7 @@ export function PillarAPublic(){
       <div><dt className="font-semibold">Euro per residente</dt><dd className="mt-2 text-muted-foreground">Spesa del periodo ÷ residenti al 1° gennaio. Permette una lettura per dimensione del territorio, senza correggere per età o complessità dei casi.</dd></div>
     </dl></Panel>
     <Panel title="Dalla visualizzazione alla fonte" note="Ogni serie conserva periodo, flusso e fonte. Le celle vuote non diventano zero; le somme rappresentano i valori numerici riportati."><div className="grid gap-6 md:grid-cols-3"><div><h3 className="font-semibold">Spesa e confezioni</h3><p className="mt-2 text-sm text-muted-foreground">AIFA 2016–2025. Acquisti diretti e convenzionata sono separati; non equivalgono automaticamente ai canali locali DD e CO.</p><a className="mt-3 block text-sm text-primary underline" href="https://www.aifa.gov.it/spesa-e-consumo-relativi-al-flusso-della-farmaceutica-convenzionata-e-degli-acquisti-diretti">Fonte AIFA ↗</a></div><div><h3 className="font-semibold">Popolazione residente</h3><p className="mt-2 text-sm text-muted-foreground">ISTAT, 1° gennaio: ricostruzione intercensuaria per il 2016–2018, POSAS dal 2019. Non è popolazione pesata né media annuale.</p><a className="mt-3 block text-sm text-primary underline" href="https://demo.istat.it/app/?i=POS">Fonte ISTAT ↗</a></div><div><h3 className="font-semibold">Attività ospedaliera</h3><p className="mt-2 text-sm text-muted-foreground">Tavola SDO 2.1.6, 2021–2024. Giornate ordinarie e accessi diurni sono presentati separatamente.</p><a className="mt-3 block text-sm text-primary underline" href="https://www.salute.gov.it/new/it/tema/assistenza-ospedaliera/rapporti-annuali-sui-ricoveri-ospedalieri/">Rapporti SDO ↗</a></div></div></Panel>
+    <PillarAFlowVisuals annual={data.annual} region={region} regionName={data.regions[region]} group={group} channel={channel}/>
     <footer className="border-t py-3 text-xs text-muted-foreground">VIS Pharma Compass · Fonti pubbliche · Perimetro operativo {data.version}</footer>
   </div>;
 }
