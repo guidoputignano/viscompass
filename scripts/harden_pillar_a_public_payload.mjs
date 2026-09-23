@@ -10,8 +10,8 @@ import path from "node:path";
 const root = process.argv[2];
 if (!root) throw new Error("usage: node harden_public_payload.cjs <worktree-root>");
 
-const jsonPath = path.join(root, "public/data/pillar-a.json");
-const csvPath = path.join(root, "public/data/pillar-a-annual.csv");
+const jsonPath = path.join(root, "data/public-compiled/pillar-a.json");
+const csvPath = path.join(root, "data/public-compiled/pillar-a-annual.csv");
 
 const before = fs.statSync(jsonPath).size;
 const data = JSON.parse(fs.readFileSync(jsonPath, "utf8"));

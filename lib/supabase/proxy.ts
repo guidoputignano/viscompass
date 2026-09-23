@@ -3,21 +3,36 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
-  // These exact routes carry only the aggregates the public page renders.
-  // The full annual series (/data/pillar-a-annual.csv) is deliberately NOT
-  // listed: bulk export stays behind authentication. Private hospital data and
-  // every dashboard route retain the existing auth checks.
-  if (["/pillar-a", "/data/pillar-a.json", "/data/pillar-a-osmed.json", "/data/pillar-a-atc4.json"].includes(request.nextUrl.pathname)) {
+  // The approved public observatory: the page and the three read routes that
+  // serve the aggregate it renders. The compiled files are no longer under
+  // `public/`, so there is no static asset path to allowlist.
+  //
+  // `/api/pillar-a/export` is deliberately absent. Bulk export falls through to
+  // the session check below and is additionally gated on an APPROVED membership
+  // inside the route itself — being logged in is not sufficient.
+  const PUBLIC_PATHS = [
+    "/pillar-a",
+    "/api/pillar-a/series",
+    "/api/pillar-a/osmed",
+    "/api/pillar-a/atc4",
+  ];
+  if (PUBLIC_PATHS.includes(request.nextUrl.pathname)) {
     return NextResponse.next({ request });
   }
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  // If the env vars are not set, skip proxy check. You can remove this
-  // once you setup the project.
+  // Fail closed. Without Supabase configuration no session can be established,
+  // so everything outside the public observatory is refused rather than served
+  // unauthenticated. Previously this returned the response unchanged, which
+  // opened every dashboard route whenever the environment was incomplete.
   if (!hasEnvVars) {
-    return supabaseResponse;
+    if (request.nextUrl.pathname === "/") return supabaseResponse;
+    return new NextResponse("Service unavailable", {
+      status: 503,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   // With Fluid compute, don't put this client in a global environment

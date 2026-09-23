@@ -108,11 +108,11 @@ const out = {
   rows,
 };
 
-const target = path.join(TARGET_ROOT, "public/data/pillar-a-atc4.json");
+const target = path.join(TARGET_ROOT, "data/public-compiled/pillar-a-atc4.json");
 fs.writeFileSync(target, JSON.stringify(out));
 
 // ---- reconciliation against the already published family series ----
-const published = JSON.parse(fs.readFileSync(path.join(TARGET_ROOT, "public/data/pillar-a.json"), "utf8"));
+const published = JSON.parse(fs.readFileSync(path.join(TARGET_ROOT, "data/public-compiled/pillar-a.json"), "utf8"));
 const groupOf = (code) => scope.groups.find((g) => code.startsWith(g.prefix)).id;
 // Re-sum from the scaled integers so the check itself introduces no rounding.
 const rebuilt = new Map();

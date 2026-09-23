@@ -26,11 +26,23 @@ for name, code in zip(names, codes):
     rows.append({'region': code, 'rates': dict(zip(map(str, range(2016, 2025)), rates))})
 assert next(r for r in rows if r['region']=='000')['rates']['2024'] == 83.5
 assert next(r for r in rows if r['region']=='000')['rates']['2023'] == 85.4
+# The published payload carries the citation a reader needs - edition, table and
+# printed page - but not the extract's filename or digest. Those describe how VIS
+# obtained the figure rather than the figure itself, and are the kind of internal
+# detail the reviewer asked to keep off the public surface.
 result = {'edition': 2024, 'table': '5.2', 'printedPage': 165,
-          'sourceFile': path.name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
           'metric': 'DDD/100 hospital activity days, OSMED definition',
           'scope': 'J01; public hospital purchases net of direct distribution',
           'baseline': 2022, 'targetYear': 2025, 'reductionStrictlyGreaterThan': 0.05,
           'rows': rows}
-(ROOT/'public/data/pillar-a-osmed.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+(ROOT/'data/public-compiled/pillar-a-osmed.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+
+# Provenance stays in the repository for audit, in a directory that is never
+# served: nothing under data/provenance/ is reachable over HTTP.
+provenance = {'artifact': 'pillar-a-osmed.json', 'edition': 2024, 'table': '5.2',
+              'printedPage': 165, 'sourceFile': path.name,
+              'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+(ROOT/'data/provenance').mkdir(parents=True, exist_ok=True)
+(ROOT/'data/provenance/pillar-a-osmed.json').write_text(json.dumps(provenance, ensure_ascii=False, indent=2), encoding='utf-8')
 print(f'PASS: {len(rows)} territories x 9 years; OSMED 2024 edition only')
+print('Provenance written to data/provenance/pillar-a-osmed.json (never served)')

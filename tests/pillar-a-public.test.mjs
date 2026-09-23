@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-const data=JSON.parse(fs.readFileSync(new URL('../public/data/pillar-a.json',import.meta.url),'utf8'));
+const data=JSON.parse(fs.readFileSync(new URL('../data/public-compiled/pillar-a.json',import.meta.url),'utf8'));
 // 10 years x 22 territories x 2 families x 2 channels. The J04A family is not published.
 const ANNUAL_ROWS=880;
 // Monthly detail is published only for the years the page plots.

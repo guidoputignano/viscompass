@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {expenditureBridge,spendingComposition} from '../lib/analytics/pillar-a-visuals.ts';
-const {annual}=JSON.parse(fs.readFileSync(new URL('../public/data/pillar-a.json',import.meta.url),'utf8'));
+const {annual}=JSON.parse(fs.readFileSync(new URL('../data/public-compiled/pillar-a.json',import.meta.url),'utf8'));
 test('every supported public waterfall reconciles; missing values do not become zero',()=>{
  let count=0;
  for(const after of annual){const before=annual.find(r=>r.year===after.year-1&&r.region===after.region&&r.group===after.group&&r.channel===after.channel);const b=expenditureBridge(before,after);if(b){count++;assert.ok(Math.abs(b.start+b.volume+b.average-b.end)<.01);}}

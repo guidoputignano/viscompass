@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const atc4=JSON.parse(fs.readFileSync(new URL('../public/data/pillar-a-atc4.json',import.meta.url),'utf8'));
-const published=JSON.parse(fs.readFileSync(new URL('../public/data/pillar-a.json',import.meta.url),'utf8'));
+const atc4=JSON.parse(fs.readFileSync(new URL('../data/public-compiled/pillar-a-atc4.json',import.meta.url),'utf8'));
+const published=JSON.parse(fs.readFileSync(new URL('../data/public-compiled/pillar-a.json',import.meta.url),'utf8'));
 const scope=JSON.parse(fs.readFileSync(new URL('../lib/analytics/pillar-a-scope.json',import.meta.url),'utf8'));
 const groupOf=(code)=>scope.groups.find(g=>code.startsWith(g.prefix))?.id;
 
