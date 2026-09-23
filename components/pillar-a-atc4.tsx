@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { assignAbcBands } from "@/lib/analytics/abc-bands";
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts";
 
-// [yearIdx, regionIdx, channelIdx, codeIdx, spendEur, packs]
-type Row = [number, number, number, number, number, number];
-type Atc4 = {years:number[];regions:string[];channels:string[];codes:string[];labels:Record<string,string>;rows:Row[]};
+// One territory-and-channel slice, served by /api/pillar-a/atc4. The compiled
+// table is not delivered whole: the server releases only the slice on screen.
+// [yearIdx, codeIdx, spendEur, packs]
+type Row = [number, number, number, number];
+type Atc4 = {years:number[];codes:{code:string;label:string}[];rows:Row[]};
 
 // Categorical slots 1-6 of the validated theme, assigned in fixed order and never cycled.
 const SERIES=["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#4a3aa7"];
@@ -15,37 +18,42 @@ const TOP_N=6;
 const tipStyle={borderRadius:12,border:"1px solid #d5e3e5",background:"#fff",color:"#173343",boxShadow:"0 12px 30px #17334312"};
 const nf=(v:number,d=0)=>new Intl.NumberFormat("it-IT",{maximumFractionDigits:d}).format(v);
 const compact=(v:number)=>new Intl.NumberFormat("it-IT",{notation:"compact",maximumFractionDigits:1}).format(v);
-const prefixOf=(group:string)=>group==="antifungals"?"J02A":"J01";
+const labelOf=(data:Atc4,code:string)=>data.codes.find(c=>c.code===code)?.label??"";
 
 export function PillarAAtc4({region,regionName,group,channel}:{region:string;regionName:string;group:string;channel:string}){
   const [data,setData]=useState<Atc4|null>(null);
   const [view,setView]=useState<"trend"|"abc">("trend");
-  useEffect(()=>{const c=new AbortController();fetch('/data/pillar-a-atc4.json',{signal:c.signal}).then(r=>r.ok?r.json():Promise.reject()).then(setData).catch(()=>{});return()=>c.abort();},[]);
+  useEffect(()=>{
+    const c=new AbortController();
+    setData(null);
+    const q=new URLSearchParams({region,channel,group});
+    fetch(`/api/pillar-a/atc4?${q}`,{signal:c.signal}).then(r=>r.ok?r.json():Promise.reject()).then(setData).catch(()=>{});
+    return()=>c.abort();
+  },[region,channel,group]);
 
   const model=useMemo(()=>{
-    if(!data)return null;
-    const ri=data.regions.indexOf(region), hi=data.channels.indexOf(channel), prefix=prefixOf(group);
-    if(ri<0||hi<0)return null;
-    const keep=data.codes.map((c,i)=>c.startsWith(prefix)?i:-1).filter(i=>i>=0);
-    const inScope=data.rows.filter(r=>r[1]===ri&&r[2]===hi&&keep.includes(r[3]));
+    if(!data||!data.codes.length)return null;
+    const label=(i:number)=>data.codes[i].code;
     const lastYear=data.years.length-1;
     // Latest-year ranking drives both which series are drawn and the ABC bands.
-    const latest=inScope.filter(r=>r[0]===lastYear).map(r=>({code:data.codes[r[3]],spend:r[4]})).filter(r=>r.spend>0).sort((a,b)=>b.spend-a.spend);
+    const latest=data.rows.filter(r=>r[0]===lastYear).map(r=>({code:label(r[1]),spend:r[2]})).filter(r=>r.spend>0).sort((a,b)=>b.spend-a.spend);
+    if(!latest.length)return null;
     const total=latest.reduce((s,r)=>s+r.spend,0);
-    let run=0;
-    const abc=latest.map(r=>{run+=r.spend;const cum=total>0?run/total:0;return {...r,share:total>0?r.spend/total:0,cum,band:cum<=0.8?"A":cum<=0.95?"B":"C"};});
+    // Shared banding rule: the band follows the cumulative share of the items
+    // ranked ahead of this one, matching the private workbook exactly.
+    const abc=assignAbcBands(latest,r=>r.spend,r=>r.code);
     const top=latest.slice(0,TOP_N).map(r=>r.code);
     const series=data.years.map((year,y)=>{
       const point:Record<string,number|null|string>={year};
       for(const code of top){
-        const ci=data.codes.indexOf(code);
-        point[code]=inScope.find(r=>r[0]===y&&r[3]===ci)?.[4]??null;
+        const ci=data.codes.findIndex(c=>c.code===code);
+        point[code]=data.rows.find(r=>r[0]===y&&r[1]===ci)?.[2]??null;
       }
       return point;
     });
     const shownShare=total>0?top.reduce((s,c)=>s+(latest.find(r=>r.code===c)?.spend??0),0)/total:0;
     return {abc,top,series,total,shownShare,lastYear:data.years[lastYear]};
-  },[data,region,group,channel]);
+  },[data]);
 
   if(!data||!model||!model.abc.length)return null;
   const {abc,top,series,total,shownShare,lastYear}=model;
@@ -65,7 +73,7 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
     </div>
 
     {view==="trend"?<>
-      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs">{top.map((code,i)=><span key={code} className="flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{background:SERIES[i]}}/>{code} · {data.labels[code]||""}</span>)}</div>
+      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs">{top.map((code,i)=><span key={code} className="flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{background:SERIES[i]}}/>{code} · {labelOf(data,code)}</span>)}</div>
       <div className="h-80" role="img" aria-label={`Spesa annuale per categoria ATC4, ${regionName}`}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={series} margin={{left:0,right:15,top:10,bottom:5}}>
@@ -96,8 +104,8 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
         const n=abc.filter(r=>r.band===band).length, s=abc.filter(r=>r.band===band).reduce((a,r)=>a+r.share,0);
         return <span key={band} className="flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{background:color}}/>Banda {band}: {n} categorie · {nf(s*100,1)}% della spesa</span>;
       })}</div>
-      <div className="mt-4 max-h-64 overflow-auto"><table className="w-full text-left text-sm"><thead className="sticky top-0 bg-card text-xs text-muted-foreground"><tr><th className="p-2">ATC4</th><th className="p-2">Categoria</th><th className="p-2 text-right">Spesa {lastYear}</th><th className="p-2 text-right">Quota</th><th className="p-2 text-right">Cumulata</th><th className="p-2 text-right">Banda</th></tr></thead><tbody>{abc.map(r=><tr key={r.code} className="border-t"><td className="p-2 font-mono">{r.code}</td><td className="p-2">{data.labels[r.code]||""}</td><td className="p-2 text-right font-mono tabular-nums">€ {nf(r.spend)}</td><td className="p-2 text-right font-mono tabular-nums">{nf(r.share*100,1)}%</td><td className="p-2 text-right font-mono tabular-nums">{nf(r.cum*100,1)}%</td><td className="p-2 text-right font-mono">{r.band}</td></tr>)}</tbody></table></div>
-      <p className="mt-4 text-xs text-muted-foreground">ABC ordina le categorie per spesa {lastYear} (totale € {nf(total)}): banda A fino all’80% cumulato, B fino al 95%, C il resto. Il grafico riporta le prime 12 categorie; la tabella le elenca tutte e {abc.length}. Descrive dove si concentra la spesa, non l’efficacia né l’appropriatezza.</p>
+      <div className="mt-4 max-h-64 overflow-auto"><table className="w-full text-left text-sm"><thead className="sticky top-0 bg-card text-xs text-muted-foreground"><tr><th className="p-2">ATC4</th><th className="p-2">Categoria</th><th className="p-2 text-right">Spesa {lastYear}</th><th className="p-2 text-right">Quota</th><th className="p-2 text-right">Cumulata</th><th className="p-2 text-right">Banda</th></tr></thead><tbody>{abc.map(r=><tr key={r.code} className="border-t"><td className="p-2 font-mono">{r.code}</td><td className="p-2">{labelOf(data,r.code)}</td><td className="p-2 text-right font-mono tabular-nums">€ {nf(r.spend)}</td><td className="p-2 text-right font-mono tabular-nums">{nf(r.share*100,1)}%</td><td className="p-2 text-right font-mono tabular-nums">{nf(r.cumulativeShare*100,1)}%</td><td className="p-2 text-right font-mono">{r.band}</td></tr>)}</tbody></table></div>
+      <p className="mt-4 text-xs text-muted-foreground">ABC ordina le categorie per spesa {lastYear} (totale € {nf(total)}): la banda segue la quota cumulata delle categorie che precedono, quindi la categoria che supera la soglia resta nella banda inferiore: A sotto l’80%, B sotto il 95%, C il resto. Il grafico riporta le prime 12 categorie; la tabella le elenca tutte e {abc.length}. Descrive dove si concentra la spesa, non l’efficacia né l’appropriatezza.</p>
     </>}
   </section>;
 }
