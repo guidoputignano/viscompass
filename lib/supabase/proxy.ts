@@ -3,9 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
-  // These exact routes contain public-source aggregates only. Private
-  // hospital data and every dashboard route retain the existing auth checks.
-  if (["/pillar-a", "/data/pillar-a.json", "/data/pillar-a-annual.csv", "/data/pillar-a-osmed.json"].includes(request.nextUrl.pathname)) {
+  // These exact routes carry only the aggregates the public page renders.
+  // The full annual series (/data/pillar-a-annual.csv) is deliberately NOT
+  // listed: bulk export stays behind authentication. Private hospital data and
+  // every dashboard route retain the existing auth checks.
+  if (["/pillar-a", "/data/pillar-a.json", "/data/pillar-a-osmed.json", "/data/pillar-a-atc4.json"].includes(request.nextUrl.pathname)) {
     return NextResponse.next({ request });
   }
   let supabaseResponse = NextResponse.next({
