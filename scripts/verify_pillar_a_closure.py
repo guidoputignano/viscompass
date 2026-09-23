@@ -70,6 +70,7 @@ def main():
         seen.add(key)
         ddd = dec(row[14]) * dec(aic[product][12])
         record = dict(year=year, org=org, atc5=code, aware=aware, aic=product,
+                      name=row[5], QMR=dec(row[14]), DDD_AIC=dec(aic[product][12]),
                       CF=dec(row[10]), CN=dec(row[13]), CMR=dec(row[16]), DDD=ddd)
         assert all(record[k] >= 0 for k in ('CF','CN','CMR','DDD'))
         details.append(record)
