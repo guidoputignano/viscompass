@@ -1,6 +1,7 @@
 import {createClient} from '@/lib/supabase/server';
 import {getCurrentOrg} from '@/lib/auth/get-current-org';
 import {PageHeader} from '@/components/dashboard-review/analytics-ui';
+import {PrivatePillarCharts} from '@/components/private-pillar-charts';
 import {privatePillarAnalysis,PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
 
 const n=(v:number|null,d=2)=>v===null?'N/D':new Intl.NumberFormat('it-IT',{maximumFractionDigits:d}).format(v);
@@ -28,6 +29,7 @@ export default async function PrivatePillarA(){
  if(data.length>=1000)throw Error('Analisi sospesa: il limite di lettura impedisce di garantire totali completi.');
  const rows=privatePillarAnalysis(data as PrivateFact[]),latest=rows.at(-1)!;
  return <div className="space-y-6">
+  <PrivatePillarCharts facts={data as PrivateFact[]} regional={org.org_type==='regione'}/>
   <PageHeader eyebrow="Pillar A · area riservata" title="Il workbook della tua organizzazione" description="Antibiotici J01 · fonti 2023–2025 · spesa CF, costo CMR e DDD mantenuti distinti." period="2023–2025" scope={org.org_type==='regione'?'Aggregato delle Aziende con dati disponibili nel perimetro autorizzato':'La tua Azienda'}/>
   <div className="grid gap-4 sm:grid-cols-3">{[['Spesa CF (€)',n(latest.cf)],['DDD da conversione della fonte',n(latest.ddd)],['DDD / 100 unità attività A3',n(latest.dddPer100Activity)]].map(([label,value])=><div key={label} className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">{label} · {latest.year}</p><p className="mt-3 text-3xl font-semibold">{value}</p></div>)}</div>
   <section className="rounded-xl border bg-card p-5"><h2 className="text-xl font-semibold">Andamento e intensità</h2><div className="overflow-auto"><table className={table}><thead><tr>{['Anno','CF €','CMR €','DDD','Attività A3/T1','DDD/100 A3','CF €/DDD','Δ CF','Δ DDD'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.year}><td>{r.year}</td><td>{n(r.cf)}</td><td>{n(r.cmr)}</td><td>{n(r.ddd)}</td><td>{n(r.activity)}</td><td>{n(r.dddPer100Activity)}</td><td>{n(r.costPerDdd)}</td><td>{pct(r.costYoy)}</td><td>{pct(r.dddYoy)}</td></tr>)}</tbody></table></div></section>
