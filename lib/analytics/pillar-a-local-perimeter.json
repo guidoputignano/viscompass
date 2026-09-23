@@ -1,0 +1,320 @@
+{
+  "version": "2026-09-23.1",
+  "sourceSheet": "Ana_ATC",
+  "sourceSha256": "a511f59239b5d473e3d60f36ec4bc22e57ef6d6dc1c0135704339d236f265dc6",
+  "policy": "Local J01 reference only; does not narrow public AIFA ATC4 totals; WR remains unresolved",
+  "codes": [
+    {
+      "atc5": "J01AA02",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01AA04",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01AA07",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01AA08",
+      "sourceAware": "WR"
+    },
+    {
+      "atc5": "J01AA12",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01AA13",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01BA02",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CA01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CA04",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CA06",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CA12",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01CE01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CE08",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CF04",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CF05",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CR01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CR02",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01CR05",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DB01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01DB04",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01DC01",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DC02",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DC04",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DC10",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD01",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD02",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD04",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD08",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD13",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD14",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD16",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DD52",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DE01",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DF01",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DF51",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DH02",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DH03",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DH51",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01DH52",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DH56",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DI01",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DI02",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DI04",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01DI54",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01EE01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01FA01",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01FA02",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01FA06",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01FA07",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01FA09",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01FA10",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01FA11",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01FF01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01FF02",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01GB01",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01GB03",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01GB06",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01GB07",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA02",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA06",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA07",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA10",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA12",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA14",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA17",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01MA23",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01XA01",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01XA02",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01XA04",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01XA05",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01XB01",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01XD01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01XE01",
+      "sourceAware": "A"
+    },
+    {
+      "atc5": "J01XX01",
+      "sourceAware": "WR"
+    },
+    {
+      "atc5": "J01XX03",
+      "sourceAware": "W"
+    },
+    {
+      "atc5": "J01XX08",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01XX09",
+      "sourceAware": "R"
+    },
+    {
+      "atc5": "J01XX11",
+      "sourceAware": "R"
+    }
+  ]
+}
