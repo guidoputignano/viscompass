@@ -17,7 +17,9 @@ const activityName=(name:string)=>name==='Friuli V.G.'?'Friuli Venezia Giulia':n
 const fmt=(v:number|null|undefined,d=0)=>v==null?"N/D":new Intl.NumberFormat("it-IT",{maximumFractionDigits:d}).format(v);
 const compact=(v:number)=>new Intl.NumberFormat("it-IT",{notation:"compact",maximumFractionDigits:1}).format(v);
 const pct=(v:number|null|undefined)=>v==null?"N/D":`${v>=0?"+":""}${fmt(v*100,1)}%`;
-const tipStyle={borderRadius:12,border:"1px solid #d5e3e5",background:"#fff",color:"#173343",boxShadow:"0 12px 30px #17334312"};
+// Theme tokens, not fixed light values: the tooltip was white-on-navy text
+// floating over a dark page in dark mode.
+const tipStyle={borderRadius:12,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",color:"hsl(var(--card-foreground))",boxShadow:"0 12px 30px rgba(0,0,0,.18)"};
 
 function Panel({title,note,control,children}:{title:string;note:string;control?:React.ReactNode;children:React.ReactNode}){return <section className="min-w-0 rounded-2xl border bg-card p-5 shadow-sm sm:p-6"><div className="mb-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4"><div className="min-w-0 grow basis-72"><h2 className="font-display text-xl font-semibold">{title}</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{note}</p></div>{control&&<div className="w-full sm:w-60 sm:shrink-0">{control}</div>}</div>{children}</section>;}
 function Select({label,value,onChange,options}:{label:string;value:string;onChange:(v:string)=>void;options:Record<string,string>}){return <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}<select className="h-11 rounded-lg border bg-background px-3 text-sm font-medium normal-case tracking-normal text-foreground" value={value} onChange={e=>onChange(e.target.value)}>{Object.entries(options).sort(([a],[b])=>/^\d+$/.test(a)&&/^\d+$/.test(b)?Number(a)-Number(b):0).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>;}

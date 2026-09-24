@@ -11,11 +11,13 @@ type Row = [number, number, number, number];
 type Atc4 = {years:number[];codes:{code:string;label:string}[];rows:Row[]};
 
 // Categorical slots 1-6 of the validated theme, assigned in fixed order and never cycled.
-const SERIES=["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#4a3aa7"];
+const SERIES=["var(--viz-1)","var(--viz-2)","var(--viz-3)","var(--viz-4)","var(--viz-5)","var(--viz-6)"];
 // A/B/C are three bands of one ranking, so they reuse the first three slots.
-const BANDS:Record<string,string>={A:"#2a78d6",B:"#eb6834",C:"#1baf7a"};
+const BANDS:Record<string,string>={A:"var(--viz-1)",B:"var(--viz-2)",C:"var(--viz-3)"};
 const TOP_N=6;
-const tipStyle={borderRadius:12,border:"1px solid #d5e3e5",background:"#fff",color:"#173343",boxShadow:"0 12px 30px #17334312"};
+// Theme tokens, not fixed light values: the tooltip was white-on-navy text
+// floating over a dark page in dark mode.
+const tipStyle={borderRadius:12,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",color:"hsl(var(--card-foreground))",boxShadow:"0 12px 30px rgba(0,0,0,.18)"};
 const nf=(v:number,d=0)=>new Intl.NumberFormat("it-IT",{maximumFractionDigits:d}).format(v);
 const compact=(v:number)=>new Intl.NumberFormat("it-IT",{notation:"compact",maximumFractionDigits:1}).format(v);
 const labelOf=(data:Atc4,code:string)=>data.codes.find(c=>c.code===code)?.label??"";

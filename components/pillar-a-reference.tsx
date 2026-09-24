@@ -7,10 +7,12 @@ type Candidate = {atc5:string; ingredient_or_reference_names:string; aware:strin
 const awareLabel=(r:Candidate)=>r.aware||(r.aware_status==='not_applicable'?'Non applicabile':r.aware_status==='ambiguous_or_non_aware_reference'?'Da disambiguare':'Non trovato nel riferimento');
 // Categorical slots 1-3 of the validated theme. Access/Watch/Reserve is an
 // identity split, not a ranking, so no traffic-light ramp is used here.
-const AWARE_COLORS:Record<string,string>={Access:"#2a78d6",Watch:"#eb6834",Reserve:"#1baf7a"};
+const AWARE_COLORS:Record<string,string>={Access:"var(--viz-1)",Watch:"var(--viz-2)",Reserve:"var(--viz-3)"};
 const CLASSIFIED=["Access","Watch","Reserve"];
 const RESIDUAL=["Da disambiguare","Non trovato nel riferimento","Non applicabile"];
-const tipStyle={borderRadius:12,border:"1px solid #d5e3e5",background:"#fff",color:"#173343",boxShadow:"0 12px 30px #17334312"};
+// Theme tokens, not fixed light values: the tooltip was white-on-navy text
+// floating over a dark page in dark mode.
+const tipStyle={borderRadius:12,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",color:"hsl(var(--card-foreground))",boxShadow:"0 12px 30px rgba(0,0,0,.18)"};
 const share=(v:number,total:number)=>total>0?`${new Intl.NumberFormat("it-IT",{maximumFractionDigits:1}).format(100*v/total)}%`:"";
 
 export function PillarAReference({candidates}:{candidates:Candidate[]}) {
