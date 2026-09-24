@@ -5,27 +5,35 @@ import {
   KpiCard,
   MethodologyPanel,
   PageHeader,
-  StatusPill,
 } from "@/components/dashboard-review/analytics-ui";
+import { UploadLog } from "@/components/dashboard-review/upload-log";
 import { UploadShell } from "@/components/dashboard-review/upload-shell";
 import { getLineageData, getUploads } from "@/lib/dashboard-review/queries";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { formatDate, formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
-import type { UploadStatus } from "@/lib/dashboard-review/types";
-
-const STATUS: Record<UploadStatus, { label: string; tone: "neutral" | "warning" | "positive" | "danger" }> = {
-  uploaded: { label: "Caricato", tone: "neutral" },
-  processing: { label: "In elaborazione", tone: "warning" },
-  reconciled: { label: "Riconciliato", tone: "positive" },
-  discrepancy_found: { label: "Scarto rilevato", tone: "danger" },
-};
+import { readReconciliationSummary } from "@/lib/uploads/summary-view";
 
 export default async function DataLineagePage() {
   const [lineage, uploads, org] = await Promise.all([getLineageData(), getUploads(), getCurrentOrg()]);
   const weakest = [...lineage.sources]
     .filter((source) => source.normalized_coverage !== null)
     .sort((a, b) => a.normalized_coverage! - b.normalized_coverage!)[0];
-  const discrepancies = uploads.filter((upload) => upload.status === "discrepancy_found");
+  // The status column cannot express "processed, but not reconcilable", so
+  // these counts read reconciliation_summary and fall back to the column only
+  // for uploads that have not been processed yet.
+  const outcomes = uploads.map((upload) => ({
+    upload,
+    view: readReconciliationSummary(upload.reconciliation_summary),
+  }));
+  const discrepancies = outcomes.filter(({ upload, view }) =>
+    view.kind === "report" ? view.outcome === "discrepancy_found" : upload.status === "discrepancy_found",
+  );
+  // Processed and still not reconciled: a failure, a discrepancy, incomplete
+  // data, or no canonical rows to compare against. Distinct from "not yet
+  // processed", which is not a problem to act on.
+  const unreconciled = outcomes.filter(({ view }) =>
+    view.kind === "failed" || (view.kind === "report" && view.outcome !== "reconciled"),
+  );
 
   return (
     <div className="flex flex-col gap-7">
@@ -41,14 +49,20 @@ export default async function DataLineagePage() {
         changed={lineage.latest_loaded_at ? `L’ultimo record è stato caricato il ${formatDate(lineage.latest_loaded_at)}.` : "Nessun caricamento canonico disponibile."}
         variance={weakest ? `${weakest.source_version_id} ha la copertura di normalizzazione più bassa: ${formatPercent(weakest.normalized_coverage!)}.` : "Copertura per fonte non calcolabile."}
         materiality={`${formatNumber(lineage.unresolved_records, 0)} record restano esclusi dai confronti economici normalizzati.`}
-        nextEvidence={discrepancies.length > 0 ? `Riconciliare ${discrepancies.length} file con scarto.` : "Documentare i mapping manuali."}
+        nextEvidence={
+          discrepancies.length > 0
+            ? `Riconciliare ${discrepancies.length} file con scarto.`
+            : unreconciled.length > 0
+              ? `Chiudere ${unreconciled.length} caricamenti non riconciliati.`
+              : "Documentare i mapping manuali."
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard accent label="Record canonici" value={formatNumber(lineage.total_records, 0)} detail={`${lineage.sources.length} versioni sorgente`} icon={Database} />
         <KpiCard label="Copertura normalizzata" value={lineage.normalization_coverage === null ? "—" : formatPercent(lineage.normalization_coverage)} detail="€/mg o €/DDD disponibile" icon={ShieldCheck} />
         <KpiCard label="Record irrisolti" value={formatNumber(lineage.unresolved_records, 0)} detail="Visibili, non presentati come confronto risolto" icon={CircleAlert} />
-        <KpiCard label="Caricamenti con scarto" value={formatNumber(discrepancies.length, 0)} detail={`${uploads.length} caricamenti registrati`} icon={FileClock} />
+        <KpiCard label="Caricamenti non riconciliati" value={formatNumber(unreconciled.length, 0)} detail={`${discrepancies.length} con scarto · ${uploads.length} registrati`} icon={FileClock} />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -76,7 +90,11 @@ export default async function DataLineagePage() {
         </div>
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border p-5 md:p-6"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Registro operativo</p><h2 className="font-display mt-1 text-xl">Caricamenti dell’organizzazione</h2></div>
-          {uploads.length === 0 ? <div className="p-5"><EmptyState title="Nessun file caricato" detail="Il registro si popolerà dopo il primo caricamento." /></div> : <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground"><th className="px-5 py-3 font-semibold">File</th><th className="px-5 py-3 font-semibold">Periodo</th><th className="px-5 py-3 font-semibold">Caricato</th><th className="px-5 py-3 font-semibold">Stato</th></tr></thead><tbody>{uploads.map((upload) => <tr key={upload.id} className="border-b border-border last:border-0"><td className="px-5 py-4 font-semibold">{upload.file_name}</td><td className="px-5 py-4 text-xs text-muted-foreground">{upload.period_covered_start && upload.period_covered_end ? `${formatDate(upload.period_covered_start)} – ${formatDate(upload.period_covered_end)}` : "—"}</td><td className="px-5 py-4 text-xs text-muted-foreground">{formatDate(upload.uploaded_at)}</td><td className="px-5 py-4"><StatusPill tone={STATUS[upload.status].tone}>{STATUS[upload.status].label}</StatusPill></td></tr>)}</tbody></table></div>}
+          {uploads.length === 0 ? (
+            <div className="p-5"><EmptyState title="Nessun file caricato" detail="Il registro si popolerà dopo il primo caricamento." /></div>
+          ) : (
+            <UploadLog uploads={uploads} />
+          )}
         </div>
       </section>
 
