@@ -1,7 +1,28 @@
-# ABC–VEN: a proposal for the mapping mechanism
+# ABC–VEN: the mapping mechanism
 
-Status: proposal, 24 September 2026. Nothing here is implemented, and no VEN
-classification is asserted by this document or by the product.
+Status: **implemented**, 24 September 2026. No VEN classification is asserted by
+this document or by the product, and none can be until a panel supplies one.
+
+The mechanism proposed below is now built:
+
+- `lib/analytics/ven.ts` — the criteria quoted from MDS-3 chapter 40.3, the
+  versioned mapping type, `validateVenMapping`, `resolveVen` with five explicit
+  states, `venCoverage`, and `abcVenMatrix`, which refuses to draw below a
+  coverage threshold and returns the excluded products with their spend.
+- `supabase/migrations/20260924_ven_mapping.sql` — the same rules as database
+  constraints, RLS on, and no client-facing INSERT or UPDATE: loading and
+  approval happen server-side with the service-role key.
+- `tests/ven.test.mjs` — 11 tests covering malformed rows, conflicting classes,
+  self-approval, 9-digit AIC handling, validity-period edges, every unmapped
+  state, coverage, and the matrix's refusal on partial coverage.
+- `data/provenance/ven-criteria.json` — the retrieved source and its digest.
+
+The criteria turned out to be published and were the only part that needed
+finding. What remains is not a software gap: it is items 1–5 at the end of this
+document, all of which are human decisions.
+
+Today `resolveVen` returns `no_approved_mapping` for every product, which is the
+truthful state, and the matrix does not draw.
 
 This responds to the feedback request to "develop the ABC-VEN analysis for
 antibiotics [which] combines financial expenditure tracking with therapeutic

@@ -1,5 +1,13 @@
 # Pillar A — remediation of the outstanding feedback points
 
+> **Superseded in part by a later review.** Since this was written: the compiled
+> data moved out of `public/` and is served only through `app/api/pillar-a/*`;
+> the bulk export was removed entirely, so the download described below no longer
+> exists; the ABC banding rule changed to the preceding cumulative share, making
+> the national 2025 bands A 7 / B 6 / C 10 rather than the figures quoted here;
+> and Pillar A was merged into the Antibiotici AWaRe module. See
+> `docs/CLAUDE_PILLAR_A_NEXT_PASS.md` and the git log for the current state.
+
 Date: 2026-09-23. Baseline: `c6053f5`. Source document: `Feedback v1.docx`,
 SHA-256 `4cabcbd5a6e4f63a39d23c71c86d63b403aeac38389f7e75ceb58c8fc84708ea`.
 
@@ -67,8 +75,11 @@ judgement call and is the one item here worth confirming with the reviewer.
 - **Duplicated monthly panel.** The region-versus-Italy comparison built at the
   previous checkpoint is unchanged. The national-only panel it duplicated is now
   suppressed when a territory is selected, so only one monthly chart shows.
-- **Definitions travel with the data.** `public/data/pillar-a-annual-dictionary.csv`
-  documents all 13 columns of the annual export, with units and caveats.
+- **Definitions travel with the data.** `data/public-compiled/pillar-a-annual-dictionary.csv`
+  documents all 13 columns, with units and caveats. Note that as of 24 September
+  2026 there is no public export: the reviewer asked that the compiled tables not
+  be shared even after login, so the download and its endpoint were removed and
+  the dictionary is an internal reference.
 
 ## Reproduction
 
