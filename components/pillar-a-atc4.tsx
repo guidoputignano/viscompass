@@ -46,7 +46,22 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
     // Shared banding rule: the band follows the cumulative share of the items
     // ranked ahead of this one, matching the private workbook exactly.
     const abc=assignAbcBands(latest,r=>r.spend,r=>r.code);
-    const top=latest.slice(0,TOP_N).map(r=>r.code);
+    const yearTotals=new Map(data.years.map((year,y)=>[year,data.rows.filter(r=>r[0]===y).reduce((s,r)=>s+r[2],0)]));
+    // Mean of the category's yearly shares, over the years that have any spend.
+    // Years with no total are skipped rather than counted as a zero share.
+    const avgShare=new Map<string,number>();
+    for(const c of data.codes){
+      const ci=data.codes.findIndex(x=>x.code===c.code);
+      let sum=0,n=0;
+      data.years.forEach((year,y)=>{
+        const tot=yearTotals.get(year)??0;
+        if(tot<=0)return;
+        sum+=(data.rows.find(r=>r[0]===y&&r[1]===ci)?.[2]??0)/tot;n++;
+      });
+      if(n>0)avgShare.set(c.code,sum/n);
+    }
+    const top=[...avgShare.entries()].filter(([,v])=>v>0)
+      .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,TOP_N).map(([code])=>code);
     const series=data.years.map((year,y)=>{
       const point:Record<string,number|null|string>={year};
       for(const code of top){
@@ -76,7 +91,6 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
       data.rows.filter(r=>r[0]===y&&r[2]>0).sort((a,b)=>b[2]-a[2])
         .forEach((r,i)=>ranks.set(`${y}|${label(r[1])}`,i+1));
     });
-    const yearTotals=new Map(data.years.map((year,y)=>[year,data.rows.filter(r=>r[0]===y).reduce((s,r)=>s+r[2],0)]));
     const shownShare=total>0?top.reduce((s,c)=>s+(latest.find(r=>r.code===c)?.spend??0),0)/total:0;
     return {abc,top,series,ribbon,ranks,yearTotals,total,shownShare,lastYear:data.years[lastYear]};
   },[data]);
@@ -117,7 +131,7 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">La larghezza di ogni banda è la quota di spesa della categoria in quell’anno. Descrive come cambia la composizione della spesa, non passaggi di pazienti o di terapie fra categorie: nessuna quantità si sposta da una banda all’altra.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Le bande sono le {top.length} categorie con la quota media più alta del periodo; le altre sono raccolte in un’unica banda neutra. La larghezza di ogni banda è la quota di spesa della categoria in quell’anno. Descrive come cambia la composizione della spesa, non passaggi di pazienti o di terapie fra categorie: nessuna quantità si sposta da una banda all’altra.</p>
     </>:view==="trend"?<>
       <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs">{top.map((code,i)=><span key={code} className="flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{background:SERIES[i]}}/>{code} · {labelOf(data,code)}</span>)}</div>
       <div className="h-80" role="img" aria-label={`Spesa annuale per categoria ATC4, ${regionName}`}>
@@ -131,7 +145,7 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">Le {top.length} categorie più rilevanti nel {lastYear} rappresentano il {nf(shownShare*100,1)}% della spesa di quell’anno. Le celle mancanti non diventano zero.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Le {top.length} categorie con la quota media più alta del periodo, non quelle dell’ultimo anno: in un territorio piccolo l’ultimo anno è instabile. Nel {lastYear} coprono il {nf(shownShare*100,1)}% della spesa. Le celle mancanti non diventano zero.</p>
     </>:<>
       <div className="h-80" role="img" aria-label={`Concentrazione della spesa per categoria ATC4 nel ${lastYear}`}>
         <ResponsiveContainer width="100%" height="100%">
