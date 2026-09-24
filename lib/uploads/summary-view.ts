@@ -140,7 +140,7 @@ export function readReconciliationSummary(raw: Record<string, unknown> | null | 
   }
 
   const stored = str(o.outcome);
-  const known = stored !== null && stored in OUTCOME ? (stored as ReconciliationStatus) : null;
+  const known = stored !== null && Object.hasOwn(OUTCOME, stored) ? (stored as ReconciliationStatus) : null;
   const badge = known
     ? OUTCOME[known]
     : { label: "Esito non riconosciuto", tone: "warning" as SummaryTone };

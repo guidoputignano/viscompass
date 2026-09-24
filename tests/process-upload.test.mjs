@@ -18,9 +18,9 @@ async function workbook({group=GROUP,rows=[[100,100],[200,200]]}={}){
   for(const c of [19,20,21]) ws.getRow(1).getCell(c).value=group;
   for(const [c,v] of Object.entries(LABELS)) ws.getRow(2).getCell(Number(c)).value=v;
   ws.getRow(2).getCell(34).value='ultima';
-  rows.forEach(([qty,cost],i)=>{
+  rows.forEach(([qty,cost,asl='130201'],i)=>{
     const r=ws.getRow(3+i);
-    r.getCell(1).value=2025; r.getCell(2).value='130'; r.getCell(4).value='130201';
+    r.getCell(1).value=2025; r.getCell(2).value='130'; r.getCell(4).value=asl;
     r.getCell(7).value='PRODOTTO'; r.getCell(8).value=`02221103${i}`;
     r.getCell(10).value='202501\n202502'; r.getCell(12).value='ACME';
     r.getCell(19).value=qty; r.getCell(21).value=cost;
@@ -190,4 +190,50 @@ test('a database that cannot even record the failure still does not throw',async
   const db=makeDb({upload:okUpload});
   db.from=()=>{ throw new Error('database is down'); };
   await assert.doesNotReject(()=>processUploadWith(db,7));
+});
+
+// Gaps the adversarial review named: nothing asserted that every write is
+// scoped to the one row, and two of the five outcomes never reached
+// toColumnStatus in any test.
+
+test('every write is scoped to this upload row and no other',async()=>{
+  const buf=await workbook();
+  const db=makeDb({upload:okUpload,org:okOrg,download:()=>blob(buf)});
+  await processUploadWith(db,7);
+  assert.ok(db.updates.length>=2,'processing marker plus outcome');
+  for(const u of db.updates){
+    assert.equal(u.table,'uploads');
+    assert.deepEqual(u.filters,[['id',7]],'an unscoped update would rewrite every upload');
+  }
+});
+
+test('a failure write is scoped too',async()=>{
+  const db=makeDb({upload:okUpload,org:okOrg,download:()=>({data:null,error:{message:'gone'}})});
+  await processUploadWith(db,7);
+  for(const u of db.updates) assert.deepEqual(u.filters,[['id',7]]);
+});
+
+test('nothing_to_reconcile is stored as uploaded, never as reconciled',async()=>{
+  // Every row quarantined, so there is nothing to reconcile. The column has no
+  // value for this outcome and must not borrow 'reconciled'.
+  const buf=await workbook({rows:[[100,100,'ND'],[200,200,'ND']]});
+  const db=makeDb({upload:okUpload,org:okOrg,download:()=>blob(buf)});
+  await processUploadWith(db,7);
+  assert.equal(summary(db).outcome,'nothing_to_reconcile');
+  assert.equal(final(db).status,'uploaded');
+  assert.equal(final(db).reconciled_at,null);
+  assert.equal(summary(db).amounts.accepted,0);
+});
+
+test('incomplete_data is stored as uploaded, never as reconciled',async()=>{
+  // An accepted row with no cost: the total is real but partial, and a partial
+  // total must not be certified.
+  const buf=await workbook({rows:[[100,100],[200,null]]});
+  const db=makeDb({upload:okUpload,org:okOrg,
+    canonical:{data:[{total_cost_eur:100}],error:null},download:()=>blob(buf)});
+  await processUploadWith(db,7);
+  assert.equal(summary(db).outcome,'incomplete_data',
+    'a missing cost outranks an otherwise matching canonical total');
+  assert.equal(final(db).status,'uploaded');
+  assert.equal(final(db).reconciled_at,null);
 });

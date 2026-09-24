@@ -152,3 +152,17 @@ test('only a genuine reconciliation counts as reconciled',()=>{
   assert.equal(d({ok:true,outcome:'something_new_in_v3'}),'not_reconciled','unknown is never a pass');
   assert.equal(d({ok:false,message:'storage non leggibile'}),'not_reconciled');
 });
+
+test('an inherited Object property is not mistaken for a known outcome',()=>{
+  // `stored in OUTCOME` walked the prototype chain, so an outcome of
+  // "toString" or "constructor" resolved to a function and rendered a blank
+  // badge instead of the unknown-outcome warning.
+  for(const key of ['toString','constructor','hasOwnProperty','__proto__','valueOf']){
+    const v=readReconciliationSummary({ok:true,outcome:key});
+    assert.equal(v.outcome,null,`${key} must not be treated as a known outcome`);
+    assert.equal(v.tone,'warning');
+    assert.equal(typeof v.label,'string');
+    assert.ok(v.label.length>0,'the badge must never render empty');
+    assert.equal(uploadDisposition(v,'uploaded'),'not_reconciled');
+  }
+});
