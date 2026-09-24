@@ -161,6 +161,9 @@ kind of claim that stops the next reader looking.
 
 ## Remaining, in priority order
 
+> Updated later the same day: item 3, and the upload blockers under
+> "Blocked on a human", are superseded by the addendum at the end of this file.
+
 1. **Narrow the data request.** `docs/PNCAR_DENOMINATOR_DATA_REQUEST.md` asks for
    three things; only **item 1, the 2022 workbook year**, is actually justified.
    The PNCAR target is relative, so 2022 on the existing A3/T1 denominator
@@ -201,3 +204,78 @@ kind of claim that stops the next reader looking.
   agrees, so `reconcileRows` reports the comparison unavailable rather than
   claiming a pass it has not earned.
 - **Confirm Guido's approval** for the private activation is on the record.
+
+---
+
+## Addendum — upload processing, 24 September 2026
+
+Four commits on `release/pillar-a-public-20260920`, `2d4c4bb` → `692f693`.
+**Not on `main`**, so this is not a production deployment; no instruction to
+deploy it was given.
+
+Verified on each: `tsc --noEmit` clean · 113 runtime tests pass (the 2 skips
+are pre-existing, gated on build artefacts that are not present) ·
+`next build --webpack` clean · every `@/` import resolves to a tracked file.
+
+### Upload processing is wired end to end
+
+`reconcileUpload` was a deliberate no-op: `reconcileRows` was pure and tested,
+but nothing fetched the stored file or wrote an outcome back. It is replaced by
+`lib/uploads/process-upload.ts`, which downloads from Storage, parses, compares
+against `canonical_fact` and records the result on the row.
+
+- **`lib/uploads/gold-file.ts` parses DIR_OSP_TRA_003AS. Read the header note
+  before changing any column number.** Header rows 1 and 2 disagree about the
+  basis of columns 19/21: row 2 omits Distribuzione per Conto and is wrong.
+  Established empirically — DD + DPC + CO reproduces the aggregate quantity in
+  2,076/2,076 rows with non-zero DPC and the cost in 2,047/2,047, DD + CO in
+  none — and euro-exact on the whole file: EUR 451,587,418.32 against a
+  documented 451,587,418. Trusting the row-2 labels drops EUR 80,065,583.
+- The parser reads the aggregate columns and **never recomputes them**, and
+  asserts row 1 still names all three flows, so a change of basis aborts the
+  load instead of silently restating the figures.
+- Months come from column 10 ("Mesi disponibili"), not column 9 ("Periodo
+  Osservato"), which reads 12 on every row. Column 10 gives the documented
+  4,245 twelve-month rows out of 13,116.
+- On the real 2025 extraction: **13,039 of 13,116 rows accepted, 77
+  quarantined** — 50 ND ASL, 26 negative adjustments, 1 orphan 130106.
+- `lib/uploads/summary-view.ts` and `components/dashboard-review/upload-log.tsx`
+  surface the outcome on the dati page. `uploads.status` cannot express three
+  of the five outcomes, so a file that could not be reconciled rendered as
+  "Caricato". The pill and the page counts now read the summary.
+- `exceljs` added. **npm is not installed on this machine**, so
+  `package-lock.json` was updated by grafting the exceljs closure (95 packages)
+  from the sibling checkout, which has 4.4.0 resolved. Insertions only, no
+  existing entry touched, and every dependency edge in the resulting lock
+  resolves. **Run a real `npm install` when npm is available** and commit
+  whatever it normalizes. Note the footprint: archiver, unzipper, fast-csv and
+  a number of unmaintained single-purpose lodash packages.
+
+### Still open — what stands between here and a real reconciliation
+
+- **`canonical_fact` is still 0 rows.** The comparison reports itself
+  unavailable rather than claiming a pass an empty table would always give.
+- **The `asl_code` key mapping is UNVERIFIED.** `uploads.org_code` is `201`;
+  the file's own column reads `130201` (region + org). Both forms are queried.
+  Which one `canonical_fact` uses cannot be observed while it is empty, and
+  must be confirmed against real rows before any comparison result is trusted.
+  This is marked in the code.
+- **`uploads.status` has no value for "processed, not reconcilable".** Three
+  outcomes map back to `uploaded` — never to `reconciled`. Widening the CHECK
+  is a migration and was not done here.
+
+### ESLint does not run in this checkout
+
+The config fails to load with a circular-structure error from the eslintrc
+compat layer, on untouched files too. Pre-existing and unrelated to this work;
+`tsc` and the production build are unaffected.
+
+### VEN remains deferred, and that is a decision
+
+`data/provenance/ven-candidate-list.json` holds 10 WHO EML 2025 Reserve
+candidates with `proposed_ven: null` and `status: "pending"`;
+`supabase/migrations/20260924_ven_mapping.sql` seeds no rows; `resolveVen`
+still returns `no_approved_mapping` and the matrix declines to draw. What is
+missing is a named Italian pharmacy-and-therapeutics panel to supply and
+independently approve the assignments. That is a human step, not code, and
+filling it with a WHO-derived guess would be the failure the design prevents.
