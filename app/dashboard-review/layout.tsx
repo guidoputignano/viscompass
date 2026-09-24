@@ -4,6 +4,7 @@ import { AccessPortal } from "@/components/access/access-portal";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getAccessOverview } from "@/lib/access/queries";
 import { getAdminEmail } from "@/lib/auth/admin";
+import { getViewerIdentity } from "@/lib/auth/viewer";
 
 // Reads the live session on every request — there's no meaningful static
 // shell to prerender for a page whose entire content depends on who is
@@ -13,7 +14,11 @@ export const instant = false;
 export default async function DashboardReviewLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [org, adminEmail] = await Promise.all([getCurrentOrg(), getAdminEmail()]);
+  const [org, adminEmail, viewer] = await Promise.all([
+    getCurrentOrg(),
+    getAdminEmail(),
+    getViewerIdentity(),
+  ]);
 
   if (!org) {
     const overview = await getAccessOverview();
@@ -27,5 +32,9 @@ export default async function DashboardReviewLayout({
     return <AccessPortal overview={overview} isAdmin={Boolean(adminEmail)} />;
   }
 
-  return <DashboardReviewNav org={org} isAdmin={Boolean(adminEmail)}>{children}</DashboardReviewNav>;
+  return (
+    <DashboardReviewNav org={org} isAdmin={Boolean(adminEmail)} viewer={viewer}>
+      {children}
+    </DashboardReviewNav>
+  );
 }
