@@ -150,11 +150,3 @@ test('reconciliation is idempotent for the same input',()=>{
   assert.deepEqual(a,b);
 });
 
-test('reconcileUpload never throws: the upload row is already inserted when it runs',async()=>{
-  // lib/dashboard-review/actions.ts inserts the row and then calls this. Throwing
-  // here would show the user a failure for an upload that actually succeeded.
-  const {reconcileUpload}=await import('../lib/uploads/reconcile.ts');
-  await assert.doesNotReject(()=>reconcileUpload(1));
-  // And it must not claim success either: it writes nothing at all.
-  assert.equal(await reconcileUpload(1),undefined);
-});

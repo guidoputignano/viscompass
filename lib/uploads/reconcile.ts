@@ -280,23 +280,3 @@ export function summariseReconciliation(report: ReconciliationReport): string {
   if (report.declared && !report.declared.withinTolerance) parts.push(`Differenza rispetto al totale dichiarato: ${eur(report.declared.difference)}.`);
   return parts.concat(report.notes).join(" ");
 }
-
-/**
- * Entry point kept for the existing caller in lib/dashboard-review/actions.ts,
- * which inserts the upload row and then calls this.
- *
- * Fetching the stored file, parsing it and writing the outcome back all need the
- * service-role client, because `uploads` has no client-facing UPDATE policy by
- * design. That wiring is not built, so this deliberately does nothing and — just
- * as deliberately — does not throw: the upload row has already been inserted by
- * the time it runs, and failing here would show the user an error for an upload
- * that actually succeeded.
- *
- * Doing nothing leaves the upload in its un-reconciled default state, which is
- * the truthful outcome. It must never mark one reconciled: the reconciliation
- * itself is `reconcileRows`, which is pure and fully tested, and this becomes a
- * three-line call once the file can be read.
- */
-export async function reconcileUpload(uploadId: number): Promise<void> {
-  void uploadId;
-}

@@ -11,7 +11,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
-import { reconcileUpload } from "@/lib/uploads/reconcile";
+import { processUpload } from "@/lib/uploads/process-upload";
 import type { CanonicalFact, FeatureRequestSubmission } from "./types";
 
 export async function searchMolecules(query: string): Promise<CanonicalFact[]> {
@@ -109,7 +109,7 @@ export async function recordUpload(input: RecordUploadInput): Promise<{ ok: true
     .single();
   if (error) throw new Error(`uploads insert failed: ${error.message}`);
 
-  await reconcileUpload(data.id);
+  await processUpload(data.id);
 
   revalidatePath("/dashboard-review/dati");
   return { ok: true };
