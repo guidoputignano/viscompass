@@ -161,3 +161,39 @@ export function readReconciliationSummary(raw: Record<string, unknown> | null | 
     at,
   };
 }
+
+/** How an upload counts on the dati page. */
+export type UploadDisposition = "reconciled" | "discrepancy" | "not_reconciled" | "not_examined";
+
+/**
+ * Classify one upload for counting.
+ *
+ * 'not_examined' is the case this function exists for. A NULL
+ * reconciliation_summary used to be treated as "not yet processed, nothing to
+ * act on", which made a stored-but-never-examined file count as zero and let
+ * the page assert "Caricamenti non riconciliati: 0" over it.
+ *
+ * That premise was wrong. processUpload is awaited inline by recordUpload and
+ * has no retry, queue or cron behind it, so by the time any page renders,
+ * processing has finished or been permanently skipped. A NULL summary therefore
+ * does not mean "pending"; it means the file was stored and never examined —
+ * which is a thing to act on, and the one thing this codebase must never
+ * present as fine.
+ *
+ * The column is consulted only to avoid UNDER-reporting: a row whose column
+ * says 'discrepancy_found' is a discrepancy even if its summary is unreadable.
+ * A column claiming 'reconciled' with no summary is NOT trusted — there is no
+ * evidence behind it, and inventing one is the failure mode this guards.
+ */
+export function uploadDisposition(
+  view: ReconciliationView,
+  columnStatus: string,
+): UploadDisposition {
+  if (view.kind === "none") {
+    return columnStatus === "discrepancy_found" ? "discrepancy" : "not_examined";
+  }
+  if (view.kind === "failed") return "not_reconciled";
+  if (view.outcome === "reconciled") return "reconciled";
+  if (view.outcome === "discrepancy_found") return "discrepancy";
+  return "not_reconciled";
+}

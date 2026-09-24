@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readReconciliationSummary} from '../lib/uploads/summary-view.ts';
+import {readReconciliationSummary,uploadDisposition} from '../lib/uploads/summary-view.ts';
 import {reconcileRows,summariseReconciliation} from '../lib/uploads/reconcile.ts';
 
 test('an absent or unreadable summary is never a pass',()=>{
@@ -115,4 +115,40 @@ test('the stored shape round-trips from the reconciler that wrote it',()=>{
     new Set(v.quarantine.map(g=>g.code)),
     new Set(report.quarantine.map(q=>q.code)),
   );
+});
+
+// Counting. These pin the page-level classification that the adversarial review
+// found was silently excluding never-examined uploads.
+
+test('a stored file that was never examined counts as unreconciled, not as fine',()=>{
+  // reconciliation_summary NULL. processUpload is awaited inline by recordUpload
+  // with no retry or queue behind it, so this is never "pending" — it is a file
+  // nobody looked at, and it used to count as zero.
+  assert.equal(uploadDisposition(readReconciliationSummary(null),'uploaded'),'not_examined');
+  // Stranded mid-parse: the row was marked processing and nothing ever cleared it.
+  assert.equal(uploadDisposition(readReconciliationSummary(null),'processing'),'not_examined');
+});
+
+test('a column claiming reconciled without a summary is not trusted',()=>{
+  // There is no evidence behind it. Treating it as a pass is the exact failure
+  // this codebase forbids; under-reporting is the safe direction.
+  assert.equal(uploadDisposition(readReconciliationSummary(null),'reconciled'),'not_examined');
+});
+
+test('a discrepancy is never under-reported, even with an unreadable summary',()=>{
+  assert.equal(uploadDisposition(readReconciliationSummary(null),'discrepancy_found'),'discrepancy');
+  assert.equal(
+    uploadDisposition(readReconciliationSummary({ok:true,outcome:'discrepancy_found'}),'uploaded'),
+    'discrepancy');
+});
+
+test('only a genuine reconciliation counts as reconciled',()=>{
+  const d=(o)=>uploadDisposition(readReconciliationSummary(o),'uploaded');
+  assert.equal(d({ok:true,outcome:'reconciled'}),'reconciled');
+  // Everything else that was actually examined is not_reconciled.
+  assert.equal(d({ok:true,outcome:'canonical_comparison_unavailable'}),'not_reconciled');
+  assert.equal(d({ok:true,outcome:'incomplete_data'}),'not_reconciled');
+  assert.equal(d({ok:true,outcome:'nothing_to_reconcile'}),'not_reconciled');
+  assert.equal(d({ok:true,outcome:'something_new_in_v3'}),'not_reconciled','unknown is never a pass');
+  assert.equal(d({ok:false,message:'storage non leggibile'}),'not_reconciled');
 });

@@ -11,29 +11,26 @@ import { UploadShell } from "@/components/dashboard-review/upload-shell";
 import { getLineageData, getUploads } from "@/lib/dashboard-review/queries";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { formatDate, formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
-import { readReconciliationSummary } from "@/lib/uploads/summary-view";
+import { readReconciliationSummary, uploadDisposition } from "@/lib/uploads/summary-view";
 
 export default async function DataLineagePage() {
   const [lineage, uploads, org] = await Promise.all([getLineageData(), getUploads(), getCurrentOrg()]);
   const weakest = [...lineage.sources]
     .filter((source) => source.normalized_coverage !== null)
     .sort((a, b) => a.normalized_coverage! - b.normalized_coverage!)[0];
-  // The status column cannot express "processed, but not reconcilable", so
-  // these counts read reconciliation_summary and fall back to the column only
-  // for uploads that have not been processed yet.
-  const outcomes = uploads.map((upload) => ({
-    upload,
-    view: readReconciliationSummary(upload.reconciliation_summary),
-  }));
-  const discrepancies = outcomes.filter(({ upload, view }) =>
-    view.kind === "report" ? view.outcome === "discrepancy_found" : upload.status === "discrepancy_found",
-  );
-  // Processed and still not reconciled: a failure, a discrepancy, incomplete
-  // data, or no canonical rows to compare against. Distinct from "not yet
-  // processed", which is not a problem to act on.
-  const unreconciled = outcomes.filter(({ view }) =>
-    view.kind === "failed" || (view.kind === "report" && view.outcome !== "reconciled"),
-  );
+  // The status column cannot express "processed, but not reconcilable", so the
+  // counts below are driven by reconciliation_summary. See uploadDisposition:
+  // a NULL summary means the file was stored and never examined, which counts
+  // as unreconciled rather than as nothing to act on.
+  const outcomes = uploads.map((upload) => {
+    const view = readReconciliationSummary(upload.reconciliation_summary);
+    return { upload, view, disposition: uploadDisposition(view, upload.status) };
+  });
+  const discrepancies = outcomes.filter((o) => o.disposition === "discrepancy");
+  const notExamined = outcomes.filter((o) => o.disposition === "not_examined");
+  // Everything that is not a completed reconciliation. The label on the card
+  // says exactly this, so it must not quietly exclude any of it.
+  const unreconciled = outcomes.filter((o) => o.disposition !== "reconciled");
 
   return (
     <div className="flex flex-col gap-7">
@@ -52,9 +49,11 @@ export default async function DataLineagePage() {
         nextEvidence={
           discrepancies.length > 0
             ? `Riconciliare ${discrepancies.length} file con scarto.`
-            : unreconciled.length > 0
-              ? `Chiudere ${unreconciled.length} caricamenti non riconciliati.`
-              : "Documentare i mapping manuali."
+            : notExamined.length > 0
+              ? `Elaborare ${notExamined.length} file archiviati e mai esaminati.`
+              : unreconciled.length > 0
+                ? `Chiudere ${unreconciled.length} caricamenti non riconciliati.`
+                : "Documentare i mapping manuali."
         }
       />
 
@@ -62,7 +61,7 @@ export default async function DataLineagePage() {
         <KpiCard accent label="Record canonici" value={formatNumber(lineage.total_records, 0)} detail={`${lineage.sources.length} versioni sorgente`} icon={Database} />
         <KpiCard label="Copertura normalizzata" value={lineage.normalization_coverage === null ? "—" : formatPercent(lineage.normalization_coverage)} detail="€/mg o €/DDD disponibile" icon={ShieldCheck} />
         <KpiCard label="Record irrisolti" value={formatNumber(lineage.unresolved_records, 0)} detail="Visibili, non presentati come confronto risolto" icon={CircleAlert} />
-        <KpiCard label="Caricamenti non riconciliati" value={formatNumber(unreconciled.length, 0)} detail={`${discrepancies.length} con scarto · ${uploads.length} registrati`} icon={FileClock} />
+        <KpiCard label="Caricamenti non riconciliati" value={formatNumber(unreconciled.length, 0)} detail={`${discrepancies.length} con scarto · ${notExamined.length} mai esaminati · ${uploads.length} registrati`} icon={FileClock} />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
