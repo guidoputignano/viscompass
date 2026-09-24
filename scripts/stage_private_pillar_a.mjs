@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import {privatePillarAnalysis,PRIVATE_RELEASE} from '../lib/analytics/private-pillar-a.ts';
+import {assertProductFacts} from '../lib/analytics/private-pillar-product.ts';
 const dir='private-staging/closure';
 const manifest=JSON.parse(fs.readFileSync(`${dir}/source-manifest.json`,'utf8'));
 for(const source of manifest){
@@ -15,6 +16,9 @@ if(facts.length!==48||new Set(facts.map(r=>r.org_code)).size!==4)throw Error('Wr
 privatePillarAnalysis(facts);
 const products=JSON.parse(fs.readFileSync(`${dir}/product-analysis.json`,'utf8'));
 if(products.length!==1316)throw Error('Unexpected source detail count');
+const productFacts=products.map(r=>({release_id:PRIVATE_RELEASE,org_code:r.org,year:r.year,aic:r.aic,atc5:r.atc5,aware_category:r.aware,product_name:r.name,qmr:r.QMR,ddd_aic:r.DDD_AIC,cf:r.CF,cn:r.CN,cmr:r.CMR,ddd:r.QMR*r.DDD_AIC,source_hash:hash}));
+assertProductFacts(productFacts);
+if(productFacts.some(r=>!facts.some(f=>f.org_code===r.org_code&&f.year===r.year&&f.aware_category===r.aware_category)))throw Error('Product outside aggregate scope');
 for(const fact of facts){
  const subset=products.filter(r=>r.org===fact.org_code&&r.year===fact.year&&(fact.aware_category==='T'||r.aware===fact.aware_category));
  for(const [field,source] of [['cf','CF'],['cmr','CMR'],['ddd','DDD']]){
@@ -37,4 +41,18 @@ commit;
 select count(*) as rows from public.pillar_a_private_fact where release_id='${PRIVATE_RELEASE}';`;
 fs.writeFileSync(`${dir}/private-v2-import.sql`,sql);
 fs.writeFileSync(`${dir}/private-v2-facts.json`,JSON.stringify(facts,null,2));
-console.log(JSON.stringify({rows:facts.length,sourceHash:hash,release:PRIVATE_RELEASE}));
+// Reproducible product import: never depend on an agent's temporary generator.
+// Values remain in ignored staging; this script itself contains no private data.
+const productColumns=Object.keys(productFacts[0]);
+const productSql=`begin;
+do $$ begin
+ if exists(select 1 from public.pillar_a_private_product_fact where release_id='${PRIVATE_RELEASE}') then raise exception 'Product release already exists: no overwrite'; end if;
+ if (select count(*) from public.pillar_a_private_fact where release_id='${PRIVATE_RELEASE}')<>48 then raise exception 'Aggregate release must be loaded first'; end if;
+end $$;
+insert into public.pillar_a_private_product_fact (${productColumns.join(',')}) values
+${productFacts.map(r=>'('+productColumns.map(k=>quote(r[k])).join(',')+')').join(',\n')};
+commit;
+select count(*) as rows from public.pillar_a_private_product_fact where release_id='${PRIVATE_RELEASE}';`;
+fs.writeFileSync(`${dir}/private-product-import.sql`,productSql);
+fs.writeFileSync(`${dir}/private-product-facts.json`,JSON.stringify(productFacts,null,2));
+console.log(JSON.stringify({rows:facts.length,productRows:productFacts.length,sourceHash:hash,release:PRIVATE_RELEASE}));

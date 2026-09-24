@@ -65,6 +65,7 @@ export type AcceptedRow = UploadRow & {
 
 export type ReconciliationStatus =
   | "reconciled"
+  | "incomplete_data"
   | "discrepancy_found"
   | "nothing_to_reconcile"
   | "canonical_comparison_unavailable";
@@ -116,7 +117,7 @@ export function normaliseAic(raw: string | null): string | null {
   return trimmed.padStart(9, "0");
 }
 
-const sourceKey = (r: UploadRow) => `${r.aslCode ?? ""}|${normaliseAic(r.aic) ?? r.aic ?? ""}|${r.manufacturer ?? ""}`;
+const sourceKey = (r: UploadRow) => `${r.aslCode?.trim() ?? ""}|${normaliseAic(r.aic) ?? r.aic ?? ""}|${r.manufacturer?.trim() ?? ""}`;
 
 /**
  * Reconcile a supplied extraction.
@@ -131,6 +132,15 @@ export function reconcileRows(
   options: { declaredTotalCost?: number | null; canonical?: CanonicalTotals | null; toleranceEur?: number } = {},
 ): ReconciliationReport {
   const tolerance = options.toleranceEur ?? 0.01;
+  if (!Number.isFinite(tolerance) || tolerance < 0) throw new Error("Invalid reconciliation tolerance");
+  if (options.declaredTotalCost != null && !Number.isFinite(options.declaredTotalCost)) throw new Error("Invalid declared total");
+  if (options.canonical && (!Number.isSafeInteger(options.canonical.rowCount) || options.canonical.rowCount < 0 || !Number.isFinite(options.canonical.costEur))) throw new Error("Invalid canonical totals");
+  // Invalid numbers must never silently contaminate totals or become a pass.
+  for (const row of rows) {
+    for (const value of [row.cost, row.quantity]) {
+      if (value != null && !Number.isFinite(value)) throw new Error(`Row ${row.sourceRow}: non-finite amount`);
+    }
+  }
   const quarantine: QuarantinedRow[] = [];
   const accepted: AcceptedRow[] = [];
   const notes: string[] = [];
@@ -223,7 +233,12 @@ export function reconcileRows(
 
   let status: ReconciliationStatus;
   if (!accepted.length) status = "nothing_to_reconcile";
-  else if (canonical.available) status = canonical.withinTolerance ? "reconciled" : "discrepancy_found";
+  else if (accepted.some(row => row.cost == null)) {
+    status = "incomplete_data";
+    notes.push("Costi mancanti: il totale include soltanto gli importi riportati e non certifica una riconciliazione completa.");
+  }
+  else if ((declared && !declared.withinTolerance) || (canonical.available && !canonical.withinTolerance)) status = "discrepancy_found";
+  else if (canonical.available) status = "reconciled";
   else if (declared) status = declared.withinTolerance ? "reconciled" : "discrepancy_found";
   else status = "canonical_comparison_unavailable";
 
@@ -248,6 +263,7 @@ export function summariseReconciliation(report: ReconciliationReport): string {
   const eur = (v: number) => `EUR ${v.toFixed(2)}`;
   const head: Record<ReconciliationStatus, string> = {
     reconciled: "Riconciliato",
+    incomplete_data: "Dati incompleti",
     discrepancy_found: "Scostamento rilevato",
     nothing_to_reconcile: "Nessuna riga utilizzabile",
     canonical_comparison_unavailable: "Confronto canonico non disponibile",
@@ -261,6 +277,7 @@ export function summariseReconciliation(report: ReconciliationReport): string {
   }
   if (!report.canonical.available) parts.push(report.canonical.reason);
   else if (!report.canonical.withinTolerance) parts.push(`Differenza rispetto ai dati canonici: ${eur(report.canonical.difference)}.`);
+  if (report.declared && !report.declared.withinTolerance) parts.push(`Differenza rispetto al totale dichiarato: ${eur(report.declared.difference)}.`);
   return parts.concat(report.notes).join(" ");
 }
 

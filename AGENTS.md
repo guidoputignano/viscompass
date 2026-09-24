@@ -120,10 +120,15 @@ homepage, Italian auth flow, dashboard modules under
 antibiotici, ricerca, obiettivi, dati, richieste), organization
 access-control centre, transactional email.
 
-**The gap:** `canonical_fact` has no real rows. Reconciliation
-(`lib/uploads/reconcile.ts`) is a documented stub. The antibiotics module
-falls back to labelled synthetic data. The shipped product is a working
-shell around data not yet loaded.
+**24 September 2026 checkpoint:** live private Pillar A tables contain 48
+aggregate and 1,316 product records for `closure-20260923`; see
+`docs/PILLAR_A_FINAL_AUDIT_20260924.md` for independently checked scope and
+remaining acceptance gates. `canonical_fact` remains empty. File-internal
+reconciliation functions exist, but `reconcileUpload` is still a no-op:
+do not claim automatic upload processing. VEN validation exists; the table
+is empty and no clinical assignments may be invented. Earlier statements
+below about the 2025 gold-file scope do not invalidate the separate
+2023–2025 antibiotic workbook release.
 
 **Current priority (Sept 2026): data, not visuals.** Decorative dashboard
 work is frozen. The sequence is: PDF copy/UI fixes → gold-file input

@@ -1,0 +1,19 @@
+{
+  "status": "pending_external_reference_only",
+  "scope": "Pillar A product release closure-20260923",
+  "purpose": "candidate intake for clinical review; not an approved Italian VEN mapping",
+  "source": {"title":"WHO Model List of Essential Medicines, 24th list (2025), reserve-group antibiotics","url":"https://www.who.int/publications/i/item/B09474","secondary_confirmation":"https://cdn.who.int/media/docs/default-source/bulletin/online-first/blt.25.293893.pdf?sfvrsn=9ed3588_3","interpretation":"WHO Reserve is an AWaRe/stewardship designation, not V/E/N. It is included only as a review-priority signal.","retrieved":"2026-09-24"},
+  "rules": ["proposed_ven is null until a named Italian pharmacy-and-therapeutics panel supplies and independently approves the assignment","no WHO Reserve, Access or Watch label is converted to Vital, Essential or Non-essential","the same ATC5 may contain multiple formulations and must be reviewed at AIC/formulary scope","this file is not loaded into ven_mapping"],
+  "candidates": [
+    {"name":"cefiderocol","atc5":"J01DI04","who_2025":"Reserve","observed_in_release":false,"proposed_ven":null,"status":"pending"},
+    {"name":"ceftazidime + avibactam","atc5":"J01DD52","who_2025":"Reserve","observed_in_release":false,"proposed_ven":null,"status":"pending"},
+    {"name":"ceftolozane + tazobactam","atc5":"J01DI54","who_2025":"Reserve","observed_in_release":false,"proposed_ven":null,"status":"pending"},
+    {"name":"parenteral colistin","atc5":"J01XB01","who_2025":"Reserve","observed_in_release":true,"proposed_ven":null,"status":"pending"},
+    {"name":"parenteral polymyxin B","atc5":"J01XB02","who_2025":"Reserve","observed_in_release":false,"proposed_ven":null,"status":"pending"},
+    {"name":"fosfomycin","atc5":"J01XX01","who_2025":"Reserve","observed_in_release":true,"proposed_ven":null,"status":"pending"},
+    {"name":"meropenem + vaborbactam","atc5":"J01DH52","who_2025":"Reserve","observed_in_release":false,"proposed_ven":null,"status":"pending"},
+    {"name":"plazomicin","atc5":"J01GB14","who_2025":"Reserve","observed_in_release":false,"proposed_ven":null,"status":"pending"},
+    {"name":"linezolid","atc5":"J01XX08","who_2025":"Reserve","observed_in_release":true,"proposed_ven":null,"status":"pending"},
+    {"name":"tedizolid","atc5":"J01XX11","who_2025":"Reserve","observed_in_release":false,"proposed_ven":null,"status":"pending"}
+  ]
+}

@@ -180,7 +180,8 @@ does, and it is a published, defensible position rather than a gap.
 
 ## What is implemented today
 
-Nothing from this document. The current state is a correct negative guardrail:
-no VEN table, column, type or claim exists anywhere in the product, and
-`/pillar-a` states in Italian that ABC describes spend concentration and AWaRe
-describes stewardship, and that neither is a general ranking of efficacy.
+The validation/resolution functions, tests and database table exist. The table
+is empty (independently checked on 24 September 2026). An end-to-end scoped
+submission/approval interface and a dashboard querying approved mappings are
+not implemented. Do not describe a pure function as an operational workflow.
+The private product view states that no approved VEN classification is available.

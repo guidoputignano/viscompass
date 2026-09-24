@@ -91,7 +91,7 @@ test('a real canonical comparison decides the outcome',()=>{
   assert.match(summariseReconciliation(off),/Differenza rispetto ai dati canonici: EUR 50\.00/);
 });
 
-test('the declared total decides only when canonical is unavailable',()=>{
+test('a contradictory declared total cannot be hidden by a matching canonical total',()=>{
   const rows=[row({cost:100})];
   const matches=reconcileRows(rows,{declaredTotalCost:100});
   assert.equal(matches.status,'reconciled');
@@ -101,9 +101,31 @@ test('the declared total decides only when canonical is unavailable',()=>{
   assert.equal(differs.status,'discrepancy_found');
   assert.equal(differs.declared.difference,-20);
 
-  // Canonical wins when it is genuinely available.
+  // Both available comparisons must pass.
   const both=reconcileRows(rows,{declaredTotalCost:120,canonical:{rowCount:1,costEur:100}});
-  assert.equal(both.status,'reconciled');
+  assert.equal(both.status,'discrepancy_found');
+  assert.match(summariseReconciliation(both),/totale dichiarato/);
+});
+
+test('invalid numeric inputs and tolerances fail closed',()=>{
+  for (const value of [NaN,Infinity,-Infinity]) {
+    assert.throws(()=>reconcileRows([row({cost:value})]),/non-finite/);
+    assert.throws(()=>reconcileRows([row({quantity:value})]),/non-finite/);
+    assert.throws(()=>reconcileRows([row()],{declaredTotalCost:value}),/Invalid/);
+  }
+  for (const toleranceEur of [-1,NaN,Infinity]) assert.throws(()=>reconcileRows([row()],{toleranceEur}),/Invalid/);
+  assert.throws(()=>reconcileRows([row()],{canonical:{rowCount:-1,costEur:100}}),/Invalid/);
+});
+
+test('a missing cost never passes as a reported zero',()=>{
+  const result=reconcileRows([row({cost:null})],{canonical:{rowCount:1,costEur:0},declaredTotalCost:0});
+  assert.equal(result.status,'incomplete_data');
+  assert.match(summariseReconciliation(result),/Costi mancanti/);
+});
+
+test('whitespace cannot bypass duplicate detection',()=>{
+  const result=reconcileRows([row(),row({aslCode:' 130201 ',manufacturer:' ACME '})]);
+  assert.equal(result.rows.quarantined,2);
 });
 
 test('quarantined amounts never enter the reconciled total',()=>{

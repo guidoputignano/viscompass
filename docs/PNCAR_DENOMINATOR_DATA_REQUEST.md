@@ -142,13 +142,18 @@ richiesta dal piano non è calcolabile, e la variazione relativa — l’unica f
 che sopravvive all’incertezza sul denominatore — non può essere confrontata con
 l’obiettivo.
 
-### 2. I quattro campi del selettore A2
+### 2–3. Dati non richiesti in questa fase
 
 Il selettore usato dalla Regione è noto alla lettera:
 
 > `DEGENZA + ACCESSI - ESCLUDI ONERE "4" E DRG 391`
 
-Servono, per Azienda e per anno, i campi che lo compongono:
+Questi due approfondimenti restano documentati, ma non vanno richiesti come
+condizione per il prossimo calcolo: la divergenza numeratore/denominatore e la
+mancata comparabilità con OSMED impediscono comunque di certificare un PNCAR
+aziendale senza un perimetro concordato.
+
+Se la Regione decidesse di fornire un estratto A2, i campi sarebbero:
 
 - **DEGENZA** — giornate di degenza
 - **ACCESSI** — accessi in regime diurno
@@ -162,7 +167,17 @@ il file di calibrazione riporta infatti `generalizationPolicy: "not_yet_approved
 e marca ogni composizione come `blocked`. Un fattore stimato su un caso non può
 essere applicato a quattro Aziende.
 
-### 3. Le giornate sulla definizione OSMED, se l’Azienda può estrarle
+Le giornate sulla definizione OSMED restano un’opzione successiva, non una
+richiesta parallela.
+
+### Richiesta immediata
+
+Inviare soltanto la richiesta dell’anno 2022 del workbook, già definita sopra.
+È l’unico input mancante che abilita il confronto relativo 2025/2022 sullo
+stesso denominatore A3/T1. Nessun valore OSMED o soglia assoluta deve essere
+inventato in sua assenza.
+
+### Riferimento futuro: giornate sulla definizione OSMED
 
 Per Azienda e per anno, dalle proprie SDO:
 

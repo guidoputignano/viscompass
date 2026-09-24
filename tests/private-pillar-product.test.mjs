@@ -20,6 +20,14 @@ const skip=facts?false:'private-staging/closure/product-analysis.json not presen
 const fact=(over={})=>({release_id:'r',org_code:'201',year:2025,aic:'022211039',atc5:'J01AA02',
   aware_category:'A',product_name:'X',qmr:10,ddd_aic:2,cf:100,cn:100,cmr:110,ddd:20,source_hash:HASH,...over});
 
+test('cross-grain reconciliation fails on missing years, orphan products and invalid totals',()=>{
+ const total={org_code:'201',year:2025,aware_category:'T',cf:100,cmr:110,ddd:20};
+ assert.equal(reconcileProductsToAggregate([fact()],[]).ok,false);
+ assert.equal(reconcileProductsToAggregate([fact()],[total,{...total,year:2024,cf:0,cmr:0,ddd:0}]).ok,false);
+ assert.equal(reconcileProductsToAggregate([fact()],[{...total,cf:NaN}]).ok,false);
+ assert.throws(()=>reconcileProductsToAggregate([fact()],[total],Infinity),/Invalid/);
+});
+
 test('a 9-digit AIC is required, because every real key starts with a zero',()=>{
   assert.doesNotThrow(()=>assertProductFacts([fact()]));
   assert.throws(()=>assertProductFacts([fact({aic:'22211039'})]),/9 digits/);

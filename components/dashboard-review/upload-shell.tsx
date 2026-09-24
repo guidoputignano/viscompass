@@ -105,7 +105,7 @@ export function UploadShell({ orgCode }: { orgCode: string }) {
           {status === "uploading" ? "Caricamento in corso..." : "Carica"}
         </Button>
         {status === "done" && (
-          <span className="text-xs text-muted-foreground">Caricato.</span>
+          <span className="text-xs text-muted-foreground">File archiviato. La riconciliazione automatica non è ancora attiva.</span>
         )}
         {status === "error" && (
           <span className="text-xs text-destructive">{errorMessage}</span>

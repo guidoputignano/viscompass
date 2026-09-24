@@ -174,7 +174,12 @@ export function reconcileProductsToAggregate(
   aggregate: readonly { org_code: string; year: number; aware_category: string; cf: number; cmr: number; ddd: number }[],
   tolerance = 0.01,
 ): { ok: boolean; checked: number; problems: string[] } {
+  assertProductFacts(facts);
+  if (!Number.isFinite(tolerance) || tolerance < 0) throw new Error("Invalid reconciliation tolerance");
   const problems: string[] = [];
+  for (const product of facts) {
+    if (!aggregate.some(a => a.org_code === product.org_code && a.year === product.year && a.aware_category === "T")) problems.push(`${product.org_code}/${product.year}: product without aggregate total`);
+  }
   const productOrgs = new Set(facts.map((f) => f.org_code));
   let checked = 0;
 
@@ -184,11 +189,12 @@ export function reconcileProductsToAggregate(
       continue;
     }
     const rows = facts.filter((f) => f.org_code === total.org_code && f.year === total.year);
+    if (!rows.length) { problems.push(`${total.org_code}/${total.year}: missing product year`); continue; }
     checked++;
     for (const field of ["cf", "cmr", "ddd"] as const) {
       const sum = rows.reduce((s, r) => s + r[field], 0);
       const want = total[field];
-      if (Math.abs(sum - want) > tolerance) {
+      if (!Number.isFinite(want) || Math.abs(sum - want) > tolerance) {
         problems.push(`${total.org_code}/${total.year} ${field}: products ${sum} vs aggregate ${want}`);
       }
     }

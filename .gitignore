@@ -49,3 +49,7 @@ next-env.d.ts
 /private-staging/
 /outputs/pillar-a-closure/
 /outputs/pillar-a-update/
+
+# Local Python audit caches
+__pycache__/
+*.pyc
