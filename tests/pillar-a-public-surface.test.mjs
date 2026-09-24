@@ -68,21 +68,19 @@ test('missing Supabase configuration fails closed rather than open', () => {
   assert.equal(/if \(!hasEnvVars\) \{\s*return supabaseResponse;/.test(proxy), false, 'the fail-open branch is back');
 });
 
-test('bulk export requires an approved membership, not merely a session', () => {
-  const route = read('app/api/pillar-a/export/route.ts');
-  assert.ok(route.includes('getCurrentOrg'), 'export must derive an approved membership');
-  assert.ok(route.includes('hasEnvVars'), 'export must fail closed without auth configuration');
-  assert.ok(route.includes('403'), 'a session without approved membership must be refused');
-  // cacheComponents rejects segment config, so the no-cache guarantee rests on
-  // the cookie read making the route dynamic plus no-store on every response.
-  assert.equal(route.includes('"use cache"'), false, 'an authorized route must not opt into caching');
-  const responses = route.match(/NextResponse[\s\S]*?\)/g) ?? [];
-  assert.ok(responses.length >= 3);
-  assert.equal(
-    (route.match(/no-store/g) ?? []).length >= 3,
-    true,
-    'every response from the export route must carry no-store',
-  );
+test('no bulk export endpoint exists at all', () => {
+  // The reviewer asked that the compiled tables not be shared even after login,
+  // so the route was removed rather than gated. Authenticating a page does not
+  // stop a viewer copying what it displays; what changes here is that nothing
+  // hands over the whole compiled series in a single request.
+  assert.equal(fs.existsSync(path.join(root, 'app/api/pillar-a/export')), false, 'the export route must not come back');
+  for (const file of ['components/pillar-a-public.tsx', 'lib/supabase/proxy.ts']) {
+    assert.equal(read(file).includes('/api/pillar-a/export'), false, `${file} still references the export route`);
+  }
+  // The compiled series stays in the repo so the build can read it, but nothing
+  // traces it into the deployment and no route serves it.
+  assert.equal(fs.existsSync(path.join(root, 'data/public-compiled/pillar-a-annual.csv')), true);
+  assert.equal(read('next.config.ts').includes('outputFileTracingIncludes'), false, 'nothing should trace compiled data into the deployment');
 });
 
 test('the ATC4 route releases one slice, not the compiled table', () => {

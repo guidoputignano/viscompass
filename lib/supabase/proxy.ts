@@ -7,9 +7,8 @@ export async function updateSession(request: NextRequest) {
   // serve the aggregate it renders. The compiled files are no longer under
   // `public/`, so there is no static asset path to allowlist.
   //
-  // `/api/pillar-a/export` is deliberately absent. Bulk export falls through to
-  // the session check below and is additionally gated on an APPROVED membership
-  // inside the route itself — being logged in is not sufficient.
+  // There is no bulk-export route to allowlist: it was removed outright, so the
+  // compiled series is not delivered whole to anyone, signed in or not.
   const PUBLIC_PATHS = [
     "/pillar-a",
     "/api/pillar-a/series",

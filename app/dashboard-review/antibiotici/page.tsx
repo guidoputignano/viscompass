@@ -20,6 +20,7 @@ import {
   PageHeader,
   TemplateNotice,
 } from "@/components/dashboard-review/analytics-ui";
+import { PillarAWorkbookSection } from "@/components/dashboard-review/pillar-a-workbook";
 import { getAntibioticStewardship } from "@/lib/dashboard-review/queries";
 import {
   formatEur,
@@ -154,6 +155,10 @@ export default async function AntibioticiPage() {
           <div><p className="font-semibold text-foreground">Perimetro</p><p className="mt-1">La demo è sintetica. I dati reali sono mostrati soltanto nel perimetro organizzativo autorizzato.</p></div>
         </div>
       </MethodologyPanel>
+      {/* Pillar A is the same J01 analysis for the same organization, so it lives
+          here rather than as a second module. Renders nothing until private
+          activation is approved. */}
+      <PillarAWorkbookSection />
     </div>
   );
 }
