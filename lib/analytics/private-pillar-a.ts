@@ -50,12 +50,12 @@ export function privatePillarAnalysis(facts: PrivateFact[]) {
       })};
   });
   return result.map((r,i)=>{
-    const prior=result[i-1];
+    const prior=result[i-1]?.year===r.year-1?result[i-1]:undefined;
     const bridge=prior&&prior.ddd>0&&r.ddd>0?{
       volume:(r.ddd-prior.ddd)*(r.cf/r.ddd+prior.cf/prior.ddd)/2,
       average:(r.cf/r.ddd-prior.cf/prior.ddd)*(r.ddd+prior.ddd)/2,
     }:null;
-    if(bridge&&Math.abs(bridge.volume+bridge.average-(r.cf-prior.cf))>.01)throw Error('Bridge does not reconcile');
+    if(prior&&bridge&&Math.abs(bridge.volume+bridge.average-(r.cf-prior.cf))>.01)throw Error('Bridge does not reconcile');
     return {...r,costYoy:prior&&prior.cf>0?r.cf/prior.cf-1:null,dddYoy:prior&&prior.ddd>0?r.ddd/prior.ddd-1:null,bridge};
   });
 }
