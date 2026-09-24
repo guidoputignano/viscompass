@@ -44,13 +44,25 @@ export default async function AntibioticiPage() {
   const hasPopulation = data.orgIndicators?.dddPer1000ResidentsDay !== null;
   const modeLabel = data.mode === "synthetic" ? "Demo sintetica" : "Dati autorizzati";
 
+  // Both ends derived from the data. This read `2023–${data.latestYear}`, which
+  // took the trouble to derive the end year and then wrote the start as a
+  // literal — so an organization onboarded after 2023, or one whose 2023
+  // extract was never authorized, showed a header reading "2023" above an axis
+  // that starts at 2024. data.annual is sorted ascending in queries.ts, and is
+  // preferred over latestYear because latestYear is derived separately.
+  const baseYear = data.annual.length > 0 ? data.annual[0].year : null;
+  const periodLabel =
+    data.annual.length > 0
+      ? `${data.annual[0].year}–${data.annual[data.annual.length - 1].year}`
+      : "Periodo non disponibile";
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Antibiotici AWaRe"
         title="Consumo e costo, nella stessa decisione."
         description="Il confronto mostra quando la spesa scende ma l’esposizione cresce, con dettaglio per categoria e unità organizzativa."
-        period={data.latestYear ? `2023–${data.latestYear}` : "Periodo non disponibile"}
+        period={periodLabel}
         scope={modeLabel}
       />
 
@@ -79,7 +91,7 @@ export default async function AntibioticiPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
-                <CardTitle className="font-display mt-1 text-xl">Spesa e DDD · indice 2023</CardTitle>
+                <CardTitle className="font-display mt-1 text-xl">Spesa e DDD · indice {baseYear ?? "—"}</CardTitle>
               </div>
               {latest && (
                 <div className="flex gap-2 text-[10px] font-semibold">

@@ -61,7 +61,7 @@ their existing files in `public/data/`. The sibling source-root is read-only;
 the dirty sibling checkout must not be reset or otherwise changed.
 
 ```text
-node --test tests/pillar-a-*.test.mjs
+node --test
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/next/dist/bin/next build --webpack
 ```

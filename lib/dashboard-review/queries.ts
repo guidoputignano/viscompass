@@ -1079,11 +1079,21 @@ function antibioticSchemaIsMissing(error: { code?: string; message?: string } | 
 // prominently; synthetic rows are never written to Supabase.
 export async function getAntibioticStewardship(): Promise<AntibioticStewardshipData> {
   const supabase = await createClient();
+  // No year filter. This previously read .gte("year", 2023).lte("year", 2025),
+  // which silently dropped every year outside that window: a 2026 upload could
+  // never reach latestYear below, and an organization whose ONLY year was 2026
+  // got zero rows here and fell through to getSyntheticAntibioticStewardship(),
+  // showing a real customer demo figures labelled "Dati autorizzati".
+  //
+  // Every sibling function in this file already derives its window from the
+  // data (latestYear = Math.max(...years)); this was the sole outlier. RLS
+  // scopes the read, so unfiltered returns exactly the rows it returned before.
+  // A rolling window such as max(year) - 2 would not be an improvement: it
+  // trades one silent truncation for another, dropping the earliest year from
+  // the trend the moment a new one lands.
   const { data, error } = await supabase
     .from("antibiotic_consumption_fact")
-    .select("*")
-    .gte("year", 2023)
-    .lte("year", 2025);
+    .select("*");
   if (antibioticSchemaIsMissing(error)) return getSyntheticAntibioticStewardship();
   if (error) throw new Error(`antibiotic_consumption_fact query failed: ${error.message}`);
   const rows = (data ?? []) as AntibioticConsumptionFact[];

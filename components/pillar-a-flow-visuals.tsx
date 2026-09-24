@@ -7,7 +7,23 @@ const short=(v:number)=>new Intl.NumberFormat('it-IT',{notation:'compact',maximu
 const colors=['#13998f','#617b91'];
 
 export function PillarAFlowVisuals({annual,region,regionName,group,channel}:{annual:PublicAnnual[];region:string;regionName:string;group:string;channel:string}){
- const [year,setYear]=useState(2025);
+ // Years derived from the territory's own rows. This was the literal
+ // Array.from({length:9},(_,i)=>2017+i) — 2017..2025 — a derived value restated
+ // by hand, correct only for today's extract. scripts/build_pillar_a_public_series.py
+ // ingests AIFA year-generically, so a 2026 profile would load with no code
+ // change and simply stay unreachable in this selector.
+ //
+ // Filtered on region alone, deliberately NOT on group/channel: the Sankey
+ // states just below that it spans both families and both flows regardless of
+ // those filters, so narrowing the options to one combination would contradict
+ // the panel's own contract.
+ //
+ // The earliest year is offered too. It has no predecessor, but expenditureBridge
+ // already returns null for that case and the waterfall renders its designed
+ // "Scomposizione non disponibile" branch, while its Sankey is perfectly valid.
+ // Dropping the first element would also quietly assume the series has no gaps.
+ const years=[...new Set(annual.filter(r=>r.region===region).map(r=>r.year))].sort((a,b)=>a-b);
+ const [year,setYear]=useState(years[years.length-1]);
  const composition=spendingComposition(annual,region,year);
  const selected=annual.filter(r=>r.region===region&&r.group===group&&r.channel===channel);
  const bridge=expenditureBridge(selected.find(r=>r.year===year-1),selected.find(r=>r.year===year));
@@ -24,7 +40,7 @@ export function PillarAFlowVisuals({annual,region,regionName,group,channel}:{ann
  const max=Math.max(1,...bars.map(b=>b.high)),min=Math.min(0,...bars.map(b=>b.low));
  const y=(v:number)=>300-(v-min)/(max-min)*225;
  return <section className="space-y-6 rounded-2xl border bg-card p-5 sm:p-6">
-  <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="font-display text-xl font-semibold">Composizione e variazione della spesa</h2><p className="mt-2 text-sm text-muted-foreground">{regionName} · fonti pubbliche AIFA · importi riportati in euro</p></div><label className="text-sm font-semibold">Anno analisi<select aria-label="Anno analisi dei flussi" value={year} onChange={e=>setYear(Number(e.target.value))} className="ml-3 rounded-lg border bg-background p-2">{Array.from({length:9},(_,i)=>2017+i).map(v=><option key={v}>{v}</option>)}</select></label></div>
+  <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="font-display text-xl font-semibold">Composizione e variazione della spesa</h2><p className="mt-2 text-sm text-muted-foreground">{regionName} · fonti pubbliche AIFA · importi riportati in euro</p></div><label className="text-sm font-semibold">Anno analisi<select aria-label="Anno analisi dei flussi" value={year} onChange={e=>setYear(Number(e.target.value))} className="ml-3 rounded-lg border bg-background p-2">{years.map(v=><option key={v}>{v}</option>)}</select></label></div>
   <p className="rounded-lg bg-secondary/50 p-3 text-sm">I grafici riconciliano le somme dei valori numerici riportati da AIFA. Le celle vuote restano non disponibili: non sono imputate né certificate come zero. La lettura descrive gli aggregati disponibili, non certifica la completezza dei consumi. Le etichette sono arrotondate all’euro: possono apparire piccoli scarti di arrotondamento.</p>
   <div><h3 className="font-semibold">Sankey · flussi e famiglie</h3><p className="mt-2 text-sm text-muted-foreground">Acquisti diretti e convenzionata, antibiotici J01 e antifungini J02A. Questo grafico comprende entrambe le famiglie e i flussi, indipendentemente dai filtri sopra. Le bande rappresentano quote di spesa, non trasferimenti o percorsi di pazienti.</p>
   {!composition?<p className="mt-4 text-sm">Composizione non disponibile: servono quattro aggregati numerici non negativi, con totale positivo.</p>:<><div className="overflow-x-auto"><svg viewBox="0 0 900 390" className="min-w-[700px] w-full" role="img" aria-label={`Composizione della spesa ${year}: ${euro(composition.total)}`}>

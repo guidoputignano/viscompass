@@ -19,6 +19,11 @@ import { formatEur, formatNumber } from "@/lib/dashboard-review/format";
 
 export function AntibioticIndexChart({ data }: { data: AntibioticAnnualRow[] }) {
   if (data.length === 0) return null;
+  // The series is rebased to the FIRST year present, whatever that is. The
+  // tooltip used to read "2023 = 100" regardless, so it misattributed the
+  // baseline the moment the earliest year was not 2023 — the one instance of
+  // this pattern that mislabels a computed number rather than a caption.
+  const baseYear = data[0].year;
   const baseCost = data[0].costEur || 1;
   const baseDdd = data[0].dddCount || 1;
   const rows = data.map((row) => ({
@@ -33,7 +38,7 @@ export function AntibioticIndexChart({ data }: { data: AntibioticAnnualRow[] }) 
         <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={11} />
         <YAxis domain={["dataMin - 4", "dataMax + 4"]} tickLine={false} axisLine={false} fontSize={11} width={44} tickFormatter={(value: number) => `${Math.round(value)}`} />
-        <Tooltip formatter={(value: number, name: string) => [`${Number(value).toFixed(1)}`, name === "dddIndex" ? "DDD" : "Spesa"]} labelFormatter={(label) => `Anno ${label} · 2023 = 100`} />
+        <Tooltip formatter={(value: number, name: string) => [`${Number(value).toFixed(1)}`, name === "dddIndex" ? "DDD" : "Spesa"]} labelFormatter={(label) => `Anno ${label} · ${baseYear} = 100`} />
         <Legend formatter={(value) => value === "dddIndex" ? "DDD" : "Spesa"} wrapperStyle={{ fontSize: 11 }} />
         <ReferenceLine y={100} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 4" />
         <Line type="monotone" dataKey="dddIndex" stroke="hsl(174 66% 36%)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />

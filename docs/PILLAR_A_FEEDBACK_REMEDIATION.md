@@ -86,7 +86,7 @@ judgement call and is the one item here worth confirming with the reviewer.
 ```text
 node scripts/build_pillar_a_atc4_series.mjs <source-root> .
 node scripts/harden_pillar_a_public_payload.mjs .
-node --test tests/pillar-a-*.test.mjs
+node --test
 ```
 
 `build_pillar_a_atc4_series.mjs` re-reads the AIFA sources listed in

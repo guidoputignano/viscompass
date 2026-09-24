@@ -10,10 +10,21 @@ const n=(v:number)=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).for
 const money=(v:number)=>`€ ${n(v)}`;
 const precise=(v:number)=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:6}).format(v);
 const panel='rounded-xl border bg-card p-5 space-y-4';
-export function PrivatePillarCharts({facts,regional}:{facts:PrivateFact[];regional:boolean}){
+export function PrivatePillarCharts({facts,regional,orgNames={}}:{facts:PrivateFact[];regional:boolean;orgNames?:Record<string,string>}){
  const orgs=[...new Set(facts.map(r=>r.org_code))].sort();
- const [selection,setSelection]=useState('all'),[year,setYear]=useState(2025),[measure,setMeasure]=useState<'cf'|'ddd'|'share'>('cf');
- const label=(org:string)=>({'201':'ASL 1','202':'ASL 2','203':'ASL 3','204':'ASL 4'}[org]??'Azienda autorizzata');
+ // Years come from the data. These were the literal [2023,2024,2025] with a
+ // default of 2025, so a release containing 2026 would have rendered a
+ // selector unable to reach its own newest year — and `current` on the next
+ // line asserts non-null, so a year absent from the data would have crashed.
+ const years=[...new Set(facts.map(r=>r.year))].sort((a,b)=>a-b);
+ const [selection,setSelection]=useState('all'),[year,setYear]=useState(years[years.length-1]),[measure,setMeasure]=useState<'cf'|'ddd'|'share'>('cf');
+ // The real name when we have it, the raw org_code when we do not. Never a
+ // generic string: the previous fallback 'Azienda autorizzata' made every
+ // organization beyond the hardcoded four look identical to every other.
+ const label=(org:string)=>orgNames[org]??org;
+ // Colour keyed on the org_code itself rather than its position in the sorted
+ // list, so adding or removing an organization does not recolour the rest.
+ const colorFor=(org:string)=>colors[[...org].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7)%colors.length];
  const selected=selection==='all'?facts:facts.filter(r=>r.org_code===selection);
  const history=privatePillarAnalysis(selected),current=history.find(r=>r.year===year)!;
  const comparisons=regional?privateComparisons(facts):[];
@@ -24,11 +35,11 @@ export function PrivatePillarCharts({facts,regional}:{facts:PrivateFact[];region
  const total=composition.reduce((s,r)=>s+r.value,0);
  let used=0;
  const waterfall=chosen?benchmarkWaterfall(chosen):[];
- const trajectories=[2023,2024,2025].map(y=>Object.fromEntries([['year',y],...orgs.map(o=>[o,available.find(r=>r.org===o&&r.year===y)?.intensityDeviation??null])]));
+ const trajectories=years.map(y=>Object.fromEntries([['year',y],...orgs.map(o=>[o,available.find(r=>r.org===o&&r.year===y)?.intensityDeviation??null])]));
  return <div className="space-y-6">
   <section className={panel}><h2 className="text-xl font-semibold">Composizione e andamento · dati riservati</h2>
    <div className="flex flex-wrap gap-4">{regional&&<label>Azienda <select className="rounded border bg-background p-2" value={selection} onChange={e=>setSelection(e.target.value)}><option value="all">Perimetro autorizzato</option>{orgs.map(o=><option key={o} value={o}>{label(o)}</option>)}</select></label>}
-    <label>Anno <select className="rounded border bg-background p-2" value={year} onChange={e=>setYear(Number(e.target.value))}>{[2023,2024,2025].map(y=><option key={y}>{y}</option>)}</select></label>
+    <label>Anno <select className="rounded border bg-background p-2" value={year} onChange={e=>setYear(Number(e.target.value))}>{years.map(y=><option key={y}>{y}</option>)}</select></label>
     <label>Misura <select className="rounded border bg-background p-2" value={measure} onChange={e=>setMeasure(e.target.value as typeof measure)}><option value="cf">Spesa CF (€)</option><option value="ddd">DDD</option><option value="share">Quota DDD (%)</option></select></label></div>
    <p className="text-sm text-muted-foreground">Ripartizione AWaRe nell’anno selezionato; le bande non rappresentano trasferimenti di pazienti o farmaci. Classificazione della fonte.</p>
    <div className="overflow-auto"><svg viewBox="0 0 850 330" className="min-w-[650px] w-full" role="img" aria-label="Sankey della composizione AWaRe">
@@ -48,6 +59,6 @@ export function PrivatePillarCharts({facts,regional}:{facts:PrivateFact[];region
    <details><summary>Formule</summary><p className="text-sm">Per classe: q = DDD aziendali, p = CF/q; qᵣ = DDD totali aziendali × quota DDD del riferimento, pᵣ = CF riferimento / DDD riferimento. Costo medio = Σqᵣ(p−pᵣ); mix = Σ(q−qᵣ)pᵣ; interazione = Σ(q−qᵣ)(p−pᵣ). Le tre componenti sommano alla differenza rispetto allo scenario.</p></details>
   </section>}
   {regional&&available.length>0&&<><PrivateDeviationPlot rows={available} label={label}/><section className={panel}><h2 className="text-xl font-semibold">Componenti del confronto · dettaglio per Azienda</h2><p className="text-sm text-muted-foreground">Tre componenti rispetto al riferimento di ciascun anno. Scala in euro comune a tutte le Aziende; non è una scomposizione della variazione annua.</p><div className="grid gap-6 lg:grid-cols-2">{orgs.map(org=><div key={org}><h3 className="font-semibold">{label(org)}</h3><div className="h-64"><ResponsiveContainer><BarChart data={available.filter(r=>r.org===org)} stackOffset="sign"><CartesianGrid strokeDasharray="3 5"/><XAxis dataKey="year"/><YAxis width={85} domain={[-Math.max(1,...available.map(r=>Math.abs(r.price)+Math.abs(r.mix)+Math.abs(r.interaction))),Math.max(1,...available.map(r=>Math.abs(r.price)+Math.abs(r.mix)+Math.abs(r.interaction)))]} tickFormatter={n}/><ReferenceLine y={0}/><Tooltip formatter={v=>money(Number(v))}/><Legend/><Bar dataKey="price" name="Costo medio" stackId="a" fill={colors[0]}/><Bar dataKey="mix" name="Mix AWaRe" stackId="a" fill={colors[1]}/><Bar dataKey="interaction" name="Interazione" stackId="a" fill={colors[2]}/></BarChart></ResponsiveContainer></div></div>)}</div></section></>}
-  {regional&&available.length>0&&<section className={panel}><h2 className="text-xl font-semibold">Scostamento di intensità nel tempo</h2><p className="text-sm">DDD/100 A3 dell’Azienda ÷ DDD/100 A3 del perimetro − 1. Stessa definizione e anno; zero indica il riferimento, non un obiettivo clinico.</p><div className="h-72"><ResponsiveContainer><LineChart data={trajectories}><CartesianGrid strokeDasharray="3 5"/><XAxis dataKey="year"/><YAxis tickFormatter={v=>`${n(Number(v)*100)}%`}/><ReferenceLine y={0}/><Tooltip formatter={v=>`${n(Number(v)*100)}%`}/><Legend/>{orgs.map((o,i)=><Line key={o} dataKey={o} name={label(o)} stroke={colors[i%4]} connectNulls={false}/>)}</LineChart></ResponsiveContainer></div></section>}
+  {regional&&available.length>0&&<section className={panel}><h2 className="text-xl font-semibold">Scostamento di intensità nel tempo</h2><p className="text-sm">DDD/100 A3 dell’Azienda ÷ DDD/100 A3 del perimetro − 1. Stessa definizione e anno; zero indica il riferimento, non un obiettivo clinico.</p><div className="h-72"><ResponsiveContainer><LineChart data={trajectories}><CartesianGrid strokeDasharray="3 5"/><XAxis dataKey="year"/><YAxis tickFormatter={v=>`${n(Number(v)*100)}%`}/><ReferenceLine y={0}/><Tooltip formatter={v=>`${n(Number(v)*100)}%`}/><Legend/>{orgs.map(o=><Line key={o} dataKey={o} name={label(o)} stroke={colorFor(o)} connectNulls={false}/>)}</LineChart></ResponsiveContainer></div></section>}
  </div>;
 }
