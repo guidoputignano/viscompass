@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { assignAbcBands } from "@/lib/analytics/abc-bands";
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts";
+import { ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts";
 
 // One territory-and-channel slice, served by /api/pillar-a/atc4. The compiled
 // table is not delivered whole: the server releases only the slice on screen.
@@ -15,6 +15,8 @@ const SERIES=["var(--viz-1)","var(--viz-2)","var(--viz-3)","var(--viz-4)","var(-
 // A/B/C are three bands of one ranking, so they reuse the first three slots.
 const BANDS:Record<string,string>={A:"var(--viz-1)",B:"var(--viz-2)",C:"var(--viz-3)"};
 const TOP_N=6;
+const OTHER="Altre categorie";
+const OTHER_FILL="#94a3b8";
 // Theme tokens, not fixed light values: the tooltip was white-on-navy text
 // floating over a dark page in dark mode.
 const tipStyle={borderRadius:12,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",color:"hsl(var(--card-foreground))",boxShadow:"0 12px 30px rgba(0,0,0,.18)"};
@@ -24,7 +26,7 @@ const labelOf=(data:Atc4,code:string)=>data.codes.find(c=>c.code===code)?.label?
 
 export function PillarAAtc4({region,regionName,group,channel}:{region:string;regionName:string;group:string;channel:string}){
   const [data,setData]=useState<Atc4|null>(null);
-  const [view,setView]=useState<"trend"|"abc">("trend");
+  const [view,setView]=useState<"trend"|"abc"|"ribbon">("trend");
   useEffect(()=>{
     const c=new AbortController();
     setData(null);
@@ -53,12 +55,34 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
       }
       return point;
     });
+    // Width is spending share. Categories outside the top ones are folded into a
+    // single residual band rather than given generated hues.
+    const ribbon=data.years.map((year,y)=>{
+      const rows=data.rows.filter(r=>r[0]===y);
+      const point:Record<string,number|string|null>={year};
+      let rest=0;
+      for(const r of rows){
+        const code=label(r[1]);
+        if(top.includes(code))point[code]=r[2]; else rest+=r[2];
+      }
+      // A category absent in a year is zero width here, not missing: the bands
+      // must still sum to that year's total for the shares to be readable.
+      for(const code of top)if(point[code]==null)point[code]=0;
+      point[OTHER]=rest;
+      return point;
+    });
+    const ranks=new Map<string,number>();
+    data.years.forEach((year,y)=>{
+      data.rows.filter(r=>r[0]===y&&r[2]>0).sort((a,b)=>b[2]-a[2])
+        .forEach((r,i)=>ranks.set(`${y}|${label(r[1])}`,i+1));
+    });
+    const yearTotals=new Map(data.years.map((year,y)=>[year,data.rows.filter(r=>r[0]===y).reduce((s,r)=>s+r[2],0)]));
     const shownShare=total>0?top.reduce((s,c)=>s+(latest.find(r=>r.code===c)?.spend??0),0)/total:0;
-    return {abc,top,series,total,shownShare,lastYear:data.years[lastYear]};
+    return {abc,top,series,ribbon,ranks,yearTotals,total,shownShare,lastYear:data.years[lastYear]};
   },[data]);
 
   if(!data||!model||!model.abc.length)return null;
-  const {abc,top,series,total,shownShare,lastYear}=model;
+  const {abc,top,series,ribbon,ranks,yearTotals,total,shownShare,lastYear}=model;
 
   return <section className="min-w-0 rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
     <div className="mb-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
@@ -67,14 +91,34 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{regionName} · {channel==="direct"?"Acquisti diretti":"Convenzionata"}. Il livello ATC4 è il dettaglio più fine pubblicato da AIFA: raggruppa più principi attivi e non corrisponde alla singola molecola. Le classi AWaRe non sono derivabili da questo livello.</p>
       </div>
       <label className="flex w-full min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:w-60 sm:shrink-0">Vista
-        <select className="h-11 rounded-lg border bg-background px-3 text-sm font-medium normal-case tracking-normal text-foreground" value={view} onChange={e=>setView(e.target.value as "trend"|"abc")}>
+        <select className="h-11 rounded-lg border bg-background px-3 text-sm font-medium normal-case tracking-normal text-foreground" value={view} onChange={e=>setView(e.target.value as "trend"|"abc"|"ribbon")}>
           <option value="trend">Andamento nel tempo</option>
+          <option value="ribbon">Composizione nel tempo</option>
           <option value="abc">Concentrazione della spesa (ABC)</option>
         </select>
       </label>
     </div>
 
-    {view==="trend"?<>
+    {view==="ribbon"?<>
+      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs">{[...top.map((code,i)=>[code,SERIES[i]] as const),[OTHER,OTHER_FILL] as const].map(([name,fill])=><span key={name} className="flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{background:fill}}/>{name}</span>)}</div>
+      <div className="h-80" role="img" aria-label={`Composizione della spesa per categoria ATC4 dal ${data.years[0]} al ${lastYear}, ${regionName}`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={ribbon} stackOffset="expand" margin={{left:0,right:15,top:10,bottom:5}}>
+            <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#dbe5e8"/>
+            <XAxis dataKey="year" tick={{fontSize:11}} axisLine={false} tickLine={false}/>
+            <YAxis tickFormatter={v=>`${Math.round(Number(v)*100)}%`} tick={{fontSize:11}} width={52} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={tipStyle} formatter={(v,n,p)=>{
+              const year=Number(p.payload?.year), y=data.years.indexOf(year), tot=yearTotals.get(year)??0;
+              const share=tot>0?` · ${nf(100*Number(v)/tot,1)}% `:" ";
+              const rank=ranks.get(`${y}|${String(n)}`);
+              return [`€ ${nf(Number(v))}${share}${rank?`· ${rank}º nel ${year}`:""}`,String(n)];
+            }}/>
+            {[...top,OTHER].map((code,i)=><Area key={code} type="linear" dataKey={code} stackId="1" stroke="none" fill={i<top.length?SERIES[i]:OTHER_FILL} fillOpacity={1} isAnimationActive={false}/>)}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="mt-4 text-xs text-muted-foreground">La larghezza di ogni banda è la quota di spesa della categoria in quell’anno. Descrive come cambia la composizione della spesa, non passaggi di pazienti o di terapie fra categorie: nessuna quantità si sposta da una banda all’altra.</p>
+    </>:view==="trend"?<>
       <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs">{top.map((code,i)=><span key={code} className="flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{background:SERIES[i]}}/>{code} · {labelOf(data,code)}</span>)}</div>
       <div className="h-80" role="img" aria-label={`Spesa annuale per categoria ATC4, ${regionName}`}>
         <ResponsiveContainer width="100%" height="100%">
