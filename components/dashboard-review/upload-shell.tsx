@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { recordUpload } from "@/lib/dashboard-review/actions";
 const BUCKET = "uploads";
 
 export function UploadShell({ orgCode }: { orgCode: string }) {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
@@ -45,6 +47,11 @@ export function UploadShell({ orgCode }: { orgCode: string }) {
       setFile(null);
       setPeriodStart("");
       setPeriodEnd("");
+      // recordUpload calls revalidatePath, which invalidates the server cache but
+      // does not by itself re-render this already-mounted route. Without the
+      // refresh the confirmation below points at a register that still reads
+      // "Nessun file caricato" — verified in a live upload before this was added.
+      router.refresh();
     } catch (err) {
       setStatus("error");
       setErrorMessage(err instanceof Error ? err.message : "Caricamento non riuscito.");
