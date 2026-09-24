@@ -72,6 +72,8 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
     });
     // Width is spending share. Categories outside the top ones are folded into a
     // single residual band rather than given generated hues.
+    // Absent (year, category) observations are tracked, never silently zeroed.
+    const unobserved=new Set<string>();
     const ribbon=data.years.map((year,y)=>{
       const rows=data.rows.filter(r=>r[0]===y);
       const point:Record<string,number|string|null>={year};
@@ -80,9 +82,13 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
         const code=label(r[1]);
         if(top.includes(code))point[code]=r[2]; else rest+=r[2];
       }
-      // A category absent in a year is zero width here, not missing: the bands
-      // must still sum to that year's total for the shares to be readable.
-      for(const code of top)if(point[code]==null)point[code]=0;
+      for(const code of top)if(point[code]==null){
+        // The source reports no value here. A stacked band still needs a number
+        // to draw, so it is drawn at zero and recorded as unobserved; the
+        // tooltip says N/D and the caption counts them.
+        unobserved.add(`${year}|${code}`);
+        point[code]=0;
+      }
       point[OTHER]=rest;
       return point;
     });
@@ -92,11 +98,11 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
         .forEach((r,i)=>ranks.set(`${y}|${label(r[1])}`,i+1));
     });
     const shownShare=total>0?top.reduce((s,c)=>s+(latest.find(r=>r.code===c)?.spend??0),0)/total:0;
-    return {abc,top,series,ribbon,ranks,yearTotals,total,shownShare,lastYear:data.years[lastYear]};
+    return {abc,top,series,ribbon,ranks,yearTotals,unobserved,total,shownShare,lastYear:data.years[lastYear]};
   },[data]);
 
   if(!data||!model||!model.abc.length)return null;
-  const {abc,top,series,ribbon,ranks,yearTotals,total,shownShare,lastYear}=model;
+  const {abc,top,series,ribbon,ranks,yearTotals,unobserved,total,shownShare,lastYear}=model;
 
   return <section className="min-w-0 rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
     <div className="mb-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
@@ -123,6 +129,7 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
             <YAxis tickFormatter={v=>`${Math.round(Number(v)*100)}%`} tick={{fontSize:11}} width={52} axisLine={false} tickLine={false}/>
             <Tooltip contentStyle={tipStyle} formatter={(v,n,p)=>{
               const year=Number(p.payload?.year), y=data.years.indexOf(year), tot=yearTotals.get(year)??0;
+              if(unobserved.has(`${year}|${String(n)}`))return ["N/D · la fonte non riporta un valore",String(n)];
               const share=tot>0?` · ${nf(100*Number(v)/tot,1)}% `:" ";
               const rank=ranks.get(`${y}|${String(n)}`);
               return [`€ ${nf(Number(v))}${share}${rank?`· ${rank}º nel ${year}`:""}`,String(n)];
@@ -131,7 +138,7 @@ export function PillarAAtc4({region,regionName,group,channel}:{region:string;reg
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">Le bande sono le {top.length} categorie con la quota media più alta del periodo; le altre sono raccolte in un’unica banda neutra. La larghezza di ogni banda è la quota di spesa della categoria in quell’anno. Descrive come cambia la composizione della spesa, non passaggi di pazienti o di terapie fra categorie: nessuna quantità si sposta da una banda all’altra.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Le bande sono le {top.length} categorie con la quota media più alta del periodo; le altre sono raccolte in un’unica banda neutra. La larghezza di ogni banda è la quota di spesa della categoria in quell’anno. Descrive come cambia la composizione della spesa, non passaggi di pazienti o di terapie fra categorie: nessuna quantità si sposta da una banda all’altra.{unobserved.size>0&&` In ${unobserved.size} combinazioni categoria/anno la fonte non riporta un valore: la banda è disegnata a zero per poter impilare le quote, ma il valore resta non disponibile e il dettaglio lo segnala come N/D.`}</p>
     </>:view==="trend"?<>
       <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs">{top.map((code,i)=><span key={code} className="flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{background:SERIES[i]}}/>{code} · {labelOf(data,code)}</span>)}</div>
       <div className="h-80" role="img" aria-label={`Spesa annuale per categoria ATC4, ${regionName}`}>

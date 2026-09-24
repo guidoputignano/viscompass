@@ -1,0 +1,13 @@
+{
+  "artifact": "lib/analytics/ven.ts",
+  "what": "Quoted V/E/N criteria. Assignments are NOT taken from this source: MDS-3 assigns VEN per formulary, so the classification for this perimeter must come from its own clinician panel.",
+  "work": "MDS-3: Managing Access to Medicines and Health Technologies",
+  "publisher": "Management Sciences for Health",
+  "chapter": "40, Analyzing and controlling pharmaceutical expenditures",
+  "section": "40.3 VEN system",
+  "edition": "2012",
+  "url": "https://msh.org/wp-content/uploads/2013/04/mds3-ch40-expenditures-mar2012.pdf",
+  "sha256": "0f5eec3f7625f52dd7941dfa9356adbdeffa7997eef9bf2ce3d9d214dd72a126",
+  "retrieved": "2026-09-24",
+  "pages": 33
+}
