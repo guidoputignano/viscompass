@@ -1,6 +1,5 @@
-import {createClient} from '@/lib/supabase/server';
 import {PillarAProducts} from '@/components/dashboard-review/pillar-a-products';
-import {getCurrentOrg} from '@/lib/auth/get-current-org';
+import {resolvePrivateScope} from '@/lib/analytics/private-scope';
 import {PrivatePillarCharts} from '@/components/private-pillar-charts';
 import {PrivatePncarContext} from '@/components/private-pncar-context';
 import {privatePillarAnalysis,PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
@@ -14,35 +13,22 @@ const table='w-full text-sm [&_th]:p-3 [&_th]:text-left [&_td]:p-3 [&_tr]:border
 // Rendered inside /dashboard-review/antibiotici. Returns null until private
 // activation is approved, so the host page is unchanged in the meantime.
 export async function PillarAWorkbookSection({summary}:{summary?:{year:number;costEur:number;dddCount:number}[]}={}){
- const org=await getCurrentOrg();
- if(!org)return null;
  // Activation is a recorded approval held in one constant. While it is false
  // the section renders nothing rather than querying a relation that may not
  // exist and surfacing an error boundary to every approved user.
  if(!PRIVATE_PILLAR_A_ACTIVE)return null;
- const db=await createClient();
- // Request-scoped session only. RLS is the authorization boundary. Never cache
- // this result globally or use a service-role client in this route.
- let query=db.from('pillar_a_private_fact').select('release_id,org_code,year,aware_category,cf,cmr,ddd,activity,activity_variant,source_hash').eq('release_id',PRIVATE_RELEASE);
- // Select the primary membership's scope as well as enforcing RLS. A user with
- // multiple approved memberships must not see their totals mixed together.
- // Real organization names, so the charts never have to guess a label. The
- // client component previously carried a hardcoded {'201':'ASL 1',...} map and
- // fell back to the generic 'Azienda autorizzata' — which made every
- // organization beyond the original four indistinguishable from the others.
- // Labels resolved server-side: the viewer sees its own Azienda by name and
- // every other one pseudonymously, so other organizations’ real names never
- // enter the client payload. See lib/analytics/org-pseudonym.ts.
- let orgNames:Record<string,string>=orgDisplayMap([{org_code:org.org_code,org_name:org.org_name}],org.org_code);
- if(org.org_type==='asl')query=query.eq('org_code',org.org_code);
- else{
-  const {data:members,error}=await db.from('organizations').select('org_code,org_name').eq('region_code',org.region_code).eq('org_type','asl');
-  if(error)throw Error('Impossibile verificare il perimetro organizzativo.');
-  if(!members?.length)return null;
-  query=query.in('org_code',members.map(r=>r.org_code));
-  orgNames=orgDisplayMap(members,org.org_code);
- }
- const {data,error}=await query.order('year').order('org_code').order('aware_category').limit(1000);
+ // WHO is asking and WHAT they may see is decided in exactly one place. This
+ // component must not re-derive either: see lib/analytics/private-scope.ts.
+ // scope.db is server-only and carries the service-role key on the reviewer
+ // path — it is never passed to a Client Component.
+ const scope=await resolvePrivateScope();
+ if(!scope)return null;
+ // Labels resolved server-side, so other organizations' real names never enter
+ // the client payload unless the viewer is an authorized reviewer. The viewer
+ // sees its own Azienda by name and every other one pseudonymously; a reviewer
+ // sees them all by name. See lib/analytics/org-pseudonym.ts.
+ const orgNames=orgDisplayMap(scope.orgs,scope.viewerCode,{unrestricted:scope.showRealNames});
+ const {data,error}=await scope.db.from('pillar_a_private_fact').select('release_id,org_code,year,aware_category,cf,cmr,ddd,activity,activity_variant,source_hash').eq('release_id',PRIVATE_RELEASE).in('org_code',scope.orgCodes).order('year').order('org_code').order('aware_category').limit(1000);
  // An unapplied migration is a deployment state, not a read failure: report it
  // as such rather than as a generic error the user cannot act on.
  if(error?.code===UNDEFINED_TABLE)return null;
@@ -52,12 +38,13 @@ export async function PillarAWorkbookSection({summary}:{summary?:{year:number;co
  const rows=privatePillarAnalysis(data as PrivateFact[]),latest=rows.at(-1)!;
  const reconciliation=summary?reconcileCostBases(rows,summary):[];
  return <section className="space-y-6 border-t pt-8">
+  {scope.reviewerScopeUnavailable&&<p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">Accesso revisore riconosciuto, ma la lettura estesa non è disponibile in questo ambiente: i dati mostrati restano limitati al perimetro della tua organizzazione. Non interpretare questa sezione come l’intero rilascio.</p>}
   <div><h2 className="font-display text-xl font-semibold">Workbook verificato · Pillar A</h2><p className="mt-2 text-sm text-muted-foreground">Antibiotici J01 · fonti {rows[0].year}–{latest.year} · spesa CF, costo CMR e DDD mantenuti distinti. Le variazioni e i rapporti di spesa in questa sezione usano CF, non il costo normalizzato del riepilogo sopra.</p></div>
   {reconciliation.length>0&&<details className="rounded-xl border bg-card p-5"><summary className="font-semibold">Riconciliazione delle basi di costo</summary><p className="my-3 text-sm text-muted-foreground">Confronto numerico per anno nello stesso perimetro autorizzato. Scarto = riepilogo − workbook. La corrispondenza entro 0,01 non rende CF e CMR equivalenti; la loro differenza non è un risparmio. Uno scarto richiede verifica delle versioni, senza modificare i dati di fonte.</p><div className="overflow-auto"><table className={table}><thead><tr>{['Anno','CF €','CMR €','Costo riepilogo €','Scarto vs CMR €','Scarto DDD','Esito'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{reconciliation.map(r=><tr key={r.year}><td>{r.year}</td><td>{n(r.cf)}</td><td>{n(r.cmr)}</td><td>{n(r.summaryCost)}</td><td>{n(r.cmrDelta)}</td><td>{n(r.dddDelta)}</td><td>{r.matches===null?'Non confrontabile':r.matches?'CMR e DDD corrispondono':'Da verificare'}</td></tr>)}</tbody></table></div></details>}
-  <PrivatePillarCharts facts={data as PrivateFact[]} regional={org.org_type==='regione'} orgNames={orgNames}/>
-  <PillarAProducts aggregate={data as PrivateFact[]} names={orgNames}/>
+  <PrivatePillarCharts facts={data as PrivateFact[]} regional={scope.regional} orgNames={orgNames}/>
+  <PillarAProducts aggregate={data as PrivateFact[]} names={orgNames} scope={scope}/>
   <PrivatePncarContext facts={data as PrivateFact[]} orgNames={orgNames}/>
-  <h2 className="text-xl font-semibold">Riepilogo completo · {org.org_type==='regione'?'perimetro autorizzato':'la tua Azienda'}</h2><p className="text-sm text-muted-foreground">Le schede e le tabelle seguenti mostrano tutti gli anni del perimetro indicato e non cambiano con i selettori dei grafici sopra.</p>
+  <h2 className="text-xl font-semibold">Riepilogo completo · {scope.allOrganizations?'tutte le Aziende del rilascio':scope.regional?'perimetro autorizzato':'la tua Azienda'}</h2><p className="text-sm text-muted-foreground">Le schede e le tabelle seguenti mostrano tutti gli anni del perimetro indicato e non cambiano con i selettori dei grafici sopra.</p>
   <div className="grid gap-4 sm:grid-cols-3">{[['Spesa CF (€)',n(latest.cf)],['DDD da conversione della fonte',n(latest.ddd)],['DDD / 100 unità attività A3',n(latest.dddPer100Activity)]].map(([label,value])=><div key={label} className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">{label} · {latest.year}</p><p className="mt-3 text-3xl font-semibold">{value}</p></div>)}</div>
   <section className="rounded-xl border bg-card p-5"><h2 className="text-xl font-semibold">Andamento e intensità</h2><div className="overflow-auto"><table className={table}><thead><tr>{['Anno','CF €','CMR €','DDD','Attività A3/T1','DDD/100 A3','CF €/DDD','Δ CF','Δ DDD'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.year}><td>{r.year}</td><td>{n(r.cf)}</td><td>{n(r.cmr)}</td><td>{n(r.ddd)}</td><td>{n(r.activity)}</td><td>{n(r.dddPer100Activity)}</td><td>{n(r.costPerDdd)}</td><td>{pct(r.costYoy)}</td><td>{pct(r.dddYoy)}</td></tr>)}</tbody></table></div></section>
   <section className="rounded-xl border bg-card p-5"><h2 className="text-xl font-semibold">Composizione AWaRe degli antibiotici</h2><div className="overflow-auto"><table className={table}><thead><tr>{['Anno','Categoria','CF €','DDD','Quota CF','Quota DDD'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.flatMap(r=>r.categories.map(c=><tr key={`${r.year}/${c.category}`}><td>{r.year}</td><td>{{A:'Access',W:'Watch',R:'Reserve'}[c.category]}</td><td>{n(c.cf)}</td><td>{n(c.ddd)}</td><td>{pct(c.spendShare)}</td><td>{pct(c.dddShare)}</td></tr>))}</tbody></table></div></section>

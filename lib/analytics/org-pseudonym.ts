@@ -10,6 +10,13 @@
 // the disclosure rule exactly while leaving the chart readable: you can find
 // yourself, and you cannot identify anyone else.
 //
+// THE ONE EXCEPTION is a platform reviewer (lib/auth/reviewer-list.ts), who
+// sees every Azienda by real name. That was authorized by the technical lead on
+// 24 September 2026 for two named accounts. It is requested here through the
+// explicit `unrestricted` option and NEVER inferred: the caller must have
+// checked a session-derived email against the allow-list first. Passing
+// `unrestricted` on behalf of anyone else defeats the whole module.
+//
 // Resolve this SERVER-SIDE and send only the resulting strings. If the real
 // names of other organizations never enter the client payload, there is nothing
 // to recover from the page source — pseudonymising in the browser would ship
@@ -27,16 +34,31 @@ const REVIEWED_PSEUDONYMS: Readonly<Record<string, string>> = {
   "204": "ASL 4",
 };
 
+export type OrgDisplayOptions = {
+  /**
+   * Show every organization by its real name. Only ever true for a caller that
+   * has already verified the session's email against the reviewer allow-list.
+   * Defaults to false, so a caller that forgets it gets the anonymised rule.
+   */
+  unrestricted?: boolean;
+};
+
 /**
  * @param orgCode    the organization being labelled
  * @param viewerCode the org_code of the signed-in viewer's own organization
- * @param realName   that organization's real name, used only when it is the viewer's
+ * @param realName   that organization's real name, used only when it is the
+ *                   viewer's own or the viewer is an authorized reviewer
  */
 export function orgDisplayName(
   orgCode: string,
   viewerCode: string | null | undefined,
   realName?: string | null,
+  options: OrgDisplayOptions = {},
 ): string {
+  // The authorized exception. Falls back to the code when the name is missing,
+  // never to a pseudonym: a reviewer asking for real names should see an
+  // unnamed organization as its bare code rather than be told it is "ASL 2".
+  if (options.unrestricted) return realName?.trim() || orgCode;
   if (viewerCode && orgCode === viewerCode) return realName?.trim() || orgCode;
   return REVIEWED_PSEUDONYMS[orgCode] ?? orgCode;
 }
@@ -45,9 +67,10 @@ export function orgDisplayName(
 export function orgDisplayMap(
   orgs: ReadonlyArray<{ org_code: string; org_name?: string | null }>,
   viewerCode: string | null | undefined,
+  options: OrgDisplayOptions = {},
 ): Record<string, string> {
   return Object.fromEntries(
-    orgs.map((o) => [o.org_code, orgDisplayName(o.org_code, viewerCode, o.org_name)]),
+    orgs.map((o) => [o.org_code, orgDisplayName(o.org_code, viewerCode, o.org_name, options)]),
   );
 }
 

@@ -1,12 +1,16 @@
-import {createClient} from '@/lib/supabase/server';
+import type {PrivateScope} from '@/lib/analytics/private-scope';
 import {PrivateProductCharts} from '@/components/private-product-charts';
 import {productAbc,atc5Series,reconcileProductsToAggregate,type PrivateProductFact} from '@/lib/analytics/private-pillar-product';
 import {PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
 
-// Called only after the workbook's approved, primary organization scope has
-// been resolved. The request's user session and database RLS enforce access.
-export async function PillarAProducts({aggregate,names}:{aggregate:PrivateFact[];names:Record<string,string>}){
- const db=await createClient();
+// Called only after the workbook has resolved the caller's scope. The client
+// and the organization list both come from that scope, never from a second
+// gate here: for an ordinary viewer it is the session client under RLS, and for
+// an allow-listed reviewer it is the service-role client. The org list is derived
+// from the aggregate rows the workbook already read, so the product grain can
+// never reach past the scope the aggregate was allowed to cover.
+export async function PillarAProducts({aggregate,names,scope}:{aggregate:PrivateFact[];names:Record<string,string>;scope:PrivateScope}){
+ const db=scope.db;
  const orgs=[...new Set(aggregate.map(r=>r.org_code))];
  const facts:PrivateProductFact[]=[];
  // Paginate: the regional release exceeds Supabase's default 1,000-row cap.
