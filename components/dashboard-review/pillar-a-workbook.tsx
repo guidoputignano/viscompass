@@ -5,6 +5,7 @@ import {PrivatePillarCharts} from '@/components/private-pillar-charts';
 import {PrivatePncarContext} from '@/components/private-pncar-context';
 import {privatePillarAnalysis,PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
 import {PRIVATE_PILLAR_A_ACTIVE,UNDEFINED_TABLE} from '@/lib/analytics/private-pillar-activation';
+import {orgDisplayMap} from '@/lib/analytics/org-pseudonym';
 
 const n=(v:number|null,d=2)=>v===null?'N/D':new Intl.NumberFormat('it-IT',{maximumFractionDigits:d}).format(v);
 const pct=(v:number|null)=>v===null?'N/D':`${n(v*100,1)}%`;
@@ -28,14 +29,17 @@ export async function PillarAWorkbookSection(){
  // client component previously carried a hardcoded {'201':'ASL 1',...} map and
  // fell back to the generic 'Azienda autorizzata' — which made every
  // organization beyond the original four indistinguishable from the others.
- let orgNames:Record<string,string>={[org.org_code]:org.org_name};
+ // Labels resolved server-side: the viewer sees its own Azienda by name and
+ // every other one pseudonymously, so other organizations’ real names never
+ // enter the client payload. See lib/analytics/org-pseudonym.ts.
+ let orgNames:Record<string,string>=orgDisplayMap([{org_code:org.org_code,org_name:org.org_name}],org.org_code);
  if(org.org_type==='asl')query=query.eq('org_code',org.org_code);
  else{
   const {data:members,error}=await db.from('organizations').select('org_code,org_name').eq('region_code',org.region_code).eq('org_type','asl');
   if(error)throw Error('Impossibile verificare il perimetro organizzativo.');
   if(!members?.length)return null;
   query=query.in('org_code',members.map(r=>r.org_code));
-  orgNames=Object.fromEntries(members.map(r=>[r.org_code,r.org_name]));
+  orgNames=orgDisplayMap(members,org.org_code);
  }
  const {data,error}=await query.order('year').order('org_code').order('aware_category').limit(1000);
  // An unapplied migration is a deployment state, not a read failure: report it

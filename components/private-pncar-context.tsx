@@ -68,12 +68,18 @@ export function PrivatePncarContext({facts,orgNames={}}:{facts:PrivateFact[];org
    delta:a!==null&&b!==null&&a>0?b/a-1:null};
  });
  const haveBaseline=years.includes(PNCAR_BASELINE_YEAR);
+ // RLS decides how many organisations reach this component: an ASL account sees
+ // only itself, a regione account sees the ASLs in its region. With one org the
+ // chart is a trend, not a comparison, so the copy must not imply otherwise —
+ // a heading reading "per Azienda" above a single line invites the reader to
+ // look for a comparison that RLS has correctly withheld.
+ const single=orgs.length===1;
  return <section className="space-y-4 rounded-xl border bg-card p-5">
-  <h2 className="text-xl font-semibold">Intensità di consumo per Azienda · DDD per 100 A3/T1</h2>
-  <p className="text-sm text-muted-foreground">Numeratore: DDD da conversione della fonte. Denominatore: attività A3/T1 fornita dall’Azienda, la stessa usata nel resto del workbook. Ogni Azienda usa il proprio denominatore; la serie non è normalizzata fra Aziende e non è un indicatore PNCAR.</p>
+  <h2 className="text-xl font-semibold">{single?`Intensità di consumo · ${label(orgs[0])}`:'Intensità di consumo per Azienda'} · DDD per 100 A3/T1</h2>
+  <p className="text-sm text-muted-foreground">Numeratore: DDD da conversione della fonte. Denominatore: attività A3/T1 fornita dall’Azienda, la stessa usata nel resto del workbook. Non è un indicatore PNCAR.{single?' Il confronto fra le Aziende del perimetro è disponibile all’account regionale: questa vista è limitata alla sua Azienda.':' Ogni Azienda usa il proprio denominatore; la serie non è normalizzata fra Aziende.'}</p>
   <div className="h-72"><ResponsiveContainer><LineChart data={series}>
    <CartesianGrid strokeDasharray="3 5"/><XAxis dataKey="year"/>
-   <YAxis width={70} tickFormatter={v=>n1(Number(v))}/>
+   <YAxis width={78} tickFormatter={v=>n1(Number(v))} label={{value:'DDD / 100 A3',angle:-90,position:'insideLeft',style:{fontSize:11,fill:'currentColor'}}}/>
    <Tooltip formatter={(v,name)=>[n1(Number(v)),label(String(name))]}/><Legend formatter={v=>label(String(v))}/>
    {orgs.map(o=><Line key={o} dataKey={o} name={o} stroke={colorFor(o)} strokeWidth={2} connectNulls={false}/>)}
   </LineChart></ResponsiveContainer></div>
@@ -87,7 +93,7 @@ export function PrivatePncarContext({facts,orgNames={}}:{facts:PrivateFact[];org
   </div>
 
   <div className="overflow-auto"><table className="w-full text-left text-sm [&_td]:p-2 [&_th]:p-2">
-   <caption className="text-left text-sm text-muted-foreground">Variazione osservata sugli anni disponibili. Non è la verifica dell’obiettivo PNCAR{haveBaseline?'':`, che richiede il ${PNCAR_BASELINE_YEAR} come base`}.</caption>
+   <caption className="text-left text-sm text-muted-foreground">Variazione osservata sugli anni disponibili{single?'':' per ciascuna Azienda'}. Non è la verifica dell’obiettivo PNCAR{haveBaseline?'':`, che richiede il ${PNCAR_BASELINE_YEAR} come base`}.</caption>
    <thead><tr><th>Azienda</th><th>Periodo</th><th>DDD/100 A3 iniziale</th><th>DDD/100 A3 finale</th><th>Variazione</th></tr></thead>
    <tbody>{change.map(r=><tr key={r.org} className="border-t"><td>{label(r.org)}</td><td>{r.from}–{r.to}</td><td>{n1(r.start)}</td><td>{n1(r.end)}</td><td>{pct(r.delta)}</td></tr>)}</tbody>
   </table></div>
