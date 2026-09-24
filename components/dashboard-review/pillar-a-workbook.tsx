@@ -1,6 +1,8 @@
 import {createClient} from '@/lib/supabase/server';
+import {PillarAProducts} from '@/components/dashboard-review/pillar-a-products';
 import {getCurrentOrg} from '@/lib/auth/get-current-org';
 import {PrivatePillarCharts} from '@/components/private-pillar-charts';
+import {PrivatePncarContext} from '@/components/private-pncar-context';
 import {privatePillarAnalysis,PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
 import {PRIVATE_PILLAR_A_ACTIVE,UNDEFINED_TABLE} from '@/lib/analytics/private-pillar-activation';
 
@@ -26,7 +28,7 @@ export async function PillarAWorkbookSection(){
  // client component previously carried a hardcoded {'201':'ASL 1',...} map and
  // fell back to the generic 'Azienda autorizzata' — which made every
  // organization beyond the original four indistinguishable from the others.
- let orgNames:Record<string,string>={};
+ let orgNames:Record<string,string>={[org.org_code]:org.org_name};
  if(org.org_type==='asl')query=query.eq('org_code',org.org_code);
  else{
   const {data:members,error}=await db.from('organizations').select('org_code,org_name').eq('region_code',org.region_code).eq('org_type','asl');
@@ -46,6 +48,8 @@ export async function PillarAWorkbookSection(){
  return <section className="space-y-6 border-t pt-8">
   <div><h2 className="font-display text-xl font-semibold">Workbook verificato · Pillar A</h2><p className="mt-2 text-sm text-muted-foreground">Antibiotici J01 · fonti {rows[0].year}–{latest.year} · spesa CF, costo CMR e DDD mantenuti distinti. Stessa analisi della sezione AWaRe qui sopra, sulle fonti verificate del workbook.</p></div>
   <PrivatePillarCharts facts={data as PrivateFact[]} regional={org.org_type==='regione'} orgNames={orgNames}/>
+  <PillarAProducts aggregate={data as PrivateFact[]} names={orgNames}/>
+  <PrivatePncarContext facts={data as PrivateFact[]} orgNames={orgNames}/>
   <h2 className="text-xl font-semibold">Riepilogo completo · {org.org_type==='regione'?'perimetro autorizzato':'la tua Azienda'}</h2><p className="text-sm text-muted-foreground">Le schede e le tabelle seguenti mostrano tutti gli anni del perimetro indicato e non cambiano con i selettori dei grafici sopra.</p>
   <div className="grid gap-4 sm:grid-cols-3">{[['Spesa CF (€)',n(latest.cf)],['DDD da conversione della fonte',n(latest.ddd)],['DDD / 100 unità attività A3',n(latest.dddPer100Activity)]].map(([label,value])=><div key={label} className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">{label} · {latest.year}</p><p className="mt-3 text-3xl font-semibold">{value}</p></div>)}</div>
   <section className="rounded-xl border bg-card p-5"><h2 className="text-xl font-semibold">Andamento e intensità</h2><div className="overflow-auto"><table className={table}><thead><tr>{['Anno','CF €','CMR €','DDD','Attività A3/T1','DDD/100 A3','CF €/DDD','Δ CF','Δ DDD'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.year}><td>{r.year}</td><td>{n(r.cf)}</td><td>{n(r.cmr)}</td><td>{n(r.ddd)}</td><td>{n(r.activity)}</td><td>{n(r.dddPer100Activity)}</td><td>{n(r.costPerDdd)}</td><td>{pct(r.costYoy)}</td><td>{pct(r.dddYoy)}</td></tr>)}</tbody></table></div></section>
@@ -54,4 +58,3 @@ export async function PillarAWorkbookSection(){
   <section className="rounded-xl border bg-card p-5 text-sm"><h2 className="mb-3 text-lg font-semibold">Metodo e provenienza</h2><p>Allegati 1 e 2, versione verificata del 23 settembre 2026. DDD = QMR × fattore DDD_AIC fornito. Le categorie AWaRe riproducono la classificazione della fonte. CF è il costo di flusso riportato; CMR è la distinta base di costo normalizzata del workbook, non un risparmio.</p><p className="mt-3">Il workbook seleziona A3/T1: il denominatore viene mantenuto con questa definizione, senza rinominarlo A2 o equipararlo automaticamente alle giornate SDO. I tassi aggregati dividono le somme, non la media dei tassi delle Aziende. Nessun confronto con dati di altre Aziende è esposto a un account Azienda.</p><details className="mt-3"><summary>Formule e versione</summary><p>DDD/100 A3 = DDD ÷ attività × 100. CF/DDD = CF ÷ DDD. Δ% = valore corrente ÷ precedente − 1. Scomposizione simmetrica: ΔQ × media(P) e ΔP × media(Q), con Q=DDD e P=CF/DDD.</p><p className="mt-2 break-all">{PRIVATE_RELEASE} · SHA-256 manifest: {data[0].source_hash}</p></details></section>
  </section>;
 }
-

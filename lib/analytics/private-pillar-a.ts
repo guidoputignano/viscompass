@@ -14,13 +14,19 @@ export function privatePillarAnalysis(facts: PrivateFact[]) {
     keys.add(key);
     if (r.release_id !== PRIVATE_RELEASE || r.activity_variant !== 'A3/T1' ||
         !/^[a-f0-9]{64}$/.test(r.source_hash) || !categories.includes(r.aware_category) ||
-        ![2023, 2024, 2025].includes(r.year) ||
+        !Number.isInteger(r.year) || r.year < 2000 || r.year > 2100 ||
         [r.cf, r.cmr, r.ddd, r.activity].some(v => typeof v !== 'number' || !Number.isFinite(v) || v < 0) || r.activity === 0)
       throw Error('Invalid private source record');
   }
   if (new Set(facts.map(r => r.source_hash)).size !== 1) throw Error('Mixed source versions');
   const orgs = [...new Set(facts.map(r => r.org_code))];
-  for (const org of orgs) for (const year of [2023, 2024, 2025]) {
+  // Years come from the data. This was the literal [2023, 2024, 2025] in three
+  // places, including the per-row validator above, so a 2022 baseline row --
+  // the PNCAR reference year -- would have thrown "Invalid private source
+  // record" rather than loading. The validator now bounds the year to a sane
+  // range and lets the data declare which years it actually carries.
+  const years = [...new Set(facts.map(r => r.year))].sort((a, b) => a - b);
+  for (const org of orgs) for (const year of years) {
     const subset = facts.filter(r => r.org_code === org && r.year === year);
     if (subset.length !== 4) throw Error('Incomplete organization/year');
     const total = subset.find(r => r.aware_category === 'T')!;
@@ -31,7 +37,7 @@ export function privatePillarAnalysis(facts: PrivateFact[]) {
     }
   }
   const ratio = (a:number,b:number) => b > 0 ? a/b : null;
-  const result = [2023,2024,2025].map(year => {
+  const result = years.map(year => {
     const rows = facts.filter(r => r.year === year);
     const totals = rows.filter(r => r.aware_category === 'T');
     const sum = (field:'cf'|'cmr'|'ddd'|'activity') => totals.reduce((s,r) => s+r[field],0);
