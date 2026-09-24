@@ -6,6 +6,19 @@ const base={mapping_version:'2026-09-24.1',supplied_by:'Commissione terapeutica'
  approved_by:'Direzione sanitaria',approved_at:'2026-09-24',valid_from:'2026-01-01',valid_to:null,status:'approved'};
 const row=(scope_key,ven_class,over={})=>({...base,scope_key,ven_class,...over});
 
+test('VEN rejects impossible dates, unknown status/version and prototype class names',()=>{
+ for (const over of [{valid_from:'2026-02-30'},{status:'invalid'},{mapping_version:'bad'},{ven_class:'constructor'}]) {
+  assert.equal(validateVenMapping([row('J01DH02','V',over)]).ok,false);
+ }
+ assert.throws(()=>resolveVen('J01DH02',[],'2026-02-30'));
+});
+test('matrix rejects invalid coverage and duplicate or non-finite amounts',()=>{
+ const item={band:'A',scopeKey:'J01DH02',value:10};
+ for(const threshold of [0,-1,NaN,1.1])assert.throws(()=>abcVenMatrix([item],[],'2026-09-24',threshold));
+ assert.throws(()=>abcVenMatrix([item,item],[],'2026-09-24'));
+ assert.throws(()=>abcVenMatrix([{...item,value:NaN}],[],'2026-09-24'));
+});
+
 test('the criteria are the quoted source definitions, not a paraphrase',()=>{
   assert.match(VEN_CRITERIA.V.definition,/potentially lifesaving/);
   assert.match(VEN_CRITERIA.E.definition,/less severe but nevertheless significant/);
@@ -126,4 +139,18 @@ test('a lower threshold can be chosen deliberately, and still reports exclusions
   assert.equal(m.cells.AV.value,900);
   assert.equal(m.excluded.length,1);
   assert.equal(m.excluded[0].status,'not_in_approved_mapping');
+});
+
+test('a superseded row keeps its approval metadata: that is the audit trail',()=>{
+  // It was approved before it was replaced. Stripping the approver would erase
+  // who authorised every figure the version produced while it was live.
+  const superseded={...base,scope_key:'J01DH02',ven_class:'V',status:'superseded',valid_to:'2026-06-01'};
+  assert.equal(validateVenMapping([superseded]).ok,true);
+
+  const stripped=validateVenMapping([{...superseded,approved_by:null,approved_at:null}]);
+  assert.equal(stripped.ok,false,'a superseded row without its approver loses the audit trail');
+  assert.match(stripped.errors.join(' '),/superseded row needs approved_by/);
+
+  // A superseded row is still not a live classification.
+  assert.equal(resolveVen('J01DH02',[superseded],'2026-03-01').status,'no_approved_mapping');
 });

@@ -85,6 +85,11 @@ export type VenValidation = { ok: boolean; errors: string[]; warnings: string[] 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const AIC = /^\d{9}$/;
 const ATC5 = /^[A-Z]\d{2}[A-Z]{2}\d{2}$/;
+const isDate = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !ISO.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0,10) === value;
+};
 
 /**
  * Validate a supplied mapping before it is allowed anywhere near a figure.
@@ -106,7 +111,9 @@ export function validateVenMapping(rows: readonly VenMappingRow[], perimeter?: r
 
   for (const [i, row] of rows.entries()) {
     const at = `row ${i + 1} (${row.scope_key})`;
-    if (!(row.ven_class in VEN_CRITERIA)) errors.push(`${at}: "${row.ven_class}" is not V, E or N`);
+    if (!Object.hasOwn(VEN_CRITERIA,row.ven_class)) errors.push(`${at}: "${row.ven_class}" is not V, E or N`);
+    if (!/^\d{4}-\d{2}-\d{2}\.\d+$/.test(row.mapping_version) || !isDate(row.mapping_version.split('.')[0])) errors.push(`${at}: invalid mapping version`);
+    if (!['pending','approved','superseded'].includes(row.status)) errors.push(`${at}: invalid status`);
     if (!AIC.test(row.scope_key) && !ATC5.test(row.scope_key)) {
       errors.push(`${at}: scope key is neither a 9-digit AIC nor an ATC5 code`);
     }
@@ -120,18 +127,21 @@ export function validateVenMapping(rows: readonly VenMappingRow[], perimeter?: r
     seen.set(row.scope_key, row.ven_class);
 
     for (const [field, value] of [["valid_from", row.valid_from], ["supplied_at", row.supplied_at]] as const) {
-      if (!ISO.test(String(value ?? ""))) errors.push(`${at}: ${field} must be an ISO date`);
+      if (!isDate(value)) errors.push(`${at}: ${field} must be a valid ISO date`);
     }
     if (row.valid_to != null) {
-      if (!ISO.test(row.valid_to)) errors.push(`${at}: valid_to must be an ISO date`);
+      if (!isDate(row.valid_to)) errors.push(`${at}: valid_to must be a valid ISO date`);
       else if (row.valid_to <= row.valid_from) errors.push(`${at}: valid_to must be after valid_from`);
     }
     if (!row.supplied_by?.trim()) errors.push(`${at}: supplied_by is required — an unattributed mapping cannot be audited`);
 
     // Approval is a value constraint, mirroring how memberships and upload
     // reconciliation are handled: a submitter cannot approve their own row.
-    if (row.status === "approved" && (!row.approved_by?.trim() || !ISO.test(String(row.approved_at ?? "")))) {
-      errors.push(`${at}: an approved row needs approved_by and an ISO approved_at`);
+    // A superseded row was approved before it was replaced, so it must KEEP its
+    // approver and date: that record is the audit trail for every figure the
+    // version produced while it was live. Only a pending row has no approval.
+    if (row.status !== "pending" && (!row.approved_by?.trim() || !isDate(row.approved_at))) {
+      errors.push(`${at}: an ${row.status} row needs approved_by and an ISO approved_at`);
     }
     if (row.status === "pending" && (row.approved_by || row.approved_at)) {
       errors.push(`${at}: a pending row must not carry approval metadata`);
@@ -150,6 +160,7 @@ export function resolveVen(
   rows: readonly VenMappingRow[],
   onDate: string,
 ): { ven: VenClass | null; status: VenStatus } {
+  if (!isDate(onDate)) throw Error('Invalid VEN evaluation date');
   const approved = rows.filter((r) => r.status === "approved");
   if (!approved.length) return { ven: null, status: "no_approved_mapping" };
 
@@ -221,6 +232,12 @@ export function abcVenMatrix<T extends { band: "A" | "B" | "C"; scopeKey: string
   cells: Record<string, { count: number; value: number }>;
   excluded: { scopeKey: string; value: number; status: VenStatus }[];
 } {
+  if (!Number.isFinite(minimumCoverage) || minimumCoverage <= 0 || minimumCoverage > 1) throw Error('VEN coverage threshold must be in (0,1]');
+  const keys = new Set<string>();
+  for (const item of items) {
+    if (!['A','B','C'].includes(item.band) || !Number.isFinite(item.value) || item.value < 0 || keys.has(item.scopeKey)) throw Error('Invalid or duplicate ABC-VEN item');
+    keys.add(item.scopeKey);
+  }
   const excluded: { scopeKey: string; value: number; status: VenStatus }[] = [];
   const cells: Record<string, { count: number; value: number }> = {};
   for (const band of ["A", "B", "C"] as const) {

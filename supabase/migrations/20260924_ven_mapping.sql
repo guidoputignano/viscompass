@@ -30,10 +30,13 @@ create table public.ven_mapping (
   primary key (mapping_version, scope_key),
   -- A period that ends before it begins classifies nothing.
   constraint ven_period_ordered check (valid_to is null or valid_to > valid_from),
-  -- Approval metadata travels together, and only on approved rows.
+  -- Approval metadata travels together. A superseded row was approved before it
+  -- was replaced and must keep its approver and date: that record is the audit
+  -- trail for every figure the version produced while it was live. Only a
+  -- pending row has no approval yet.
   constraint ven_approval_complete check (
-    (status = 'approved' and approved_by is not null and length(btrim(approved_by)) > 0 and approved_at is not null)
-    or (status <> 'approved' and approved_by is null and approved_at is null)
+    (status in ('approved','superseded') and approved_by is not null and length(btrim(approved_by)) > 0 and approved_at is not null)
+    or (status = 'pending' and approved_by is null and approved_at is null)
   ),
   -- The submitter is not the approver. This mirrors the escalation bug already
   -- fixed on memberships: an INSERT policy must constrain values, not identity.
