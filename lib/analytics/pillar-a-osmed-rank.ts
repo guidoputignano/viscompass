@@ -1,9 +1,21 @@
 // Territorial position on the PNCAR indicator.
 //
 // This ranks TERRITORIES against each other and nothing else. It is not a
-// hospital or Azienda ranking and cannot become one: the denominator behind
-// every rate here is regional hospital activity, for which no per-structure
-// version exists in any source the project holds.
+// hospital or Azienda ranking.
+//
+// It previously said no per-structure denominator "exists in any source the
+// project holds". That was wrong, and wrong in the direction that stops anyone
+// checking: data/raw/denominators/ministry/hospital_structure_activity_2022.csv
+// carries giornate_degenza per structure with codice_asl, across 53 ASLs.
+//
+// It still cannot be used here, for reasons worth stating so the next reader
+// does not re-litigate them:
+//   * 2022 only. The consumption series runs 2023-2025, so there is no overlap.
+//   * No accessi column. OSMED's denominator is ordinary-regime days PLUS day
+//     hospital / day surgery; this file has DH/DS *beds*, not accesses.
+//   * It does not reconcile to the regional SDO totals, and the perimeter
+//     (which tipo_struttura count as OSMED's "ospedali pubblici") is unresolved.
+// So the gap is a specific, closeable data gap rather than an absence.
 export type OsmedRow = { region: string; rates: Record<string, number> };
 
 export type TerritorialPosition = {

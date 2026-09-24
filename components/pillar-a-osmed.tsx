@@ -16,9 +16,9 @@ export function PillarAOsmed({region,name}:{region:string;name:string}) {
   const position=territorialPosition(data?.rows??[],region,'2022','2024',0.05);
   return <>
     <div className="grid gap-4 sm:grid-cols-3">{[
-      ['2022 · riferimento',number(baseline)],['2024 · osservato',number(latest)],['2025 · soglia obiettivo',`< ${number(threshold)}`]
+      ['2022 · riferimento',number(baseline)],['2024 · osservato',number(latest)],['2025 · riferimento derivato',`< ${number(threshold)}`]
     ].map(([label,value])=><div key={label} className="rounded-xl bg-secondary/50 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p><p className="mt-1 text-xs">DDD / 100 giornate</p></div>)}</div>
-    <p className="mt-4 text-sm leading-relaxed">{name}: variazione 2024/2022 pari a {number((latest/baseline-1)*100)}%. Il PNCAR 2022–2025 richiede una riduzione superiore al 5% nel 2025 rispetto al 2022. Il valore 2024 {latest<threshold?'è sotto':'non è sotto'} la soglia di riferimento; non è una verifica del risultato finale 2025.</p>
+    <p className="mt-4 text-sm leading-relaxed">{name}: variazione 2024/2022 pari a {number((latest/baseline-1)*100)}%. Il PNCAR 2022–2025 richiede una riduzione superiore al 5% nel 2025 rispetto al 2022. Il valore 2024 {latest<threshold?'è sotto':'non è sotto'} questo riferimento; non è una verifica del risultato finale 2025. Il riferimento è calcolato qui come valore 2022 del territorio × 0,95: non è una soglia pubblicata dal PNCAR, che fissa un obiettivo relativo e non un livello.</p>
     {region!=='000'&&<p className="mt-3 text-sm">Italia 2024: {number(italy.rates['2024'])} DDD/100 giornate. Scostamento descrittivo: {number((latest/italy.rates['2024']-1)*100)}%.</p>}
     {position&&position.levelRank>0&&<div className="mt-4 rounded-xl border bg-secondary/40 p-4 text-sm leading-relaxed">
       <p><span className="font-semibold">Posizione fra i {position.peers} territori.</span> {name} è {position.levelRank}° per intensità di consumo nel 2024 (1° = valore più basso) e {position.changeRank}° per variazione 2024/2022 (1° = riduzione maggiore).</p>
