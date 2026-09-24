@@ -41,7 +41,8 @@ export default async function AntibioticiPage() {
     if (unit.costPerDdd === null || data.orgIndicators?.costPerDdd === null || data.orgIndicators?.costPerDdd === undefined) return false;
     return unit.costPerDdd > data.orgIndicators.costPerDdd;
   }).length;
-  const hasPopulation = data.orgIndicators?.dddPer1000ResidentsDay !== null;
+  const hasPopulation = data.orgIndicators?.dddPer1000ResidentsDay != null;
+  const costLabel = data.costBasis === 'CO1' ? 'Costo CO1' : 'Spesa';
   const modeLabel = data.mode === "synthetic" ? "Demo sintetica" : "Dati autorizzati";
 
   // Both ends derived from the data. This read `2023–${data.latestYear}`, which
@@ -69,18 +70,22 @@ export default async function AntibioticiPage() {
       {data.mode === "synthetic" && (
         <TemplateNotice label="Dati sintetici" source={data.sourceLabel} />
       )}
+      {data.mode === 'real' && <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+        {data.costBasis === 'CO1' ? 'Riepilogo Dati_CO: costi normalizzati CO1 e DDD della fonte.' : 'Riepilogo dei costi e delle DDD della fonte autorizzata.'}
+        {' '}Tutti i valori di spesa, le quote e le variazioni in questo riepilogo usano questa base. Il workbook verificato sotto distingue invece CF e CMR: basi diverse non sono intercambiabili.
+      </p>}
 
       <DecisionFrame
-        changed={latest ? `Spesa ${latest.costYoy === null ? "N/D" : formatPercent(latest.costYoy)} · DDD ${latest.dddYoy === null ? "N/D" : formatPercent(latest.dddYoy)}.` : "Confronto non disponibile."}
+        changed={latest ? `${costLabel} ${latest.costYoy === null ? "N/D" : formatPercent(latest.costYoy)} · DDD ${latest.dddYoy === null ? "N/D" : formatPercent(latest.dddYoy)}.` : "Confronto non disponibile."}
         variance={reserveShare === null || watchDddShare === null ? "Composizione non disponibile." : `Reserve ${formatPercent(reserveShare)} della spesa · Watch ${formatPercent(watchDddShare)} delle DDD.`}
         materiality={latest ? `${formatEur(latest.costEur)} · ${formatNumber(latest.dddCount, 0)} DDD.` : "Materialità non disponibile."}
         nextEvidence={data.units.length > 0 ? `${highCostUnits} unità sopra la media €/DDD.` : "Caricare il dettaglio delle unità."}
       />
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <KpiCard accent label="Spesa" value={latest ? formatEur(latest.costEur) : "N/D"} detail={latest ? <Delta value={latest.costYoy} /> : undefined} icon={CircleDollarSign} />
+        <KpiCard accent label={costLabel} value={latest ? formatEur(latest.costEur) : "N/D"} detail={latest ? <Delta value={latest.costYoy} /> : undefined} icon={CircleDollarSign} />
         <KpiCard label="DDD / 100 gg" value={data.orgIndicators?.dddPer100BedDays === null || data.orgIndicators?.dddPer100BedDays === undefined ? "N/D" : formatNumber(data.orgIndicators.dddPer100BedDays)} detail="Consumo ospedaliero" icon={BedSingle} />
-        <KpiCard label="Spesa / DDD" value={data.orgIndicators?.costPerDdd === null || data.orgIndicators?.costPerDdd === undefined ? "N/D" : formatEurPrecise(data.orgIndicators.costPerDdd)} detail="Costo normalizzato" icon={BadgeEuro} />
+        <KpiCard label={`${costLabel} / DDD`} value={data.orgIndicators?.costPerDdd === null || data.orgIndicators?.costPerDdd === undefined ? "N/D" : formatEurPrecise(data.orgIndicators.costPerDdd)} detail="Base del riepilogo" icon={BadgeEuro} />
         <KpiCard label="DDD / 1.000 die" value={data.orgIndicators?.dddPer1000ResidentsDay === null || data.orgIndicators?.dddPer1000ResidentsDay === undefined ? "N/D" : formatNumber(data.orgIndicators.dddPer1000ResidentsDay, 2)} detail={hasPopulation ? "Popolazione versionata" : "Denominatore richiesto"} icon={UsersRound} />
         <KpiCard label="Spesa pro capite" value={data.orgIndicators?.costPerCapita === null || data.orgIndicators?.costPerCapita === undefined ? "N/D" : formatEurPrecise(data.orgIndicators.costPerCapita)} detail="Anno più recente" icon={Gauge} />
       </div>
@@ -162,15 +167,15 @@ export default async function AntibioticiPage() {
 
       <MethodologyPanel>
         <div className="grid gap-5 md:grid-cols-3">
-          <div><p className="font-semibold text-foreground">Definizioni</p><p className="mt-1">DDD/100 giornate, €/giornata, €/DDD, DDD/1.000 abitanti/die e €/abitante usano denominatori annuali coerenti.</p></div>
-          <div><p className="font-semibold text-foreground">Qualità</p><p className="mt-1">Il 2025 è completo nel file: categorie, ASL, unità e denominatori sono presenti e A+W+R riconcilia con il totale.</p></div>
+          <div><p className="font-semibold text-foreground">Definizioni</p><p className="mt-1">I rapporti sono calcolati solo con denominatori disponibili e positivi. DDD/1.000 abitanti/die usa 365 o 366 giorni secondo l’anno; le variazioni annuali richiedono l’anno precedente.</p></div>
+          <div><p className="font-semibold text-foreground">Qualità</p><p className="mt-1">N/D indica un indicatore non calcolabile. La disponibilità delle DDD non implica quella di popolazione, attività o dettaglio per unità. Gli scostamenti fra categorie AWaRe e totale sono evidenziati nel grafico, senza attestare completezza automatica.</p></div>
           <div><p className="font-semibold text-foreground">Perimetro</p><p className="mt-1">La demo è sintetica. I dati reali sono mostrati soltanto nel perimetro organizzativo autorizzato.</p></div>
         </div>
       </MethodologyPanel>
       {/* Pillar A is the same J01 analysis for the same organization, so it lives
           here rather than as a second module. Renders nothing until private
           activation is approved. */}
-      <PillarAWorkbookSection />
+      <PillarAWorkbookSection summary={data.mode === 'real' ? data.annual : undefined} />
     </div>
   );
 }

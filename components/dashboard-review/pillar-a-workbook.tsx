@@ -6,13 +6,14 @@ import {PrivatePncarContext} from '@/components/private-pncar-context';
 import {privatePillarAnalysis,PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
 import {PRIVATE_PILLAR_A_ACTIVE,UNDEFINED_TABLE} from '@/lib/analytics/private-pillar-activation';
 import {orgDisplayMap} from '@/lib/analytics/org-pseudonym';
+import {reconcileCostBases} from '@/lib/analytics/cost-basis-reconciliation';
 
 const n=(v:number|null,d=2)=>v===null?'N/D':new Intl.NumberFormat('it-IT',{maximumFractionDigits:d}).format(v);
 const pct=(v:number|null)=>v===null?'N/D':`${n(v*100,1)}%`;
 const table='w-full text-sm [&_th]:p-3 [&_th]:text-left [&_td]:p-3 [&_tr]:border-b';
 // Rendered inside /dashboard-review/antibiotici. Returns null until private
 // activation is approved, so the host page is unchanged in the meantime.
-export async function PillarAWorkbookSection(){
+export async function PillarAWorkbookSection({summary}:{summary?:{year:number;costEur:number;dddCount:number}[]}={}){
  const org=await getCurrentOrg();
  if(!org)return null;
  // Activation is a recorded approval held in one constant. While it is false
@@ -49,8 +50,10 @@ export async function PillarAWorkbookSection(){
  if(!data?.length)return null;
  if(data.length>=1000)throw Error('Analisi sospesa: il limite di lettura impedisce di garantire totali completi.');
  const rows=privatePillarAnalysis(data as PrivateFact[]),latest=rows.at(-1)!;
+ const reconciliation=summary?reconcileCostBases(rows,summary):[];
  return <section className="space-y-6 border-t pt-8">
-  <div><h2 className="font-display text-xl font-semibold">Workbook verificato · Pillar A</h2><p className="mt-2 text-sm text-muted-foreground">Antibiotici J01 · fonti {rows[0].year}–{latest.year} · spesa CF, costo CMR e DDD mantenuti distinti. Stessa analisi della sezione AWaRe qui sopra, sulle fonti verificate del workbook.</p></div>
+  <div><h2 className="font-display text-xl font-semibold">Workbook verificato · Pillar A</h2><p className="mt-2 text-sm text-muted-foreground">Antibiotici J01 · fonti {rows[0].year}–{latest.year} · spesa CF, costo CMR e DDD mantenuti distinti. Le variazioni e i rapporti di spesa in questa sezione usano CF, non il costo normalizzato del riepilogo sopra.</p></div>
+  {reconciliation.length>0&&<details className="rounded-xl border bg-card p-5"><summary className="font-semibold">Riconciliazione delle basi di costo</summary><p className="my-3 text-sm text-muted-foreground">Confronto numerico per anno nello stesso perimetro autorizzato. Scarto = riepilogo − workbook. La corrispondenza entro 0,01 non rende CF e CMR equivalenti; la loro differenza non è un risparmio. Uno scarto richiede verifica delle versioni, senza modificare i dati di fonte.</p><div className="overflow-auto"><table className={table}><thead><tr>{['Anno','CF €','CMR €','Costo riepilogo €','Scarto vs CMR €','Scarto DDD','Esito'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{reconciliation.map(r=><tr key={r.year}><td>{r.year}</td><td>{n(r.cf)}</td><td>{n(r.cmr)}</td><td>{n(r.summaryCost)}</td><td>{n(r.cmrDelta)}</td><td>{n(r.dddDelta)}</td><td>{r.matches===null?'Non confrontabile':r.matches?'CMR e DDD corrispondono':'Da verificare'}</td></tr>)}</tbody></table></div></details>}
   <PrivatePillarCharts facts={data as PrivateFact[]} regional={org.org_type==='regione'} orgNames={orgNames}/>
   <PillarAProducts aggregate={data as PrivateFact[]} names={orgNames}/>
   <PrivatePncarContext facts={data as PrivateFact[]} orgNames={orgNames}/>

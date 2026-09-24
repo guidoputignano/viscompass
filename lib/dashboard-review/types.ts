@@ -403,6 +403,7 @@ export interface AntibioticUnitRow extends AntibioticIndicatorSet {
 
 export interface AntibioticStewardshipData {
   mode: "real" | "synthetic";
+  costBasis?: 'CO1' | 'source';
   sourceLabel: string;
   awareByYear: AwareYearRow[];
   annual: AntibioticAnnualRow[];

@@ -12,6 +12,7 @@
 // can't just be exported from here too.
 
 import { cache } from "react";
+import { indicatorsFromTotals, type CategoryTotals } from "@/lib/analytics/antibiotic-indicators";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getSyntheticAntibioticStewardship } from "@/lib/dashboard-review/antibiotic-demo";
@@ -1045,24 +1046,6 @@ export async function getReviewWorkspaceData(): Promise<ReviewWorkspaceData> {
   };
 }
 
-interface CategoryTotals {
-  cost: number;
-  ddd: number;
-  bedDays: number;
-  population: number;
-}
-
-function indicatorsFromTotals(t: CategoryTotals | undefined): AntibioticIndicatorSet | null {
-  if (!t) return null;
-  return {
-    dddPer100BedDays: t.bedDays > 0 ? (t.ddd / t.bedDays) * 100 : null,
-    costPerBedDay: t.bedDays > 0 ? t.cost / t.bedDays : null,
-    costPerDdd: t.ddd > 0 ? t.cost / t.ddd : null,
-    dddPer1000ResidentsDay: t.population > 0 ? t.ddd / (t.population / 1000) / 365 : null,
-    costPerCapita: t.population > 0 ? t.cost / t.population : null,
-  };
-}
-
 function average(values: number[]): number | null {
   return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
 }
@@ -1107,7 +1090,16 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   // own (data is uploaded per ASL) — RLS already hands them every ASL in
   // their region, so "their view" is the pooled total across those ASLs,
   // the same org.region_code join pattern the RLS policy itself uses.
-  const ownRows = isRegione ? rows : rows.filter((r) => r.org_code === org.org_code);
+  let ownRows = rows.filter((r) => r.org_code === org.org_code);
+  if (isRegione) {
+    // RLS authorizes memberships; the selected primary membership determines
+    // which authorized region is being analysed, as in the workbook section.
+    const {data: members, error: scopeError} = await supabase.from('organizations')
+      .select('org_code').eq('region_code', org.region_code).eq('org_type', 'asl');
+    if (scopeError) throw new Error('Impossibile verificare il perimetro organizzativo.');
+    const codes = new Set((members ?? []).map(m => m.org_code));
+    ownRows = rows.filter(r => codes.has(r.org_code));
+  }
   const summaryRows = ownRows.filter((row) => row.unit_code === null);
   if (summaryRows.length === 0) return getSyntheticAntibioticStewardship();
 
@@ -1162,18 +1154,18 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
     ownTotalsByYear.set(r.year, cur);
   }
   const latestYear = ownTotalsByYear.size > 0 ? Math.max(...ownTotalsByYear.keys()) : null;
-  const orgIndicators = latestYear !== null ? indicatorsFromTotals(ownTotalsByYear.get(latestYear)) : null;
+  const orgIndicators = latestYear !== null ? indicatorsFromTotals(ownTotalsByYear.get(latestYear), latestYear) : null;
   const annual = Array.from(ownTotalsByYear.entries())
     .sort(([a], [b]) => a - b)
     .map(([year, totals], index, all) => {
-      const previous = all[index - 1]?.[1];
+      const previous = all[index - 1]?.[0] === year - 1 ? all[index - 1][1] : undefined;
       return {
         year,
         costEur: totals.cost,
         dddCount: totals.ddd,
         bedDays: totals.bedDays,
         population: totals.population,
-        ...indicatorsFromTotals(totals)!,
+        ...indicatorsFromTotals(totals, year)!,
         costYoy: previous?.cost ? totals.cost / previous.cost - 1 : null,
         dddYoy: previous?.ddd ? totals.ddd / previous.ddd - 1 : null,
       };
@@ -1197,7 +1189,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
       });
     }
     const perOrg = Array.from(totalsByOrg.values())
-      .map(indicatorsFromTotals)
+      .map(t => indicatorsFromTotals(t, latestYear))
       .filter((i): i is AntibioticIndicatorSet => i !== null);
 
     if (perOrg.length > 0) {
@@ -1230,7 +1222,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
             costEur: totals.cost,
             dddCount: totals.ddd,
             bedDays: totals.bedDays,
-            ...indicatorsFromTotals(totals)!,
+            ...indicatorsFromTotals(totals, latestYear)!,
           };
         })
         .sort((a, b) => b.costEur - a.costEur);
@@ -1238,6 +1230,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   const provisional = summaryRows.some((row) => row.period_status === "provisional");
   return {
     mode: "real",
+    costBasis: summaryRows.every(row => row.source_note?.includes('CO1')) ? 'CO1' : 'source',
     sourceLabel: provisional
       ? "Dati reali del perimetro autorizzato · periodo provvisorio"
       : "Dati reali del perimetro autorizzato · annualità completa",
