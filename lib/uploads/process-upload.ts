@@ -8,6 +8,12 @@ import { reconcileRows, summariseReconciliation, type CanonicalTotals } from "@/
 // it directly, so it must stay free of server-only imports. Everything that
 // touches Storage or the database lives here.
 //
+// processUploadWith below is the orchestration this file exists for, and
+// orchestration is where the bugs hide, so it has to be reachable from a test.
+// tests/_alias-hooks.mjs teaches `node --test` to resolve "@/", which is
+// otherwise a bundler-only feature, so this file keeps the codebase's import
+// convention and is still driven directly by tests.
+//
 // THIS FUNCTION NEVER THROWS. lib/dashboard-review/actions.ts inserts the
 // uploads row and then calls this; the file is already stored and the row
 // already written by that point, so throwing would show the user a failure for
@@ -23,6 +29,9 @@ const BUCKET = "uploads";
 
 /** Only two of the reconciler's five outcomes are states the table can hold. */
 type UploadStatus = "uploaded" | "processing" | "reconciled" | "discrepancy_found";
+
+/** The client this module needs. Named so a test can supply one. */
+type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
 /**
  * The uploads.status CHECK constraint allows uploaded / processing /
@@ -59,7 +68,7 @@ function toColumnStatus(status: string): UploadStatus {
  * this must be confirmed against real rows before the result is trusted.
  */
 async function readCanonicalTotals(
-  db: ReturnType<typeof createServiceRoleClient>,
+  db: ServiceClient,
   orgCode: string,
   regionCode: string | null,
   years: number[],
@@ -81,18 +90,15 @@ async function readCanonicalTotals(
   };
 }
 
-export async function processUpload(uploadId: number): Promise<void> {
-  // Without the service role there is no write path. Leaving the row in its
-  // 'uploaded' default is the truthful outcome; inventing one is not.
-  if (!hasServiceRoleConfig()) return;
-
-  let db: ReturnType<typeof createServiceRoleClient>;
-  try {
-    db = createServiceRoleClient();
-  } catch {
-    return;
-  }
-
+/**
+ * The orchestration, with the client passed in.
+ *
+ * Separated from processUpload so tests can drive every branch — a storage
+ * failure, a file that is not this extraction, an empty canonical table, a real
+ * comparison — without a live Supabase. processUpload is the thin wrapper that
+ * decides whether a real client exists.
+ */
+export async function processUploadWith(db: ServiceClient, uploadId: number): Promise<void> {
   const fail = async (message: string) => {
     // Recorded on the row, not thrown at the user. status returns to 'uploaded'
     // because nothing was reconciled.
@@ -179,4 +185,19 @@ export async function processUpload(uploadId: number): Promise<void> {
       // The row cannot be updated either. Swallow: the upload itself succeeded.
     }
   }
+}
+
+export async function processUpload(uploadId: number): Promise<void> {
+  // Without the service role there is no write path. Leaving the row in its
+  // 'uploaded' default is the truthful outcome; inventing one is not.
+  if (!hasServiceRoleConfig()) return;
+
+  let db: ServiceClient;
+  try {
+    db = createServiceRoleClient();
+  } catch {
+    return;
+  }
+
+  return processUploadWith(db, uploadId);
 }

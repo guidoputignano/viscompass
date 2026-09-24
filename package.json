@@ -5,8 +5,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test",
-    "test:pillar-a": "node --test",
+    "test": "node --import ./tests/_register-alias.mjs --test",
+    "test:pillar-a": "node --import ./tests/_register-alias.mjs --test",
     "build:activity-proxy": "node scripts/build_pillar_a_activity_proxy.mjs"
   },
   "dependencies": {
