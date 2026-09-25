@@ -11,6 +11,14 @@ const percent=(v:number)=>itNumberFormat({style:'percent',maximumFractionDigits:
 // now — they carry the direction, and the middle years are in the hover title
 // and the table — and placeLabels drops any that still cannot find room rather
 // than stacking them. See lib/charts/label-placement.ts.
+// An SVG <title> must hold ONE text child. React 19 treats <title> as
+// hoistable document metadata, and a title built from several adjacent
+// expressions ({a} · {b}: {c}) server-renders with comment separators between
+// the text nodes while the client builds a different child list — React then
+// reports "Hydration failed because the server rendered HTML didn't match the
+// client" and regenerates the subtree. It is recoverable, so the page still
+// works and the only symptom in production is a minified #418 in the console.
+// Build the string first and pass it as a single child.
 export function PrivateDeviationPlot({rows,label}:{rows:Point[];label:(org:string)=>string}){
  const points=rows.filter((r):r is Point & {costDeviation:number}=>r.costDeviation!==null);
  if(!points.length)return <p>Scostamenti non disponibili: riferimento senza costo medio positivo.</p>;
@@ -26,7 +34,7 @@ export function PrivateDeviationPlot({rows,label}:{rows:Point[];label:(org:strin
  <svg viewBox="0 0 700 480" role="img" aria-label="Traiettorie di intensità e costo medio per Azienda; valori nella tabella seguente" className="w-full">
  {[-1,-.5,0,.5,1].map(t=><g key={t}><line x1={x(t*limit)} x2={x(t*limit)} y1="70" y2="400" stroke="currentColor" opacity={t===0?.5:.12}/><line x1="90" x2="610" y1={y(t*limit)} y2={y(t*limit)} stroke="currentColor" opacity={t===0?.5:.12}/><text x={x(t*limit)} y="423" textAnchor="middle" fill="currentColor" fontSize="11">{percent(t*limit)}</text><text x="83" y={y(t*limit)+4} textAnchor="end" fill="currentColor" fontSize="11">{percent(t*limit)}</text></g>)}
  <text x="350" y="455" textAnchor="middle" fill="currentColor">Scostamento DDD/100 A3</text><text x="350" y="30" textAnchor="middle" fill="currentColor">Scostamento CF/DDD</text>
- {series.map((sequence,i)=><g key={orgs[i]}><polyline points={sequence.map(r=>`${x(r.intensityDeviation)},${y(r.costDeviation)}`).join(' ')} fill="none" stroke={palette[i%4]} strokeWidth="2"/>{sequence.map(r=><circle key={r.year} cx={x(r.intensityDeviation)} cy={y(r.costDeviation)} r="5" fill={palette[i%4]}><title>{label(orgs[i])} · {r.year}: {percent(r.intensityDeviation)}, {percent(r.costDeviation)}</title></circle>)}</g>)}
+ {series.map((sequence,i)=><g key={orgs[i]}><polyline points={sequence.map(r=>`${x(r.intensityDeviation)},${y(r.costDeviation)}`).join(' ')} fill="none" stroke={palette[i%4]} strokeWidth="2"/>{sequence.map(r=><circle key={r.year} cx={x(r.intensityDeviation)} cy={y(r.costDeviation)} r="5" fill={palette[i%4]}><title>{`${label(orgs[i])} · ${r.year}: ${percent(r.intensityDeviation)}, ${percent(r.costDeviation)}`}</title></circle>)}</g>)}
  {/* Drawn after every trajectory so no line crosses a label. */}
  {labels.map((l,i)=><text key={i} x={l.lx} y={l.ly} textAnchor={l.anchor} fontSize="11" fill="currentColor">{l.text}</text>)}
  </svg><div className="flex flex-wrap gap-4">{orgs.map((org,i)=><span key={org} className="flex items-center gap-2"><span className="size-3 rounded-full" style={{background:palette[i%4]}}/>{label(org)}</span>)}</div>
