@@ -10,6 +10,30 @@ import {reconcileCostBases} from '@/lib/analytics/cost-basis-reconciliation';
 const n=(v:number|null,d=2)=>v===null?'N/D':new Intl.NumberFormat('it-IT',{maximumFractionDigits:d}).format(v);
 const pct=(v:number|null)=>v===null?'N/D':`${n(v*100,1)}%`;
 const table='w-full text-sm [&_th]:p-3 [&_th]:text-left [&_td]:p-3 [&_tr]:border-b';
+// Shown instead of figures when a validation guard rejects the data.
+//
+// The guards exist to stop an unverified number reaching the screen, and that
+// still holds: nothing numeric is rendered here. What changes is the blast
+// radius. Throwing reached the route error boundary and replaced the ENTIRE
+// antibiotics page — including the authorized summary above, which had passed
+// its own checks — with "L'analisi non è disponibile" and no reason. One
+// section failing its checks is not a reason to take down the page around it.
+//
+// The technical reason is printed deliberately. The people who see this section
+// are the ones who can act on "Mixed source versions" or "Category totals do
+// not reconcile"; hiding it behind a generic message would leave them with a
+// blank panel and nothing to chase.
+const reason=(e:unknown)=>e instanceof Error?e.message:String(e);
+function AnalysisSuspended({detail,scope}:{detail:string;scope:string}){
+ return <section className="space-y-3 border-t pt-8">
+  <h2 className="font-display text-xl font-semibold">Workbook verificato · Pillar A</h2>
+  <p className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-700/60 dark:bg-rose-950/40 dark:text-rose-100">
+   Analisi riservata sospesa per {scope}. I dati non superano i controlli di validazione, quindi
+   non viene mostrata alcuna cifra: un numero non verificato sarebbe peggio di nessun numero.
+   Motivo tecnico: <span className="font-mono text-[12px]">{detail}</span>.
+  </p>
+ </section>;
+}
 // Rendered inside /dashboard-review/antibiotici. Returns null until private
 // activation is approved, so the host page is unchanged in the meantime.
 export async function PillarAWorkbookSection({summary}:{summary?:{year:number;costEur:number;dddCount:number}[]}={}){
@@ -35,8 +59,20 @@ export async function PillarAWorkbookSection({summary}:{summary?:{year:number;co
  if(error)throw Error('Impossibile leggere il workbook riservato.');
  if(!data?.length)return null;
  if(data.length>=1000)throw Error('Analisi sospesa: il limite di lettura impedisce di garantire totali completi.');
- const rows=privatePillarAnalysis(data as PrivateFact[]),latest=rows.at(-1)!;
- const reconciliation=summary?reconcileCostBases(rows,summary):[];
+ // Validation is contained here rather than thrown at the route: every
+ // component below re-runs privatePillarAnalysis on the same facts, so if it
+ // rejects them once it rejects them everywhere, client-side included.
+ let rows:ReturnType<typeof privatePillarAnalysis>;
+ let reconciliation:ReturnType<typeof reconcileCostBases>;
+ const perimeter=scope.allOrganizations?'tutte le Aziende del rilascio':scope.regional?'il perimetro autorizzato':'la tua Azienda';
+ try{
+  rows=privatePillarAnalysis(data as PrivateFact[]);
+  reconciliation=summary?reconcileCostBases(rows,summary):[];
+ }catch(e){
+  return <AnalysisSuspended detail={reason(e)} scope={perimeter}/>;
+ }
+ if(!rows.length)return null;
+ const latest=rows.at(-1)!;
  return <section className="space-y-6 border-t pt-8">
   {scope.reviewerScopeUnavailable&&<p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">Accesso revisore riconosciuto, ma la lettura estesa non è disponibile in questo ambiente: i dati mostrati restano limitati al perimetro della tua organizzazione. Non interpretare questa sezione come l’intero rilascio.</p>}
   <div><h2 className="font-display text-xl font-semibold">Workbook verificato · Pillar A</h2><p className="mt-2 text-sm text-muted-foreground">Antibiotici J01 · fonti {rows[0].year}–{latest.year} · spesa CF, costo CMR e DDD mantenuti distinti. Le variazioni e i rapporti di spesa in questa sezione usano CF, non il costo normalizzato del riepilogo sopra.</p></div>

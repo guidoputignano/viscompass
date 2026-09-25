@@ -22,7 +22,17 @@ export async function PillarAProducts({aggregate,names,scope}:{aggregate:Private
   if(start>=99500)throw Error('Analisi sospesa: superato il limite di lettura dei prodotti.');
  }
  if(!facts.length)return <p className="text-sm text-muted-foreground">Dettaglio prodotti non disponibile per il perimetro autorizzato.</p>;
+ // Contained, not thrown: this is one panel inside the workbook section, and a
+ // product grain that will not reconcile is a reason to withhold the product
+ // charts, not to take down the aggregate analysis above them. Nothing numeric
+ // is rendered on this path.
  const hash=aggregate[0]?.source_hash;
- if(facts.some(f=>f.source_hash!==hash)||!reconcileProductsToAggregate(facts,aggregate).ok)throw Error('Dettaglio prodotti non riconciliato: visualizzazione sospesa.');
+ const mixed=facts.some(f=>f.source_hash!==hash);
+ let reconciled=false,detail='';
+ try{reconciled=reconcileProductsToAggregate(facts,aggregate).ok;}catch(e){detail=e instanceof Error?e.message:String(e);}
+ if(mixed||!reconciled)return <p className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-700/60 dark:bg-rose-950/40 dark:text-rose-100">
+  Dettaglio prodotti sospeso: {mixed?'le righe provengono da versioni sorgente diverse':'il grano prodotto non si riconcilia con gli aggregati'}.
+  Nessuna cifra di prodotto viene mostrata finché il controllo non passa.{detail&&<> Motivo tecnico: <span className="font-mono text-[12px]">{detail}</span>.</>}
+ </p>;
  return <PrivateProductCharts abc={productAbc(facts)} series={atc5Series(facts)} names={names}/>;
 }
