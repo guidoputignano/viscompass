@@ -1,4 +1,9 @@
 import type { Config } from "tailwindcss";
+// Imported rather than require()d: Tailwind loads this config through Node ESM,
+// where require is not defined, so the require form crashed `next dev` outright
+// ("ReferenceError: require is not defined"). The production build resolved it
+// via webpack and kept working, which is why a broken dev server went unnoticed.
+import animate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -59,5 +64,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [animate],
 } satisfies Config;
