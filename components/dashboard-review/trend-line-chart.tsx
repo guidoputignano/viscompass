@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatEur, formatNumber } from "@/lib/dashboard-review/format";
+import {itNumberFormat} from "@/lib/format/it-number";
 
 // A value measured over time is read as a trajectory, not as a set of
 // quantities to compare side by side. Bars anchored at zero make three
@@ -181,7 +182,7 @@ export function TrendLineChart({
                   <td className="text-right">
                     {change === null
                       ? "—"
-                      : `${change >= 0 ? "+" : ""}${new Intl.NumberFormat("it-IT", {
+                      : `${change >= 0 ? "+" : ""}${itNumberFormat({
                           minimumFractionDigits: 1,
                           maximumFractionDigits: 1,
                         }).format(change * 100)}%`}

@@ -1,7 +1,8 @@
 "use client";
+import {itNumberFormat} from "@/lib/format/it-number";
 type Point={org:string;year:number;intensityDeviation:number;costDeviation:number|null};
 const palette=['#2a78d6','#eb6834','#1baf7a','#eda100'];
-const percent=(v:number)=>new Intl.NumberFormat('it-IT',{style:'percent',maximumFractionDigits:2}).format(v);
+const percent=(v:number)=>itNumberFormat({style:'percent',maximumFractionDigits:2}).format(v);
 export function PrivateDeviationPlot({rows,label}:{rows:Point[];label:(org:string)=>string}){
  const points=rows.filter((r):r is Point & {costDeviation:number}=>r.costDeviation!==null);
  if(!points.length)return <p>Scostamenti non disponibili: riferimento senza costo medio positivo.</p>;

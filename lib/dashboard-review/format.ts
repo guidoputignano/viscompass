@@ -1,13 +1,13 @@
-// useGrouping is pinned on every formatter below. Italian sets
-// minimumGroupingDigits = 2, so under the default "auto" a four-digit number
-// keeps its separator on one ICU version and drops it on another ("8.744 €" vs
-// "8744 €"). Server and browser then disagree and React reports a hydration
-// mismatch. Pinning it makes the output identical everywhere.
-const eurFormatter = new Intl.NumberFormat("it-IT", {
+import {itNumberFormat} from "@/lib/format/it-number";
+// Every formatter here goes through itNumberFormat, which pins useGrouping.
+// The reasoning lives in lib/format/it-number.ts; in short, Italian
+// minimumGroupingDigits = 2 makes four-digit grouping ICU-dependent, so an
+// unpinned formatter renders differently on the server and in the browser and
+// React reports a hydration mismatch.
+const eurFormatter = itNumberFormat({
   style: "currency",
   currency: "EUR",
   maximumFractionDigits: 0,
-  useGrouping: true,
 });
 
 export function formatEur(value: number): string {
@@ -15,20 +15,18 @@ export function formatEur(value: number): string {
 }
 
 export function formatEurPrecise(value: number, decimals = 2): string {
-  return new Intl.NumberFormat("it-IT", {
+  return itNumberFormat({
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-    useGrouping: true,
   }).format(value);
 }
 
 export function formatPercent(value: number): string {
-  return new Intl.NumberFormat("it-IT", {
+  return itNumberFormat({
     style: "percent",
     maximumFractionDigits: 1,
-    useGrouping: true,
   }).format(value);
 }
 
@@ -37,9 +35,8 @@ export function formatDate(value: string): string {
 }
 
 export function formatNumber(value: number, decimals = 1): string {
-  return new Intl.NumberFormat("it-IT", {
+  return itNumberFormat({
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-    useGrouping: true,
   }).format(value);
 }

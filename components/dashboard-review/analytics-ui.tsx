@@ -14,6 +14,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {itNumberFormat} from "@/lib/format/it-number";
 
 export function PageHeader({
   eyebrow,
@@ -134,7 +135,7 @@ export function Delta({ value, suffix = " vs periodo precedente" }: { value: num
   return (
     <span className={cn("inline-flex items-center gap-1", value >= 0 ? "text-rose-700" : "text-emerald-700")}>
       <UpOrDown size={13} />
-      {new Intl.NumberFormat("it-IT", { style: "percent", maximumFractionDigits: 1 }).format(Math.abs(value))}
+      {itNumberFormat({ style: "percent", maximumFractionDigits: 1 }).format(Math.abs(value))}
       {suffix}
     </span>
   );

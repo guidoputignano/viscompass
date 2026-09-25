@@ -1,8 +1,9 @@
 "use client";
 import {ResponsiveContainer,LineChart,Line,CartesianGrid,XAxis,YAxis,Tooltip} from 'recharts';
+import {itNumberFormat, itNumber} from "@/lib/format/it-number";
 
 type Point={year:number;ordinary_days:number;day_accesses:number};
-const number=(v:number)=>new Intl.NumberFormat('it-IT').format(v);
+const number=(v:number)=>itNumberFormat().format(v);
 export function PillarAActivityChart({data,field,title}:{data:Point[];field:'ordinary_days'|'day_accesses';title:string}){
   const ordered=[...data].sort((a,b)=>a.year-b.year);
   const values=ordered.map(r=>r[field]);
@@ -23,7 +24,7 @@ export function PillarAActivityChart({data,field,title}:{data:Point[];field:'ord
     </div>
     <table className="mt-4 w-full text-xs tabular-nums"><thead><tr className="text-muted-foreground"><th className="py-2 text-left">Anno</th><th className="text-right">Valore</th><th className="text-right">Δ anno precedente</th></tr></thead><tbody>{ordered.map((r,i)=>{
       const previous=ordered[i-1];const change=previous&&previous.year===r.year-1&&previous[field]!==0?(r[field]/previous[field]-1)*100:null;
-      return <tr key={r.year} className="border-t"><td className="py-2">{r.year}</td><td className="text-right font-medium">{number(r[field])}</td><td className="text-right">{change===null?'—':`${change>=0?'+':''}${change.toLocaleString('it-IT',{minimumFractionDigits:1,maximumFractionDigits:1})}%`}</td></tr>;
+      return <tr key={r.year} className="border-t"><td className="py-2">{r.year}</td><td className="text-right font-medium">{number(r[field])}</td><td className="text-right">{change===null?'—':`${change>=0?'+':''}${itNumber(change, {minimumFractionDigits:1,maximumFractionDigits:1})}%`}</td></tr>;
     })}</tbody></table>
   </div>;
 }

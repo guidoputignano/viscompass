@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { assignAbcBands } from "@/lib/analytics/abc-bands";
 import { ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts";
+import {itNumberFormat} from "@/lib/format/it-number";
 
 // One territory-and-channel slice, served by /api/pillar-a/atc4. The compiled
 // table is not delivered whole: the server releases only the slice on screen.
@@ -20,7 +21,7 @@ const OTHER_FILL="#94a3b8";
 // Theme tokens, not fixed light values: the tooltip was white-on-navy text
 // floating over a dark page in dark mode.
 const tipStyle={borderRadius:12,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",color:"hsl(var(--card-foreground))",boxShadow:"0 12px 30px rgba(0,0,0,.18)"};
-const nf=(v:number,d=0)=>new Intl.NumberFormat("it-IT",{maximumFractionDigits:d}).format(v);
+const nf=(v:number,d=0)=>itNumberFormat({maximumFractionDigits:d}).format(v);
 const compact=(v:number)=>new Intl.NumberFormat("it-IT",{notation:"compact",maximumFractionDigits:1}).format(v);
 const labelOf=(data:Atc4,code:string)=>data.codes.find(c=>c.code===code)?.label??"";
 

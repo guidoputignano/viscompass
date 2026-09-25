@@ -5,10 +5,11 @@ import {privatePillarAnalysis,type PrivateFact} from '@/lib/analytics/private-pi
 import {privateComparisons} from '@/lib/analytics/private-pillar-comparison';
 import {benchmarkWaterfall} from '@/lib/analytics/benchmark-waterfall';
 import {PrivateDeviationPlot} from '@/components/private-deviation-plot';
+import {itNumberFormat} from "@/lib/format/it-number";
 const colors=['#2a78d6','#eb6834','#1baf7a','#eda100'];
-const n=(v:number)=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(v);
+const n=(v:number)=>itNumberFormat({maximumFractionDigits:0}).format(v);
 const money=(v:number)=>`€ ${n(v)}`;
-const precise=(v:number)=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:6}).format(v);
+const precise=(v:number)=>itNumberFormat({maximumFractionDigits:6}).format(v);
 const panel='rounded-xl border bg-card p-5 space-y-4';
 export function PrivatePillarCharts({facts,regional,orgNames={}}:{facts:PrivateFact[];regional:boolean;orgNames?:Record<string,string>}){
  const orgs=[...new Set(facts.map(r=>r.org_code))].sort();

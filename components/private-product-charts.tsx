@@ -2,8 +2,9 @@
 import {useState} from 'react';
 import {ResponsiveContainer,BarChart,Bar,LineChart,Line,CartesianGrid,XAxis,YAxis,Tooltip} from 'recharts';
 import type {ProductAbcRow,Atc5Series} from '@/lib/analytics/private-pillar-product';
+import {itNumberFormat} from "@/lib/format/it-number";
 
-const n=(v:number)=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:2}).format(v);
+const n=(v:number)=>itNumberFormat({maximumFractionDigits:2}).format(v);
 export function PrivateProductCharts({abc,series,names}:{abc:ProductAbcRow[];series:Atc5Series[];names:Record<string,string>}){
  const orgs=[...new Set(abc.map(r=>r.org_code))].sort();
  const [org,setOrg]=useState(orgs[0]);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import {itNumberFormat} from "@/lib/format/it-number";
 
 type Candidate = {atc5:string; ingredient_or_reference_names:string; aware:string; aware_status:string};
 const awareLabel=(r:Candidate)=>r.aware||(r.aware_status==='not_applicable'?'Non applicabile':r.aware_status==='ambiguous_or_non_aware_reference'?'Da disambiguare':'Non trovato nel riferimento');
@@ -13,7 +14,7 @@ const RESIDUAL=["Da disambiguare","Non trovato nel riferimento","Non applicabile
 // Theme tokens, not fixed light values: the tooltip was white-on-navy text
 // floating over a dark page in dark mode.
 const tipStyle={borderRadius:12,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",color:"hsl(var(--card-foreground))",boxShadow:"0 12px 30px rgba(0,0,0,.18)"};
-const share=(v:number,total:number)=>total>0?`${new Intl.NumberFormat("it-IT",{maximumFractionDigits:1}).format(100*v/total)}%`:"";
+const share=(v:number,total:number)=>total>0?`${itNumberFormat({maximumFractionDigits:1}).format(100*v/total)}%`:"";
 
 export function PillarAReference({candidates}:{candidates:Candidate[]}) {
   const [category,setCategory]=useState("");

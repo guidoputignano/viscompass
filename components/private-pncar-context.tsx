@@ -1,6 +1,7 @@
 "use client";
 import {ResponsiveContainer,LineChart,Line,CartesianGrid,XAxis,YAxis,Tooltip,Legend} from 'recharts';
 import {privatePillarAnalysis,type PrivateFact} from '@/lib/analytics/private-pillar-a';
+import {itNumberFormat} from "@/lib/format/it-number";
 
 // Per-Azienda hospital antibiotic intensity, on the denominator the workbook
 // actually supplies.
@@ -47,8 +48,8 @@ import {privatePillarAnalysis,type PrivateFact} from '@/lib/analytics/private-pi
 // year we happen to hold, which would answer a different question under the
 // plan's name.
 const colors=['#2a78d6','#eb6834','#1baf7a','#eda100'];
-const n1=(v:number|null)=>v===null?'N/D':new Intl.NumberFormat('it-IT',{maximumFractionDigits:1}).format(v);
-const pct=(v:number|null)=>v===null?'N/D':new Intl.NumberFormat('it-IT',{style:'percent',maximumFractionDigits:1,signDisplay:'exceptZero'}).format(v);
+const n1=(v:number|null)=>v===null?'N/D':itNumberFormat({maximumFractionDigits:1}).format(v);
+const pct=(v:number|null)=>v===null?'N/D':itNumberFormat({style:'percent',maximumFractionDigits:1,signDisplay:'exceptZero'}).format(v);
 const colorFor=(org:string)=>colors[[...org].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7)%colors.length];
 const PNCAR_BASELINE_YEAR=2022;
 

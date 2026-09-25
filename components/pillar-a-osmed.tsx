@@ -2,8 +2,9 @@
 
 import { useEffect,useState } from "react";
 import { territorialPosition } from "@/lib/analytics/pillar-a-osmed-rank";
+import {itNumberFormat} from "@/lib/format/it-number";
 type Evidence={edition:number;rows:{region:string;rates:Record<string,number>}[]};
-const number=(n:number)=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:2}).format(n);
+const number=(n:number)=>itNumberFormat({maximumFractionDigits:2}).format(n);
 
 export function PillarAOsmed({region,name}:{region:string;name:string}) {
   const [data,setData]=useState<Evidence|null>(null);

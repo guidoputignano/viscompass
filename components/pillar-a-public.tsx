@@ -7,6 +7,7 @@ import { PillarAAtc4 } from "@/components/pillar-a-atc4";
 import { PillarAFlowVisuals } from "@/components/pillar-a-flow-visuals";
 import { PillarAOsmed } from "@/components/pillar-a-osmed";
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts";
+import {itNumberFormat} from "@/lib/format/it-number";
 
 type Annual = {year:number;region:string;group:string;channel:string;spend:number|null;packs:number|null;spendYoy:number|null;population:number|null;perResident:number|null;missingSpendCells:number;missingPackCells:number;months:number};
 type Data = {version:string;regions:Record<string,string>;annual:Annual[];monthly:{year:number;month:number;region:string;group:string;channel:string;spend:number|null;packs:number|null}[];activity:{year:number;region:string;ordinary_days:number;day_accesses:number}[];candidates:{atc5:string;group:string;ingredient_or_reference_names:string;aware:string;aware_status:string;public_parent_years:string}[]};
@@ -22,7 +23,7 @@ const PROVINCES:Record<string,string>={"041":"Prov. aut. di Bolzano","042":"Prov
 const territoryLabel=(code:string,name:string)=>PROVINCES[code]?`${PROVINCES[code]} · Trentino-Alto Adige`:name;
 const RANK_MEASURES:Record<string,string>={spend:"Spesa riportata (€)",packs:"Confezioni riportate",perResident:"Spesa per residente (€)"};
 const RANK_ORDER:Record<string,string>={desc:"Dal più alto al più basso",asc:"Dal più basso al più alto"};
-const fmt=(v:number|null|undefined,d=0)=>v==null?"N/D":new Intl.NumberFormat("it-IT",{maximumFractionDigits:d}).format(v);
+const fmt=(v:number|null|undefined,d=0)=>v==null?"N/D":itNumberFormat({maximumFractionDigits:d}).format(v);
 const compact=(v:number)=>new Intl.NumberFormat("it-IT",{notation:"compact",maximumFractionDigits:1}).format(v);
 const pct=(v:number|null|undefined)=>v==null?"N/D":`${v>=0?"+":""}${fmt(v*100,1)}%`;
 // Theme tokens, not fixed light values: the tooltip was white-on-navy text

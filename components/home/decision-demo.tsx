@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, CircleDollarSign, Gauge, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {itNumberFormat} from "@/lib/format/it-number";
 
 const YEARS = [
   {
@@ -39,7 +40,7 @@ const X = [44, 160, 276];
 const y = (value: number) => 122 - (value - 82) * 2.05;
 
 function formatMillion(value: number) {
-  return new Intl.NumberFormat("it-IT", {
+  return itNumberFormat({
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 2,

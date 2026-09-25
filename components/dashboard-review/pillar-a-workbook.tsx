@@ -6,8 +6,9 @@ import {privatePillarAnalysis,PRIVATE_RELEASE,type PrivateFact} from '@/lib/anal
 import {PRIVATE_PILLAR_A_ACTIVE,UNDEFINED_TABLE} from '@/lib/analytics/private-pillar-activation';
 import {orgDisplayMap} from '@/lib/analytics/org-pseudonym';
 import {reconcileCostBases} from '@/lib/analytics/cost-basis-reconciliation';
+import {itNumberFormat} from "@/lib/format/it-number";
 
-const n=(v:number|null,d=2)=>v===null?'N/D':new Intl.NumberFormat('it-IT',{maximumFractionDigits:d}).format(v);
+const n=(v:number|null,d=2)=>v===null?'N/D':itNumberFormat({maximumFractionDigits:d}).format(v);
 const pct=(v:number|null)=>v===null?'N/D':`${n(v*100,1)}%`;
 const table='w-full text-sm [&_th]:p-3 [&_th]:text-left [&_td]:p-3 [&_tr]:border-b';
 // Shown instead of figures when a validation guard rejects the data.

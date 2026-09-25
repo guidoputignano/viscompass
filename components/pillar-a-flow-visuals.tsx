@@ -1,8 +1,9 @@
 "use client";
 import {useState} from 'react';
 import {expenditureBridge,spendingComposition,type PublicAnnual} from '@/lib/analytics/pillar-a-visuals';
+import {itNumberFormat} from "@/lib/format/it-number";
 
-const euro=(v:number)=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+const euro=(v:number)=>itNumberFormat({style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
 const short=(v:number)=>new Intl.NumberFormat('it-IT',{notation:'compact',maximumFractionDigits:1}).format(v);
 const colors=['#13998f','#617b91'];
 
