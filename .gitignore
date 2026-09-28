@@ -45,10 +45,21 @@ next-env.d.ts
 /data/derived/pillar_a/public_activity_proxy_components.csv
 
 # Source workbooks and audit intermediates contain non-public hospital data.
+#
+# This repository is PUBLIC. These entries ignore whole trees deliberately.
+# Naming individual subdirectories — as /outputs/pillar-a-closure/ and
+# /outputs/pillar-a-update/ previously did — leaves the next pillar's output
+# unprotected until somebody remembers to add it, which is a race between a
+# new analysis directory and a reviewer noticing. Ignore the tree instead and
+# add an explicit negation for anything that genuinely has to be published.
 /data/raw/
 /private-staging/
-/outputs/pillar-a-closure/
-/outputs/pillar-a-update/
+/outputs/
+/vis/
+/work/
+
+# NOTE: ignoring a path here does NOT untrack a file that is already committed,
+# and does nothing about what is already in the history.
 
 # Local Python audit caches
 __pycache__/
