@@ -2,6 +2,8 @@ import type {PrivateScope} from '@/lib/analytics/private-scope';
 import {PrivateProductCharts} from '@/components/private-product-charts';
 import {productAbc,atc5Series,reconcileProductsToAggregate,type PrivateProductFact} from '@/lib/analytics/private-pillar-product';
 import {PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
+import {resolveAttention} from '@/lib/analytics/operational-attention';
+import attentionReferences from '@/data/derived/operational-attention.json';
 
 // Called only after the workbook has resolved the caller's scope. The client
 // and the organization list both come from that scope, never from a second
@@ -34,5 +36,6 @@ export async function PillarAProducts({aggregate,names,scope}:{aggregate:Private
   Dettaglio prodotti sospeso: {mixed?'le righe provengono da versioni sorgente diverse':'il grano prodotto non si riconcilia con gli aggregati'}.
   Nessuna cifra di prodotto viene mostrata finché il controllo non passa.{detail&&<> Motivo tecnico: <span className="font-mono text-[12px]">{detail}</span>.</>}
  </p>;
- return <PrivateProductCharts abc={productAbc(facts)} series={atc5Series(facts)} names={names}/>;
+ const abc=productAbc(facts);
+ return <PrivateProductCharts abc={abc} series={atc5Series(facts)} names={names} attention={resolveAttention(abc,attentionReferences)} attentionSources={attentionReferences.sources}/>;
 }
