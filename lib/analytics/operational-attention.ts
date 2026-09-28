@@ -44,6 +44,46 @@ export function resolveAttention(products: readonly Pick<ProductAbcRow, 'aic'|'a
  });
 }
 
+/**
+ * The products behind one cell, split by what the source says about them.
+ *
+ * Two groups, never one: a positive result is something to act on, an
+ * undetermined one is a match nobody has resolved yet. Merging them would let
+ * the second read as the first, which is the whole thing this view avoids.
+ *
+ * not_listed is deliberately excluded — there is nothing to do about a product
+ * the source gives a clean negative for, and in band C that is hundreds of rows.
+ * A product with no evidence entry at all counts as unknown, never as negative.
+ * Sorted by spend so the largest unresolved product is first.
+ */
+export function cellProducts<T extends {aic:string;band:string;cf:number}>(
+ rows: readonly T[], evidence: readonly ProductAttention[], band: string, key: AttentionKey,
+): {listed: T[]; unknown: T[]} {
+ const lookup=new Map(evidence.map(e=>[e.aic,e]));
+ const inCell=rows.filter(r=>r.band===band);
+ const pick=(want:'listed'|'unknown')=>inCell
+  .filter(r=>(lookup.get(r.aic)?.signals[key].status??'unknown')===want)
+  .sort((a,b)=>b.cf-a.cf);
+ return {listed:pick('listed'),unknown:pick('unknown')};
+}
+
+/**
+ * What to say when a cell opens with nothing to act on.
+ *
+ * One sentence cannot serve four columns, because they do not share a status
+ * vocabulary: registry never emits not_listed, shortage never emits unknown.
+ * Saying "tutti negativi" would be false for registry and, for shortage, would
+ * turn "absent from the acquired list" into a supply outcome the list does not
+ * give -- which is the exact thing this view refuses to do elsewhere.
+ */
+export function emptyCellMessage(signal:AttentionKey,bandHasProducts:boolean){
+ if(!bandHasProducts) return 'Nessun prodotto in questa banda per il perimetro selezionato.';
+ if(signal==='shortage') return 'Nessun prodotto di questa banda compare nell’elenco carenze acquisito. L’assenza dall’elenco non certifica la disponibilità locale.';
+ if(signal==='h') return 'Tutti i prodotti di questa banda risultano nella lista A della fonte acquisita.';
+ if(signal==='pht') return 'Per tutti i prodotti di questa banda il file locale riporta il flag N.';
+ return 'Nessun prodotto da esaminare in questa cella.';
+}
+
 /** Each column is independent. Overlapping signals are never added together. */
 export function attentionMatrix(rows: readonly ProductAbcRow[], evidence: readonly ProductAttention[]) {
  if(new Set(rows.map(r=>`${r.org_code}|${r.year}`)).size>1) throw Error('Select one organization and year');
