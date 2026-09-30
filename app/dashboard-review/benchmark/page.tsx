@@ -10,6 +10,10 @@ import {
 import { getBenchmarkData } from "@/lib/dashboard-review/queries";
 import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 
+// The whole column shares one basis (see commonPenetrationBasis): a mg share and
+// a packs share in the same column would not be comparable, nor would their median.
+const BENCH_BASIS = { mg: "mg", packs: "confezioni", spend: "spesa" } as const;
+
 export default async function BenchmarkPage() {
   const data = await getBenchmarkData();
   const largest = data.rows[0];
@@ -41,7 +45,7 @@ export default async function BenchmarkPage() {
         <KpiCard accent label="Territori osservati" value={formatNumber(data.rows.length, 0)} detail={`${data.peer_count} unità nel confronto autorizzato`} icon={Building2} />
         <KpiCard label="Spesa mediana" value={data.median_spend_eur === null ? "—" : formatEur(data.median_spend_eur)} detail="Valore centrale, non target" icon={ChartSpline} />
         <KpiCard label="Costo/confezione mediano" value={data.median_cost_per_pack_eur === null ? "—" : formatEurPrecise(data.median_cost_per_pack_eur)} detail="Indicatore descrittivo di mix" icon={PackageSearch} />
-        <KpiCard label="Penetrazione bio mediana" value={data.median_biosimilar_penetration === null ? "—" : formatPercent(data.median_biosimilar_penetration)} detail="Base migliore disponibile per ciascuna ASL" icon={Scale} />
+        <KpiCard label="Penetrazione bio mediana" value={data.median_biosimilar_penetration === null ? "—" : formatPercent(data.median_biosimilar_penetration)} detail={data.biosimilar_penetration_basis === null ? "Base non disponibile" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}, uguale per tutte le ASL`} icon={Scale} />
       </div>
 
       {!data.benchmark_available && data.rows.length === 0 ? (
@@ -56,7 +60,7 @@ export default async function BenchmarkPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-sm">
               <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-                <th className="px-5 py-3 font-semibold">ASL</th><th className="px-5 py-3 font-semibold">Indice</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Costo/conf.</th><th className="px-5 py-3 text-right font-semibold">Biosim.</th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th>
+                <th className="px-5 py-3 font-semibold">ASL</th><th className="px-5 py-3 font-semibold">Indice</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Costo/conf.</th><th className="px-5 py-3 text-right font-semibold">Biosim.<span className="block font-normal normal-case tracking-normal">{data.biosimilar_penetration_basis === null ? "n/d" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}`}</span></th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th>
               </tr></thead>
               <tbody>
                 {data.rows.map((row) => (

@@ -9,7 +9,7 @@ export function SpendDashboardView({ dashboard }: { dashboard: SpendDashboardDat
     <div className="flex flex-col gap-7">
       <PageHeader
         eyebrow="Quadro esecutivo"
-        title="Spesa e opportunità, in sintesi."
+        title="Spesa e margine teorico, in sintesi."
         description="Variazioni, priorità e qualità del dato in un’unica vista."
         period={dashboard.latest_year ? `Periodo ${dashboard.latest_year}` : "Periodo non disponibile"}
         scope={dashboard.geography_count > 0 ? `${dashboard.geography_count} ambiti autorizzati` : "Perimetro RLS"}

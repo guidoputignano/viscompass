@@ -17,6 +17,14 @@ import {reportedRoundingBounds} from '@/lib/analytics/cost-basis-reconciliation'
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getSyntheticAntibioticStewardship } from "@/lib/dashboard-review/antibiotic-demo";
+import { classifyTherapeuticArea, combineTherapeuticAreas } from "@/lib/dashboard-review/therapeutic-area";
+import {
+  buildBiosimilarRows as buildBiosimilarRowsImpl,
+  commonPenetrationBasis,
+  normalizationCoverage,
+  penetration as biosimilarPenetration,
+  penetrationOn,
+} from "./biosimilar";
 import type {
   AntibioticConsumptionFact,
   AntibioticIndicatorSet,
@@ -126,49 +134,8 @@ function isUnresolved(fact: CanonicalFact): boolean {
   );
 }
 
-function normalizationCoverage(facts: CanonicalFact[]): number | null {
-  const eligible = facts.filter((fact) => (fact.total_cost_eur ?? 0) > 0);
-  if (eligible.length === 0) return null;
-  const normalized = eligible.filter(
-    (fact) => fact.cost_per_mg !== null || fact.cost_per_ddd !== null,
-  );
-  return normalized.length / eligible.length;
-}
 
-function normalizedVolumeMg(facts: CanonicalFact[]): number {
-  return facts.reduce((sum, fact) => {
-    if ((fact.total_content_mg ?? 0) <= 0 || (fact.quantity_packs ?? 0) <= 0) return sum;
-    return sum + fact.total_content_mg! * fact.quantity_packs!;
-  }, 0);
-}
 
-function biosimilarPenetration(facts: CanonicalFact[]): {
-  value: number | null;
-  basis: "mg" | "packs" | "spend" | null;
-} {
-  const relevant = facts.filter(
-    (fact) => fact.biosimilar_flag !== null || fact.originator_flag === true,
-  );
-  if (relevant.length === 0) return { value: null, basis: null };
-
-  const totalMg = normalizedVolumeMg(relevant);
-  const bioMg = normalizedVolumeMg(relevant.filter((fact) => fact.biosimilar_flag === true));
-  if (totalMg > 0) return { value: bioMg / totalMg, basis: "mg" };
-
-  const totalPacks = relevant.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
-  const bioPacks = relevant
-    .filter((fact) => fact.biosimilar_flag === true)
-    .reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
-  if (totalPacks > 0) return { value: bioPacks / totalPacks, basis: "packs" };
-
-  const totalSpend = relevant.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-  const bioSpend = relevant
-    .filter((fact) => fact.biosimilar_flag === true)
-    .reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-  return totalSpend > 0
-    ? { value: bioSpend / totalSpend, basis: "spend" }
-    : { value: null, basis: null };
-}
 
 // Cross-Azienda comparison basis. See docs/M6_DECISION.md: within a perimeter
 // purchases can be procured centrally by one Azienda while dispensing is
@@ -329,6 +296,14 @@ export async function getSpendFlows(): Promise<SpendFlowData> {
   return spendFlowsFromFacts(await selectCanonicalFacts());
 }
 
+// Every caller of buildBiosimilarRows classifies areas the same way. Defining it
+// once stops the three call sites drifting apart — they already did once, which is
+// how two of them ended up calling a function that no longer existed.
+const BIOSIMILAR_BUILD_OPTIONS = {
+  classifyArea: (fact: CanonicalFact) =>
+    classifyTherapeuticArea(fact.atc5, fact.atc4, fact.atc3, fact.atc2, fact.atc1),
+};
+
 export async function getSpendDashboardData(): Promise<SpendDashboardData> {
   const [facts, uploads, objectives] = await Promise.all([
     selectCanonicalFacts(),
@@ -427,10 +402,13 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     .map((f) => Date.parse(f.created_at))
     .filter((value) => Number.isFinite(value));
 
-  const currentBio = buildBiosimilarRows(currentFacts, latestYear);
+  // The WHOLE fact set, not currentFacts: first local dispensing has to be read
+  // across every year, or a biosimilar first dispensed in an earlier year looks
+  // new in this one and the substitutable window opens far too late.
+  const currentBio = buildBiosimilarRowsImpl(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS);
   const overallPenetration = biosimilarPenetration(currentFacts);
-  const biosimilarOpportunity = currentBio.reduce(
-    (sum, row) => sum + row.potential_savings_eur,
+  const biosimilarHeadroom = currentBio.reduce(
+    (sum, row) => sum + row.substitution_headroom_eur,
     0,
   );
 
@@ -449,20 +427,24 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     group.push(fact);
     currentMoleculeFacts.set(fact.active_substance, group);
   }
-  const opportunityByMolecule = new Map(
-    currentBio.map((row) => [row.active_substance, row.potential_savings_eur]),
+  const headroomByMolecule = new Map(
+    currentBio.map((row) => [row.active_substance, row.substitution_headroom_eur]),
   );
   const topMolecules: MoleculeSignal[] = Array.from(currentMoleculeFacts.entries())
     .map(([activeSubstance, group]) => {
       const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
       const previousSpend = previousMoleculeSpend.get(activeSubstance) ?? 0;
+      const atcCode = group.find((fact) => fact.atc5)?.atc5 ?? group[0]?.atc4 ?? null;
+      const therapeuticArea = classifyTherapeuticArea(atcCode);
       return {
         active_substance: activeSubstance,
-        atc_code: group.find((fact) => fact.atc5)?.atc5 ?? group[0]?.atc4 ?? null,
+        atc_code: atcCode,
+        therapeutic_area: therapeuticArea.label,
+        therapeutic_area_status: therapeuticArea.status,
         spend_eur: spend,
         spend_yoy: ratio(spend, previousSpend),
         biosimilar_penetration: biosimilarPenetration(group).value,
-        opportunity_eur: opportunityByMolecule.get(activeSubstance) ?? 0,
+        headroom_eur: headroomByMolecule.get(activeSubstance) ?? 0,
       };
     })
     .sort((a, b) => b.spend_eur - a.spend_eur)
@@ -504,98 +486,22 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     packs_yoy: ratio(totalPacks, previousPacks),
     biosimilar_penetration: overallPenetration.value,
     biosimilar_penetration_basis: overallPenetration.basis,
-    biosimilar_opportunity_eur: biosimilarOpportunity,
+    biosimilar_headroom_eur: biosimilarHeadroom,
     active_review_count: reviewSignals.length,
     review_items: reviewSignals.slice(0, 6),
     top_molecules: topMolecules,
   };
 }
 
-function costPerMg(facts: CanonicalFact[]): number | null {
-  const volume = normalizedVolumeMg(facts);
-  const spend = facts.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-  if (volume > 0 && spend > 0) return spend / volume;
-
-  const rows = facts.filter((fact) => (fact.cost_per_mg ?? 0) > 0);
-  const weight = rows.reduce((sum, fact) => sum + Math.max(fact.quantity_packs ?? 1, 1), 0);
-  if (weight === 0) return null;
-  return rows.reduce(
-    (sum, fact) => sum + fact.cost_per_mg! * Math.max(fact.quantity_packs ?? 1, 1),
-    0,
-  ) / weight;
-}
-
-function buildBiosimilarRows(
-  facts: CanonicalFact[],
-  latestYear: number | null,
-): BiosimilarComparisonRow[] {
-  if (latestYear === null) return [];
-
-  const byMolecule = new Map<string, CanonicalFact[]>();
-  for (const f of facts) {
-    if (!f.active_substance) continue;
-    const list = byMolecule.get(f.active_substance) ?? [];
-    list.push(f);
-    byMolecule.set(f.active_substance, list);
-  }
-
-  const out: BiosimilarComparisonRow[] = [];
-  for (const [activeSubstance, group] of byMolecule) {
-    const orig = group.filter((f) => f.originator_flag === true || f.biosimilar_flag === false);
-    const bio = group.filter((f) => f.biosimilar_flag);
-
-    if (bio.length === 0) continue;
-
-    const origSpend = orig.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
-    const bioSpend = bio.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
-    const origCostPerMg = costPerMg(orig);
-    const bioCostPerMg = costPerMg(bio);
-
-    const totalSpend = origSpend + bioSpend;
-    const originatorShare = totalSpend > 0 ? origSpend / totalSpend : 0;
-    const penetration = biosimilarPenetration(group);
-    const coverage = normalizationCoverage(group);
-    const totalVolume = normalizedVolumeMg(group);
-
-    const potentialSavings =
-      origCostPerMg !== null && bioCostPerMg !== null && origCostPerMg > bioCostPerMg
-        ? origSpend * (1 - bioCostPerMg / origCostPerMg)
-        : 0;
-
-    out.push({
-      active_substance: activeSubstance,
-      atc4: group[0]?.atc4 ?? null,
-      originator_cost_per_mg: origCostPerMg,
-      biosimilar_cost_per_mg: bioCostPerMg,
-      originator_spend_eur: origSpend,
-      biosimilar_spend_eur: bioSpend,
-      originator_share: originatorShare,
-      potential_savings_eur: potentialSavings,
-      biosimilar_penetration: penetration.value,
-      penetration_basis: penetration.basis ?? "spend",
-      normalized_volume_mg: totalVolume > 0 ? totalVolume : null,
-      normalization_coverage: coverage,
-      evidence_status:
-        origCostPerMg !== null && bioCostPerMg !== null
-          ? coverage !== null && coverage >= 0.8
-            ? "ready"
-            : "partial"
-          : "unresolved",
-      latest_year: latestYear,
-    });
-  }
-
-  return out.sort((a, b) => b.potential_savings_eur - a.potential_savings_eur);
-}
 
 export async function getBiosimilarComparison(): Promise<BiosimilarComparisonRow[]> {
   const facts = await selectCanonicalFacts();
   const years = facts.map((fact) => fact.year).filter(Number.isFinite);
   const latestYear = years.length > 0 ? Math.max(...years) : null;
-  return buildBiosimilarRows(
-    latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear),
-    latestYear,
-  );
+  // The whole fact set goes in and `latestYear` selects what is reported. The
+  // previous version pre-filtered to the latest year before calling, which hid
+  // every earlier year's first biosimilar dispensing from the window test.
+  return buildBiosimilarRowsImpl(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS);
 }
 
 function compactEur(value: number): string {
@@ -621,16 +527,16 @@ function buildReviewSignals({
   objectives: Objective[];
 }): ReviewSignal[] {
   const signals: ReviewSignal[] = biosimilarRows
-    .filter((row) => row.potential_savings_eur > 0)
+    .filter((row) => row.substitution_headroom_eur > 0)
     .slice(0, 5)
     .map((row) => ({
       id: `bio-${row.active_substance}`,
       kind: "biosimilar" as const,
       title: row.active_substance,
       context: `Confronto originator/biosimilare su base ${row.penetration_basis}.`,
-      value_label: `${compactEur(row.potential_savings_eur)} opportunità`,
+      value_label: `${compactEur(row.substitution_headroom_eur)} margine (limite superiore)`,
       href: "/dashboard-review/biosimilar-to-euros",
-      severity: row.potential_savings_eur >= 100000 ? "high" as const : "medium" as const,
+      severity: row.substitution_headroom_eur >= 100000 ? "high" as const : "medium" as const,
     }));
 
   if (unresolvedRecordCount > 0) {
@@ -723,6 +629,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
       latest_year: latestYear,
       rows: [],
       peer_count: 0,
+      biosimilar_penetration_basis: null,
       median_spend_eur: null,
       median_cost_per_pack_eur: null,
       median_biosimilar_penetration: null,
@@ -779,6 +686,10 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
     previousSpend.set(code, (previousSpend.get(code) ?? 0) + (comparableSpendEur(fact) ?? 0));
   }
 
+  // One basis for the WHOLE cohort. Letting each ASL pick its own would set a
+  // mg-based percentage beside a packs-based one in the same column, and median
+  // them together, as though they were the same measure.
+  const cohortBasis = commonPenetrationBasis(Array.from(byOrg.values()));
   const baseRows = Array.from(byOrg.entries()).map(([code, group]) => {
     const spend = group.reduce((sum, fact) => sum + (comparableSpendEur(fact) ?? 0), 0);
     const packs = group.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
@@ -789,7 +700,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
       packs,
       spend_yoy: ratio(spend, previousSpend.get(code) ?? 0),
       cost_per_pack_eur: packs > 0 ? spend / packs : null,
-      biosimilar_penetration: biosimilarPenetration(group).value,
+      biosimilar_penetration: cohortBasis === null ? null : penetrationOn(group, cohortBasis),
       normalization_coverage: normalizationCoverage(group),
       is_current_org: org.org_code === code,
     };
@@ -811,6 +722,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
     median_cost_per_pack_eur: median(
       rows.map((row) => row.cost_per_pack_eur).filter((value): value is number => value !== null),
     ),
+    biosimilar_penetration_basis: cohortBasis,
     median_biosimilar_penetration: median(
       rows
         .map((row) => row.biosimilar_penetration)
@@ -936,6 +848,9 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
       const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
       const packs = group.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
       const nextFilters = filterKey ? { ...filters, [filterKey]: key } : filters;
+      const therapeuticArea = combineTherapeuticAreas(
+        group.map((fact) => classifyTherapeuticArea(fact.atc5, fact.atc4, fact.atc3, fact.atc2, fact.atc1)),
+      );
       return {
         key,
         code: key === UNCLASSIFIED ? "—" : key,
@@ -948,6 +863,8 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
         biosimilar_penetration: biosimilarPenetration(group).value,
         normalization_coverage: normalizationCoverage(group),
         record_count: group.length,
+        therapeutic_area: therapeuticArea.label,
+        therapeutic_area_status: therapeuticArea.status,
       };
     })
     .sort((a, b) => b.spend_eur - a.spend_eur);
@@ -1030,7 +947,8 @@ export async function getReviewWorkspaceData(): Promise<ReviewWorkspaceData> {
   const latestYear = years.length > 0 ? Math.max(...years) : null;
   const current = latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear);
   const signals = buildReviewSignals({
-    biosimilarRows: buildBiosimilarRows(current, latestYear),
+    // `facts`, not `current`, for the same reason as in getSpendDashboardData.
+    biosimilarRows: buildBiosimilarRowsImpl(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS),
     unresolvedRecordCount: current.filter(isUnresolved).length,
     currentRecordCount: current.length,
     uploads,
