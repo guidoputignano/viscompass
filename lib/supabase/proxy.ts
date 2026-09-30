@@ -2,6 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 
+// Session cookies last at most seven days. The Supabase default of 400 days keeps
+// a stolen session usable long after the user believes it ended.
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+
 export async function updateSession(request: NextRequest) {
   // The approved public observatory: the page and the three read routes that
   // serve the aggregate it renders. The compiled files are no longer under
@@ -52,7 +56,19 @@ export async function updateSession(request: NextRequest) {
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
+            // Harden whatever the client asks for rather than trusting it. The
+            // session cookie was being written with no Secure attribute and a
+            // 400-day lifetime: without Secure a single plaintext request leaks
+            // the session, and a year-long window keeps a stolen one usable long
+            // after the user believes they are gone. Secure is skipped only on
+            // localhost, where there is no TLS to require.
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              httpOnly: options?.httpOnly ?? true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: options?.sameSite ?? "lax",
+              maxAge: Math.min(options?.maxAge ?? SESSION_MAX_AGE_SECONDS, SESSION_MAX_AGE_SECONDS),
+            }),
           );
         },
       },

@@ -64,9 +64,15 @@ const PAGE_SIZE = 1000;
 // refetching the same tenant-scoped dataset.
 const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
   const supabase = await createClient();
+  // ORDER BY is not cosmetic here. PostgreSQL gives no row order without it, so
+  // OFFSET/LIMIT paging over an unordered relation can return the same row on two
+  // pages and omit another entirely — a total that silently disagrees with the
+  // source, which is the one thing this whole project exists to prevent. `id` is
+  // the primary key, so the ordering is total and stable.
   const first = await supabase
     .from("canonical_fact")
     .select("*", { count: "exact" })
+    .order("id", { ascending: true })
     .range(0, PAGE_SIZE - 1);
   const { data, error, count } = first;
   if (error) throw new Error(`canonical_fact query failed: ${error.message}`);
@@ -83,6 +89,7 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
         supabase
           .from("canonical_fact")
           .select("*")
+          .order("id", { ascending: true })
           .range(offset, Math.min(offset + PAGE_SIZE - 1, total - 1)),
       ),
     );
@@ -90,6 +97,17 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
       if (page.error) throw new Error(`canonical_fact query failed: ${page.error.message}`);
       facts.push(...((page.data ?? []) as CanonicalFact[]));
     }
+  }
+
+  // The pages are fetched concurrently against a live table. If rows were inserted
+  // or deleted mid-read the assembled set will not match the count, and a total
+  // built from it would be wrong in a way nothing downstream could detect.
+  const unique = new Set(facts.map((fact) => fact.id));
+  if (unique.size !== facts.length) {
+    throw new Error(
+      `canonical_fact paging returned ${facts.length - unique.size} duplicate row(s); ` +
+        "totals would not reconcile to the source",
+    );
   }
 
   return facts;
