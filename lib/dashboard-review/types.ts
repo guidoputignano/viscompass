@@ -390,6 +390,8 @@ export interface AntibioticAnnualRow extends AntibioticIndicatorSet {
   population: number;
   costYoy: number | null;
   dddYoy: number | null;
+  costRoundingBound?: number;
+  dddRoundingBound?: number;
 }
 
 export interface AntibioticUnitRow extends AntibioticIndicatorSet {

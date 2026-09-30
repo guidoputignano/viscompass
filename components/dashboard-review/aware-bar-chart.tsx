@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TrendLineChart } from "@/components/dashboard-review/trend-line-chart";
 import type { AwareYearRow } from "@/lib/dashboard-review/types";
+import { costPerSuppliedDdd } from "@/lib/analytics/aware-metrics";
 
 
 // WHO's AWaRe classification has an internationally recognized
@@ -17,7 +18,7 @@ const RESERVE_COLOR = "hsl(12 58% 42%)";
 const UNCLASSIFIED_COLOR = "hsl(204 15% 55%)";
 
 export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
-  const [metric, setMetric] = useState<"cost" | "ddd">("cost");
+  const [metric, setMetric] = useState<"cost" | "ddd" | "costPerDdd">("costPerDdd");
   if (data.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
@@ -28,17 +29,18 @@ export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
 
   const chartData = data.map((row) => ({
     year: row.year,
-    access: metric === "cost" ? row.access : row.accessDdd,
-    watch: metric === "cost" ? row.watch : row.watchDdd,
-    reserve: metric === "cost" ? row.reserve : row.reserveDdd,
-    unclassified: metric === "cost" ? row.unclassified : row.unclassifiedDdd,
+    access: metric === "costPerDdd" ? costPerSuppliedDdd(row.access, row.accessDdd) : metric === "cost" ? row.access : row.accessDdd,
+    watch: metric === "costPerDdd" ? costPerSuppliedDdd(row.watch, row.watchDdd) : metric === "cost" ? row.watch : row.watchDdd,
+    reserve: metric === "costPerDdd" ? costPerSuppliedDdd(row.reserve, row.reserveDdd) : metric === "cost" ? row.reserve : row.reserveDdd,
+    // A residual from rounded totals is not a real fourth drug category.
+    unclassified: metric === "costPerDdd" ? null : metric === "cost" ? row.unclassified : row.unclassifiedDdd,
   }));
 
   return (
     <div>
       <div className="mb-3 flex justify-end">
         <div className="flex rounded-lg bg-secondary p-1" aria-label="Metrica del grafico AWaRe">
-          {(["cost", "ddd"] as const).map((option) => (
+          {(["cost", "ddd", "costPerDdd"] as const).map((option) => (
             <button
               key={option}
               type="button"
@@ -46,11 +48,12 @@ export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
               className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition ${metric === option ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
               aria-pressed={metric === option}
             >
-              {option === "cost" ? "Spesa" : "DDD"}
+              {option === "cost" ? "Spesa (€)" : option === "ddd" ? "DDD" : "Spesa / DDD (€)"}
             </button>
           ))}
         </div>
       </div>
+      <p className="mb-3 text-xs text-muted-foreground">{metric === "costPerDdd" ? "Costo medio per DDD di ciascuna categoria. Include il mix dei prodotti; non è il prezzo della singola molecola. DDD assenti o nulle: N/D." : metric === "cost" ? "Spesa totale per categoria, in euro." : "DDD totali fornite dalla fonte, per categoria."}</p>
       <TrendLineChart
         points={chartData.map((row) => ({
           label: String(row.year),
@@ -64,10 +67,10 @@ export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
           { key: "watch", name: "Watch", color: WATCH_COLOR },
           { key: "reserve", name: "Reserve", color: RESERVE_COLOR },
           { key: "unclassified", name: "Non classificato", color: UNCLASSIFIED_COLOR },
-        ]}
-        format={metric === "cost" ? "eur" : "number"}
+        ].filter(s => metric !== "costPerDdd" || s.key !== "unclassified")}
+        format={metric === "costPerDdd" ? "eurPrecise" : metric === "cost" ? "eur" : "number"}
         height={300}
-        ariaLabel={`Andamento per categoria AWaRe, ${metric === "cost" ? "spesa" : "DDD"}`}
+        ariaLabel={`Andamento per categoria AWaRe, ${metric === "costPerDdd" ? "euro per DDD" : metric === "cost" ? "spesa in euro" : "DDD"}`}
       />
     </div>
   );

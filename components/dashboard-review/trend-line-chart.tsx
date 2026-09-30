@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatEur, formatNumber } from "@/lib/dashboard-review/format";
+import { formatEur, formatEurPrecise, formatNumber } from "@/lib/dashboard-review/format";
 import {itNumberFormat} from "@/lib/format/it-number";
 
 // A value measured over time is read as a trajectory, not as a set of
@@ -64,7 +64,7 @@ function fittedDomain(values: number[]): [number, number] {
 // The format is named rather than passed as a function: a server component
 // cannot hand a function to a client component, and this chart is used from
 // both sides.
-export type TrendValueFormat = "eur" | "number";
+export type TrendValueFormat = "eur" | "eurPrecise" | "number";
 
 export function TrendLineChart({
   points,
@@ -84,9 +84,9 @@ export function TrendLineChart({
   tableLabel?: string;
 }) {
   const formatValue = (value: number) =>
-    format === "eur" ? formatEur(value) : formatNumber(value, 0);
+    format === "eurPrecise" ? formatEurPrecise(value) : format === "eur" ? formatEur(value) : formatNumber(value, 0);
   const formatTick = (value: number) =>
-    format === "eur" ? compactEur.format(value) : compactNumber.format(value);
+    format === "eurPrecise" ? formatEurPrecise(value) : format === "eur" ? compactEur.format(value) : compactNumber.format(value);
   const values = numericValues(points, series);
   if (points.length === 0 || values.length === 0) {
     return (

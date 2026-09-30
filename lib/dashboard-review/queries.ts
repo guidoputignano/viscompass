@@ -13,6 +13,7 @@
 
 import { cache } from "react";
 import { indicatorsFromTotals, type CategoryTotals } from "@/lib/analytics/antibiotic-indicators";
+import {reportedRoundingBounds} from '@/lib/analytics/cost-basis-reconciliation';
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getSyntheticAntibioticStewardship } from "@/lib/dashboard-review/antibiotic-demo";
@@ -1165,6 +1166,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
         dddCount: totals.ddd,
         bedDays: totals.bedDays,
         population: totals.population,
+        ...reportedRoundingBounds(summaryRows.filter(r => r.year === year && r.aware_category === 'T')),
         ...indicatorsFromTotals(totals, year)!,
         costYoy: previous?.cost ? totals.cost / previous.cost - 1 : null,
         dddYoy: previous?.ddd ? totals.ddd / previous.ddd - 1 : null,

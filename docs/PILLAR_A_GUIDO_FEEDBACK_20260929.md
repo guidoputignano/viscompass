@@ -1,0 +1,17 @@
+# Pillar A: Guido's 29 September feedback
+
+Source: the seven comments and adjacent screenshots in the Google document shared on 29 September 2026. This note records implementation decisions, not approval to change source data or clinical definitions.
+
+| Comment | Resolution | Guardrail |
+| --- | --- | --- |
+| Many N/D cards | Lead with available spend, supplied DDD and their ratio; unavailable activity/population indicators are in an expandable explanation. | N/D never becomes zero. A3/T1 workbook activity is not substituted into the legacy overview or equated to SDO/OSMED. |
+| Separate spend and DDD | AWaRe chart offers spend, DDD and each category's spend/DDD. | Ratio divides matching category totals; it is not a medicine price or an average of ratios. Zero/missing DDD yields N/D. |
+| Too much text | Empty unit chart cards do not render. Supporting tables, definitions and methodology are expandable. | Basis differences and data provenance remain accessible. |
+| Bolzano/Trento reminder | Territorial ranking can show 20 regions by combining both autonomous provinces; original 21 AIFA territories remain selectable. | Combine same-year spend, packs and population by sums. Per-resident spend is recomputed as sum(spend)/sum(population). No average of rates and no imputation of a missing province. Time-series selector still follows AIFA geography. |
+| What is reconciliation for? | The panel states it checks whether overview and workbook report the same CMR cost and DDD, with statuses exact, source-rounding-compatible, discrepancy and unavailable. | Rounding bounds apply only to the fingerprinted legacy import that explicitly records whole-unit rounding. CF and CMR remain distinct bases; their difference is not a savings estimate. |
+| What do the axes/A3 mean? | The XY chart labels X as intensity relative to the same-year perimeter and Y as CF/DDD relative to it; tooltips name both, period comes from data, with compact quadrant cues. | A3/T1 is the source workbook activity definition, not SDO or OSMED/PNCAR. No clinical-quality judgment from a quadrant. |
+| What does the intensity trajectory mean? | The chart explains positive/negative deviations and displays the selected year's values and year-on-year change in percentage points. | The benchmark is re-computed by year and includes the viewed Azienda; change in deviation alone is not change in quality or resistance. |
+
+Evidence for reconciliation: `private-staging/import.sql` (local ignored import) names SHA-256 `ab8e41220cb063695fab87598baf56c5fc7487de2c19d26329204de8b385ed2c` and says cost and DDD were supplied rounded to whole units. The independently inspected source `Allegato 2 - Dati_Analisi.xlsm` reports CO1 total CMR €7,782,129.66, €7,334,223.28 and €6,725,944.75 for 2023–2025, while four integer ASL rows were loaded to the overview. The bound is at most 0.5 per ASL per measure, plus the original 0.01 comparison allowance. Every other source retains the strict 0.01 check.
+
+Verification: six focused tests pass for ratio guards, source-backed regional sums and missing provinces, and source-specific rounding classification. The full suite passed (190 passed, 2 existing skips) before the sixth focused regression was added; TypeScript and the Next.js production build pass. The local production page visibly renders both the 20-region and 21-territory ranking modes. Private-page visual QA in a production-authenticated session and a live deployment check remain separate.
