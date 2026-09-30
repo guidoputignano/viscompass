@@ -52,6 +52,10 @@ export function BiosimilarToEurosView({ rows }: { rows: BiosimilarComparisonRow[
   );
   const weightedOriginatorShare = combinedSpend > 0 ? originatorSpend / combinedSpend : null;
   const headroomBaseShare = originatorSpend > 0 ? headroomBase / originatorSpend : null;
+  // Share of the total headroom sitting on the single largest molecule — an actual
+  // concentration measure, which is what the frame's second slot is labelled.
+  const concentration =
+    totalHeadroom > 0 && top ? top.substitution_headroom_eur / totalHeadroom : null;
 
   return (
     <div className="flex flex-col gap-7">
@@ -78,9 +82,18 @@ export function BiosimilarToEurosView({ rows }: { rows: BiosimilarComparisonRow[
         </p>
       </div>
 
+      {/*
+        The frame's own labels are Variazione / Concentrazione / Materialità.
+        A molecule name is not a variation and a penetration share is not a
+        concentration, so each slot now carries what its label claims.
+      */}
       <DecisionFrame
-        changed={top ? `${top.active_substance} guida il segnale` : "Nessun confronto"}
-        variance={top?.biosimilar_penetration !== null && top ? `${formatPercent(top.biosimilar_penetration!)} · ${BASIS[top.penetration_basis]}` : "Penetrazione da calcolare"}
+        changed={top && top.penetration_locally_substitutable !== null && top.biosimilar_penetration !== null
+          ? `Uptake ${formatPercent(top.biosimilar_penetration)} anno · ${formatPercent(top.penetration_locally_substitutable)} in finestra`
+          : "Penetrazione da calcolare"}
+        variance={concentration === null
+          ? "Concentrazione da calcolare"
+          : `${formatPercent(concentration)} del margine su ${top ? top.active_substance : "una molecola"}`}
         materiality={totalHeadroom > 0 ? `Margine ≤ ${formatEur(totalHeadroom)}` : "€/mg da completare"}
         nextEvidence={top ? `Verifica ${top.active_substance}` : "Completa il mapping AIC"}
       />
@@ -123,16 +136,17 @@ export function BiosimilarToEurosView({ rows }: { rows: BiosimilarComparisonRow[
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px] text-sm">
             <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-              <th className="px-5 py-3 font-semibold">Molecola e area</th><th className="px-5 py-3 font-semibold">Evidenza</th><th className="px-5 py-3 text-right font-semibold">Penetrazione<span className="block font-normal normal-case tracking-normal">anno · mesi sostituibili</span></th><th className="px-5 py-3 text-right font-semibold">Originator €/mg</th><th className="px-5 py-3 text-right font-semibold">Biosimilare €/mg</th><th className="px-5 py-3 text-right font-semibold">Spesa originator<span className="block font-normal normal-case tracking-normal">sostituibile · misurabile</span></th><th className="px-5 py-3 text-right font-semibold">Margine (max)</th><th className="px-5 py-3 font-semibold" />
+              <th className="sticky left-0 z-10 bg-card px-5 py-3 font-semibold">Molecola e area</th><th className="px-5 py-3 text-right font-semibold">Margine (max)</th><th className="px-5 py-3 font-semibold">Evidenza</th><th className="px-5 py-3 text-right font-semibold">Penetrazione<span className="block font-normal normal-case tracking-normal">anno · mesi sostituibili</span></th><th className="px-5 py-3 text-right font-semibold">Originator €/mg</th><th className="px-5 py-3 text-right font-semibold">Biosimilare €/mg</th><th className="px-5 py-3 text-right font-semibold">Spesa originator<span className="block font-normal normal-case tracking-normal">sostituibile · misurabile</span></th><th className="px-5 py-3 font-semibold" />
             </tr></thead>
             <tbody>
               {displayRows.map((row) => (
-                <tr key={row.active_substance} className="border-b border-border last:border-0 hover:bg-secondary/25">
-                  <td className="px-5 py-4">
+                <tr key={row.active_substance} className="group border-b border-border last:border-0 hover:bg-secondary/25">
+                  <td className="sticky left-0 z-10 bg-card px-5 py-4 transition-colors group-hover:bg-secondary/25">
                     <p className="font-semibold">{row.active_substance}</p>
                     <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{row.atc4 ?? "ATC non disponibile"}</p>
                     <p className="mt-1 text-[10px] text-foreground/70">{row.therapeutic_area}{row.therapeutic_area_status === "review_required" ? " · verifica" : ""}</p>
                   </td>
+                  <td className="px-5 py-4 text-right font-mono text-xs font-semibold text-primary">{row.substitution_headroom_eur > 0 ? `≤ ${formatEur(row.substitution_headroom_eur)}` : "—"}</td>
                   <td className="px-5 py-4"><StatusPill tone={row.evidence_status === "ready" ? "positive" : row.evidence_status === "partial" ? "warning" : "danger"}>{row.evidence_status === "ready" ? "Pronta" : row.evidence_status === "partial" ? "Parziale" : "Irrisolta"}</StatusPill><p className="mt-1 text-[10px] text-muted-foreground">Righe normalizzate {row.normalization_coverage === null ? "—" : formatPercent(row.normalization_coverage)}</p></td>
                   <td className="px-5 py-4 text-right">
                     <p className="font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}<span className="ml-1 font-sans text-[10px] font-normal text-muted-foreground">{BASIS[row.penetration_basis]}</span></p>
@@ -145,7 +159,6 @@ export function BiosimilarToEurosView({ rows }: { rows: BiosimilarComparisonRow[
                     <p className="mt-0.5 font-mono text-[11px] text-foreground/70">{formatEur(row.substitutable_originator_spend_eur)}</p>
                     <p className="mt-0.5 font-mono text-[11px] text-foreground/70">{formatEur(row.headroom_base_eur)}{row.comparable_share === null ? "" : ` · ${formatPercent(row.comparable_share)}`}</p>
                   </td>
-                  <td className="px-5 py-4 text-right font-mono text-xs font-semibold text-primary">{row.substitution_headroom_eur > 0 ? `≤ ${formatEur(row.substitution_headroom_eur)}` : "—"}</td>
                   <td className="px-5 py-4"><Link href={isTemplate ? "/dashboard-review/dati" : `/dashboard-review/ricerca?molecule=${encodeURIComponent(row.active_substance)}`} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">{isTemplate ? "Sostituisci" : "Dettaglio"} <ArrowRight size={12} /></Link></td>
                 </tr>
               ))}

@@ -420,8 +420,29 @@ test("no measurable differential yields no headroom and says so", () => {
   assert.equal(eps.originator_cost_per_mg, null);
   assert.equal(eps.substitution_headroom_eur, 0);
   assert.equal(eps.headroom_base_eur, 0);
-  assert.equal(eps.evidence_status, "partial");
+  assert.equal(eps.evidence_status, "unresolved");
   assert.match(eps.headroom_basis, /no measurable differential/);
+});
+
+test("all three evidence states are reachable and mean different things", () => {
+  // The previous form was `measurable ? "ready" : bio.length ? "partial" : "unresolved"`.
+  // A molecule with no biosimilar is skipped before that line, so "unresolved"
+  // could never be produced while the UI still rendered a state for it — and
+  // "ready" had stopped implying anything about normalisation coverage.
+  assert.equal(byName("ALFAMAB").evidence_status, "ready");
+  assert.equal(byName("EPSILONMAB").evidence_status, "unresolved");
+
+  // measurable, but most spending rows carry no normalised per-unit cost
+  const thin = [
+    bio({ active_substance: "THINMAB", month: 1, quantity_packs: 10, total_content_mg: 100, total_cost_eur: 400, cost_per_mg: 0.4 }),
+    orig({ active_substance: "THINMAB", month: 2, quantity_packs: 10, total_content_mg: 100, total_cost_eur: 1_000, cost_per_mg: 1 }),
+    orig({ active_substance: "THINMAB", month: 3, quantity_packs: 10, total_content_mg: 100, total_cost_eur: 1_000, cost_per_mg: null, cost_per_ddd: null }),
+    orig({ active_substance: "THINMAB", month: 4, quantity_packs: 10, total_content_mg: 100, total_cost_eur: 1_000, cost_per_mg: null, cost_per_ddd: null }),
+  ];
+  const [row] = buildBiosimilarRows(thin, 2025, OPTIONS);
+  assert.ok(row.normalization_coverage < 0.8);
+  assert.ok(row.substitution_headroom_eur > 0, "the differential is still measurable");
+  assert.equal(row.evidence_status, "partial");
 });
 
 test("every row declares itself an upper bound", () => {

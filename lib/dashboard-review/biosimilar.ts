@@ -338,6 +338,7 @@ export function buildBiosimilarRows(
         ? headroomBase * (1 - bioCostPerMg! / origCostPerMg!)
         : 0;
 
+    const coverage = normalizationCoverage(group);
     const penAll = penetration(group);
     const penSubs = penetration([...subsOrig, ...subsBio]);
     const area = options.classifyArea(group[0]);
@@ -369,8 +370,17 @@ export function buildBiosimilarRows(
       penetration_locally_substitutable_basis: penSubs.basis,
       comparable_share: origCeiling > 0 ? headroomBase / origCeiling : null,
       normalized_volume_mg: normalizedVolumeMg(group) > 0 ? normalizedVolumeMg(group) : null,
-      normalization_coverage: normalizationCoverage(group),
-      evidence_status: measurable ? "ready" : bio.length > 0 ? "partial" : "unresolved",
+      normalization_coverage: coverage,
+      // All three arms must be reachable and mean something. The previous version
+      // read `measurable ? "ready" : bio.length > 0 ? "partial" : "unresolved"`,
+      // but a molecule with no biosimilar has already been skipped above, so
+      // "unresolved" could never be produced while the UI still rendered a state
+      // for it — and "ready" had stopped implying anything about coverage.
+      evidence_status: !measurable
+        ? "unresolved"
+        : (coverage ?? 0) >= 0.8
+          ? "ready"
+          : "partial",
       latest_year: latestYear,
     });
   }

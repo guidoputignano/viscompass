@@ -435,7 +435,9 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
       const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
       const previousSpend = previousMoleculeSpend.get(activeSubstance) ?? 0;
       const atcCode = group.find((fact) => fact.atc5)?.atc5 ?? group[0]?.atc4 ?? null;
-      const therapeuticArea = classifyTherapeuticArea(atcCode);
+      // Classified from the SAME inputs as BIOSIMILAR_BUILD_OPTIONS above, not from
+      // the loose display code: two areas for one molecule on one page is a bug.
+      const therapeuticArea = BIOSIMILAR_BUILD_OPTIONS.classifyArea(group[0]);
       return {
         active_substance: activeSubstance,
         atc_code: atcCode,
@@ -843,6 +845,10 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     previousSpend.set(key, (previousSpend.get(key) ?? 0) + (fact.total_cost_eur ?? 0));
   }
   const filterKey = filterOrder.find(([candidate]) => candidate === level)?.[1];
+  // Siblings at one level share a basis, for the same reason the benchmark cohort
+  // does: a parent shown on mg beside children shown on packs makes the figure
+  // appear to jump on drill-in when only the denominator changed.
+  const levelBasis = commonPenetrationBasis(Array.from(currentGroups.values()));
   const nodes: ExplorerNode[] = Array.from(currentGroups.entries())
     .map(([key, group]) => {
       const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
@@ -860,7 +866,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
         spend_share: totalSpend > 0 ? spend / totalSpend : 0,
         packs,
         spend_yoy: ratio(spend, previousSpend.get(key) ?? 0),
-        biosimilar_penetration: biosimilarPenetration(group).value,
+        biosimilar_penetration: levelBasis === null ? null : penetrationOn(group, levelBasis),
         normalization_coverage: normalizationCoverage(group),
         record_count: group.length,
         therapeutic_area: therapeuticArea.label,
