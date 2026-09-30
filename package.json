@@ -7,7 +7,8 @@
     "lint": "eslint .",
     "test": "node --import ./tests/_register-alias.mjs --test",
     "test:pillar-a": "node --import ./tests/_register-alias.mjs --test",
-    "build:activity-proxy": "node scripts/build_pillar_a_activity_proxy.mjs"
+    "build:activity-proxy": "node scripts/build_pillar_a_activity_proxy.mjs",
+    "test:biosimilar": "node --import ./tests/_register-alias.mjs --test tests/dashboard-biosimilar.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",
@@ -20,7 +21,7 @@
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
     "lucide-react": "^0.511.0",
-    "next": "latest",
+    "next": "16.3.4",
     "next-themes": "^0.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -34,7 +35,7 @@
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
     "eslint": "^9",
-    "eslint-config-next": "15.3.1",
+    "eslint-config-next": "16.3.4",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
