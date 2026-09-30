@@ -28,3 +28,29 @@ export function reconcileCostBases(
       status: !valid ? 'not_comparable' : exact ? 'matched' : roundingCompatible ? 'reported_rounding' : 'discrepancy'};
   });
 }
+
+// The overview and workbook can have different authorized organization scopes
+// (notably a reviewer whose overview is one ASL but whose workbook covers all
+// four). Compare only identical organization/year sets; otherwise a perfectly
+// valid scope difference becomes a false financial discrepancy.
+export function reconcileCostBasesByScope(
+  privateTotals: {org_code:string;year:number;aware_category:string;cf:number;cmr:number;ddd:number}[],
+  summary: ReportedSummary[],
+  summaryOrgCodesByYear: Record<number,string[]> | undefined,
+) {
+  const compared: ReturnType<typeof reconcileCostBases> = [];
+  const skippedYears: number[] = [];
+  for (const reported of summary) {
+    const codes = summaryOrgCodesByYear?.[reported.year];
+    const wanted = new Set(codes);
+    const matched = privateTotals.filter(r => r.year === reported.year && r.aware_category === 'T' && wanted.has(r.org_code));
+    if (!codes?.length || wanted.size !== codes.length || matched.length !== wanted.size ||
+        new Set(matched.map(r => r.org_code)).size !== wanted.size) {
+      skippedYears.push(reported.year);
+      continue;
+    }
+    const sum = (field:'cf'|'cmr'|'ddd') => matched.reduce((total,row) => total + row[field],0);
+    compared.push(...reconcileCostBases([{year:reported.year,cf:sum('cf'),cmr:sum('cmr'),ddd:sum('ddd')}],[reported]));
+  }
+  return {compared,skippedYears};
+}

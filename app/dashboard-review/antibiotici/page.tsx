@@ -181,7 +181,7 @@ export default async function AntibioticiPage() {
       {/* Pillar A is the same J01 analysis for the same organization, so it lives
           here rather than as a second module. Renders nothing until private
           activation is approved. */}
-      <PillarAWorkbookSection summary={data.mode === 'real' ? data.annual : undefined} />
+      <PillarAWorkbookSection summary={data.mode === 'real' ? data.annual : undefined} summaryOrgCodesByYear={data.summaryOrgCodesByYear} />
     </div>
   );
 }

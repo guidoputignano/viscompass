@@ -5,7 +5,7 @@ import {PrivatePncarContext} from '@/components/private-pncar-context';
 import {privatePillarAnalysis,PRIVATE_RELEASE,type PrivateFact} from '@/lib/analytics/private-pillar-a';
 import {PRIVATE_PILLAR_A_ACTIVE,UNDEFINED_TABLE} from '@/lib/analytics/private-pillar-activation';
 import {orgDisplayMap} from '@/lib/analytics/org-pseudonym';
-import {reconcileCostBases,type ReportedSummary} from '@/lib/analytics/cost-basis-reconciliation';
+import {reconcileCostBasesByScope,type ReportedSummary} from '@/lib/analytics/cost-basis-reconciliation';
 import {itNumberFormat} from "@/lib/format/it-number";
 
 const n=(v:number|null,d=2)=>v===null?'N/D':itNumberFormat({maximumFractionDigits:d}).format(v);
@@ -37,7 +37,7 @@ function AnalysisSuspended({detail,scope}:{detail:string;scope:string}){
 }
 // Rendered inside /dashboard-review/antibiotici. Returns null until private
 // activation is approved, so the host page is unchanged in the meantime.
-export async function PillarAWorkbookSection({summary}:{summary?:ReportedSummary[]}={}){
+export async function PillarAWorkbookSection({summary,summaryOrgCodesByYear}:{summary?:ReportedSummary[];summaryOrgCodesByYear?:Record<number,string[]>}={}){
  // Activation is a recorded approval held in one constant. While it is false
  // the section renders nothing rather than querying a relation that may not
  // exist and surfacing an error boundary to every approved user.
@@ -64,11 +64,11 @@ export async function PillarAWorkbookSection({summary}:{summary?:ReportedSummary
  // component below re-runs privatePillarAnalysis on the same facts, so if it
  // rejects them once it rejects them everywhere, client-side included.
  let rows:ReturnType<typeof privatePillarAnalysis>;
- let reconciliation:ReturnType<typeof reconcileCostBases>;
+ let reconciliation:ReturnType<typeof reconcileCostBasesByScope>;
  const perimeter=scope.allOrganizations?'tutte le Aziende del rilascio':scope.regional?'il perimetro autorizzato':'la tua Azienda';
  try{
   rows=privatePillarAnalysis(data as PrivateFact[]);
-  reconciliation=summary?reconcileCostBases(rows,summary):[];
+  reconciliation=summary?reconcileCostBasesByScope(data as PrivateFact[],summary,summaryOrgCodesByYear):{compared:[],skippedYears:[]};
  }catch(e){
   return <AnalysisSuspended detail={reason(e)} scope={perimeter}/>;
  }
@@ -77,7 +77,7 @@ export async function PillarAWorkbookSection({summary}:{summary?:ReportedSummary
  return <section className="space-y-6 border-t pt-8">
   {scope.reviewerScopeUnavailable&&<p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">Accesso revisore riconosciuto, ma la lettura estesa non è disponibile in questo ambiente: i dati mostrati restano limitati al perimetro della tua organizzazione. Non interpretare questa sezione come l’intero rilascio.</p>}
   <div><h2 className="font-display text-xl font-semibold">Workbook verificato · Pillar A</h2><p className="mt-2 text-sm text-muted-foreground">Antibiotici J01 · fonti {rows[0].year}–{latest.year} · spesa CF, costo CMR e DDD mantenuti distinti. Le variazioni e i rapporti di spesa in questa sezione usano CF, non il costo normalizzato del riepilogo sopra.</p></div>
-  {reconciliation.length>0&&<details className="rounded-xl border bg-card p-5"><summary className="font-semibold">Coerenza fra riepilogo e workbook</summary><p className="my-3 text-sm text-muted-foreground">Controlla che le due viste riportino gli stessi costi CMR e DDD. Gli arrotondamenti documentati sono distinti dagli scarti da indagare. CF e CMR restano basi diverse, non risparmi.</p><div className="overflow-auto"><table className={table}><thead><tr>{['Anno','CF €','CMR €','Costo riepilogo €','Scarto vs CMR €','Scarto DDD','Esito'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{reconciliation.map(r=><tr key={r.year}><td>{r.year}</td><td>{n(r.cf)}</td><td>{n(r.cmr)}</td><td>{n(r.summaryCost)}</td><td>{n(r.cmrDelta)}</td><td>{n(r.dddDelta)}</td><td>{r.status==='not_comparable'?'Dati non confrontabili':r.status==='matched'?'Corrispondono':r.status==='reported_rounding'?'Compatibili con gli arrotondamenti della fonte':'Scarto da indagare'}</td></tr>)}</tbody></table></div></details>}
+  {(reconciliation.compared.length>0||reconciliation.skippedYears.length>0)&&<details className="rounded-xl border bg-card p-5"><summary className="font-semibold">Coerenza fra riepilogo e workbook</summary><p className="my-3 text-sm text-muted-foreground">Confronto limitato alle stesse Aziende e agli stessi anni del riepilogo, anche quando il workbook mostra un perimetro più ampio. Controlla costi CMR e DDD; gli arrotondamenti documentati sono distinti dagli scarti da indagare. CF e CMR restano basi diverse, non risparmi.</p>{reconciliation.skippedYears.length>0&&<p className="my-3 text-sm text-muted-foreground">Anni non confrontabili per perimetro organizzativo incompleto o non verificato: {reconciliation.skippedYears.join(', ')}. Nessuno scarto viene calcolato per questi anni.</p>}{reconciliation.compared.length>0&&<div className="overflow-auto"><table className={table}><thead><tr>{['Anno','CF €','CMR €','Costo riepilogo €','Scarto vs CMR €','Scarto DDD','Esito'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{reconciliation.compared.map(r=><tr key={r.year}><td>{r.year}</td><td>{n(r.cf)}</td><td>{n(r.cmr)}</td><td>{n(r.summaryCost)}</td><td>{n(r.cmrDelta)}</td><td>{n(r.dddDelta)}</td><td>{r.status==='not_comparable'?'Dati non confrontabili':r.status==='matched'?'Corrispondono':r.status==='reported_rounding'?'Compatibili con gli arrotondamenti della fonte':'Scarto da indagare'}</td></tr>)}</tbody></table></div>}</details>}
   <PrivatePillarCharts facts={data as PrivateFact[]} regional={scope.regional} orgNames={orgNames}/>
   <PillarAProducts aggregate={data as PrivateFact[]} names={orgNames} scope={scope}/>
   <PrivatePncarContext facts={data as PrivateFact[]} orgNames={orgNames}/>

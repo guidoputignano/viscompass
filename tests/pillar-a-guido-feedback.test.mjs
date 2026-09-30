@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {costPerSuppliedDdd} from '../lib/analytics/aware-metrics.ts';
 import {regionalRankingRows} from '../lib/pillar-a/regional-ranking.ts';
-import {reportedRoundingBounds,reconcileCostBases} from '../lib/analytics/cost-basis-reconciliation.ts';
+import {reportedRoundingBounds,reconcileCostBases,reconcileCostBasesByScope} from '../lib/analytics/cost-basis-reconciliation.ts';
 
 test('category euro/DDD is a ratio of corresponding totals, with missing and zero guarded',()=>{
   assert.equal(costPerSuppliedDdd(100,20),5);
@@ -63,4 +63,20 @@ test('rounding-compatible is separate from exact match, mismatch and unavailable
   assert.equal(reconcileCostBases(w,[{...s,costRoundingBound:Infinity}])[0].status,'discrepancy');
   assert.equal(reconcileCostBases(w,[])[0].status,'not_comparable');
   assert.equal(reconcileCostBases(w,[{...s,costEur:100.66,dddCount:20.29}])[0].status,'matched');
+});
+test('reconciliation uses the overview organizations, not a reviewer-wide workbook',()=>{
+  const totals=[
+    {org_code:'201',year:2025,aware_category:'T',cf:90,cmr:100.5,ddd:20.25},
+    {org_code:'202',year:2025,aware_category:'T',cf:900,cmr:1000,ddd:200},
+  ];
+  const reported={year:2025,costEur:100,dddCount:20,costRoundingBound:.5,dddRoundingBound:.5};
+  const one=reconcileCostBasesByScope(totals,[reported],{2025:['201']});
+  assert.equal(one.compared.length,1);
+  assert.equal(one.compared[0].cmr,100.5);
+  assert.equal(one.compared[0].status,'reported_rounding');
+  assert.deepEqual(one.skippedYears,[]);
+  const missing=reconcileCostBasesByScope(totals,[reported],{2025:['201','203']});
+  assert.deepEqual(missing.compared,[]);
+  assert.deepEqual(missing.skippedYears,[2025]);
+  assert.deepEqual(reconcileCostBasesByScope(totals,[reported],undefined).skippedYears,[2025]);
 });

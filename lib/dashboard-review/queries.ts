@@ -1232,6 +1232,11 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   const provisional = summaryRows.some((row) => row.period_status === "provisional");
   return {
     mode: "real",
+    summaryOrgCodesByYear: Object.fromEntries(
+      [...ownTotalsByYear.keys()].map(year => [year,
+        [...new Set(summaryRows.filter(row => row.year === year && row.aware_category === 'T').map(row => row.org_code))].sort(),
+      ]),
+    ),
     costBasis: summaryRows.every(row => row.source_note?.includes('CO1')) ? 'CO1' : 'source',
     sourceLabel: provisional
       ? "Dati reali del perimetro autorizzato · periodo provvisorio"

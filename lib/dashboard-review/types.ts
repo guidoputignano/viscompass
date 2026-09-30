@@ -406,6 +406,9 @@ export interface AntibioticUnitRow extends AntibioticIndicatorSet {
 export interface AntibioticStewardshipData {
   mode: "real" | "synthetic";
   costBasis?: 'CO1' | 'source';
+  // Organization codes contributing to each annual overview total. Server-only
+  // scope metadata for comparing that overview with the private workbook.
+  summaryOrgCodesByYear?: Record<number, string[]>;
   sourceLabel: string;
   awareByYear: AwareYearRow[];
   annual: AntibioticAnnualRow[];
