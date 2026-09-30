@@ -43,9 +43,9 @@ export default async function BenchmarkPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard accent label="Territori osservati" value={formatNumber(data.rows.length, 0)} detail={`${data.peer_count} unità nel confronto autorizzato`} icon={Building2} />
-        <KpiCard label="Spesa mediana" value={data.median_spend_eur === null ? "—" : formatEur(data.median_spend_eur)} detail="Valore centrale, non target" icon={ChartSpline} />
-        <KpiCard label="Costo/confezione mediano" value={data.median_cost_per_pack_eur === null ? "—" : formatEurPrecise(data.median_cost_per_pack_eur)} detail="Indicatore descrittivo di mix" icon={PackageSearch} />
-        <KpiCard label="Penetrazione bio mediana" value={data.median_biosimilar_penetration === null ? "—" : formatPercent(data.median_biosimilar_penetration)} detail={data.biosimilar_penetration_basis === null ? "Base non disponibile" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}, uguale per tutte le ASL`} icon={Scale} />
+        <KpiCard label="Spesa mediana" value={!data.benchmark_available || data.median_spend_eur === null ? "—" : formatEur(data.median_spend_eur)} detail={data.benchmark_available ? "Valore centrale, non target" : "Nessun confronto: un solo ente visibile"} icon={ChartSpline} />
+        <KpiCard label="Costo/confezione mediano" value={!data.benchmark_available || data.median_cost_per_pack_eur === null ? "—" : formatEurPrecise(data.median_cost_per_pack_eur)} detail={data.benchmark_available ? "Indicatore descrittivo di mix" : "Nessun confronto: un solo ente visibile"} icon={PackageSearch} />
+        <KpiCard label="Penetrazione bio mediana" value={!data.benchmark_available || data.median_biosimilar_penetration === null ? "—" : formatPercent(data.median_biosimilar_penetration)} detail={data.biosimilar_penetration_basis === null ? "Base non disponibile" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}, uguale per tutte le ASL`} icon={Scale} />
       </div>
 
       {!data.benchmark_available && data.rows.length === 0 ? (
@@ -55,7 +55,9 @@ export default async function BenchmarkPage() {
           <div className="border-b border-border p-5 md:p-6">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Distribuzione regionale</p>
             <h2 className="font-display mt-1 text-xl">Indice di spesa rispetto alla mediana</h2>
-            <p className="mt-1 text-xs text-muted-foreground">100 = mediana del perimetro visibile. La dimensione non è corretta per popolazione o complessità assistenziale.</p>
+            {data.benchmark_available
+              ? <p className="mt-1 text-xs text-muted-foreground">100 = mediana del perimetro visibile. La dimensione non è corretta per popolazione o complessità assistenziale.</p>
+              : <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-400">Nel perimetro visibile è presente un solo ente, quindi la «mediana» coincide con i suoi stessi valori e l’indice è 100 per costruzione. Non è un confronto.</p>}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-sm">
