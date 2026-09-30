@@ -19,6 +19,7 @@ export type MappingConfidence =
   | "Unresolved";
 
 export type CostBasis = "acquistato" | "erogato" | "unspecified";
+export type TherapeuticAreaStatus = "supported_by_atc" | "review_required" | "unmapped";
 
 export interface CanonicalFact {
   id: number;
@@ -80,8 +81,16 @@ export interface Objective {
 export type UploadStatus =
   | "uploaded"
   | "processing"
+  | "staged"
+  | "canonical_mapping_blocked"
   | "reconciled"
   | "discrepancy_found";
+
+export type UploadValidationStatus =
+  | "legacy_unvalidated"
+  | "pass"
+  | "warning"
+  | "reject";
 
 export interface UploadRecord {
   id: number;
@@ -92,6 +101,12 @@ export interface UploadRecord {
   period_covered_start: string | null;
   period_covered_end: string | null;
   status: UploadStatus;
+  validation_status: UploadValidationStatus;
+  validation_metadata: Record<string, unknown> | null;
+  validation_receipt_id: string | null;
+  file_sha256: string | null;
+  file_size_bytes: number | null;
+  validated_at: string | null;
   reconciliation_summary: Record<string, unknown> | null;
   uploaded_at: string;
   reconciled_at: string | null;
@@ -188,7 +203,14 @@ export interface SpendDashboardData {
   packs_yoy: number | null;
   biosimilar_penetration: number | null;
   biosimilar_penetration_basis: "mg" | "packs" | "spend" | null;
-  biosimilar_opportunity_eur: number;
+  /**
+   * Sum of every molecule's `substitution_headroom_eur`. An UPPER BOUND, not a
+   * saving — the same quantity the biosimilar page labels "limite superiore".
+   * Named `headroom`, not `opportunity`, because the old name is what let the
+   * landing page keep publishing it as recoverable money after the computation
+   * behind it had been corrected.
+   */
+  biosimilar_headroom_eur: number;
   active_review_count: number;
   review_items: ReviewSignal[];
   top_molecules: MoleculeSignal[];
@@ -197,15 +219,68 @@ export interface SpendDashboardData {
 export interface BiosimilarComparisonRow {
   active_substance: string;
   atc4: string | null;
+  therapeutic_area: string;
+  therapeutic_area_status: TherapeuticAreaStatus;
   originator_cost_per_mg: number | null;
   biosimilar_cost_per_mg: number | null;
   originator_spend_eur: number;
   biosimilar_spend_eur: number;
   originator_share: number; // 0-1, share of combined spend still on originator
-  potential_savings_eur: number;
+  /**
+   * Originator spend that could in principle move to the biosimilar, valued at the
+   * price differential, over months in which a biosimilar of this molecule was
+   * ACTUALLY dispensed here.
+   *
+   * This is an UPPER BOUND, not a saving. It assumes every unit is clinically
+   * substitutable, that the achieved biosimilar price would hold at higher volume,
+   * that no contract or stock commitment prevents the switch, and that switching
+   * carries no offsetting cost. None of those can be evaluated from this data, so
+   * no realisability discount is applied and the figure must not be presented as
+   * money recoverable. Replaces `potential_savings_eur`, which applied the
+   * differential to ALL originator spend and overstated it several-fold.
+   */
+  substitution_headroom_eur: number;
+  headroom_is_upper_bound: true;
+  headroom_basis: string;
+  /**
+   * Originator spend inside the locally-substitutable window — the FIRST of two
+   * narrowings. Reported so the funnel is visible rather than collapsed into a
+   * single number: originator spend -> window -> measurable base -> headroom.
+   */
+  substitutable_originator_spend_eur: number;
+  /**
+   * The spend the headroom is actually computed on: the part of the window whose
+   * mg are known. Always <= `substitutable_originator_spend_eur`. The differential
+   * is a rate per mg, so applying it to spend whose mg were never measured would
+   * extrapolate the rate onto unmeasured rows.
+   */
+  headroom_base_eur: number;
+  /** Biosimilar share across ALL months of the year. */
   biosimilar_penetration: number | null;
   penetration_basis: "mg" | "packs" | "spend";
+  /**
+   * Biosimilar share across locally-substitutable months only. Reported alongside
+   * the all-months figure because a single penetration number is not defensible:
+   * the two answer different questions and differ materially.
+   */
+  penetration_locally_substitutable: number | null;
+  /**
+   * The basis of the figure above, which need NOT equal `penetration_basis`: the
+   * window is a different row set, so a basis complete over all months can be
+   * incomplete over the window. null when the window holds nothing to measure.
+   */
+  penetration_locally_substitutable_basis: "mg" | "packs" | "spend" | null;
+  /**
+   * Share of this molecule's originator spend that cleared BOTH gates — the
+   * window and measurability. `headroom_base_eur / originator_spend_eur`.
+   */
+  comparable_share: number | null;
   normalized_volume_mg: number | null;
+  /**
+   * Share of this molecule's spending ROWS carrying a normalised per-unit cost.
+   * A row-count share, and NOT the verified eligible share of the ledger, which is
+   * computed upstream over the whole source and is materially lower.
+   */
   normalization_coverage: number | null;
   evidence_status: "ready" | "partial" | "unresolved";
   latest_year: number;
@@ -226,10 +301,13 @@ export interface ReviewSignal {
 export interface MoleculeSignal {
   active_substance: string;
   atc_code: string | null;
+  therapeutic_area: string;
+  therapeutic_area_status: TherapeuticAreaStatus;
   spend_eur: number;
   spend_yoy: number | null;
   biosimilar_penetration: number | null;
-  opportunity_eur: number;
+  /** This molecule's substitution headroom. An upper bound, never a saving. */
+  headroom_eur: number;
 }
 
 export interface BenchmarkRow {
@@ -248,6 +326,14 @@ export interface BenchmarkRow {
 export interface BenchmarkData {
   latest_year: number | null;
   rows: BenchmarkRow[];
+  /**
+   * The single basis every row's `biosimilar_penetration` was computed on, so the
+   * column is commensurable and the median means something. null when no basis is
+   * available at all. Chosen as the finest basis COMPLETE for every ASL in the
+   * cohort — one ASL's missing strength value moves the whole column, never just
+   * that row.
+   */
+  biosimilar_penetration_basis: "mg" | "packs" | "spend" | null;
   peer_count: number;
   median_spend_eur: number | null;
   median_cost_per_pack_eur: number | null;
@@ -285,6 +371,8 @@ export interface ExplorerNode {
   biosimilar_penetration: number | null;
   normalization_coverage: number | null;
   record_count: number;
+  therapeutic_area: string;
+  therapeutic_area_status: TherapeuticAreaStatus;
 }
 
 export interface ExplorerData {
