@@ -18,7 +18,8 @@ Expected on release `PILLAR-B-R2-20261001`:
 |---|---|
 | `logs/b22_gate2_pglite_harness.mjs` | **48 passed, 0 failed** |
 | `logs/b24_gate3_pglite_harness.mjs` | **76 passed, 0 failed** |
-| `logs/b30_gate4_legacy_scope.mjs` | **20 passed, 0 failed** |
+| `logs/b30_gate4_legacy_scope.mjs` | **34 passed, 0 failed** |
+| `logs/b31_review_page_reconciliation.mjs` | **37 passed, 0 failed** |
 
 Full instructions, prerequisites and limits: `outputs/pillar-b/VERIFY_README.md`.
 
@@ -54,7 +55,12 @@ prove the **policy text**, the loader and the read contract.
 They prove **nothing** about the production Supabase project, its configuration
 or its deployed policies. That is a separate step, and the production import is
 blocked in any case — see `outputs/pillar-b/IMPORT_BLOCKER_20261001.md`, which
-tracks the five conditions that must hold first. Three are now closed
-(release filtering, complete-year period selection, no package figure) and
-verified by `b30`; two remain open — the legacy biosimilar and uptake reads still
-compute from raw facts instead of the Gate 3 RPCs.
+tracks six conditions. **All six are now closed**, and the two checks the owner
+set as the precondition for the import both pass in `b31`: every value the review
+page plots reconciles to the frozen workbook to the cent, and ASL isolation holds
+at the grain the page reads.
+
+The import itself has **not** run. The schema step is DDL, which the only
+available production credential (a PostgREST service-role key) cannot perform,
+and no Supabase CLI or connection string is present. The exact steps, figures and
+rollback are in `outputs/pillar-b/IMPORT_RUNBOOK_R2_20261002.md`.
