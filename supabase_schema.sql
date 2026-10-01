@@ -202,7 +202,9 @@ create policy "read approved orgs' facts" on canonical_fact for select
     join organizations o on o.org_code = uo.org_code
     where uo.user_id = auth.uid() and uo.status = 'approved'
       and (
-        (o.org_type = 'asl' and o.org_code = canonical_fact.asl_code)
+        (o.org_type = 'asl'
+          and o.region_code = canonical_fact.region_code
+          and canonical_fact.asl_code in (o.org_code, o.region_code || o.org_code))
         or (o.org_type = 'regione' and o.region_code = canonical_fact.region_code)
       )
   ));
