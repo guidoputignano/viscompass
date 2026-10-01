@@ -112,6 +112,12 @@ alter table canonical_fact add constraint canonical_fact_cost_gross_status_check
 
 -- The invariant that makes the gate structural rather than advisory.
 --
+-- NOTE on comparable_unit: it is deliberately NOT required here. Comparability
+-- is membership of a comparable stratum, which reconciles exactly to the frozen
+-- bridge. Whether a normalized quantity could be parsed is a separate axis; a
+-- row can be comparable and still have no usable quantity, and uptake withholds
+-- it by name rather than by pretending it is not comparable.
+--
 -- The stratum is part of it. An earlier version required only that the row be
 -- analytical and unexcluded, which would have admitted an analytical row with a
 -- NULL comparable_stratum_id — a row marked comparable with nothing to compare
@@ -125,8 +131,6 @@ alter table canonical_fact add constraint canonical_fact_comparable_eligible_che
       source_disposition = 'analytical'
       and exclusion_reason is null
       and comparable_stratum_id is not null
-      -- a comparable row without a unit is a number that cannot be compared
-      and comparable_unit is not null
     )
   );
 

@@ -65,6 +65,7 @@ const READ_PATHS = {
   aslMapJson: "derived/blk04_line1_qc_basis.json",
   strataJson: "freeze-20260930-r3/derived/b04_strata_v3.json",
   taxonomyJson: "freeze-20260930-r3/derived/b03_reconciled_taxonomy.json",
+  comparableQuantityJson: "derived/b04_comparable_quantity.json",
 };
 
 /**
@@ -133,30 +134,29 @@ export function buildStratumIndex(strataJson) {
 }
 
 /**
- * Content per package for every (stratum, AIC), and the stratum's unit.
+ * Content per package for every (ASL, AIC, channel, year) group, from the
+ * INDEPENDENTLY PARSED presentation.
  *
- * `aic_quantity` is the frozen normalized quantity per AIC at annual stratum
- * grain. Within one AIC a pack's content is constant, so dividing by the packs
- * observed for that AIC reconstructs content-per-pack exactly rather than
- * apportioning. Verified for all 2,736 pairs covering 100% of eligible spend.
+ * An earlier version derived this as `strata aic_quantity / observed packs` and
+ * "verified" it by multiplying the quotient back by the same observed total —
+ * x/y*y == x, which cannot fail. Checked against the parser's own presentation
+ * factor (contentPerUnit * packSize) it disagreed for 764 of 2,736 pairs, often
+ * by a clean factor of 10. The circular check reported 100% success on that data.
  *
- * Requires a pass over the facts to total the packs, which is why this takes the
- * observed totals rather than computing them twice.
+ * `b04_comparable_quantity.json` carries, per group, packSize, convention,
+ * packages, units, contentPerUnit, contentUnit and the resulting content. Three
+ * identities hold against it with zero failures:
+ *   content == units * contentPerUnit          (32,838 groups)
+ *   units   == packages * packSize             (38,881 groups)
+ *   group q == packs summed from the import    (39,393 groups)
+ * and inside strata the coverage is complete: 9,440 of 9,440 groups carry
+ * content, and contentUnit always equals the stratum's unit.
+ *
+ * Content per pack is constant within a group (one AIC, one packSize), so
+ * apportioning a group's content across its months by packs is exact rather than
+ * an assumption — and identity 3 is what makes the divisor trustworthy.
  */
-export function buildQuantityIndex(strataJson, packsByStratumAic) {
-  const index = new Map();
-  for (const st of strataJson.strata) {
-    for (const [aic, declared] of Object.entries(st.aic_quantity ?? {})) {
-      const key = `${st.key}||${aic}`;
-      const packs = packsByStratumAic.get(key);
-      if (packs === undefined || packs === 0) continue;   // no divisor -> withheld
-      index.set(key, { perPack: Number(declared) / packs, unit: st.unit ?? null });
-    }
-  }
-  return index;
-}
-
-/** AIC -> {status, grade, valid_from} from the FROZEN taxonomy. */
+/** AIC -> {status, grade, validFrom, substance} from the FROZEN taxonomy. */
 export function buildPerimeterIndex(taxonomyJson) {
   const index = new Map();
   for (const r of taxonomyJson.records) {
@@ -167,8 +167,22 @@ export function buildPerimeterIndex(taxonomyJson) {
       // The substance is what makes a biosimilar comparable with its reference
       // medicine: they are different AICs, so a comparison grouped by AIC puts
       // each product alone in its own group and every uptake share collapses to
-      // 0% or 100%. Leaving this null did exactly that.
+      // 0% or 100%.
       substance: r.substance ?? null,
+    });
+  }
+  return index;
+}
+
+export function buildQuantityIndex(comparableQuantityJson) {
+  const index = new Map();
+  for (const g of comparableQuantityJson) {
+    const content = g.content;
+    const q = Number(g.q ?? 0);
+    if (content === null || content === undefined || q === 0) continue; // -> withheld
+    index.set(`${g.year}|${g.asl}|${g.aic}|${g.channel}`, {
+      perPack: Number(content) / q,
+      unit: g.contentUnit ?? null,
     });
   }
   return index;
@@ -192,7 +206,7 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) 
     ? (perimeterIndex.get(r.prodotto_key) ?? { status: "unresolved", grade: null, validFrom: null, substance: null })
     : { status: null, grade: null, validFrom: null, substance: null };
 
-  const norm = stratum === null ? undefined : quantityIndex.get(`${stratum}||${r.prodotto_key}`);
+  const norm = quantityIndex.get(groupKey);
   const cost = r.c === null || r.c === undefined ? null : Number(r.c);
   const qty = r.q === null || r.q === undefined ? null : Number(r.q);
   const month = r.mese === null || r.mese === undefined || r.mese === "" ? null : Number(r.mese);
@@ -219,7 +233,13 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) 
     perimeter.validFrom,
     stratum,
     exclusion,
-    stratum !== null && norm !== undefined, // comparable_eligible
+    // Comparability is stratum membership, which reconciles exactly to the
+    // frozen bridge. Whether a normalized quantity exists is a DIFFERENT axis:
+    // letting it redefine comparability silently moved EUR 659,535.47 out of
+    // the eligible total and broke the reconciliation, which is how it was
+    // caught. Rows in a stratum with no parsed presentation keep their
+    // eligibility and are withheld from uptake with a named reason.
+    stratum !== null,                       // comparable_eligible
     norm === undefined || qty === null ? null : qty * norm.perPack,
     norm === undefined ? null : norm.unit,
     COST_GROSS_STATUS,
@@ -251,25 +271,8 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
   const stratumIndex = buildStratumIndex(strata);
   const perimeterIndex = buildPerimeterIndex(taxonomy);
 
-  // First pass: total observed packs per (stratum, AIC). Needed before any row
-  // can be written, because content-per-pack is the frozen quantity divided by
-  // exactly these totals. Reading the file twice is cheaper than guessing.
-  const packsByStratumAic = new Map();
-  {
-    const rl = createInterface({
-      input: createReadStream(paths.factsJsonl, { encoding: "utf8" }),
-      crlfDelay: Infinity,
-    });
-    for await (const line of rl) {
-      if (!line.trim()) continue;
-      const r = JSON.parse(line);
-      const sk = stratumIndex.get(`${r.anno}|${r.asl}|${r.prodotto_key}|${r.canale}`);
-      if (sk === undefined) continue;
-      const key = `${sk}||${r.prodotto_key}`;
-      packsByStratumAic.set(key, (packsByStratumAic.get(key) ?? 0) + Number(r.q ?? 0));
-    }
-  }
-  const quantityIndex = buildQuantityIndex(strata, packsByStratumAic);
+  const comparableQuantity = JSON.parse(await readFile(paths.comparableQuantityJson, "utf8"));
+  const quantityIndex = buildQuantityIndex(comparableQuantity);
   say(`stratum index ${stratumIndex.size} groups, perimeter index ${perimeterIndex.size} AICs, `
       + `quantity index ${quantityIndex.size} (stratum,AIC) pairs`);
 
@@ -351,7 +354,15 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
               count(distinct comparable_unit)::int as units,
               count(*) filter (where comparable_eligible and comparable_quantity is null)::bigint as no_qty
          from canonical_fact where source_version_id = $1`, [RELEASE_ID]);
-    check("every comparable row carries a unit", units.no_unit, 0);
+    // Comparable rows WITHOUT a parsed quantity are expected and are reported,
+    // not asserted away: they are withheld from uptake by name. Quantifying the
+    // gap here is what keeps it from drifting unnoticed.
+    const gap = await one(
+      `select coalesce(sum(total_cost_eur),0)::numeric as eur, count(*)::bigint as n
+         from canonical_fact
+        where source_version_id = $1 and comparable_eligible and comparable_quantity is null`,
+      [RELEASE_ID]);
+    say(`comparable rows with no parsed presentation: ${gap.n} (${Number(gap.eur).toFixed(2)} EUR) -- withheld from uptake`);
     say(`comparable units in play: ${units.units}; comparable rows without a quantity: ${units.no_qty}`);
 
     // The rows that must survive the load intact.

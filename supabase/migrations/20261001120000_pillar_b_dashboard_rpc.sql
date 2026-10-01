@@ -102,31 +102,24 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------- uptake
--- Biosimilar uptake on a B04-COMPATIBLE NORMALIZED QUANTITY, within one
+-- Biosimilar uptake on a B04-compatible NORMALIZED QUANTITY, within one
 -- comparable stratum, on two denominators.
 --
--- Packages are not a quantity share. One pack of 1x40mg and one pack of 6x40mg
--- are one package each and six times apart in drug, so a package share across
--- different presentations measures the wrong thing. This aggregates
--- comparable_quantity inside a single comparable_stratum_id, which pins molecule,
--- route, form and UNIT, so every sum is in one physical unit by construction.
+-- Packages are not a quantity share: one pack of 1x40mg and one of 6x40mg are
+-- one package each and six times apart in drug. comparable_quantity comes from
+-- the independently parsed presentation and carries its unit, and grouping by
+-- comparable_stratum_id pins molecule, route, form and unit, so every sum is in
+-- one physical unit by construction.
 --
--- Rows outside a comparable stratum have no normalized quantity and are NOT
--- folded in as zero: they are counted in withheld_rows so the caller can show
--- the uptake as partial, or withhold it, rather than publish a share computed on
--- an unknown denominator.
+-- FIRST LOCAL DISPENSING IS ESTABLISHED FROM OBSERVED PACKAGES, NOT FROM
+-- NORMALIZED QUANTITY. A biosimilar dispensed in a row that is not comparable
+-- still opened the local window: the substitution WAS available that month,
+-- whatever the state of its pack parsing. Requiring a normalized quantity here
+-- made the window open late and silently shrank the second denominator toward
+-- the first. Normalized quantity is used only for the share arithmetic.
 --
--- The two denominators:
---   whole_period          every month of the window
---   window                only months at or after the first month a biosimilar of
---                         that SUBSTANCE was actually dispensed in that ASL,
---                         established across the WHOLE fact set, not the period
--- They are returned separately and must never be averaged.
---
--- The substance comes from the frozen taxonomy. There is deliberately NO
--- fallback to the AIC: a biosimilar and its reference medicine are different
--- AICs, so an AIC fallback puts each product alone in its own group and makes
--- every share 0% or 100%. Rows without a substance are withheld and counted.
+-- The window is opened across the WHOLE fact set, never within the queried
+-- period, so a biosimilar first dispensed in an earlier year does not look new.
 create or replace function public.pillar_b_uptake(
   p_year       int,
   p_from_month int default 1,
@@ -141,16 +134,14 @@ returns table (
   whole_period_total_qty        numeric,
   window_biosimilar_qty         numeric,
   window_total_qty              numeric,
-  first_local_biosimilar_key    int,
-  withheld_rows                 bigint,
-  withheld_spend_eur            numeric
+  first_local_biosimilar_key    int
 )
 language sql
 stable
 security invoker
 set search_path = public
 as $$
-  with in_scope as (
+  with usable as (
     select cf.*
       from canonical_fact cf
      where cf.source_version_id = public.pillar_b_release()
@@ -158,23 +149,13 @@ as $$
        and cf.month between p_from_month and p_to_month
        and cf.source_disposition = 'analytical'
        and cf.perimeter_status in ('biosimilar','reference_medicine')
-  ),
-  -- usable: inside a comparable stratum AND named by the taxonomy
-  usable as (
-    select * from in_scope
-     where comparable_eligible
-       and comparable_quantity is not null
-       and active_substance is not null
-  ),
-  withheld as (
-    select asl_code, active_substance,
-           count(*)::bigint n, sum(total_cost_eur) c
-      from in_scope
-     where not (comparable_eligible and comparable_quantity is not null
-                and active_substance is not null)
-     group by 1, 2
+       and cf.comparable_eligible
+       and cf.comparable_quantity is not null
+       and cf.active_substance is not null
   ),
   opened as (
+    -- observed POSITIVE PACKAGES, and deliberately NOT restricted to comparable
+    -- rows: availability is a fact about dispensing, not about pack parsing.
     select cf.asl_code, cf.active_substance,
            min(cf.year * 12 + cf.month) as first_key
       from canonical_fact cf
@@ -182,8 +163,7 @@ as $$
        and cf.source_disposition = 'analytical'
        and cf.perimeter_status = 'biosimilar'
        and cf.active_substance is not null
-       and cf.comparable_quantity is not null
-       and cf.comparable_quantity > 0
+       and cf.quantity_packs > 0
        and cf.month is not null
      group by 1, 2
   )
@@ -199,16 +179,87 @@ as $$
         and o.first_key is not null and (u.year * 12 + u.month) >= o.first_key),
     sum(u.comparable_quantity) filter (
       where o.first_key is not null and (u.year * 12 + u.month) >= o.first_key),
-    max(o.first_key),
-    coalesce(max(w.n), 0),
-    max(w.c)
+    max(o.first_key)
   from usable u
   left join opened o
     on o.asl_code = u.asl_code and o.active_substance = u.active_substance
-  left join withheld w
-    on w.asl_code = u.asl_code and w.active_substance is not distinct from u.active_substance
-  -- grouping BY the stratum is what guarantees one unit per returned row
   group by u.asl_code, u.active_substance, u.comparable_stratum_id, u.comparable_unit
+$$;
+
+-- --------------------------------------------------------- uptake, withheld
+-- Everything in scope for uptake that uptake could NOT use, as its own rows.
+--
+-- An earlier version attached a withheld count to each uptake row. That both
+-- DUPLICATED (a substance spanning two strata carried the same count twice) and
+-- DISAPPEARED (a group with no usable stratum produced no uptake row at all, so
+-- its withheld rows vanished). Neither is detectable by looking at the output.
+--
+-- Returned separately, every in-scope row appears exactly once across the two
+-- functions, so usable + withheld reconciles to the in-scope total by row count
+-- AND by euros. The reason is named so the loss can be read, not just measured.
+create or replace function public.pillar_b_uptake_withheld(
+  p_year       int,
+  p_from_month int default 1,
+  p_to_month   int default 12
+)
+returns table (
+  asl_code          text,
+  active_substance  text,
+  withheld_reason   text,
+  rows_n            bigint,
+  spend_eur         numeric,
+  packs             numeric
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select
+    cf.asl_code,
+    cf.active_substance,
+    case
+      when cf.active_substance is null         then 'substance not named by the frozen taxonomy'
+      when not cf.comparable_eligible          then 'no comparable stratum'
+      when cf.comparable_quantity is null      then 'no normalized quantity for this presentation'
+      else 'unknown'
+    end,
+    count(*)::bigint,
+    sum(cf.total_cost_eur),
+    sum(cf.quantity_packs)
+  from canonical_fact cf
+  where cf.source_version_id = public.pillar_b_release()
+    and cf.year = p_year
+    and cf.month between p_from_month and p_to_month
+    and cf.source_disposition = 'analytical'
+    and cf.perimeter_status in ('biosimilar','reference_medicine')
+    and not (cf.comparable_eligible
+             and cf.comparable_quantity is not null
+             and cf.active_substance is not null)
+  group by 1, 2, 3
+$$;
+
+-- ------------------------------------------------- uptake scope denominator
+-- The in-scope total both of the above partition. Exists so the reconciliation
+-- is a query rather than an assumption.
+create or replace function public.pillar_b_uptake_scope(
+  p_year       int,
+  p_from_month int default 1,
+  p_to_month   int default 12
+)
+returns table (rows_n bigint, spend_eur numeric, packs numeric)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select count(*)::bigint, sum(cf.total_cost_eur), sum(cf.quantity_packs)
+    from canonical_fact cf
+   where cf.source_version_id = public.pillar_b_release()
+     and cf.year = p_year
+     and cf.month between p_from_month and p_to_month
+     and cf.source_disposition = 'analytical'
+     and cf.perimeter_status in ('biosimilar','reference_medicine')
 $$;
 
 -- ---------------------------------------------------------------- funnel
@@ -315,3 +366,8 @@ comment on function public.pillar_b_uptake(int, int, int) is
   'Biosimilar uptake on two denominators (whole period, locally substitutable window). Never average them.';
 comment on function public.pillar_b_evidence_funnel(int, int, int) is
   'Source spend narrowed to comparable, with euros lost at each step.';
+
+revoke all on function public.pillar_b_uptake_withheld(int,int,int) from public, anon;
+revoke all on function public.pillar_b_uptake_scope(int,int,int) from public, anon;
+grant execute on function public.pillar_b_uptake_withheld(int,int,int) to authenticated;
+grant execute on function public.pillar_b_uptake_scope(int,int,int) to authenticated;
