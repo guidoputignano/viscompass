@@ -66,7 +66,7 @@ export default async function ExplorerPage({
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard accent label="Spesa nel nodo" value={formatEur(data.total_spend_eur)} detail="Somma del percorso selezionato" icon={ReceiptEuro} />
-        <KpiCard label="Consumo" value={formatNumber(data.total_packs, 0)} detail="Confezioni osservate" icon={PackageSearch} />
+        <KpiCard label="Consumo" value={data.total_packs === null ? "n/d" : formatNumber(data.total_packs, 0)} detail={data.total_packs === null ? "Nessun conteggio confezioni dichiarato" : "Confezioni osservate"} icon={PackageSearch} />
         <KpiCard label="Livello corrente" value={data.level_label} detail={`${activeFilterCount} filtri gerarchici attivi`} icon={Layers3} />
         <KpiCard label="Voci confrontate" value={formatNumber(data.nodes.length, 0)} detail="Ordinate per spesa decrescente" icon={Boxes} />
       </div>
@@ -91,7 +91,7 @@ export default async function ExplorerPage({
                     <td className="px-5 py-4"><p className="font-semibold">{node.label}</p><p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{node.code} · {formatNumber(node.record_count, 0)} record</p></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{formatEur(node.spend_eur)}</td>
                     <td className="px-5 py-4 text-right"><div className="ml-auto flex w-28 items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${node.spend_share * 100}%` }} /></div><span className="w-10 text-right font-mono text-[10px]">{formatPercent(node.spend_share)}</span></div></td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{formatNumber(node.packs, 0)}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{node.packs === null ? "n/d" : formatNumber(node.packs, 0)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.spend_yoy === null ? "—" : formatPercent(node.spend_yoy)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.biosimilar_penetration === null ? "—" : formatPercent(node.biosimilar_penetration)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.normalization_coverage === null ? "—" : formatPercent(node.normalization_coverage)}</td>

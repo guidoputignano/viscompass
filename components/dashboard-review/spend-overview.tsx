@@ -262,7 +262,7 @@ export function SpendOverview({ data }: { data: SpendDashboardData }) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <KpiCard accent label="Spesa" value={formatEur(displayData.total_spend_eur)} detail={<Delta value={displayData.spend_yoy} suffix={displayData.previous_year ? ` vs ${displayData.previous_year}` : undefined} />} icon={ReceiptEuro} />
-        <KpiCard label="Confezioni" value={formatNumber(displayData.total_packs, 0)} detail={<Delta value={displayData.packs_yoy} suffix=" confezioni" />} icon={PackageOpen} />
+        <KpiCard label="Confezioni" value={displayData.total_packs === null ? "n/d" : formatNumber(displayData.total_packs, 0)} detail={displayData.total_packs === null ? "Base non confermata dalla Regione" : <Delta value={displayData.packs_yoy} suffix=" confezioni" />} icon={PackageOpen} />
         <KpiCard label="Var. a/a" value={displayData.spend_yoy === null ? "—" : formatPercent(displayData.spend_yoy)} detail={displayData.previous_year ? `vs ${displayData.previous_year}` : undefined} icon={Activity} />
         <KpiCard label="Margine (limite superiore)" value={formatEur(displayData.biosimilar_headroom_eur)} detail={displayData.biosimilar_penetration === null ? undefined : `${formatPercent(displayData.biosimilar_penetration)} · ${BASIS_LABEL[displayData.biosimilar_penetration_basis!]}${displayData.biosimilar_penetration_basis === "spend" ? " (sottostima il volume)" : ""}`} icon={BadgeEuro} />
         <KpiCard label="Irrisolti" value={formatNumber(displayData.unresolved_record_count, 0)} detail={formatPercent(unresolvedShare)} icon={CircleAlert} />

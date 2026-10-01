@@ -185,7 +185,8 @@ export interface SpendDashboardData {
   flows: SpendFlowData;
   latest_year: number | null;
   total_spend_eur: number;
-  total_packs: number;
+  /** null when NO row states a package count. Not the same as zero packages. */
+  total_packs: number | null;
   cost_per_pack_eur: number | null;
   record_count: number;
   source_version_count: number;
@@ -314,7 +315,8 @@ export interface BenchmarkRow {
   org_code: string;
   org_name: string;
   spend_eur: number;
-  packs: number;
+  /** null when NO row states a package count. Not the same as zero packages. */
+  packs: number | null;
   spend_yoy: number | null;
   cost_per_pack_eur: number | null;
   biosimilar_penetration: number | null;
@@ -366,7 +368,8 @@ export interface ExplorerNode {
   href: string | null;
   spend_eur: number;
   spend_share: number;
-  packs: number;
+  /** null when NO row states a package count. Not the same as zero packages. */
+  packs: number | null;
   spend_yoy: number | null;
   biosimilar_penetration: number | null;
   normalization_coverage: number | null;
@@ -382,7 +385,8 @@ export interface ExplorerData {
   breadcrumbs: ExplorerBreadcrumb[];
   nodes: ExplorerNode[];
   total_spend_eur: number;
-  total_packs: number;
+  /** null when NO row states a package count. Not the same as zero packages. */
+  total_packs: number | null;
   filters: ExplorerFilters;
 }
 

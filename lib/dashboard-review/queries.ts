@@ -19,6 +19,9 @@ import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getSyntheticAntibioticStewardship } from "@/lib/dashboard-review/antibiotic-demo";
 import { classifyTherapeuticArea, combineTherapeuticAreas } from "@/lib/dashboard-review/therapeutic-area";
 import {
+  chooseActiveRelease, costPerPack, maxOf, minOf, selectReportingPeriod, sumPacks,
+} from "@/lib/dashboard-review/release-scope";
+import {
   buildBiosimilarRows as buildBiosimilarRowsImpl,
   commonPenetrationBasis,
   normalizationCoverage,
@@ -62,8 +65,32 @@ const PAGE_SIZE = 1000;
 // first page. Fetch every RLS-visible page so totals remain reconcilable to
 // the source. React cache keeps repeated reads inside one server render from
 // refetching the same tenant-scoped dataset.
+/**
+ * The release the dashboard is allowed to read, or null when none is declared.
+ *
+ * Declared, never inferred. Without this filter a second release loaded beside
+ * the first would silently double every total while the figures still looked
+ * plausible, and nothing downstream could tell.
+ */
+const activeReleaseId = cache(async (): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("pillar_b_active_release")
+    .select("release_id")
+    .limit(2);
+  if (error) throw new Error(`active release lookup failed: ${error.message}`);
+  return chooseActiveRelease(data as Array<{ release_id: string }> | null);
+});
+
 const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
   const supabase = await createClient();
+
+  // FAIL CLOSED. If no release is declared the dashboard publishes nothing
+  // rather than everything. An import can therefore land without the legacy
+  // pages immediately showing figures that have not been through the gates:
+  // the rows are inert until a release is activated.
+  const releaseId = await activeReleaseId();
+  if (releaseId === null) return [];
   // ORDER BY is not cosmetic here. PostgreSQL gives no row order without it, so
   // OFFSET/LIMIT paging over an unordered relation can return the same row on two
   // pages and omit another entirely — a total that silently disagrees with the
@@ -72,6 +99,7 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
   const first = await supabase
     .from("canonical_fact")
     .select("*", { count: "exact" })
+    .eq("source_version_id", releaseId)
     .order("id", { ascending: true })
     .range(0, PAGE_SIZE - 1);
   const { data, error, count } = first;
@@ -89,6 +117,7 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
         supabase
           .from("canonical_fact")
           .select("*")
+          .eq("source_version_id", releaseId)
           .order("id", { ascending: true })
           .range(offset, Math.min(offset + PAGE_SIZE - 1, total - 1)),
       ),
@@ -140,6 +169,17 @@ const EXPLORER_LEVEL_LABEL: Record<ExplorerLevel, string> = {
   molecule: "Molecola",
   aic: "Confezione AIC",
 };
+
+/**
+ * Latest of a list of epoch milliseconds, as an ISO string.
+ *
+ * Uses `maxOf` rather than `Math.max(...times)`: these lists carry one entry per
+ * canonical fact row, and spreading 261,153 arguments throws RangeError.
+ */
+function latestIso(times: ReadonlyArray<number>): string | null {
+  const latest = maxOf(times);
+  return latest === null ? null : new Date(latest).toISOString();
+}
 
 function ratio(change: number, baseline: number): number | null {
   return baseline !== 0 ? (change - baseline) / baseline : null;
@@ -328,18 +368,21 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     getUploads(),
     getObjectives(),
   ]);
-  const years = facts.map((f) => f.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
-  const previousYear = latestYear === null
-    ? null
-    : [...new Set(years)].filter((year) => year < latestYear).sort((a, b) => b - a)[0] ?? null;
+  // The latest COMPLETE year, not simply the latest. Math.max picks a partial
+  // year -- 2026 holds five months -- and comparing it to a full year publishes
+  // the calendar as a collapse.
+  const period = selectReportingPeriod(facts);
+  const latestYear = period.year;
+  const previousYear = period.previousYear;
   const currentFacts = latestYear === null ? [] : facts.filter((f) => f.year === latestYear);
   const previousFacts = previousYear === null ? [] : facts.filter((f) => f.year === previousYear);
 
   const totalSpendEur = currentFacts.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
-  const totalPacks = currentFacts.reduce((sum, f) => sum + (f.quantity_packs ?? 0), 0);
+  // null, not 0, when no row states a package count -- the Pillar B loader
+  // leaves quantity_packs null because the source convention is unconfirmed.
+  const totalPacks = sumPacks(currentFacts);
   const previousSpendEur = previousFacts.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
-  const previousPacks = previousFacts.reduce((sum, f) => sum + (f.quantity_packs ?? 0), 0);
+  const previousPacks = sumPacks(previousFacts);
   const normalizationEligible = currentFacts.filter((f) => (f.total_cost_eur ?? 0) > 0);
   const normalizedRecordCount = normalizationEligible.filter(
     (f) => f.cost_per_mg !== null || f.cost_per_ddd !== null,
@@ -485,12 +528,11 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     latest_year: latestYear,
     total_spend_eur: totalSpendEur,
     total_packs: totalPacks,
-    cost_per_pack_eur: totalPacks > 0 ? totalSpendEur / totalPacks : null,
+    cost_per_pack_eur: costPerPack(totalSpendEur, totalPacks),
     record_count: currentFacts.length,
     source_version_count: sourceVersionCount,
     geography_count: geographyCount,
-    latest_loaded_at:
-      loadedTimes.length > 0 ? new Date(Math.max(...loadedTimes)).toISOString() : null,
+    latest_loaded_at: latestIso(loadedTimes),
     normalized_record_count: normalizedRecordCount,
     normalization_eligible_count: normalizationEligible.length,
     normalization_coverage:
@@ -503,7 +545,11 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     atc_breakdown: atcBreakdown,
     previous_year: previousYear,
     spend_yoy: ratio(totalSpendEur, previousSpendEur),
-    packs_yoy: ratio(totalPacks, previousPacks),
+    // null when either side has no stated package count -- a change from
+    // "unknown" is not a change of zero.
+    packs_yoy: totalPacks === null || previousPacks === null
+      ? null
+      : ratio(totalPacks, previousPacks),
     biosimilar_penetration: overallPenetration.value,
     biosimilar_penetration_basis: overallPenetration.basis,
     biosimilar_headroom_eur: biosimilarHeadroom,
@@ -516,8 +562,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
 
 export async function getBiosimilarComparison(): Promise<BiosimilarComparisonRow[]> {
   const facts = await selectCanonicalFacts();
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
+  const latestYear = selectReportingPeriod(facts).year;
   // The whole fact set goes in and `latestYear` selects what is reported. The
   // previous version pre-filtered to the latest year before calling, which hid
   // every earlier year's first biosimilar dispensing from the window test.
@@ -642,8 +687,7 @@ export async function getUploads(): Promise<UploadRecord[]> {
 
 export async function getBenchmarkData(): Promise<BenchmarkData> {
   const [facts, org] = await Promise.all([selectCanonicalFacts(), getCurrentOrg()]);
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
+  const latestYear = selectReportingPeriod(facts).year;
   if (!org || latestYear === null) {
     return {
       latest_year: latestYear,
@@ -669,9 +713,8 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
     ((organizationRows ?? []) as Organization[]).map((item) => [item.org_code, item.org_name]),
   );
 
-  const previousYear = [...new Set(years)]
-    .filter((year) => year < latestYear)
-    .sort((a, b) => b - a)[0] ?? null;
+  // The previous COMPLETE year, from the same selector as latestYear.
+  const previousYear = selectReportingPeriod(facts).previousYear;
   const currentAll = facts.filter((fact) => fact.year === latestYear && fact.asl_code);
   // Cross-Azienda comparison is computed on the dispensed basis only.
   const current = currentAll.filter((fact) => comparableSpendEur(fact) !== null);
@@ -713,14 +756,14 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
   const cohortBasis = commonPenetrationBasis(Array.from(byOrg.values()));
   const baseRows = Array.from(byOrg.entries()).map(([code, group]) => {
     const spend = group.reduce((sum, fact) => sum + (comparableSpendEur(fact) ?? 0), 0);
-    const packs = group.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
+    const packs = sumPacks(group);
     return {
       org_code: code,
       org_name: orgNames.get(code) ?? code,
       spend_eur: spend,
       packs,
       spend_yoy: ratio(spend, previousSpend.get(code) ?? 0),
-      cost_per_pack_eur: packs > 0 ? spend / packs : null,
+      cost_per_pack_eur: costPerPack(spend, packs),
       biosimilar_penetration: cohortBasis === null ? null : penetrationOn(group, cohortBasis),
       normalization_coverage: normalizationCoverage(group),
       is_current_org: org.org_code === code,
@@ -809,8 +852,7 @@ function explorerHref(filters: ExplorerFilters): string {
 
 export async function getExplorerData(filters: ExplorerFilters): Promise<ExplorerData> {
   const [facts, org] = await Promise.all([selectCanonicalFacts(), getCurrentOrg()]);
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
+  const latestYear = selectReportingPeriod(facts).year;
   const levels: ExplorerLevel[] = org?.org_type === "regione"
     ? ["asl", "atc1", "atc2", "atc3", "atc4", "atc5", "molecule", "aic"]
     : ["atc1", "atc2", "atc3", "atc4", "atc5", "molecule", "aic"];
@@ -839,9 +881,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     ((organizationRows ?? []) as Organization[]).map((item) => [item.org_code, item.org_name]),
   );
 
-  const previousYear = latestYear === null
-    ? null
-    : [...new Set(years)].filter((year) => year < latestYear).sort((a, b) => b - a)[0] ?? null;
+  const previousYear = selectReportingPeriod(facts).previousYear;
   const currentBase = filterExplorerFacts(
     latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear),
     filters,
@@ -871,7 +911,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
   const nodes: ExplorerNode[] = Array.from(currentGroups.entries())
     .map(([key, group]) => {
       const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
-      const packs = group.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0);
+      const packs = sumPacks(group);
       const nextFilters = filterKey ? { ...filters, [filterKey]: key } : filters;
       const therapeuticArea = combineTherapeuticAreas(
         group.map((fact) => classifyTherapeuticArea(fact.atc5, fact.atc4, fact.atc3, fact.atc2, fact.atc1)),
@@ -913,7 +953,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     breadcrumbs,
     nodes,
     total_spend_eur: totalSpend,
-    total_packs: currentBase.reduce((sum, fact) => sum + (fact.quantity_packs ?? 0), 0),
+    total_packs: sumPacks(currentBase),
     filters,
   };
 }
@@ -934,11 +974,14 @@ export async function getLineageData(): Promise<LineageData> {
       const years = group.map((fact) => fact.year).filter(Number.isFinite);
       return {
         source_version_id: sourceVersionId,
-        latest_loaded_at: timestamps.length > 0
-          ? new Date(Math.max(...timestamps)).toISOString()
-          : null,
-        first_year: years.length > 0 ? Math.min(...years) : null,
-        latest_year: years.length > 0 ? Math.max(...years) : null,
+        latest_loaded_at: latestIso(timestamps),
+        // A SPAN, not a reporting period: first..latest year this source covers.
+        // The extreme is right here and must not be swapped for the complete-year
+        // selector, which answers a different question. It is computed by
+        // iteration because `group` is every row of one release — 261,153 of
+        // them — and spreading that many arguments throws RangeError.
+        first_year: minOf(years),
+        latest_year: maxOf(years),
         record_count: group.length,
         spend_eur: group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0),
         geography_count: new Set(
@@ -954,9 +997,7 @@ export async function getLineageData(): Promise<LineageData> {
   return {
     sources,
     total_records: facts.length,
-    latest_loaded_at: allTimestamps.length > 0
-      ? new Date(Math.max(...allTimestamps)).toISOString()
-      : null,
+    latest_loaded_at: latestIso(allTimestamps),
     unresolved_records: facts.filter(isUnresolved).length,
     normalization_coverage: normalizationCoverage(facts),
   };
@@ -968,8 +1009,7 @@ export async function getReviewWorkspaceData(): Promise<ReviewWorkspaceData> {
     getObjectives(),
     getUploads(),
   ]);
-  const years = facts.map((fact) => fact.year).filter(Number.isFinite);
-  const latestYear = years.length > 0 ? Math.max(...years) : null;
+  const latestYear = selectReportingPeriod(facts).year;
   const current = latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear);
   const signals = buildReviewSignals({
     // `facts`, not `current`, for the same reason as in getSpendDashboardData.
@@ -1013,7 +1053,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   // showing a real customer demo figures labelled "Dati autorizzati".
   //
   // Every sibling function in this file already derives its window from the
-  // data (latestYear = Math.max(...years)); this was the sole outlier. RLS
+  // data (latestYear = the latest COMPLETE year); this was the sole outlier. RLS
   // scopes the read, so unfiltered returns exactly the rows it returned before.
   // A rolling window such as max(year) - 2 would not be an improvement: it
   // trades one silent truncation for another, dropping the earliest year from
