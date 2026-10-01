@@ -77,4 +77,4 @@ grant execute on function public.pillar_b_molecule_spend(int, int, int)
 
 -- Deliberately NOT granted to anon. The anonymous role must not reach Pillar B
 -- facts at any grain; the review page is authenticated.
-revoke execute on function public.pillar_b_molecule_spend(int, int, int) from anon;
+revoke execute on function public.pillar_b_molecule_spend(int, int, int) from public, anon;
