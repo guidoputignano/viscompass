@@ -43,7 +43,8 @@ const BATCH = 1000;
 const COLUMNS = [
   "source_record_id", "source_version_id", "year", "month",
   "region_code", "region_name", "asl_code", "channel", "aic", "active_substance",
-  "quantity_packs", "total_cost_eur", "erogato_cost_eur", "cost_basis",
+  "source_quantity", "source_quantity_basis", "quantity_packs",
+  "total_cost_eur", "erogato_cost_eur", "cost_basis",
   "source_disposition", "source_key_class",
   "perimeter_status", "perimeter_evidence_grade", "classification_valid_from",
   "comparable_stratum_id", "exclusion_reason", "comparable_eligible",
@@ -187,6 +188,13 @@ export function buildQuantityIndex(comparableQuantityJson, stratumIndex, strataJ
     const key = `${sk}||${g.aic}`;
     summed.set(key, (summed.get(key) ?? 0) + Number(g.content));
   }
+  // Products whose own groups carry more than one inferred convention: the basis
+  // is mixed for ALL of them, whether or not the totals happen to reconcile.
+  const conventionsByAic = new Map();
+  for (const g of comparableQuantityJson) {
+    if (!conventionsByAic.has(g.aic)) conventionsByAic.set(g.aic, new Set());
+    conventionsByAic.get(g.aic).add(g.convention ?? null);
+  }
   const conflicted = new Set();
   for (const st of strataJson.strata) {
     for (const [aic, declared] of Object.entries(st.aic_quantity ?? {})) {
@@ -206,21 +214,27 @@ export function buildQuantityIndex(comparableQuantityJson, stratumIndex, strataJ
     const content = g.content;
     const q = Number(g.q ?? 0);
     if (content === null || content === undefined || q === 0) {
-      index.set(groupKey, { perPack: null, unit: null, basis: "absent" });
+      index.set(groupKey, { perPack: null, unit: null, basis: "absent", convention: null, packages: null });
       continue;
     }
     if (conflict) {
       // The two parses disagree on what the source quantity means. Withheld.
-      index.set(groupKey, { perPack: null, unit: null, basis: "unresolved_parser_conflict" });
+      index.set(groupKey, { perPack: null, unit: null, basis: "parses_conflict",
+                            convention: "mixed", packages: null });
       continue;
     }
     index.set(groupKey, {
       perPack: Number(content) / q,
       unit: g.contentUnit ?? null,
-      basis: "agreed",
+      basis: "parses_agree",
+      // The parse's inferred convention, and the package count IT derived.
+      // Carried separately so the raw source quantity is never relabelled.
+      convention: g.convention ?? null,
+      packages: g.packages === null || g.packages === undefined ? null : Number(g.packages),
     });
   }
   index.conflictedPairs = conflicted.size;
+  index.conventionsByAic = conventionsByAic;
   return index;
 }
 
@@ -243,6 +257,12 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) 
     : { status: null, grade: null, validFrom: null, substance: null };
 
   const norm = quantityIndex.get(groupKey);
+  const multiConvention = (norm?.convention === "mixed")
+    || (quantityIndex.conventionsByAic?.get(r.prodotto_key)?.size ?? 0) > 1;
+  const sourceBasis = norm === undefined ? "unknown"
+    : multiConvention ? "mixed"
+    : (norm.convention === "packages" || norm.convention === "units") ? norm.convention
+    : "unknown";
   const cost = r.c === null || r.c === undefined ? null : Number(r.c);
   const qty = r.q === null || r.q === undefined ? null : Number(r.q);
   const month = r.mese === null || r.mese === undefined || r.mese === "" ? null : Number(r.mese);
@@ -258,7 +278,18 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) 
     r.canale ?? null,
     analytical ? r.prodotto_key : null,    // only a real 9-digit AIC goes in the aic column
     perimeter.substance,                   // groups a biosimilar with its reference medicine
-    qty,
+    qty,                                   // source_quantity -- basis NOT asserted
+    sourceBasis,                           // source_quantity_basis
+    // quantity_packs is left NULL for every Pillar B row, deliberately.
+    //
+    // Even where the two parses agree, the package/unit convention is INFERRED
+    // from price consensus and has not been confirmed by the Region. Populating
+    // this column would let any caller compute an aggregate "confezioni" figure
+    // on an unvalidated basis, and nothing downstream could tell that it was
+    // unvalidated. Null removes the whole class of error: there is no package
+    // total to publish until open question 5 is answered. The raw value is in
+    // source_quantity with its basis stated.
+    null,
     cost,
     cost,                                   // erogato basis: same figure, named for what it is
     COST_BASIS,

@@ -75,7 +75,12 @@ returns table (
   channel               text,
   rows_observed         bigint,
   spend_eur             numeric,   -- null when nothing observed
-  quantity_packs        numeric,
+  -- NO PACKAGE AGGREGATE. The source quantity's basis is inferred, not confirmed,
+  -- so a "confezioni" total would assert something nobody has established. The raw
+  -- sum is exposed with the bases it was built from, so a caller can see that it
+  -- is not a package count.
+  source_quantity_sum   numeric,
+  source_quantity_bases text[],
   comparable_rows       bigint,
   comparable_spend_eur  numeric,
   negative_rows         bigint     -- returns/corrections, retained
@@ -90,7 +95,8 @@ as $$
     cf.channel,
     count(*)::bigint,
     sum(cf.total_cost_eur),
-    sum(cf.quantity_packs),
+    sum(cf.source_quantity),
+    array_agg(distinct cf.source_quantity_basis) filter (where cf.source_quantity_basis is not null),
     count(*) filter (where cf.comparable_eligible)::bigint,
     sum(cf.total_cost_eur) filter (where cf.comparable_eligible),
     count(*) filter (where cf.total_cost_eur < 0)::bigint
@@ -163,7 +169,7 @@ as $$
        and cf.source_disposition = 'analytical'
        and cf.perimeter_status = 'biosimilar'
        and cf.active_substance is not null
-       and cf.quantity_packs > 0
+       and cf.source_quantity > 0
        and cf.month is not null
      group by 1, 2
   )
@@ -206,9 +212,9 @@ returns table (
   asl_code          text,
   active_substance  text,
   withheld_reason   text,
-  rows_n            bigint,
-  spend_eur         numeric,
-  packs             numeric
+  rows_n              bigint,
+  spend_eur           numeric,
+  source_quantity_sum numeric
 )
 language sql
 stable
@@ -221,7 +227,7 @@ as $$
     case
       when cf.active_substance is null         then 'substance not named by the frozen taxonomy'
       when not cf.comparable_eligible          then 'no comparable stratum'
-      when cf.quantity_basis_status = 'unresolved_parser_conflict'
+      when cf.quantity_basis_status = 'parses_conflict'
         then 'quantity basis unresolved: the two independent parses disagree'
       when cf.quantity_basis_status = 'absent'
         then 'no parsed presentation for this product'
@@ -230,7 +236,7 @@ as $$
     end,
     count(*)::bigint,
     sum(cf.total_cost_eur),
-    sum(cf.quantity_packs)
+    sum(cf.source_quantity)
   from canonical_fact cf
   where cf.source_version_id = public.pillar_b_release()
     and cf.year = p_year
@@ -251,13 +257,14 @@ create or replace function public.pillar_b_uptake_scope(
   p_from_month int default 1,
   p_to_month   int default 12
 )
-returns table (rows_n bigint, spend_eur numeric, packs numeric)
+returns table (rows_n bigint, spend_eur numeric, source_quantity_sum numeric, source_quantity_bases text[])
 language sql
 stable
 security invoker
 set search_path = public
 as $$
-  select count(*)::bigint, sum(cf.total_cost_eur), sum(cf.quantity_packs)
+  select count(*)::bigint, sum(cf.total_cost_eur), sum(cf.source_quantity),
+         array_agg(distinct cf.source_quantity_basis) filter (where cf.source_quantity_basis is not null)
     from canonical_fact cf
    where cf.source_version_id = public.pillar_b_release()
      and cf.year = p_year

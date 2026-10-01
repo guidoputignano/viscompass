@@ -65,7 +65,32 @@ alter table canonical_fact add column if not exists comparable_eligible boolean 
 alter table canonical_fact add column if not exists comparable_quantity numeric;
 alter table canonical_fact add column if not exists comparable_unit     text;
 
--- Whether the quantity BASIS is agreed between the two independent parses.
+-- The source quantity, with its basis NOT asserted.
+--
+-- canonical_fact.quantity_packs is named for packages. The source column this
+-- release loads is `q`, and what `q` COUNTS is not established: the B04 parser
+-- infers packages-or-units per group from price consensus, and 1,628 of 5,314
+-- AICs carry more than one inferred convention across their own groups. Writing
+-- that value into a column called quantity_packs, and summing it as "confezioni",
+-- asserts a fact nobody has confirmed.
+--
+-- So the raw value is kept here under a neutral name with its basis stated, and
+-- `quantity_packs` is populated ONLY where the package count is established. The
+-- product publishes no aggregate package figure until the Region confirms what
+-- the source quantity counts (open question 5).
+alter table canonical_fact add column if not exists source_quantity       numeric;
+alter table canonical_fact add column if not exists source_quantity_basis text;
+
+alter table canonical_fact drop constraint if exists canonical_fact_source_quantity_basis_check;
+alter table canonical_fact add constraint canonical_fact_source_quantity_basis_check
+  check (source_quantity_basis is null or source_quantity_basis in (
+    'packages',   -- the parse determined q counts packages (INFERRED, not confirmed)
+    'units',      -- the parse determined q counts dispensing units (INFERRED)
+    'mixed',      -- this product's groups carry more than one inferred convention
+    'unknown'     -- no parse available
+  ));
+
+-- Whether the two independent parses AGREE on the quantity basis.
 --
 -- The B04 parser decides per group whether the source `q` means packages or
 -- units, by price consensus; 1,628 of 5,314 AICs carry more than one convention
@@ -80,15 +105,19 @@ alter table canonical_fact add column if not exists quantity_basis_status text;
 alter table canonical_fact drop constraint if exists canonical_fact_quantity_basis_check;
 alter table canonical_fact add constraint canonical_fact_quantity_basis_check
   check (quantity_basis_status is null or quantity_basis_status in (
-    'agreed',                      -- both parses reconcile; quantity is usable
-    'unresolved_parser_conflict',  -- parses disagree; quantity withheld
-    'absent'                       -- no parsed presentation at all
+    -- NAMES MATTER HERE. `parses_agree` means exactly that the two independent
+    -- parses reconcile. It does NOT mean the Region has validated what the source
+    -- quantity counts: both parses could agree on an inference that is wrong.
+    -- An earlier value named 'agreed' invited precisely that misreading.
+    'parses_agree',
+    'parses_conflict',   -- the two parses disagree; quantity withheld
+    'absent'             -- no parsed presentation at all
   ));
 
 -- A quantity may only be present when the basis is agreed.
 alter table canonical_fact drop constraint if exists canonical_fact_quantity_requires_agreement;
 alter table canonical_fact add constraint canonical_fact_quantity_requires_agreement
-  check (comparable_quantity is null or quantity_basis_status = 'agreed');
+  check (comparable_quantity is null or quantity_basis_status = 'parses_agree');
 
 -- What the money actually is. `C` in this source is a weighted average cost
 -- INCLUSIVE OF VAT and GROSS of payback and AIFA registry credit notes. It is
@@ -185,3 +214,10 @@ comment on column canonical_fact.comparable_quantity is
   'Quantity in comparable_unit. NOT packages: packages are not comparable across presentations.';
 comment on column canonical_fact.comparable_unit is
   'MG/UI/MCG/PACK/... Never sum or rank across different values of this column.';
+
+comment on column canonical_fact.source_quantity is
+  'The raw source quantity. Its basis is NOT asserted - see source_quantity_basis.';
+comment on column canonical_fact.source_quantity_basis is
+  'INFERRED by the parser, never confirmed by the Region. mixed = this product carries more than one inferred convention.';
+comment on column canonical_fact.quantity_basis_status is
+  'parses_agree means the two independent parses reconcile. It does NOT mean the source definition is validated.';
