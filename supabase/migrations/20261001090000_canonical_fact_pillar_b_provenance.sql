@@ -96,11 +96,21 @@ alter table canonical_fact add constraint canonical_fact_cost_gross_status_check
   ));
 
 -- The invariant that makes the gate structural rather than advisory.
+--
+-- The stratum is part of it. An earlier version required only that the row be
+-- analytical and unexcluded, which would have admitted an analytical row with a
+-- NULL comparable_stratum_id — a row marked comparable with nothing to compare
+-- it within. Eligibility means "this row belongs to a named comparable stratum",
+-- so the constraint says exactly that, and the null-stratum case is tested.
 alter table canonical_fact drop constraint if exists canonical_fact_comparable_eligible_check;
 alter table canonical_fact add constraint canonical_fact_comparable_eligible_check
   check (
     comparable_eligible = false
-    or (source_disposition = 'analytical' and exclusion_reason is null)
+    or (
+      source_disposition = 'analytical'
+      and exclusion_reason is null
+      and comparable_stratum_id is not null
+    )
   );
 
 -- ---------------------------------------------------------------------- indexes

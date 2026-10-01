@@ -56,21 +56,59 @@ async function sha256File(file) {
   return h.digest("hex");
 }
 
-/** Abort before reading anything if a frozen input is not the frozen input. */
-export async function verifyFrozenInputs(manifestPath, root) {
+// Manifest key for each file this loader actually opens. Hashing a path derived
+// from the manifest is not protection: it verifies a file the loader may never
+// read. Every one of these is hashed AT THE PATH THE LOADER WILL READ.
+const READ_PATHS = {
+  factsJsonl: "derived/canonical_monthly_facts.jsonl",
+  aslMapJson: "derived/blk04_line1_qc_basis.json",
+  strataJson: "freeze-20260930-r3/derived/b04_strata_v3.json",
+  taxonomyJson: "freeze-20260930-r3/derived/b03_reconciled_taxonomy.json",
+};
+
+/**
+ * Abort before reading anything if a frozen input is not the frozen input.
+ *
+ * Two distinct checks, because they catch different failures:
+ *   1. every input the manifest freezes still hashes correctly at `root`
+ *      — catches a changed release;
+ *   2. every file THIS CALL will actually open hashes to its manifest entry
+ *      — catches a substituted or modified file passed in by path, which check 1
+ *        cannot see at all.
+ */
+export async function verifyFrozenInputs(manifestPath, root, readPaths = {}) {
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   if (manifest.release_id !== RELEASE_ID) {
     throw new Error(`manifest is ${manifest.release_id}, loader is ${RELEASE_ID}`);
   }
+  const frozen = manifest.frozen_inputs ?? {};
+  if (Object.keys(frozen).length === 0) throw new Error("manifest lists no frozen inputs");
+
   const checked = [];
-  for (const [rel, meta] of Object.entries(manifest.frozen_inputs ?? {})) {
+  for (const [rel, meta] of Object.entries(frozen)) {
     const actual = await sha256File(path.join(root, rel));
     if (actual !== meta.sha256) {
       throw new Error(`frozen input changed: ${rel}\n  manifest ${meta.sha256}\n  actual   ${actual}`);
     }
     checked.push(rel);
   }
-  if (checked.length === 0) throw new Error("manifest lists no frozen inputs");
+
+  for (const [key, manifestKey] of Object.entries(READ_PATHS)) {
+    const actualPath = readPaths[key];
+    if (!actualPath) throw new Error(`loader was given no path for ${key}`);
+    const meta = frozen[manifestKey];
+    if (!meta) {
+      throw new Error(`${manifestKey} is read by the loader but is not frozen in the manifest`);
+    }
+    const actual = await sha256File(actualPath);
+    if (actual !== meta.sha256) {
+      throw new Error(
+        `frozen input changed: ${manifestKey}\n` +
+        `  read from ${actualPath}\n` +
+        `  manifest sha256 ${meta.sha256}\n` +
+        `  actual   sha256 ${actual}`);
+    }
+  }
   return checked;
 }
 
@@ -167,8 +205,8 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
   const log = [];
   const say = (m) => { log.push(m); if (opts.verbose !== false) console.log(`  ${m}`); };
 
-  const verified = await verifyFrozenInputs(paths.manifestJson, paths.root);
-  say(`frozen inputs verified by sha256: ${verified.length}`);
+  const verified = await verifyFrozenInputs(paths.manifestJson, paths.root, paths);
+  say(`frozen inputs verified by sha256: ${verified.length} (including the files this load reads)`);
 
   const strata = JSON.parse(await readFile(paths.strataJson, "utf8"));
   const taxonomy = JSON.parse(await readFile(paths.taxonomyJson, "utf8"));
