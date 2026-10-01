@@ -47,7 +47,7 @@ const COLUMNS = [
   "source_disposition", "source_key_class",
   "perimeter_status", "perimeter_evidence_grade", "classification_valid_from",
   "comparable_stratum_id", "exclusion_reason", "comparable_eligible",
-  "comparable_quantity", "comparable_unit",
+  "comparable_quantity", "comparable_unit", "quantity_basis_status",
   "cost_gross_status", "mapping_confidence",
 ];
 
@@ -174,17 +174,53 @@ export function buildPerimeterIndex(taxonomyJson) {
   return index;
 }
 
-export function buildQuantityIndex(comparableQuantityJson) {
+export function buildQuantityIndex(comparableQuantityJson, stratumIndex, strataJson) {
+  // Σ parsed content per (stratum, AIC), to be checked against the strata's own
+  // aic_quantity. A RELATIVE tolerance: an absolute one classified 59 pairs of
+  // accumulated float error as genuine divergence, including the largest
+  // "conflict" in the set (8,126,680 vs 8,126,679.9936).
+  const REL = 1e-9;
+  const summed = new Map();
+  for (const g of comparableQuantityJson) {
+    const sk = stratumIndex.get(`${g.year}|${g.asl}|${g.aic}|${g.channel}`);
+    if (sk === undefined || g.content === null || g.content === undefined) continue;
+    const key = `${sk}||${g.aic}`;
+    summed.set(key, (summed.get(key) ?? 0) + Number(g.content));
+  }
+  const conflicted = new Set();
+  for (const st of strataJson.strata) {
+    for (const [aic, declared] of Object.entries(st.aic_quantity ?? {})) {
+      const key = `${st.key}||${aic}`;
+      const got = summed.get(key);
+      if (got === undefined) continue;
+      const want = Number(declared);
+      if (Math.abs(got - want) / Math.max(Math.abs(want), 1) > REL) conflicted.add(key);
+    }
+  }
+
   const index = new Map();
   for (const g of comparableQuantityJson) {
+    const groupKey = `${g.year}|${g.asl}|${g.aic}|${g.channel}`;
+    const sk = stratumIndex.get(groupKey);
+    const conflict = sk !== undefined && conflicted.has(`${sk}||${g.aic}`);
     const content = g.content;
     const q = Number(g.q ?? 0);
-    if (content === null || content === undefined || q === 0) continue; // -> withheld
-    index.set(`${g.year}|${g.asl}|${g.aic}|${g.channel}`, {
+    if (content === null || content === undefined || q === 0) {
+      index.set(groupKey, { perPack: null, unit: null, basis: "absent" });
+      continue;
+    }
+    if (conflict) {
+      // The two parses disagree on what the source quantity means. Withheld.
+      index.set(groupKey, { perPack: null, unit: null, basis: "unresolved_parser_conflict" });
+      continue;
+    }
+    index.set(groupKey, {
       perPack: Number(content) / q,
       unit: g.contentUnit ?? null,
+      basis: "agreed",
     });
   }
+  index.conflictedPairs = conflicted.size;
   return index;
 }
 
@@ -240,8 +276,9 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) 
     // caught. Rows in a stratum with no parsed presentation keep their
     // eligibility and are withheld from uptake with a named reason.
     stratum !== null,                       // comparable_eligible
-    norm === undefined || qty === null ? null : qty * norm.perPack,
+    norm === undefined || norm.perPack === null || qty === null ? null : qty * norm.perPack,
     norm === undefined ? null : norm.unit,
+    norm === undefined ? null : norm.basis,
     COST_GROSS_STATUS,
     analytical ? "Validated" : "Unresolved",
   ];
@@ -272,7 +309,8 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
   const perimeterIndex = buildPerimeterIndex(taxonomy);
 
   const comparableQuantity = JSON.parse(await readFile(paths.comparableQuantityJson, "utf8"));
-  const quantityIndex = buildQuantityIndex(comparableQuantity);
+  const quantityIndex = buildQuantityIndex(comparableQuantity, stratumIndex, strata);
+  say(`quantity basis unresolved for ${quantityIndex.conflictedPairs} (stratum,AIC) pairs -- withheld`);
   say(`stratum index ${stratumIndex.size} groups, perimeter index ${perimeterIndex.size} AICs, `
       + `quantity index ${quantityIndex.size} (stratum,AIC) pairs`);
 

@@ -65,6 +65,31 @@ alter table canonical_fact add column if not exists comparable_eligible boolean 
 alter table canonical_fact add column if not exists comparable_quantity numeric;
 alter table canonical_fact add column if not exists comparable_unit     text;
 
+-- Whether the quantity BASIS is agreed between the two independent parses.
+--
+-- The B04 parser decides per group whether the source `q` means packages or
+-- units, by price consensus; 1,628 of 5,314 AICs carry more than one convention
+-- across their groups, while the strata applied one convention per AIC. Where
+-- the two disagree beyond floating-point noise the quantity basis is genuinely
+-- ambiguous, and the source's own quantity semantics are an open question to the
+-- Region, not something a loader may settle. Those rows keep their comparability
+-- and their spend, and carry NO normalized quantity: uptake withholds them by
+-- name rather than averaging over a basis nobody has confirmed.
+alter table canonical_fact add column if not exists quantity_basis_status text;
+
+alter table canonical_fact drop constraint if exists canonical_fact_quantity_basis_check;
+alter table canonical_fact add constraint canonical_fact_quantity_basis_check
+  check (quantity_basis_status is null or quantity_basis_status in (
+    'agreed',                      -- both parses reconcile; quantity is usable
+    'unresolved_parser_conflict',  -- parses disagree; quantity withheld
+    'absent'                       -- no parsed presentation at all
+  ));
+
+-- A quantity may only be present when the basis is agreed.
+alter table canonical_fact drop constraint if exists canonical_fact_quantity_requires_agreement;
+alter table canonical_fact add constraint canonical_fact_quantity_requires_agreement
+  check (comparable_quantity is null or quantity_basis_status = 'agreed');
+
 -- What the money actually is. `C` in this source is a weighted average cost
 -- INCLUSIVE OF VAT and GROSS of payback and AIFA registry credit notes. It is
 -- not a net price and must never be presented as one, nor compared with an AIFA

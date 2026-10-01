@@ -221,6 +221,10 @@ as $$
     case
       when cf.active_substance is null         then 'substance not named by the frozen taxonomy'
       when not cf.comparable_eligible          then 'no comparable stratum'
+      when cf.quantity_basis_status = 'unresolved_parser_conflict'
+        then 'quantity basis unresolved: the two independent parses disagree'
+      when cf.quantity_basis_status = 'absent'
+        then 'no parsed presentation for this product'
       when cf.comparable_quantity is null      then 'no normalized quantity for this presentation'
       else 'unknown'
     end,
