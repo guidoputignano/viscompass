@@ -183,10 +183,27 @@ export interface SpendAtcSummary {
 
 export interface SpendDashboardData {
   flows: SpendFlowData;
+  /**
+   * The latest year with TWELVE MONTHS OBSERVED — not the latest year present,
+   * and not a year certified complete. See `MONTHS_OBSERVED_CAVEAT`.
+   */
   latest_year: number | null;
+  /**
+   * Years present in the release with fewer than twelve months observed, and how
+   * many each has. Excluded from `latest_year` and from every year-on-year
+   * figure here, and surfaced so the exclusion is visible rather than silent:
+   * this release carries 44,005 rows of 2026 that no headline figure counts.
+   */
+  partial_years: Array<{ year: number; months: number }>;
   total_spend_eur: number;
-  /** null when NO row states a package count. Not the same as zero packages. */
+  /**
+   * null unless EVERY row in the reporting year states a package count. Not the
+   * same as zero packages, and deliberately not the sum of the rows that do
+   * state one — that would be the total of an unnamed subset. See `packCoverage`.
+   */
   total_packs: number | null;
+  /** Share of reporting-year rows that state a package count; null when there are none. */
+  packs_coverage: number | null;
   cost_per_pack_eur: number | null;
   record_count: number;
   source_version_count: number;
@@ -385,8 +402,17 @@ export interface ExplorerData {
   breadcrumbs: ExplorerBreadcrumb[];
   nodes: ExplorerNode[];
   total_spend_eur: number;
-  /** null when NO row states a package count. Not the same as zero packages. */
+  /**
+   * null unless EVERY row in the node states a package count. Not the same as
+   * zero packages, and not the sum of the rows that do state one. See `packCoverage`.
+   */
   total_packs: number | null;
+  /**
+   * Share of rows in the node that state a package count; null when the node is
+   * empty. Needed because "no count anywhere" and "counts on part of the node"
+   * both render as n/d, and the label must not assert the wrong one.
+   */
+  packs_coverage: number | null;
   filters: ExplorerFilters;
 }
 

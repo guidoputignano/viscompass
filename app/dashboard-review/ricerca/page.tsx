@@ -66,7 +66,7 @@ export default async function ExplorerPage({
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard accent label="Spesa nel nodo" value={formatEur(data.total_spend_eur)} detail="Somma del percorso selezionato" icon={ReceiptEuro} />
-        <KpiCard label="Consumo" value={data.total_packs === null ? "n/d" : formatNumber(data.total_packs, 0)} detail={data.total_packs === null ? "Nessun conteggio confezioni dichiarato" : "Confezioni osservate"} icon={PackageSearch} />
+        <KpiCard label="Consumo" value={data.total_packs === null ? "n/d" : formatNumber(data.total_packs, 0)} detail={data.total_packs !== null ? "Confezioni dichiarate su tutti i record" : !data.packs_coverage ? "Nessun conteggio confezioni dichiarato" : `Dichiarate solo su ${formatPercent(data.packs_coverage)} dei record: un totale parziale non è il totale`} icon={PackageSearch} />
         <KpiCard label="Livello corrente" value={data.level_label} detail={`${activeFilterCount} filtri gerarchici attivi`} icon={Layers3} />
         <KpiCard label="Voci confrontate" value={formatNumber(data.nodes.length, 0)} detail="Ordinate per spesa decrescente" icon={Boxes} />
       </div>

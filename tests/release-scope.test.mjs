@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  chooseActiveRelease, costPerPack, maxOf, minOf, monthsObserved, selectReportingPeriod, sumPacks,
+  MONTHS_OBSERVED_CAVEAT, chooseActiveRelease, costPerPack, maxOf, minOf, monthsObserved,
+  packCoverage, selectReportingPeriod, sumPacks,
 } from "../lib/dashboard-review/release-scope.ts";
 
 let id = 0;
@@ -18,13 +19,29 @@ const RELEASE = [
   ...Array.from({ length: 5 }, (_, i) => fact(2026, i + 1, null)),
 ];
 
-test("the reporting year is the latest COMPLETE year, never simply the latest", () => {
+test("the reporting year is the latest year with TWELVE MONTHS OBSERVED, not the latest", () => {
   // Math.max picks 2026, which holds five months. Comparing it to twelve-month
   // 2025 publishes a ~60% collapse that is purely the calendar.
   const p = selectReportingPeriod(RELEASE);
   assert.equal(p.year, 2025);
   assert.equal(p.previousYear, 2024);
+  assert.equal(p.observedMonths, 12);
   assert.notEqual(p.year, Math.max(...RELEASE.map((f) => f.year)));
+});
+
+test("twelve months observed is not a claim that the year is complete", () => {
+  // Raised in review. One record in each of twelve months makes a year eligible.
+  // A month in which three of eleven ASLs reported still counts as observed, so
+  // the selector establishes a SPAN, not that every submission arrived. Nothing
+  // in this module may label such a year "complete".
+  const sparse = Array.from({ length: 12 }, (_, i) => fact(2029, i + 1));
+  const p = selectReportingPeriod(sparse);
+  assert.equal(p.year, 2029, "one record per month is enough to be selected...");
+  assert.equal(p.observedMonths, 12);
+  assert.match(MONTHS_OBSERVED_CAVEAT, /non è certificata/,
+               "...so the caveat the UI must show says exactly that");
+  assert.doesNotMatch(MONTHS_OBSERVED_CAVEAT, /completo|completa\b/,
+                      "and the caveat itself must not claim completeness");
 });
 
 test("partial years are reported, not silently dropped", () => {
@@ -32,28 +49,28 @@ test("partial years are reported, not silently dropped", () => {
   assert.deepEqual(p.partialYears, [{ year: 2026, months: 5 }]);
 });
 
-test("a year missing even one month is not complete", () => {
+test("a year missing even one month is not selected", () => {
   const eleven = Array.from({ length: 11 }, (_, i) => fact(2027, i + 1));
   const p = selectReportingPeriod([...RELEASE, ...eleven]);
   assert.equal(p.year, 2025, "2027 has 11 months and must not be selected");
   assert.ok(p.partialYears.some((x) => x.year === 2027 && x.months === 11));
 });
 
-test("duplicate months do not fake completeness", () => {
-  // Twelve rows that are all January is not a complete year.
+test("duplicate months do not fake twelve observed months", () => {
+  // Twelve rows that are all January is one month observed, not twelve.
   const twelveJanuaries = Array.from({ length: 12 }, () => fact(2030, 1));
   const p = selectReportingPeriod(twelveJanuaries);
   assert.equal(monthsObserved(twelveJanuaries, 2030), 1);
   assert.equal(p.year, null);
 });
 
-test("rows with no month cannot complete a year", () => {
+test("rows with no month contribute nothing to months observed", () => {
   const monthless = Array.from({ length: 12 }, () => fact(2031, null));
   assert.equal(monthsObserved(monthless, 2031), 0);
   assert.equal(selectReportingPeriod(monthless).year, null);
 });
 
-test("no complete year yields null rather than a partial one", () => {
+test("no year with twelve months observed yields null, not a partial year", () => {
   const p = selectReportingPeriod(Array.from({ length: 5 }, (_, i) => fact(2026, i + 1)));
   assert.equal(p.year, null);
   assert.equal(p.previousYear, null);
@@ -61,7 +78,7 @@ test("no complete year yields null rather than a partial one", () => {
 
 test("an empty fact set is empty, not an error", () => {
   const p = selectReportingPeriod([]);
-  assert.deepEqual(p, { year: null, previousYear: null, partialYears: [] });
+  assert.deepEqual(p, { year: null, previousYear: null, partialYears: [], observedMonths: null });
 });
 
 // --- packages ----------------------------------------------------------------
@@ -80,8 +97,68 @@ test("an observed zero is still zero", () => {
   assert.notEqual(sumPacks([fact(2025, 1, 0)]), sumPacks([fact(2025, 1, null)]));
 });
 
-test("a partially stated count sums only the rows that state one", () => {
-  assert.equal(sumPacks([fact(2025, 1, 10), fact(2025, 2, null), fact(2025, 3, 5)]), 15);
+test("a PARTIALLY stated count is not a total, and is not published as one", () => {
+  // This test previously asserted the opposite — that the sum of the rows which
+  // do state a count (15) is the answer. That encoded the bug as the contract.
+  // On a mixed-coverage release (packages recorded for CO but not DPC, say) a
+  // real-looking 15 would appear under a KPI card labelled "Confezioni", and it
+  // would be the total of an unnamed subset.
+  const mixed = [fact(2025, 1, 10), fact(2025, 2, null), fact(2025, 3, 5)];
+  assert.equal(sumPacks(mixed), null, "no publishable total when coverage is partial");
+
+  // The partial figure is still reachable — but only together with what it covers.
+  const c = packCoverage(mixed);
+  assert.equal(c.packs, null);
+  assert.equal(c.statedPacks, 15);
+  assert.equal(c.stated, 2);
+  assert.equal(c.rows, 3);
+  assert.equal(c.coverage, 2 / 3);
+});
+
+test("a total is published only when EVERY row states a count", () => {
+  const full = [fact(2025, 1, 10), fact(2025, 2, 5)];
+  assert.equal(sumPacks(full), 15);
+  assert.equal(packCoverage(full).coverage, 1);
+
+  // One null row is enough to withdraw the total.
+  assert.equal(sumPacks([...full, fact(2025, 3, null)]), null);
+});
+
+test("a numeric column arriving as a STRING is summed, not concatenated", () => {
+  // quantity_packs is Postgres `numeric`. PostgREST sends JSON numbers, but the
+  // raw pg wire protocol — used by the loader and the verification harness —
+  // sends strings, to preserve arbitrary precision. `total += "7"` then yields
+  // "077777…", a 20,000-digit string that renders as a plausible package total.
+  // This is not hypothetical: it is what the harness produced on first run.
+  const asStrings = [
+    { ...fact(2025, 1), quantity_packs: "7" },
+    { ...fact(2025, 2), quantity_packs: "3" },
+  ];
+  const c = packCoverage(asStrings);
+  assert.equal(c.statedPacks, 10);
+  assert.equal(typeof c.statedPacks, "number", "a string total is the whole bug");
+  assert.equal(c.packs, 10);
+  assert.equal(c.coverage, 1);
+});
+
+test("a value that will not parse is absent, not a poisoned sum", () => {
+  const junk = [
+    { ...fact(2025, 1), quantity_packs: "n/d" },
+    { ...fact(2025, 2), quantity_packs: 4 },
+  ];
+  const c = packCoverage(junk);
+  assert.equal(c.stated, 1, "the unparseable row does not count as stated");
+  assert.equal(c.statedPacks, 4);
+  assert.ok(!Number.isNaN(c.statedPacks), "and never produces NaN");
+  assert.equal(c.packs, null, "coverage is partial, so no total is published");
+});
+
+test("coverage is null for an empty set, not a misleading 0 or 1", () => {
+  const c = packCoverage([]);
+  assert.equal(c.packs, null);
+  assert.equal(c.coverage, null, "0/0 is not 0% coverage and not 100%");
+  assert.equal(c.rows, 0);
+  assert.equal(c.statedPacks, 0);
 });
 
 test("cost per pack refuses an unknown or zero denominator", () => {

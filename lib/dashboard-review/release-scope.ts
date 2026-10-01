@@ -25,56 +25,164 @@ export function monthsObserved(facts: ReadonlyArray<CanonicalFact>, year: number
   return months.size;
 }
 
+/**
+ * What twelve observed months do and do not establish.
+ *
+ * Raised in review: the selector below calls a year eligible when at least one
+ * record exists in each of twelve months. That establishes the year was OBSERVED
+ * across twelve months. It does NOT establish that every expected ASL/channel
+ * submission arrived — a month in which three of eleven ASLs reported counts as
+ * observed. Calling such a year "complete" asserts a certification nobody has
+ * performed, so no label in this codebase does.
+ *
+ * Surfaces rendering a year selected this way show this caveat.
+ */
+export const MONTHS_OBSERVED_CAVEAT =
+  "12 mesi osservati; la completezza dei conferimenti per ASL e canale non è certificata";
+
 export interface ReportingPeriod {
-  /** The latest year with twelve observed months, or null when none is complete. */
+  /**
+   * The latest year with twelve months OBSERVED, or null when no year has twelve.
+   *
+   * "Observed", deliberately, not "complete" — see {@link MONTHS_OBSERVED_CAVEAT}.
+   */
   year: number | null;
-  /** The year before it that is also complete, for a like-for-like comparison. */
+  /** The year before it that also has twelve months observed, for a like-for-like span. */
   previousYear: number | null;
   /**
-   * Years present in the data that are NOT complete. The UI must say so rather
-   * than showing them as a year, and must never compare them to a full year.
+   * Years present in the data with FEWER than twelve months observed, and how
+   * many each has. The UI must surface these rather than silently dropping
+   * them, and must never compare one to a twelve-month year.
    */
   partialYears: Array<{ year: number; months: number }>;
+  /**
+   * Months observed in `year`. Twelve whenever `year` is non-null — carried so a
+   * caller can label the figure from the period itself rather than hardcoding it.
+   */
+  observedMonths: number | null;
 }
 
 /**
  * Choose the reporting year from what the data actually contains.
  *
- * Returns the latest COMPLETE year, never simply the latest. A partial year is
- * reported separately so a caller can surface it as year-to-date instead of
- * silently treating five months as twelve.
+ * Returns the latest year with TWELVE MONTHS OBSERVED, never simply the latest.
+ * `Math.max(...years)` picks 2026 on this release, which holds five months, and
+ * comparing it to twelve-month 2025 publishes a −57.8% collapse that is purely
+ * the calendar.
+ *
+ * Years with fewer months are returned separately so a caller can surface them
+ * as year-to-date instead of treating five months as twelve. This function
+ * decides a SPAN, not completeness: see {@link MONTHS_OBSERVED_CAVEAT}.
  */
 export function selectReportingPeriod(facts: ReadonlyArray<CanonicalFact>): ReportingPeriod {
   const years = [...new Set(facts.map((f) => f.year).filter(Number.isFinite))].sort((a, b) => b - a);
-  const complete = years.filter((y) => monthsObserved(facts, y) === 12);
+  const fullyObserved = years.filter((y) => monthsObserved(facts, y) === 12);
   const partial = years
-    .filter((y) => !complete.includes(y))
+    .filter((y) => !fullyObserved.includes(y))
     .map((y) => ({ year: y, months: monthsObserved(facts, y) }));
+  const year = fullyObserved[0] ?? null;
   return {
-    year: complete[0] ?? null,
-    previousYear: complete[1] ?? null,
+    year,
+    previousYear: fullyObserved[1] ?? null,
     partialYears: partial,
+    observedMonths: year === null ? null : 12,
+  };
+}
+
+export interface PackCoverage {
+  /**
+   * The publishable total: the sum, but ONLY when every row states a count.
+   * null the moment one row does not — a sum over part of the population is not
+   * the population's total, and the label on screen reads "Confezioni".
+   */
+  packs: number | null;
+  /**
+   * The sum across the rows that DO state a count. Never publish this as a
+   * total; publish it only beside `coverage`, which says what it is a total of.
+   */
+  statedPacks: number;
+  /** Rows stating a package count. */
+  stated: number;
+  /** Rows considered. */
+  rows: number;
+  /** `stated / rows`, or null when there are no rows at all. */
+  coverage: number | null;
+}
+
+/**
+ * Package counts with their coverage, so a caller can never publish a partial
+ * sum as a total.
+ *
+ * Two distinct failures are being prevented here, and only the first was obvious.
+ *
+ * `reduce((s, f) => s + (f.quantity_packs ?? 0), 0)` turns "no row states a
+ * package count" into "zero packages" — a different and false claim. The Pillar B
+ * loader leaves `quantity_packs` null on all 261,153 rows precisely because the
+ * source quantity's package/unit convention is unconfirmed (open question 5), so
+ * every pack total on this data must be null rather than 0.
+ *
+ * The second is subtler and was raised in review: summing only the rows that
+ * state a count is equally wrong when OTHERS are null. On a future mixed-coverage
+ * release — say packages recorded for the CO channel but not DPC — that returns a
+ * real-looking number which is the total of an unnamed subset, and the KPI card
+ * labels it "Confezioni". So `packs` requires COMPLETE coverage, and a caller
+ * wanting to show the partial figure must take `statedPacks` and display
+ * `coverage` with it.
+ */
+/**
+ * Coerce a value that SHOULD be a number and may not be.
+ *
+ * `quantity_packs` and every money column are Postgres `numeric`. Through
+ * PostgREST they arrive as JSON numbers, which is why `CanonicalFact` types them
+ * `number | null`. Over the raw pg wire protocol — which the loader and the
+ * verification harness both use — the same columns arrive as STRINGS, because
+ * node-postgres and PGlite preserve arbitrary precision rather than round to a
+ * double.
+ *
+ * The failure that results is silent and spectacular: `total += "7"` on a running
+ * sum yields `"07777…"`, a 20,000-digit string that passes a truthiness check,
+ * renders as a plausible-looking enormous number, and is reported as a package
+ * total. That is precisely what happened the first time the mixed-coverage case
+ * was run against real rows.
+ *
+ * So the aggregation parses rather than trusting the declared type, and anything
+ * that will not parse is treated as absent rather than silently poisoning a sum.
+ */
+function finiteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function packCoverage(facts: ReadonlyArray<CanonicalFact>): PackCoverage {
+  let statedPacks = 0;
+  let stated = 0;
+  let rows = 0;
+  for (const fact of facts) {
+    rows += 1;
+    const packs = finiteNumber(fact.quantity_packs);
+    if (packs === null) continue;
+    statedPacks += packs;
+    stated += 1;
+  }
+  const complete = rows > 0 && stated === rows;
+  return {
+    packs: complete ? statedPacks : null,
+    statedPacks,
+    stated,
+    rows,
+    coverage: rows === 0 ? null : stated / rows,
   };
 }
 
 /**
- * Sum a package count, returning null when NO row carries one.
+ * The publishable package total, or null when coverage is incomplete.
  *
- * `reduce((s, f) => s + (f.quantity_packs ?? 0), 0)` turns "no row states a
- * package count" into "zero packages", which is a different and false claim. The
- * Pillar B loader leaves `quantity_packs` null on every row precisely because the
- * source quantity's package/unit convention is unconfirmed, so every pack total
- * on this data must be null rather than 0.
+ * Thin wrapper over {@link packCoverage} for the call sites that only render the
+ * total. Anything that wants to say something about the gap takes the record.
  */
 export function sumPacks(facts: ReadonlyArray<CanonicalFact>): number | null {
-  let total = 0;
-  let seen = 0;
-  for (const fact of facts) {
-    if (fact.quantity_packs === null || fact.quantity_packs === undefined) continue;
-    total += fact.quantity_packs;
-    seen += 1;
-  }
-  return seen === 0 ? null : total;
+  return packCoverage(facts).packs;
 }
 
 /**

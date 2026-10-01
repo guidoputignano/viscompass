@@ -21,6 +21,7 @@ import { TrendLineChart } from "@/components/dashboard-review/trend-line-chart";
 import type { ReviewSeverity, SpendDashboardData } from "@/lib/dashboard-review/types";
 import { formatDate, formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import { latestComparison } from "@/lib/dashboard-review/trend";
+import { MONTHS_OBSERVED_CAVEAT } from "@/lib/dashboard-review/release-scope";
 
 const REVIEW_STYLE: Record<ReviewSeverity, "danger" | "warning" | "neutral"> = {
   high: "danger",
@@ -214,14 +215,69 @@ function ReviewQueue({ data }: { data: SpendDashboardData }) {
   );
 }
 
+/**
+ * Names the reporting span, what it does not certify, and what it leaves out.
+ *
+ * Three claims the dashboard was making silently, each raised in review:
+ *
+ *   - the headline year is the latest with TWELVE MONTHS OBSERVED. That is a
+ *     span, not a certification that every ASL/channel submission arrived, so
+ *     the caveat is shown rather than the word "completo".
+ *   - years with fewer months are EXCLUDED from every figure above. On this
+ *     release that is 44,005 rows of 2026 — a quarter of the data, previously
+ *     dropped without a word on screen.
+ *   - a package total is published only at full coverage; short of that the
+ *     card reads n/d, and this line says how far short.
+ */
+function PeriodNotice({ data }: { data: SpendDashboardData }) {
+  const partial = data.partial_years ?? [];
+  const incompletePacks =
+    data.total_packs === null && data.packs_coverage !== null && data.packs_coverage > 0;
+  if (data.latest_year === null && partial.length === 0 && !incompletePacks) return null;
+
+  return (
+    <div className="rounded-xl border border-border/70 bg-muted/40 px-3.5 py-2.5 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="font-semibold text-foreground">
+          {data.latest_year === null
+            ? "Nessun anno con 12 mesi osservati"
+            : `Periodo ${data.latest_year} · 12 mesi osservati`}
+        </span>
+        {data.latest_year !== null && (
+          <span>{MONTHS_OBSERVED_CAVEAT}</span>
+        )}
+      </div>
+      {partial.length > 0 && (
+        <p className="mt-1.5">
+          <span className="font-semibold text-foreground">Esclusi dal confronto:</span>{" "}
+          {partial
+            .map((y) => `${y.year} (${y.months} ${y.months === 1 ? "mese" : "mesi"} su 12)`)
+            .join(", ")}
+          . Un anno parziale non è confrontabile con un anno di dodici mesi e non
+          entra in nessuna cifra qui sopra.
+        </p>
+      )}
+      {incompletePacks && (
+        <p className="mt-1.5">
+          <span className="font-semibold text-foreground">Confezioni:</span> dichiarate
+          su {formatPercent(data.packs_coverage!)} dei record. Un totale su una parte
+          della popolazione non è il totale, quindi non viene pubblicato.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SpendOverview({ data }: { data: SpendDashboardData }) {
   const demo = data.record_count === 0;
   const displayData: SpendDashboardData = demo
     ? {
         ...data,
         latest_year: 2025,
+        partial_years: [],
         total_spend_eur: 1_238_000_000,
         total_packs: 61_800_000,
+        packs_coverage: 1,
         record_count: 24_680,
         source_version_count: 3,
         geography_count: 8,
@@ -259,6 +315,8 @@ export function SpendOverview({ data }: { data: SpendDashboardData }) {
         materiality={displayData.biosimilar_headroom_eur > 0 ? `Margine ≤ ${formatEur(displayData.biosimilar_headroom_eur)}` : "€/mg da normalizzare"}
         nextEvidence={firstReview ? firstReview.title : "Carica il primo periodo"}
       />
+
+      {!demo && <PeriodNotice data={displayData} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <KpiCard accent label="Spesa" value={formatEur(displayData.total_spend_eur)} detail={<Delta value={displayData.spend_yoy} suffix={displayData.previous_year ? ` vs ${displayData.previous_year}` : undefined} />} icon={ReceiptEuro} />

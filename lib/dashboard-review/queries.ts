@@ -19,7 +19,8 @@ import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getSyntheticAntibioticStewardship } from "@/lib/dashboard-review/antibiotic-demo";
 import { classifyTherapeuticArea, combineTherapeuticAreas } from "@/lib/dashboard-review/therapeutic-area";
 import {
-  chooseActiveRelease, costPerPack, maxOf, minOf, selectReportingPeriod, sumPacks,
+  chooseActiveRelease, costPerPack, maxOf, minOf, packCoverage, selectReportingPeriod,
+  sumPacks,
 } from "@/lib/dashboard-review/release-scope";
 import {
   buildBiosimilarRows as buildBiosimilarRowsImpl,
@@ -368,9 +369,10 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     getUploads(),
     getObjectives(),
   ]);
-  // The latest COMPLETE year, not simply the latest. Math.max picks a partial
-  // year -- 2026 holds five months -- and comparing it to a full year publishes
-  // the calendar as a collapse.
+  // The latest year with TWELVE MONTHS OBSERVED, not simply the latest. Math.max
+  // picks a partial year -- 2026 holds five months -- and comparing it to a
+  // twelve-month year publishes the calendar as a collapse. Twelve months
+  // observed is not a claim the year is complete: see MONTHS_OBSERVED_CAVEAT.
   const period = selectReportingPeriod(facts);
   const latestYear = period.year;
   const previousYear = period.previousYear;
@@ -378,9 +380,11 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
   const previousFacts = previousYear === null ? [] : facts.filter((f) => f.year === previousYear);
 
   const totalSpendEur = currentFacts.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
-  // null, not 0, when no row states a package count -- the Pillar B loader
-  // leaves quantity_packs null because the source convention is unconfirmed.
-  const totalPacks = sumPacks(currentFacts);
+  // null unless EVERY row states a package count -- the loader leaves
+  // quantity_packs null because the source convention is unconfirmed, and a sum
+  // over only the rows that state one is the total of an unnamed subset.
+  const packs = packCoverage(currentFacts);
+  const totalPacks = packs.packs;
   const previousSpendEur = previousFacts.reduce((sum, f) => sum + (f.total_cost_eur ?? 0), 0);
   const previousPacks = sumPacks(previousFacts);
   const normalizationEligible = currentFacts.filter((f) => (f.total_cost_eur ?? 0) > 0);
@@ -526,8 +530,12 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
   return {
     flows: spendFlowsFromFacts(currentFacts),
     latest_year: latestYear,
+    // Surfaced, not dropped: 44,005 rows of 2026 are excluded from every
+    // headline figure above, and the UI says so rather than leaving the gap silent.
+    partial_years: period.partialYears,
     total_spend_eur: totalSpendEur,
     total_packs: totalPacks,
+    packs_coverage: packs.coverage,
     cost_per_pack_eur: costPerPack(totalSpendEur, totalPacks),
     record_count: currentFacts.length,
     source_version_count: sourceVersionCount,
@@ -903,6 +911,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     const key = explorerValue(fact, level);
     previousSpend.set(key, (previousSpend.get(key) ?? 0) + (fact.total_cost_eur ?? 0));
   }
+  const explorerPacks = packCoverage(currentBase);
   const filterKey = filterOrder.find(([candidate]) => candidate === level)?.[1];
   // Siblings at one level share a basis, for the same reason the benchmark cohort
   // does: a parent shown on mg beside children shown on packs makes the figure
@@ -953,7 +962,8 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     breadcrumbs,
     nodes,
     total_spend_eur: totalSpend,
-    total_packs: sumPacks(currentBase),
+    total_packs: explorerPacks.packs,
+    packs_coverage: explorerPacks.coverage,
     filters,
   };
 }
