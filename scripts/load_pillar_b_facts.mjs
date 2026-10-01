@@ -40,7 +40,7 @@ export const COST_BASIS = "erogato";
 
 const BATCH = 1000;
 
-const COLUMNS = [
+export const COLUMNS = [
   "source_record_id", "source_version_id", "year", "month",
   "region_code", "region_name", "asl_code", "channel", "aic", "active_substance",
   "source_quantity", "source_quantity_basis", "quantity_packs",
@@ -261,7 +261,7 @@ export function buildQuantityIndex(comparableQuantityJson, stratumIndex, strataJ
   return index;
 }
 
-function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex, routeIndex }) {
+export function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex, routeIndex }) {
   const aslCode = aslMap[r.asl];
   if (!aslCode) throw new Error(`unmapped ASL '${r.asl}' at source row ${r.src_row}`);
 

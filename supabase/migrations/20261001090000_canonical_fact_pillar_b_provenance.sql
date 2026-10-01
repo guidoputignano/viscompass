@@ -23,6 +23,13 @@
 -- existed are unaffected.
 -- ============================================================
 
+-- Older projects may have created canonical_fact before the cost-basis
+-- extension was appended to the master schema. The deployed query layer reads
+-- these columns, so make them part of this idempotent release migration too.
+alter table canonical_fact add column if not exists acquistato_cost_eur numeric;
+alter table canonical_fact add column if not exists erogato_cost_eur numeric;
+alter table canonical_fact add column if not exists cost_basis text;
+
 -- Which lane the source row is in. `analytical` rows are AIC-keyed and may enter
 -- analysis; `non_aic` rows are keyed by something that is not a 9-digit AIC
 -- (bare ATC7, E-/G-prefixed codes, truncated stems) and carry real spend that
