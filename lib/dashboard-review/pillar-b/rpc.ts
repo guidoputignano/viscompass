@@ -269,9 +269,25 @@ export interface MoleculeSpendRow {
 /** Spend by active substance for one year, at ASL x channel grain. */
 export const getMoleculeSpend = cache(
   async (year: PillarBYear): Promise<MoleculeSpendRow[]> => {
-    const rows = await callRpc<Record<string, unknown>>("pillar_b_molecule_spend", {
-      p_year: year,
-    });
+    // PostgREST caps each response (1,000 rows on this project). A single RPC
+    // call silently returned only the first 1,000 of 1,534 rows for Azienda
+    // 201 in 2025, making concentration and trends irreconcilable. Order the
+    // grouped result by its complete key before paging so no group is skipped.
+    const rows: Record<string, unknown>[] = [];
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .rpc("pillar_b_molecule_spend", { p_year: year })
+        .order("active_substance", { ascending: true })
+        .order("asl_code", { ascending: true })
+        .order("channel", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw new Error(`pillar_b_molecule_spend failed: ${error.message}`);
+      const page = (data ?? []) as Record<string, unknown>[];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
     return rows.map((r) => ({
       active_substance: String(r.active_substance),
       asl_code: String(r.asl_code),

@@ -20,6 +20,14 @@ import {
 // The content depends entirely on who is asking, so there is no static shell.
 export const instant = false;
 
+async function identified<T>(code: string, work: Promise<T>): Promise<T> {
+  try {
+    return await work;
+  } catch (cause) {
+    throw new Error(`PBR-${code}`, { cause });
+  }
+}
+
 export default async function RevisionePillarBPage() {
   const releaseId = await pillarBReleaseId();
 
@@ -48,18 +56,18 @@ export default async function RevisionePillarBPage() {
 
   // 2026 is absent from this list by construction: five months observed and zero
   // comparable-eligible rows. It is described on the page, never totalled.
-  const [spend2024, spend2025, molecules2024, molecules2025, funnel, uptake] =
-    await Promise.all([
-      getSpend(2024),
-      getSpend(2025),
-      getMoleculeSpend(2024),
-      getMoleculeSpend(2025),
-      getEvidenceFunnel(2025),
-      getUptake(2025),
-    ]);
+  try {
+    const [spend2024, spend2025, molecules2024, molecules2025, funnel, uptake] =
+      await Promise.all([
+        identified("SPEND24", getSpend(2024)),
+        identified("SPEND25", getSpend(2025)),
+        identified("MOLECULE24", getMoleculeSpend(2024)),
+        identified("MOLECULE25", getMoleculeSpend(2025)),
+        identified("FUNNEL", getEvidenceFunnel(2025)),
+        identified("UPTAKE", getUptake(2025)),
+      ]);
 
-  return (
-    <PillarBReview
+    return <PillarBReview
       releaseId={releaseId}
       funnel={funnelRows(funnel)}
       moleculeTrend={moleculeTrend(molecules2024, molecules2025)}
@@ -73,6 +81,17 @@ export default async function RevisionePillarBPage() {
         rows2024: spend2024.reduce((s, r) => s + r.rows_observed, 0),
         rows2025: spend2025.reduce((s, r) => s + r.rows_observed, 0),
       }}
-    />
-  );
+    />;
+  } catch (error) {
+    // The server log retains the full cause. The scoped browser gets only a
+    // stable phase code, never a SQL message or a misleading zero-valued chart.
+    console.error("Pillar B review failed", error);
+    const code = error instanceof Error && /^PBR-[A-Z0-9]+$/.test(error.message)
+      ? error.message
+      : "PBR-SHAPE";
+    return <EmptyState
+      title="Analisi non disponibile"
+      detail={`La release è attiva, ma una verifica è fallita (${code}). Nessuna cifra viene mostrata finché il problema non è risolto.`}
+    />;
+  }
 }
