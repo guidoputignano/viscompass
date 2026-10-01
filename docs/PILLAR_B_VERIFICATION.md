@@ -60,7 +60,13 @@ set as the precondition for the import both pass in `b31`: every value the revie
 page plots reconciles to the frozen workbook to the cent, and ASL isolation holds
 at the grain the page reads.
 
-The import itself has **not** run. The schema step is DDL, which the only
-available production credential (a PostgREST service-role key) cannot perform,
-and no Supabase CLI or connection string is present. The exact steps, figures and
-rollback are in `outputs/pillar-b/IMPORT_RUNBOOK_R2_20261002.md`.
+The import itself has **not** run, and neither has the migration, the deployment
+nor any live verification. None of them may be marked complete. The schema step
+is DDL, which the only available production credential (a PostgREST service-role
+key) cannot perform, and no Supabase CLI or connection string is present.
+
+The order is not the obvious one: the **gated code must be deployed before any
+row is loaded**. Production runs `main` at 94565b9, which has no release gate, so
+rows loaded ahead of the deploy are read on the next page load regardless of
+whether a release is ever activated. The ordered steps, the per-account figures
+and the rollback are in `outputs/pillar-b/IMPORT_RUNBOOK_R2_20261002.md`.
