@@ -23,6 +23,14 @@ Expected on release `PILLAR-B-R2-20261001`:
 
 Full instructions, prerequisites and limits: `outputs/pillar-b/VERIFY_README.md`.
 
+That directory is its own **local** git repository, so the evidence documents and
+harnesses have a real history — a runbook executed step by step against
+production should not carry a revision number asserted only in its own prose. It
+has no remote on purpose: the documents carry per-ASL euro figures derived from
+non-public records. Its `.gitignore` is an allow-list, excluding everything by
+default, so the frozen inputs and workbooks cannot be versioned by a near-miss
+pattern.
+
 ## Why the dependency is not here
 
 The harnesses run a throwaway PostgreSQL 18.3 via `@electric-sql/pglite`. Adding
