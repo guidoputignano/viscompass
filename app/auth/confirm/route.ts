@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       redirect(`/auth/error?error=${encodeURIComponent(error.message)}`);
     }
-    redirect(next);
+    redirect(type === "recovery" ? "/auth/update-password?mode=recovery" : next);
   }
 
   if (code) {

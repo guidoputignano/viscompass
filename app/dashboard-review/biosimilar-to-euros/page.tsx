@@ -31,7 +31,7 @@ const DEMO_ROWS: BiosimilarComparisonRow[] = [
   { active_substance: "PEGFILGRASTIM", atc4: "L03AA", therapeutic_area: "Immunologia / ematologia", therapeutic_area_status: "review_required", originator_cost_per_mg: 72.4, biosimilar_cost_per_mg: 58.2, originator_spend_eur: 690_000, biosimilar_spend_eur: 2_070_000, originator_share: 0.25, substitution_headroom_eur: 60_801, headroom_is_upper_bound: true, headroom_basis: "mesi con biosimilare effettivamente dispensato, differenziale misurabile", substitutable_originator_spend_eur: 430_000, headroom_base_eur: 310_000, biosimilar_penetration: 0.75, penetration_basis: "packs", penetration_locally_substitutable: 0.79, penetration_locally_substitutable_basis: "packs", comparable_share: 0.449, normalized_volume_mg: 43_700, normalization_coverage: 0.86, evidence_status: "ready", latest_year: 2025 },
 ];
 
-export function BiosimilarToEurosView({ rows }: { rows: BiosimilarComparisonRow[] }) {
+function BiosimilarToEurosView({ rows }: { rows: BiosimilarComparisonRow[] }) {
   const isTemplate = rows.length === 0;
   const displayRows = isTemplate ? DEMO_ROWS : rows;
   // Deliberately NOT called a saving, and deliberately not summed under a heading

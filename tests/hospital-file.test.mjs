@@ -297,6 +297,33 @@ test("XLSX parsing rejects formulas even on hidden worksheets", async () => {
   assert.equal(issue(report, "formula_not_allowed").count, 1);
 });
 
+test("XLSX parsing refuses data on hidden sheets without formulas", async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(HOSPITAL_SHEET_NAME);
+  for (const row of workbookRows(hospitalRow())) sheet.addRow(row);
+  const hidden = workbook.addWorksheet("other ASL");
+  hidden.state = "hidden";
+  hidden.getCell("A1").value = "130999";
+  const report = await validateHospitalWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
+  assert.equal(report.status, "rejected");
+  assert.equal(issue(report, "hidden_sheet_data_not_allowed").count, 1);
+});
+
+test("XLSX parsing permits the known UpSlide formatting metadata shape", async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(HOSPITAL_SHEET_NAME);
+  for (const row of workbookRows(hospitalRow())) sheet.addRow(row);
+  for (const name of ["UPSLIDE_UndoFormatting", "UPSLIDE_Undo"]) {
+    const hidden = workbook.addWorksheet(name);
+    hidden.state = "hidden";
+    hidden.getCell("A1").value = 2;
+    hidden.getCell("B1").value = 21;
+  }
+  const report = await validateHospitalWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
+  assert.equal(issue(report, "hidden_sheet_data_not_allowed"), undefined);
+  assert.equal(report.status, "accepted");
+});
+
 test("XLSX parsing validates rows after an intentional blank line", async () => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(HOSPITAL_SHEET_NAME);
@@ -349,6 +376,39 @@ test("XLSX archive preflight rejects embedded executable members", async () => {
   }
   assert.equal(replacementCount, 2);
 
+  const report = await validateHospitalWorkbook(buffer);
+  assert.equal(report.status, "rejected");
+  assert.equal(issue(report, "unsafe_xlsx_archive").count, 1);
+});
+
+test("XLSX preflight rejects a local-header name different from the central directory", async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(HOSPITAL_SHEET_NAME);
+  for (const row of workbookRows(hospitalRow())) sheet.addRow(row);
+  const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+  const originalName = Buffer.from("[Content_Types].xml");
+  const alternateName = "xl/embeddings/x.exe";
+  assert.equal(Buffer.byteLength(alternateName), originalName.byteLength);
+  const localNameOffset = buffer.indexOf(originalName);
+  assert.ok(localNameOffset >= 0);
+  buffer.write(alternateName, localNameOffset, "utf8");
+  const report = await validateHospitalWorkbook(buffer);
+  assert.equal(report.status, "rejected");
+  assert.equal(issue(report, "invalid_xlsx_container").count, 1);
+});
+
+test("XLSX preflight refuses an oversized declared XML part before parsing", async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(HOSPITAL_SHEET_NAME);
+  for (const row of workbookRows(hospitalRow())) sheet.addRow(row);
+  const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+  const centralOffset = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  assert.ok(centralOffset >= 0);
+  const localOffset = buffer.readUInt32LE(centralOffset + 42);
+  buffer.writeUInt32LE(65 * 1024 * 1024, centralOffset + 24);
+  if ((buffer.readUInt16LE(centralOffset + 8) & 0x8) === 0) {
+    buffer.writeUInt32LE(65 * 1024 * 1024, localOffset + 22);
+  }
   const report = await validateHospitalWorkbook(buffer);
   assert.equal(report.status, "rejected");
   assert.equal(issue(report, "unsafe_xlsx_archive").count, 1);

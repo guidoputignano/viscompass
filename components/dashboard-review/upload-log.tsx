@@ -18,6 +18,8 @@ import type { UploadRecord, UploadStatus } from "@/lib/dashboard-review/types";
 const COLUMN_STATUS: Record<UploadStatus, { label: string; tone: "neutral" | "warning" | "positive" | "danger" }> = {
   uploaded: { label: "Caricato", tone: "neutral" },
   processing: { label: "In elaborazione", tone: "warning" },
+  staged: { label: "In staging", tone: "warning" },
+  canonical_mapping_blocked: { label: "Mappatura canonica in attesa", tone: "warning" },
   reconciled: { label: "Riconciliato", tone: "positive" },
   discrepancy_found: { label: "Scarto rilevato", tone: "danger" },
 };

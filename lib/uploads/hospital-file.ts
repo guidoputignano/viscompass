@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { createInflateRaw } from "node:zlib";
+import { itNumber } from "@/lib/format/it-number";
 
 export const MAX_HOSPITAL_FILE_BYTES = 25 * 1024 * 1024;
 export const HOSPITAL_FORMAT_VERSION = "DIR_OSP_TRA_003AS/v1" as const;
@@ -15,8 +16,8 @@ export const HOSPITAL_CHANNEL_COLUMNS = {
 const EXPECTED_COLUMN_COUNT = 34;
 const MAX_HOSPITAL_DATA_ROWS = 200_000;
 const MAX_XLSX_ARCHIVE_ENTRIES = 2_048;
-const MAX_XLSX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
-const MAX_XLSX_ENTRY_UNCOMPRESSED_BYTES = 192 * 1024 * 1024;
+const MAX_XLSX_UNCOMPRESSED_BYTES = 96 * 1024 * 1024;
+const MAX_XLSX_ENTRY_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
 const MAX_XLSX_COMPRESSION_RATIO = 500;
 const MAX_ISSUE_EXAMPLES = 5;
 const MAX_EXAMPLE_VALUE_LENGTH = 160;
@@ -171,6 +172,7 @@ export interface HospitalFormulaCell {
 export interface HospitalRowsMetadata {
   sheetName?: string | null;
   visibleSheetNames?: readonly string[];
+  hiddenSheetNamesWithData?: readonly string[];
   columnCount?: number;
   formulaCells?: readonly HospitalFormulaCell[];
   sourceRowCount?: number;
@@ -499,6 +501,9 @@ export function validateHospitalRows(
       { value: visibleSheetNames.join(", ") || "none" },
     );
   }
+  for (const hiddenName of metadata.hiddenSheetNamesWithData ?? []) {
+    addIssue("error", "hidden_sheet_data_not_allowed", "Il formato ospedaliero non ammette dati nei fogli nascosti.", { value: hiddenName });
+  }
   if (sheetName !== HOSPITAL_SHEET_NAME) {
     addIssue(
       "error",
@@ -590,7 +595,7 @@ export function validateHospitalRows(
     addIssue(
       "error",
       "row_limit_exceeded",
-      `Il file supera il limite di sicurezza di ${MAX_HOSPITAL_DATA_ROWS.toLocaleString("it-IT")} righe.`,
+      `Il file supera il limite di sicurezza di ${itNumber(MAX_HOSPITAL_DATA_ROWS)} righe.`,
       { value: `${sourceRowCount} righe dati; estensione ${sourceRowExtent}` },
     );
   }
@@ -837,7 +842,7 @@ export function validateHospitalRows(
         addIssue(
           "warning",
           "extreme_price",
-          `Un prezzo unitario supera in valore assoluto EUR ${EXTREME_PRICE_EUR.toLocaleString("it-IT")}.`,
+          `Un prezzo unitario supera in valore assoluto EUR ${itNumber(EXTREME_PRICE_EUR)}.`,
           { row: rowNumber, column: columnLetter(column), value: String(value) },
         );
       }
@@ -1015,6 +1020,7 @@ interface ArchivePreflightFailure {
 
 interface ArchiveEntryPreflight {
   fileName: string;
+  localHeaderOffset: number;
   compressedSize: number;
   declaredUncompressedSize: number;
   compressionMethod: number;
@@ -1153,6 +1159,7 @@ async function preflightXlsxArchive(
 
   let cursor = centralOffset;
   const entries: ArchiveEntryPreflight[] = [];
+  const memberNames = new Set<string>();
   for (let entryIndex = 0; entryIndex < entryCount; entryIndex += 1) {
     if (cursor + 46 > centralEnd || bytes.readUInt32LE(cursor) !== centralSignature) {
       return {
@@ -1178,6 +1185,11 @@ async function preflightXlsxArchive(
       };
     }
     const fileName = bytes.toString((flags & 0x800) !== 0 ? "utf8" : "latin1", fileNameStart, fileNameEnd);
+    const nameBytes = bytes.subarray(fileNameStart, fileNameEnd);
+    if (fileNameLength === 0 || nameBytes.some((byte) => byte < 0x20 || byte > 0x7e) || memberNames.has(fileName.toLowerCase())) {
+      return { code: "unsafe_xlsx_archive", message: "L'archivio XLSX contiene nomi ambigui o duplicati." };
+    }
+    memberNames.add(fileName.toLowerCase());
     if (
       (flags & 0x1) !== 0 ||
       compressedSize === 0xffffffff ||
@@ -1209,13 +1221,23 @@ async function preflightXlsxArchive(
     }
     const localFlags = bytes.readUInt16LE(localHeaderOffset + 6);
     const localCompressionMethod = bytes.readUInt16LE(localHeaderOffset + 8);
+    const localCrc = bytes.readUInt32LE(localHeaderOffset + 14);
+    const localCompressedSize = bytes.readUInt32LE(localHeaderOffset + 18);
+    const localUncompressedSize = bytes.readUInt32LE(localHeaderOffset + 22);
     const localNameLength = bytes.readUInt16LE(localHeaderOffset + 26);
     const localExtraLength = bytes.readUInt16LE(localHeaderOffset + 28);
+    const localNameStart = localHeaderOffset + 30;
+    const localNameEnd = localNameStart + localNameLength;
     const dataStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
     const dataEnd = dataStart + compressedSize;
     if (
-      (localFlags & 0x1) !== 0 ||
+      localFlags !== flags ||
       localCompressionMethod !== compressionMethod ||
+      localNameEnd > centralOffset ||
+      localNameLength !== fileNameLength ||
+      !bytes.subarray(localNameStart, localNameEnd).equals(nameBytes) ||
+      ((flags & 0x8) === 0 && (localCrc !== bytes.readUInt32LE(cursor + 16) || localCompressedSize !== compressedSize || localUncompressedSize !== uncompressedSize)) ||
+      ((flags & 0x8) !== 0 && ((localCompressedSize !== 0 && localCompressedSize !== compressedSize) || (localUncompressedSize !== 0 && localUncompressedSize !== uncompressedSize))) ||
       !Number.isSafeInteger(dataEnd) ||
       dataStart < 0 ||
       dataEnd > centralOffset
@@ -1228,6 +1250,7 @@ async function preflightXlsxArchive(
 
     entries.push({
       fileName,
+      localHeaderOffset,
       compressedSize,
       declaredUncompressedSize: uncompressedSize,
       compressionMethod,
@@ -1247,7 +1270,7 @@ async function preflightXlsxArchive(
 
   const ranges = entries
     .filter((entry) => entry.dataEnd > entry.dataStart)
-    .map((entry) => [entry.dataStart, entry.dataEnd] as const)
+    .map((entry) => [entry.localHeaderOffset, entry.dataEnd] as const)
     .sort((left, right) => left[0] - right[0]);
   for (let index = 1; index < ranges.length; index += 1) {
     if (ranges[index][0] < ranges[index - 1][1]) {
@@ -1267,6 +1290,9 @@ async function preflightXlsxArchive(
         code: "unsafe_xlsx_archive",
         message: "L'archivio XLSX supera i limiti di decompressione sicura.",
       };
+    }
+    if (entry.declaredUncompressedSize > entryLimit) {
+      return { code: "unsafe_xlsx_archive", message: "L'archivio XLSX supera i limiti di decompressione sicura." };
     }
 
     let actualUncompressedSize: number;
@@ -1401,6 +1427,33 @@ export async function validateHospitalWorkbook(
   const visibleWorksheets = workbook.worksheets.filter(
     (worksheet) => worksheet.state === "visible",
   );
+  const knownFormattingMetadata = (worksheet: ExcelJS.Worksheet): boolean => {
+    if (!new Set(["UPSLIDE_UndoFormatting", "UPSLIDE_Undo"]).has(worksheet.name)) return false;
+    const populated: { address: string; value: unknown }[] = [];
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        if (cell.value !== null && cell.value !== undefined && cell.value !== "") {
+          populated.push({ address: cell.address, value: cell.value });
+        }
+      });
+    });
+    return populated.length === 2 &&
+      populated[0].address === "A1" && populated[0].value === 2 &&
+      populated[1].address === "B1" && populated[1].value === 21;
+  };
+  const hiddenSheetNamesWithData = workbook.worksheets
+    .filter((worksheet) => worksheet.state !== "visible")
+    .filter((worksheet) => !knownFormattingMetadata(worksheet))
+    .filter((worksheet) => {
+      let hasData = false;
+      worksheet.eachRow({ includeEmpty: false }, (row) => {
+        row.eachCell({ includeEmpty: false }, (cell) => {
+          if (cell.value !== null && cell.value !== undefined && cell.value !== "") hasData = true;
+        });
+      });
+      return hasData;
+    })
+    .map((worksheet) => worksheet.name);
   const selectedWorksheet =
     workbook.getWorksheet(HOSPITAL_SHEET_NAME) ??
     visibleWorksheets[0] ??
@@ -1426,6 +1479,7 @@ export async function validateHospitalWorkbook(
     return validateHospitalRows([], {
       sheetName: null,
       visibleSheetNames: visibleWorksheets.map((worksheet) => worksheet.name),
+      hiddenSheetNamesWithData,
       columnCount: 0,
       formulaCells,
       sourceRowCount: 0,
@@ -1452,6 +1506,7 @@ export async function validateHospitalWorkbook(
     {
       sheetName: selectedWorksheet.name,
       visibleSheetNames: visibleWorksheets.map((worksheet) => worksheet.name),
+      hiddenSheetNamesWithData,
       columnCount: selectedWorksheet.actualColumnCount,
       formulaCells,
       sourceRowCount: Math.max(0, selectedWorksheet.actualRowCount - HOSPITAL_HEADER_ROWS.length),

@@ -1,32 +1,26 @@
 -- B19 / tenancy-rls, CRITICAL.
 --
--- Four tables created in section 2 of supabase_schema.sql never had row level
--- security enabled and were never granted or revoked:
+-- Four tables created in section 2 of supabase_schema.sql need explicit
+-- production read/write grants and policies:
 --
 --     aifa_product_master        (line  57)
 --     aifa_ingredient_master     (line  74)
 --     aifa_shortage_list         (line  85)
 --     aic_normalization_resolved (line 106)
 --
--- Every other table in the project is locked down. These four kept Supabase's
--- project default `grant all on tables to anon, authenticated`, and with no RLS
--- to filter, PostgREST serves the bare `anon` role full CRUD on them. The
--- publishable key is inlined into the browser bundle by lib/supabase/client.ts,
--- as it is designed to be, so that role is available to anyone who opens the
--- site.
+-- Production audit on 2026-09-30 found RLS already enabled on all four, but
+-- not forced; anon/authenticated retained table-level grants, with no policies.
+-- With RLS enabled and no policies, client roles are default-denied despite
+-- those grants. This migration makes the intended access explicit and removes
+-- the broad grants, rather than claiming a demonstrated public CRUD exposure.
 --
--- The READ half of this discloses little: AIC_Normalization_Resolved.csv is
--- itself committed to the public repository, and the three aifa_* tables are
--- AIFA public reference data per the schema's own comments. (The CSV's presence
--- in a public repo is a separate, recorded issue — see
--- outputs/pillar-b/EXPOSURE_ASSESSMENT_20260930.md — and is not fixed here.)
+-- The three aifa_* tables are public AIFA reference data. The owner approved
+-- leaving AIC_Normalization_Resolved.csv public; database access remains
+-- scoped to approved organizations as defense in depth.
 --
--- The WRITE half is the reason this is critical. An unauthenticated caller could
--- PATCH spend_eur, DELETE the whole normalization reference set, or INSERT
--- arbitrary rows into the customer's database, with no audit trail and nothing in
--- the application able to notice. `aic_normalization_resolved` is the table the
--- unit-cost normalisation is built on, so corrupting it silently changes every
--- per-mg figure the product publishes.
+-- Explicit write revocation protects against future RLS policy changes. The
+-- normalization reference drives per-mg calculations and must remain writable
+-- only through the controlled service-role loader.
 --
 -- This applies the lockdown idiom the project already uses elsewhere
 -- (supabase/migrations/20260907120000_secure_hospital_file_staging.sql and the

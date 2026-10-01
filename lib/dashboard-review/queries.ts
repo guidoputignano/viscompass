@@ -680,6 +680,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
       latest_year: latestYear,
       rows: [],
       peer_count: 0,
+      biosimilar_penetration_basis: null,
       median_spend_eur: null,
       median_cost_per_pack_eur: null,
       median_biosimilar_penetration: null,
