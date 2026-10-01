@@ -75,12 +75,20 @@ returns table (
   channel               text,
   rows_observed         bigint,
   spend_eur             numeric,   -- null when nothing observed
-  -- NO PACKAGE AGGREGATE. The source quantity's basis is inferred, not confirmed,
-  -- so a "confezioni" total would assert something nobody has established. The raw
-  -- sum is exposed with the bases it was built from, so a caller can see that it
-  -- is not a package count.
-  source_quantity_sum   numeric,
-  source_quantity_bases text[],
+  -- NO QUANTITY AGGREGATE OF ANY KIND.
+  --
+  -- A package total would assert a convention nobody has confirmed. But summing
+  -- the RAW values is no better: adding 50 packages to 1,200 units to a row whose
+  -- basis is unknown produces a scalar with no coherent unit, and calling it
+  -- "raw" does not give it one. An earlier version returned exactly that.
+  --
+  -- What a caller legitimately needs is COVERAGE: how many rows rest on each
+  -- basis, so the share of the figure that could ever carry a unit is visible.
+  -- The per-row source_quantity remains on canonical_fact for audit.
+  rows_basis_packages   bigint,
+  rows_basis_units      bigint,
+  rows_basis_mixed      bigint,
+  rows_basis_unknown    bigint,
   comparable_rows       bigint,
   comparable_spend_eur  numeric,
   negative_rows         bigint     -- returns/corrections, retained
@@ -95,8 +103,10 @@ as $$
     cf.channel,
     count(*)::bigint,
     sum(cf.total_cost_eur),
-    sum(cf.source_quantity),
-    array_agg(distinct cf.source_quantity_basis) filter (where cf.source_quantity_basis is not null),
+    count(*) filter (where cf.source_quantity_basis = 'packages')::bigint,
+    count(*) filter (where cf.source_quantity_basis = 'units')::bigint,
+    count(*) filter (where cf.source_quantity_basis = 'mixed')::bigint,
+    count(*) filter (where cf.source_quantity_basis = 'unknown')::bigint,
     count(*) filter (where cf.comparable_eligible)::bigint,
     sum(cf.total_cost_eur) filter (where cf.comparable_eligible),
     count(*) filter (where cf.total_cost_eur < 0)::bigint
@@ -213,8 +223,9 @@ returns table (
   active_substance  text,
   withheld_reason   text,
   rows_n              bigint,
-  spend_eur           numeric,
-  source_quantity_sum numeric
+  spend_eur           numeric
+  -- No quantity total here either. The withheld set spans every basis by
+  -- definition, so a sum over it is the least coherent of all.
 )
 language sql
 stable
@@ -235,8 +246,7 @@ as $$
       else 'unknown'
     end,
     count(*)::bigint,
-    sum(cf.total_cost_eur),
-    sum(cf.source_quantity)
+    sum(cf.total_cost_eur)
   from canonical_fact cf
   where cf.source_version_id = public.pillar_b_release()
     and cf.year = p_year
@@ -257,14 +267,26 @@ create or replace function public.pillar_b_uptake_scope(
   p_from_month int default 1,
   p_to_month   int default 12
 )
-returns table (rows_n bigint, spend_eur numeric, source_quantity_sum numeric, source_quantity_bases text[])
+returns table (
+  rows_n              bigint,
+  spend_eur           numeric,
+  -- basis COVERAGE, not a quantity total: see the note on pillar_b_spend.
+  rows_basis_packages bigint,
+  rows_basis_units    bigint,
+  rows_basis_mixed    bigint,
+  rows_basis_unknown  bigint
+)
 language sql
 stable
 security invoker
 set search_path = public
 as $$
-  select count(*)::bigint, sum(cf.total_cost_eur), sum(cf.source_quantity),
-         array_agg(distinct cf.source_quantity_basis) filter (where cf.source_quantity_basis is not null)
+  select count(*)::bigint,
+         sum(cf.total_cost_eur),
+         count(*) filter (where cf.source_quantity_basis = 'packages')::bigint,
+         count(*) filter (where cf.source_quantity_basis = 'units')::bigint,
+         count(*) filter (where cf.source_quantity_basis = 'mixed')::bigint,
+         count(*) filter (where cf.source_quantity_basis = 'unknown')::bigint
     from canonical_fact cf
    where cf.source_version_id = public.pillar_b_release()
      and cf.year = p_year
