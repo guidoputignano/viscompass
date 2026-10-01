@@ -42,7 +42,7 @@ const BATCH = 1000;
 
 const COLUMNS = [
   "source_record_id", "source_version_id", "year", "month",
-  "region_code", "region_name", "asl_code", "channel", "aic",
+  "region_code", "region_name", "asl_code", "channel", "aic", "active_substance",
   "quantity_packs", "total_cost_eur", "erogato_cost_eur", "cost_basis",
   "source_disposition", "source_key_class",
   "perimeter_status", "perimeter_evidence_grade", "classification_valid_from",
@@ -139,6 +139,11 @@ export function buildPerimeterIndex(taxonomyJson) {
       status: r.status ?? "unresolved",
       grade: r.evidence_grade ?? null,
       validFrom: r.valid_from ?? null,
+      // The substance is what makes a biosimilar comparable with its reference
+      // medicine: they are different AICs, so a comparison grouped by AIC puts
+      // each product alone in its own group and every uptake share collapses to
+      // 0% or 100%. Leaving this null did exactly that.
+      substance: r.substance ?? null,
     });
   }
   return index;
@@ -159,8 +164,8 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex }) {
   const exclusion = analytical ? null : "A0_non_analytical_key";
 
   const perimeter = analytical
-    ? (perimeterIndex.get(r.prodotto_key) ?? { status: "unresolved", grade: null, validFrom: null })
-    : { status: null, grade: null, validFrom: null };
+    ? (perimeterIndex.get(r.prodotto_key) ?? { status: "unresolved", grade: null, validFrom: null, substance: null })
+    : { status: null, grade: null, validFrom: null, substance: null };
 
   const cost = r.c === null || r.c === undefined ? null : Number(r.c);
   const qty = r.q === null || r.q === undefined ? null : Number(r.q);
@@ -176,6 +181,7 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex }) {
     aslCode,
     r.canale ?? null,
     analytical ? r.prodotto_key : null,    // only a real 9-digit AIC goes in the aic column
+    perimeter.substance,                   // groups a biosimilar with its reference medicine
     qty,
     cost,
     cost,                                   // erogato basis: same figure, named for what it is
