@@ -311,7 +311,14 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) 
     norm === undefined ? null : norm.unit,
     norm === undefined ? null : norm.basis,
     COST_GROSS_STATUS,
-    analytical ? "Validated" : "Unresolved",
+    // mapping_confidence is the ATC-mapping confidence and nothing else. THIS
+    // LOADER PERFORMS NO ATC LOOKUP -- atc1..atc5 are not in COLUMNS, so every
+    // row is inserted with NULL ATC. Stamping 'Validated' claimed a mapping that
+    // was never attempted, and queries.ts isUnresolved() tests exactly this
+    // column, so the "Record irrisolti" KPI would have read 1,064 instead of
+    // 261,153. 'Unresolved' is this vocabulary's own word for "no match in
+    // either source", which is the true state here.
+    "Unresolved",
   ];
 }
 

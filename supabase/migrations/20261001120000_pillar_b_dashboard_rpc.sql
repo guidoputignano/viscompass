@@ -20,10 +20,12 @@
 --   than coalesced, because "no data" rendering as "zero spending" has been a
 --   real defect in this project.
 --
---   ONE UNIT PER MEASURE. Each function returns euros and quantities in separate
---   columns, never a single "value" whose unit depends on a parameter. Mixing mg,
---   packs and euros into one ranked measure is the mistake these signatures are
---   shaped to prevent.
+--   NO QUANTITY AGGREGATE. These functions return euros, row counts and BASIS
+--   COVERAGE. They deliberately return no summed quantity of any kind: the source
+--   quantity's package/unit convention is inferred, never confirmed, so a total
+--   over it has no coherent unit. Per-row quantities stay on canonical_fact for
+--   audit; only uptake aggregates them, and only inside one substance, route and
+--   unit.
 --
 -- Month bounds are inclusive and are how the matched January–May 2026 window is
 -- expressed. No function offers a full-year-against-YTD comparison; that is
@@ -118,24 +120,29 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------- uptake
--- Biosimilar uptake on a B04-compatible NORMALIZED QUANTITY, within one
--- comparable stratum, on two denominators.
+-- Biosimilar uptake on a normalized quantity, within one SUBSTANCE and ROUTE,
+-- on two denominators.
 --
--- Packages are not a quantity share: one pack of 1x40mg and one of 6x40mg are
--- one package each and six times apart in drug. comparable_quantity comes from
--- the independently parsed presentation and carries its unit, and grouping by
--- comparable_stratum_id pins molecule, route, form and unit, so every sum is in
--- one physical unit by construction.
+-- GROUPING BY STRATUM WAS WRONG AND IS FIXED HERE. A comparable stratum is
+-- keyed by molecule|route|form|unit|year, and a biosimilar and its reference
+-- medicine very often sit in DIFFERENT strata: of the strata touching the
+-- perimeter, only 16 contain both sides, while 37 hold a biosimilar alone and 55
+-- a reference alone. Grouping by stratum therefore forced the share to 0% or
+-- 100% for 92 of 108 of them, which is the same defect as the earlier AIC
+-- grouping wearing a different key.
 --
--- FIRST LOCAL DISPENSING IS ESTABLISHED FROM OBSERVED PACKAGES, NOT FROM
--- NORMALIZED QUANTITY. A biosimilar dispensed in a row that is not comparable
--- still opened the local window: the substitution WAS available that month,
--- whatever the state of its pack parsing. Requiring a normalized quantity here
--- made the window open late and silently shrank the second denominator toward
--- the first. Normalized quantity is used only for the share arithmetic.
+-- The grain that actually answers the question is (ASL, substance, ROUTE, year).
+-- Route is part of it, not a detail: 13 substance-years span ENDOVENOSO and
+-- SOTTOCUTANEO -- ustekinumab, natalizumab, tocilizumab among them -- and pooling
+-- an intravenous with a subcutaneous presentation is not a substitution share.
 --
--- The window is opened across the WHOLE fact set, never within the queried
--- period, so a biosimilar first dispensed in an earlier year does not look new.
+-- ONE UNIT IS REQUIRED, NOT ASSUMED. The stratum used to carry that guarantee;
+-- at substance grain it must be enforced, so a group whose sides do not share a
+-- single comparable_unit is withheld. Four substance-years need it: enoxaparin
+-- sodium (MG and UI) and insulin glargine (U, UI and UNITA).
+--
+-- BOTH SIDES MUST BE PRESENT. A group with no biosimilar row has no uptake to
+-- report -- not 0%, which would assert the biosimilar was available and unused.
 create or replace function public.pillar_b_uptake(
   p_year       int,
   p_from_month int default 1,
@@ -144,13 +151,14 @@ create or replace function public.pillar_b_uptake(
 returns table (
   asl_code                      text,
   active_substance              text,
-  comparable_stratum_id         text,
+  route                         text,
   comparable_unit               text,
   whole_period_biosimilar_qty   numeric,
   whole_period_total_qty        numeric,
   window_biosimilar_qty         numeric,
   window_total_qty              numeric,
-  first_local_biosimilar_key    int
+  first_local_biosimilar_key    int,
+  strata_pooled                 int
 )
 language sql
 stable
@@ -158,7 +166,9 @@ security invoker
 set search_path = public
 as $$
   with usable as (
-    select cf.*
+    select cf.*,
+           -- route is the third segment of the stratum key
+           split_part(cf.comparable_stratum_id, '|', 3) as route_key
       from canonical_fact cf
      where cf.source_version_id = public.pillar_b_release()
        and cf.year = p_year
@@ -167,12 +177,26 @@ as $$
        and cf.perimeter_status in ('biosimilar','reference_medicine')
        and cf.comparable_eligible
        and cf.comparable_quantity is not null
+       and cf.comparable_unit is not null
        and cf.active_substance is not null
   ),
+  grouped as (
+    select asl_code, active_substance, route_key,
+           count(distinct comparable_unit) as units,
+           count(*) filter (where perimeter_status = 'biosimilar')         as bio_rows,
+           count(*) filter (where perimeter_status = 'reference_medicine') as ref_rows
+      from usable
+     group by 1, 2, 3
+  ),
+  eligible_groups as (
+    -- one unit, and both sides present
+    select * from grouped where units = 1 and bio_rows > 0 and ref_rows > 0
+  ),
   opened as (
-    -- observed POSITIVE PACKAGES, and deliberately NOT restricted to comparable
-    -- rows: availability is a fact about dispensing, not about pack parsing.
+    -- observed POSITIVE source quantity, across the WHOLE fact set, and NOT
+    -- restricted to comparable rows: availability is a fact about dispensing.
     select cf.asl_code, cf.active_substance,
+           split_part(cf.comparable_stratum_id, '|', 3) as route_key,
            min(cf.year * 12 + cf.month) as first_key
       from canonical_fact cf
      where cf.source_version_id = public.pillar_b_release()
@@ -181,13 +205,13 @@ as $$
        and cf.active_substance is not null
        and cf.source_quantity > 0
        and cf.month is not null
-     group by 1, 2
+     group by 1, 2, 3
   )
   select
     u.asl_code,
     u.active_substance,
-    u.comparable_stratum_id,
-    u.comparable_unit,
+    u.route_key,
+    max(u.comparable_unit),
     sum(u.comparable_quantity) filter (where u.perimeter_status = 'biosimilar'),
     sum(u.comparable_quantity),
     sum(u.comparable_quantity) filter (
@@ -195,11 +219,16 @@ as $$
         and o.first_key is not null and (u.year * 12 + u.month) >= o.first_key),
     sum(u.comparable_quantity) filter (
       where o.first_key is not null and (u.year * 12 + u.month) >= o.first_key),
-    max(o.first_key)
+    max(o.first_key),
+    count(distinct u.comparable_stratum_id)::int
   from usable u
+  join eligible_groups g
+    on g.asl_code = u.asl_code and g.active_substance = u.active_substance
+   and g.route_key = u.route_key
   left join opened o
     on o.asl_code = u.asl_code and o.active_substance = u.active_substance
-  group by u.asl_code, u.active_substance, u.comparable_stratum_id, u.comparable_unit
+   and o.route_key = u.route_key
+  group by u.asl_code, u.active_substance, u.route_key
 $$;
 
 -- --------------------------------------------------------- uptake, withheld
@@ -243,7 +272,8 @@ as $$
       when cf.quantity_basis_status = 'absent'
         then 'no parsed presentation for this product'
       when cf.comparable_quantity is null      then 'no normalized quantity for this presentation'
-      else 'unknown'
+      when cf.comparable_unit is null          then 'no comparable unit'
+      else 'substance/route group not usable: mixed units, or only one side present'
     end,
     count(*)::bigint,
     sum(cf.total_cost_eur)
@@ -253,9 +283,13 @@ as $$
     and cf.month between p_from_month and p_to_month
     and cf.source_disposition = 'analytical'
     and cf.perimeter_status in ('biosimilar','reference_medicine')
-    and not (cf.comparable_eligible
-             and cf.comparable_quantity is not null
-             and cf.active_substance is not null)
+    and not exists (
+      -- anything pillar_b_uptake actually used
+      select 1 from public.pillar_b_uptake(p_year, p_from_month, p_to_month) u
+       where u.asl_code = cf.asl_code
+         and u.active_substance is not distinct from cf.active_substance
+         and u.route = split_part(cf.comparable_stratum_id, '|', 3)
+    )
   group by 1, 2, 3
 $$;
 
@@ -323,8 +357,15 @@ as $$
        and (p_year is null or cf.year = p_year)
        and (p_year is null or cf.month between p_from_month and p_to_month)
   )
+  -- NOTE ON MONOTONICITY. Spend is SIGNED: the ledger carries 828 negative rows
+  -- (returns and corrections). A later stage can therefore exceed an earlier one
+  -- in euros while still being a strict ROW subset, because the stage that drops
+  -- a negative row gains its absolute value. An earlier monotonicity check passed
+  -- only because it was run on the aggregate; it fails for reachable ASL/month
+  -- slices. Row counts are the monotone quantity here and are returned alongside,
+  -- and the note tells the reader which is which.
   select 'Spesa osservata', 1, count(*)::bigint, sum(total_cost_eur),
-         'Tutte le righe nel perimetro, incluse le rettifiche negative'
+         'Tutte le righe nel perimetro, incluse le rettifiche negative (spesa con segno)'
     from scoped
   union all
   select 'Riga classificabile (AIC)', 2,

@@ -57,11 +57,13 @@ alter table canonical_fact add column if not exists comparable_eligible boolean 
 -- Any uptake or volume figure built on packages across different presentations is
 -- measuring the wrong thing.
 --
--- Within one AIC the content of a pack is constant -- that is what an AIC
--- identifies -- so content-per-pack = aic_quantity / observed packs reconstructs
--- the frozen per-AIC quantity exactly (verified for all 2,736 stratum/AIC pairs,
--- 100% of eligible spend). comparable_unit carries the unit so a figure can never
--- be summed across MG, UI, MCG and PACK.
+-- comparable_quantity is taken from the independently parsed presentation in
+-- b04_comparable_quantity, NOT derived by division. An earlier version derived it
+-- and "verified" the derivation by multiplying the quotient back by the same
+-- total -- x/y*y == x, which cannot fail; checked against the parser's own
+-- presentation factor it disagreed for 764 pairs. That claim is retracted and
+-- must not be restated. comparable_unit carries the unit so a figure can never be
+-- summed across MG, UI, MCG and PACK.
 alter table canonical_fact add column if not exists comparable_quantity numeric;
 alter table canonical_fact add column if not exists comparable_unit     text;
 

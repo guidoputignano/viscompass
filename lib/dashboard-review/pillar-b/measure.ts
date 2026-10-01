@@ -88,6 +88,22 @@ export function change(current: Measure, previous: Measure): number | null {
       `cannot difference an ${current.provenance} measure against a ${previous.provenance} one`,
     );
   }
+  // Periods must be commensurable. Differencing a 5-month YTD figure against a
+  // 12-month year reports the calendar as a change, which is the single easiest
+  // false finding this data affords. The period model refuses to CONSTRUCT that
+  // comparison; this refuses to compute one if a caller assembles the Measures
+  // by hand.
+  if (current.period.months !== previous.period.months) {
+    throw new Error(
+      `cannot difference a ${current.period.months}-month period against a ` +
+      `${previous.period.months}-month one: the difference would be mostly calendar`,
+    );
+  }
+  if (current.period.kind !== previous.period.kind) {
+    throw new Error(
+      `cannot difference a ${current.period.kind} period against a ${previous.period.kind} one`,
+    );
+  }
   if (current.value === null || previous.value === null) return null;
   return current.value - previous.value;
 }
