@@ -24,6 +24,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/dashboard-review/spend", label: "Quadro esecutivo", icon: ChartNoAxesCombined },
       { href: "/dashboard-review/benchmark", label: "Benchmark territoriale", icon: ChartSpline },
+      { href: "/dashboard-review/revisione-pillar-b", label: "Revisione Pillar B", icon: ClipboardList },
       { href: "/dashboard-review/biosimilar-to-euros", label: "Biosimilari → Euro", icon: ArrowLeftRight },
     ],
   },

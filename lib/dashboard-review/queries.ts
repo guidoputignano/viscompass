@@ -584,7 +584,30 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
 }
 
 
+/**
+ * Is this page's figure set superseded by a gated release?
+ *
+ * Import blocker condition 3: any uptake or €/unit figure must come from
+ * `pillar_b_uptake` with its withheld counterpart displayed, never from raw
+ * facts. Every figure in `BiosimilarComparisonRow` — penetration, cost per mg,
+ * the substitution headroom — is computed in JavaScript over unfiltered
+ * `canonical_fact` rows. There is no way to "release-scope" those numbers into
+ * correctness: the comparability gate, the quantity-basis gate and the withheld
+ * complement all live in SQL now, and this path predates all three.
+ *
+ * So under an active release this page is RETIRED rather than scoped, which is
+ * the other branch condition 1 allows. It is not silently blanked: the view says
+ * what superseded it and links there. The code is kept, not deleted, because it
+ * remains the only path for a dataset that is not a gated Pillar B release.
+ */
+export const getBiosimilarRetirement = cache(async (): Promise<string | null> => {
+  return activeReleaseId();
+});
+
 export async function getBiosimilarComparison(): Promise<BiosimilarComparisonRow[]> {
+  // Retired under a gated release — see getBiosimilarRetirement.
+  if ((await activeReleaseId()) !== null) return [];
+
   const facts = await selectCanonicalFacts();
   const latestYear = selectReportingPeriod(facts).year;
   // The whole fact set goes in and `latestYear` selects what is reported. The

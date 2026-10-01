@@ -8,7 +8,7 @@ import {
   StatusPill,
   TemplateNotice,
 } from "@/components/dashboard-review/analytics-ui";
-import { getBiosimilarComparison } from "@/lib/dashboard-review/queries";
+import { getBiosimilarComparison, getBiosimilarRetirement } from "@/lib/dashboard-review/queries";
 import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { BiosimilarComparisonRow } from "@/lib/dashboard-review/types";
 
@@ -182,6 +182,47 @@ function BiosimilarToEurosView({ rows }: { rows: BiosimilarComparisonRow[] }) {
 }
 
 export default async function BiosimilarToEurosPage() {
-  const rows = await getBiosimilarComparison();
+  const [rows, retiredForRelease] = await Promise.all([
+    getBiosimilarComparison(),
+    getBiosimilarRetirement(),
+  ]);
+
+  // Under a gated release this page's figures are superseded, not merely empty.
+  // Every number it produces — penetration, costo/mg, margine — is computed over
+  // unfiltered facts, before the comparability gate, the quantity-basis gate and
+  // the withheld complement existed. Saying so is the point: a blank page would
+  // read as "no biosimilar activity".
+  if (retiredForRelease !== null) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          eyebrow="Biosimilari"
+          title="Biosimilari → Euro"
+          description="Pagina superata dalla revisione Pillar B per la release attiva."
+        />
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
+          <h2 className="font-display text-base text-foreground">
+            Questi calcoli non sono validi per la release {retiredForRelease}
+          </h2>
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            Le cifre di questa pagina (penetrazione, costo per mg, margine) sono
+            calcolate sull&apos;insieme completo dei record, prima del filtro di
+            comparabilità, del controllo sulla base della quantità e della quota
+            trattenuta. Per la release attiva quei controlli esistono e cambiano il
+            risultato, quindi la pagina non li ripubblica.
+          </p>
+          <p className="mt-3 text-xs">
+            <Link
+              href="/dashboard-review/revisione-pillar-b"
+              className="font-semibold text-primary hover:underline"
+            >
+              Apri la revisione Pillar B →
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return <BiosimilarToEurosView rows={rows} />;
 }
