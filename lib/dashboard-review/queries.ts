@@ -340,14 +340,30 @@ function spendFlowsFromFacts(facts: CanonicalFact[]): SpendFlowData {
   const totalAcquistato = summaries.reduce((sum, summary) => sum + summary.acquistato_eur, 0);
   const totalErogato = summaries.reduce((sum, summary) => sum + summary.erogato_eur, 0);
 
+  // Is there an acquistato figure AT ALL? `acquistato_cost_eur ?? 0` turns "this
+  // release records no purchase figure" into "nothing was purchased", and the
+  // consequences are not confined to one tile: every class's residual becomes
+  // 0 - erogato, so EVERY class falls into negative_classes and the page reports
+  // "dispensed more than purchased" for all of them as though it were a finding.
+  //
+  // This is not hypothetical. The Pillar B loader writes total_cost_eur and
+  // erogato_cost_eur and never writes acquistato_cost_eur, so the first page load
+  // after the import would have shown "Acquistato EUR 0", "Differenza -100,0%
+  // dell'erogato", and a complete inversion of the flow attributed to named Aziende.
+  const acquistatoRows = facts.filter(
+    (fact) => fact.acquistato_cost_eur !== null && fact.acquistato_cost_eur !== undefined,
+  ).length;
+  const acquistatoKnown = acquistatoRows > 0;
+
   return {
     nodes,
     links,
     classes: drawable.map(strip),
     negative_classes: negative,
-    total_acquistato_eur: totalAcquistato,
+    total_acquistato_eur: acquistatoKnown ? totalAcquistato : null,
     total_erogato_eur: totalErogato,
-    net_eur: totalAcquistato - totalErogato,
+    net_eur: acquistatoKnown ? totalAcquistato - totalErogato : null,
+    acquistato_coverage: facts.length === 0 ? null : acquistatoRows / facts.length,
   };
 }
 

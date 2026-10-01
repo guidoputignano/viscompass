@@ -14,13 +14,28 @@
 
 import type { CanonicalFact } from "./types";
 
-/** Months actually observed for a year. A year is complete at twelve. */
+/**
+ * How many distinct CALENDAR months a year was observed in.
+ *
+ * The 1–12 range check is not decoration. Nothing between the source cell and
+ * here constrains the value: the loader writes `Number(r.mese)` and
+ * `canonical_fact.month` carries no CHECK constraint. A release holding
+ * January–November plus rows whose month is `0` (a common "periodo non
+ * attribuito" sentinel) or `13` (a year-end adjustment batch) would otherwise
+ * reach a count of twelve, and an eleven-month year would be selected as the
+ * reporting period and compared like-for-like against a real twelve-month one.
+ *
+ * The trend charts already filter to 1–12 (they index a month-label array), so
+ * without this the same screen would draw eleven bars beside a caption saying
+ * twelve.
+ */
 export function monthsObserved(facts: ReadonlyArray<CanonicalFact>, year: number): number {
   const months = new Set<number>();
   for (const fact of facts) {
     if (fact.year !== year) continue;
-    if (fact.month === null || fact.month === undefined) continue;
-    months.add(fact.month);
+    const month = fact.month;
+    if (!Number.isInteger(month) || (month as number) < 1 || (month as number) > 12) continue;
+    months.add(month as number);
   }
   return months.size;
 }

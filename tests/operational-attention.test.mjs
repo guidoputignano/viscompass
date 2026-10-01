@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {resolveAttention,attentionMatrix,cellProducts,emptyCellMessage} from '../lib/analytics/operational-attention.ts';
 import {productAbc} from '../lib/analytics/private-pillar-product.ts';
+// Staged private facts, deliberately outside this repository. Tests that need
+// them SKIP when absent; they must never report a pass for work not done.
+const STAGED=new URL('../private-staging/closure/private-product-facts.json',import.meta.url);
 const refs={sources:{},h:['000000001'],a:['000000002'],shortage:{'000000001':[{start:'01/01/2026',reason:'Test'}]},registry:[{atc:'J01AA02',name:'BRAND',indication:'Specific indication',kind:'Registro',url:'https://www.aifa.gov.it'}],pht:{'000000001':'yes','000000002':'no'}};
 const row=(aic='000000001',extra={})=>({aic,atc5:'J01AA02',product_name:'BRAND*10CPR',org_code:'x',year:2025,cf:100,band:'A',...extra});
 test('exact identifiers and unknown are preserved',()=>{
@@ -30,11 +33,20 @@ test('overlap is independent and every column reconciles',()=>{
  assert.throws(()=>attentionMatrix([row(),row()],[]));
  assert.equal(attentionMatrix([row()],[])[0].bands[0].unknown.spend,100);
 });
-test('reference manifest and real authorized-group arithmetic',()=>{
+// The manifest half needs nothing staged, so it is its own test and always runs.
+test('every reference source carries a sha256',()=>{
  const refs=JSON.parse(fs.readFileSync(new URL('../data/derived/operational-attention.json',import.meta.url),'utf8'));
- for(const s of Object.values(refs.sources))assert.match(s.sha256,/^[a-f0-9]{64}$/);
- const file=new URL('../private-staging/closure/private-product-facts.json',import.meta.url);
- if(!fs.existsSync(file))return;
+ const sources=Object.values(refs.sources);
+ assert.ok(sources.length>0,'a manifest with no sources would pass the loop below vacuously');
+ for(const s of sources)assert.match(s.sha256,/^[a-f0-9]{64}$/);
+});
+
+// The arithmetic half needs the staged private facts, which are deliberately not
+// in this repository. It previously `return`ed when they were absent and reported
+// a PASS for arithmetic it had not performed.
+test('real authorized-group arithmetic',{skip:!fs.existsSync(STAGED)&&'private-staging/closure/private-product-facts.json not present'},()=>{
+ const refs=JSON.parse(fs.readFileSync(new URL('../data/derived/operational-attention.json',import.meta.url),'utf8'));
+ const file=STAGED;
  const abc=productAbc(JSON.parse(fs.readFileSync(file,'utf8')));const evidence=resolveAttention(abc,refs);
  for(const key of new Set(abc.map(r=>`${r.org_code}/${r.year}`))){
   const rows=abc.filter(r=>`${r.org_code}/${r.year}`===key);const total=rows.reduce((s,r)=>s+r.cf,0);
@@ -117,10 +129,11 @@ test('the opened list matches the count on the cell that opened it',()=>{
   ev('000000004','listed')]);
 });
 
-test('drill-down and header agree on every cell of the real staged data',()=>{
+// Previously `return`ed when the staged file was absent -- which it is in this
+// repository -- and reported a pass having executed ZERO assertions.
+test('drill-down and header agree on every cell of the real staged data',{skip:!fs.existsSync(STAGED)&&'private-staging/closure/private-product-facts.json not present'},()=>{
  const refs=JSON.parse(fs.readFileSync(new URL('../data/derived/operational-attention.json',import.meta.url),'utf8'));
- const file=new URL('../private-staging/closure/private-product-facts.json',import.meta.url);
- if(!fs.existsSync(file))return;
+ const file=STAGED;
  const abc=productAbc(JSON.parse(fs.readFileSync(file,'utf8')));
  const evidence=resolveAttention(abc,refs);
  for(const key of new Set(abc.map(r=>`${r.org_code}/${r.year}`)))

@@ -109,6 +109,31 @@ export function SpendSankey({ data }: { data: SpendFlowData }) {
     );
   }
 
+  // No purchase figure anywhere means the purchased-vs-dispensed comparison does
+  // not exist for this release — not that nothing was purchased. Showing it as
+  // "Acquistato € 0 · Differenza −100,0% dell'erogato" would publish a procurement
+  // claim about named Aziende that the data never made.
+  if (data.total_acquistato_eur === null) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Total label="Acquistato" value={null} />
+          <Total label="Erogato" value={data.total_erogato_eur} />
+          <Total label="Differenza" value={null} />
+        </div>
+        <p className="rounded-xl border border-border/70 bg-muted/40 px-3.5 py-2.5 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            Nessun dato di acquistato in questa release.
+          </span>{" "}
+          Il confronto acquistato/erogato non è calcolabile e non viene disegnato:
+          un acquistato assente non è un acquistato pari a zero. Senza di esso ogni
+          classe risulterebbe «erogato superiore all’acquistato», che sarebbe un
+          artefatto della lacuna, non un esito.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-3 sm:grid-cols-3">
@@ -118,7 +143,7 @@ export function SpendSankey({ data }: { data: SpendFlowData }) {
           label="Differenza"
           value={data.net_eur}
           detail={
-            data.total_erogato_eur > 0
+            data.total_erogato_eur > 0 && data.net_eur !== null
               ? `${formatPercent(data.net_eur / data.total_erogato_eur)} dell’erogato`
               : undefined
           }
@@ -189,11 +214,14 @@ export function SpendSankey({ data }: { data: SpendFlowData }) {
   );
 }
 
-function Total({ label, value, detail }: { label: string; value: number; detail?: string }) {
+/** `value` is nullable because an absent figure must read n/d, never € 0. */
+function Total({ label, value, detail }: { label: string; value: number | null; detail?: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <p className="font-display mt-1 text-lg text-foreground">{formatEur(value)}</p>
+      <p className="font-display mt-1 text-lg text-foreground">
+        {value === null ? "n/d" : formatEur(value)}
+      </p>
       {detail && <p className="mt-0.5 text-[11px] text-muted-foreground">{detail}</p>}
     </div>
   );

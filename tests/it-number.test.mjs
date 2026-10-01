@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {itNumberFormat,itNumber} from '../lib/format/it-number.ts';
 import {formatEur,formatNumber,formatPercent} from '../lib/dashboard-review/format.ts';
 
@@ -58,12 +59,28 @@ test('no it-IT formatter bypasses the helper',()=>{
   // The drift guard. Adding `new Intl.NumberFormat("it-IT", …)` anywhere else
   // reintroduces the hazard silently, because it only misbehaves when the
   // server's ICU and the visitor's disagree — which no local run reproduces.
-  const roots=['components','lib','app'];
+  // Anchored to THIS FILE, not to cwd. These were relative paths, so run from any
+  // directory but the repository root every root missed, `files` stayed empty and
+  // the guard asserted deepEqual([], []) -- a pass that had examined nothing.
+  const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+  const roots=['components','lib','app'].map(r=>path.join(repo,r));
   const files=[];
   const walk=(d)=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){
     const p=path.join(d,e.name);
     if(e.isDirectory())walk(p); else if(/\.tsx?$/.test(e.name))files.push(p);}};
-  roots.forEach(r=>fs.existsSync(r)&&walk(r));
+  for(const r of roots){
+    assert.ok(fs.existsSync(r),`drift-guard root is missing: ${r}`);
+    walk(r);
+  }
+  // A guard that scanned no files would pass silently. Pin a floor, and pin a file
+  // that must be in the walk -- a count alone would still pass if the walk reached
+  // the wrong tree.
+  assert.ok(files.length>100,`the drift guard scanned only ${files.length} files`);
+  const scanned=files.map(f=>f.split(path.sep).join('/'));
+  assert.ok(scanned.some(f=>f.endsWith('lib/dashboard-review/format.ts')),
+    'the walk did not reach lib/dashboard-review/format.ts, where the formatters live');
+  assert.ok(scanned.some(f=>f.endsWith('components/dashboard-review/spend-overview.tsx')),
+    'the walk did not reach the dashboard components');
 
   const bal=(src,open)=>{let d=0;for(let i=open;i<src.length;i++){
     if(src[i]==='(')d++;else if(src[i]===')'){d--;if(!d)return src.slice(open+1,i);}}return '';};

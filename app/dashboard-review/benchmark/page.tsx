@@ -36,7 +36,7 @@ export default async function BenchmarkPage() {
 
       <DecisionFrame
         changed={fastestChange ? `${fastestChange.org_name} mostra la variazione assoluta più ampia: ${formatPercent(fastestChange.spend_yoy!)}.` : "Nessuna annualità precedente confrontabile."}
-        variance={largest && data.median_spend_eur ? `${largest.org_name} registra una spesa pari a ${formatNumber(largest.spend_eur / data.median_spend_eur, 1)}× la mediana regionale.` : "Servono almeno due ASL visibili per localizzare la varianza."}
+        variance={data.benchmark_available && largest && data.median_spend_eur ? `${largest.org_name} registra una spesa pari a ${formatNumber(largest.spend_eur / data.median_spend_eur, 1)}× la mediana regionale.` : "Servono almeno due ASL visibili per localizzare la varianza."}
         materiality={excess > 0 ? `${formatEur(excess)} di spesa complessiva sopra la mediana, prima di qualunque aggiustamento per popolazione o casistica.` : "Materialità territoriale non calcolabile nel perimetro corrente."}
         nextEvidence="Aprire l’ATC che genera lo scarto."
       />

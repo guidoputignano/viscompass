@@ -64,6 +64,31 @@ test("duplicate months do not fake twelve observed months", () => {
   assert.equal(p.year, null);
 });
 
+test("out-of-range months cannot carry an eleven-month year to twelve", () => {
+  // Nothing upstream constrains this: the loader writes Number(r.mese) and the
+  // column has no CHECK. Month 0 is a common "periodo non attribuito" sentinel
+  // and 13 a year-end adjustment batch. Without the range check both count, an
+  // eleven-month year is selected as the reporting period, and it is compared
+  // like-for-like against a real twelve-month year.
+  const eleven = Array.from({ length: 11 }, (_, i) => fact(2028, i + 1));
+  const withSentinels = [...eleven, fact(2028, 0), fact(2028, 13)];
+  assert.equal(monthsObserved(withSentinels, 2028), 11, "0 and 13 are not months");
+
+  const p = selectReportingPeriod([...RELEASE, ...withSentinels]);
+  assert.equal(p.year, 2025, "2028 must not be selected on eleven real months");
+  assert.ok(p.partialYears.some((x) => x.year === 2028 && x.months === 11));
+});
+
+test("a non-numeric month is not a month, and NaN cannot dedupe its way to twelve", () => {
+  // Number("GEN") is NaN, and Set.add collapses every NaN to one entry — so an
+  // unbounded Set could never reach twelve this way, but a single NaN alongside
+  // eleven real months could. Neither may count.
+  const eleven = Array.from({ length: 11 }, (_, i) => fact(2032, i + 1));
+  assert.equal(monthsObserved([...eleven, { ...fact(2032, null), month: NaN }], 2032), 11);
+  assert.equal(monthsObserved([{ ...fact(2033, null), month: 1.5 }], 2033), 0,
+               "a fractional month is not a calendar month");
+});
+
 test("rows with no month contribute nothing to months observed", () => {
   const monthless = Array.from({ length: 12 }, () => fact(2031, null));
   assert.equal(monthsObserved(monthless, 2031), 0);

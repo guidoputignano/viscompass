@@ -162,10 +162,18 @@ export interface SpendFlowData {
    * labelled band. See docs/M6_DECISION.md.
    */
   negative_classes: SpendFlowClass[];
-  total_acquistato_eur: number;
+  /**
+   * null when NO row carries a purchase figure — "this release records no
+   * acquistato" is not "nothing was purchased". The Pillar B loader writes
+   * erogato_cost_eur and never acquistato_cost_eur, so on that release this is
+   * null and the purchased-vs-dispensed comparison cannot be drawn at all.
+   */
+  total_acquistato_eur: number | null;
   total_erogato_eur: number;
-  /** acquistato − erogato across every class, including the negative ones. */
-  net_eur: number;
+  /** acquistato − erogato across every class; null when acquistato is unknown. */
+  net_eur: number | null;
+  /** Share of rows carrying a purchase figure; null when there are no rows. */
+  acquistato_coverage: number | null;
 }
 
 export interface SpendTrendPoint {
