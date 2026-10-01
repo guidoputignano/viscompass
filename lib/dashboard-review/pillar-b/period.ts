@@ -79,8 +79,30 @@ export function compareMatchedYtd(
 export function defaultComparisonFor(year: number): PeriodComparison {
   const months = RELEASE_COVERAGE[year as keyof typeof RELEASE_COVERAGE];
   if (months === undefined) throw new Error(`${year} is not in this release`);
+
+  // The earliest year in the release has nothing to be compared WITH. 2024's
+  // predecessor is 2023, which this release does not hold, so there is no
+  // year-on-year comparison for it — and saying so is the answer, not an
+  // oversight to be papered over with a partial or implied baseline.
+  const previous = RELEASE_COVERAGE[(year - 1) as keyof typeof RELEASE_COVERAGE];
+  if (previous === undefined) {
+    throw new Error(
+      `${year} is the earliest year in this release; ${year - 1} is not held, ` +
+      `so no year-on-year comparison exists. Show ${year} on its own.`,
+    );
+  }
+
   if (months === 12) return compareFullYears(year, year - 1);
   return compareMatchedYtd(year, year - 1, months);
+}
+
+/**
+ * Whether a year has a predecessor in this release. Call this before offering a
+ * comparison control in the UI, so the earliest year renders as a single period
+ * rather than as a failed comparison.
+ */
+export function hasComparisonBaseline(year: number): boolean {
+  return RELEASE_COVERAGE[(year - 1) as keyof typeof RELEASE_COVERAGE] !== undefined;
 }
 
 /** Inclusive month bounds for a period, for the SQL layer. */

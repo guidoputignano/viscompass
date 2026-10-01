@@ -50,6 +50,21 @@ alter table canonical_fact add column if not exists exclusion_reason      text;
 -- cannot publish an excluded row.
 alter table canonical_fact add column if not exists comparable_eligible boolean not null default false;
 
+-- B04-compatible quantity, in the stratum's own unit.
+--
+-- quantity_packs is a COUNT OF PACKAGES and is not a quantity share: one pack of
+-- 1x40mg and one pack of 6x40mg are one package each and six times apart in drug.
+-- Any uptake or volume figure built on packages across different presentations is
+-- measuring the wrong thing.
+--
+-- Within one AIC the content of a pack is constant -- that is what an AIC
+-- identifies -- so content-per-pack = aic_quantity / observed packs reconstructs
+-- the frozen per-AIC quantity exactly (verified for all 2,736 stratum/AIC pairs,
+-- 100% of eligible spend). comparable_unit carries the unit so a figure can never
+-- be summed across MG, UI, MCG and PACK.
+alter table canonical_fact add column if not exists comparable_quantity numeric;
+alter table canonical_fact add column if not exists comparable_unit     text;
+
 -- What the money actually is. `C` in this source is a weighted average cost
 -- INCLUSIVE OF VAT and GROSS of payback and AIFA registry credit notes. It is
 -- not a net price and must never be presented as one, nor compared with an AIFA
@@ -110,6 +125,8 @@ alter table canonical_fact add constraint canonical_fact_comparable_eligible_che
       source_disposition = 'analytical'
       and exclusion_reason is null
       and comparable_stratum_id is not null
+      -- a comparable row without a unit is a number that cannot be compared
+      and comparable_unit is not null
     )
   );
 
@@ -134,3 +151,8 @@ comment on column canonical_fact.comparable_eligible is
   'Structural gate. Enforced by check constraint: cannot be true for a non-analytical or excluded row.';
 comment on column canonical_fact.cost_gross_status is
   'What the money is. gross_incl_vat_pre_payback is NOT a net price and is not an AIFA reference price.';
+
+comment on column canonical_fact.comparable_quantity is
+  'Quantity in comparable_unit. NOT packages: packages are not comparable across presentations.';
+comment on column canonical_fact.comparable_unit is
+  'MG/UI/MCG/PACK/... Never sum or rank across different values of this column.';

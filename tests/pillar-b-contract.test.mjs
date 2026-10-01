@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   compareFullYears, compareMatchedYtd, comparisonLabel, defaultComparisonFor,
-  fullYear, isPartial, monthRange, periodLabel, ytd,
+  fullYear, hasComparisonBaseline, isPartial, monthRange, periodLabel, ytd,
 } from "../lib/dashboard-review/pillar-b/period.ts";
 import {
   EMPTY_COVERAGE, change, changeInPoints, coverageShare, formatMeasure,
@@ -38,6 +38,18 @@ test("the default comparison for 2026 is a MATCHED window, never a full year", (
   assert.equal(c.current.months, 5);
   assert.equal(c.previous.months, 5);
   assert.equal(c.previous.year, 2025);
+});
+
+test("2024 has no baseline in this release and says so", () => {
+  // 2024 is the earliest year held; 2023 is not in the release. There is no
+  // year-on-year comparison for it, and that is the answer rather than an
+  // oversight to be filled with a partial or implied baseline.
+  assert.throws(() => defaultComparisonFor(2024), /earliest year|2023 is not held/);
+  assert.equal(hasComparisonBaseline(2024), false);
+  assert.equal(hasComparisonBaseline(2025), true);
+  assert.equal(hasComparisonBaseline(2026), true);
+  // 2024 on its own is still a valid period to show.
+  assert.doesNotThrow(() => fullYear(2024));
 });
 
 test("the default comparison for a complete year is full-year against full-year", () => {

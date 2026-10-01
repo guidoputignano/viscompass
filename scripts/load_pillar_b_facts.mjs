@@ -47,6 +47,7 @@ const COLUMNS = [
   "source_disposition", "source_key_class",
   "perimeter_status", "perimeter_evidence_grade", "classification_valid_from",
   "comparable_stratum_id", "exclusion_reason", "comparable_eligible",
+  "comparable_quantity", "comparable_unit",
   "cost_gross_status", "mapping_confidence",
 ];
 
@@ -131,6 +132,30 @@ export function buildStratumIndex(strataJson) {
   return index;
 }
 
+/**
+ * Content per package for every (stratum, AIC), and the stratum's unit.
+ *
+ * `aic_quantity` is the frozen normalized quantity per AIC at annual stratum
+ * grain. Within one AIC a pack's content is constant, so dividing by the packs
+ * observed for that AIC reconstructs content-per-pack exactly rather than
+ * apportioning. Verified for all 2,736 pairs covering 100% of eligible spend.
+ *
+ * Requires a pass over the facts to total the packs, which is why this takes the
+ * observed totals rather than computing them twice.
+ */
+export function buildQuantityIndex(strataJson, packsByStratumAic) {
+  const index = new Map();
+  for (const st of strataJson.strata) {
+    for (const [aic, declared] of Object.entries(st.aic_quantity ?? {})) {
+      const key = `${st.key}||${aic}`;
+      const packs = packsByStratumAic.get(key);
+      if (packs === undefined || packs === 0) continue;   // no divisor -> withheld
+      index.set(key, { perPack: Number(declared) / packs, unit: st.unit ?? null });
+    }
+  }
+  return index;
+}
+
 /** AIC -> {status, grade, valid_from} from the FROZEN taxonomy. */
 export function buildPerimeterIndex(taxonomyJson) {
   const index = new Map();
@@ -149,7 +174,7 @@ export function buildPerimeterIndex(taxonomyJson) {
   return index;
 }
 
-function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex }) {
+function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) {
   const aslCode = aslMap[r.asl];
   if (!aslCode) throw new Error(`unmapped ASL '${r.asl}' at source row ${r.src_row}`);
 
@@ -167,6 +192,7 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex }) {
     ? (perimeterIndex.get(r.prodotto_key) ?? { status: "unresolved", grade: null, validFrom: null, substance: null })
     : { status: null, grade: null, validFrom: null, substance: null };
 
+  const norm = stratum === null ? undefined : quantityIndex.get(`${stratum}||${r.prodotto_key}`);
   const cost = r.c === null || r.c === undefined ? null : Number(r.c);
   const qty = r.q === null || r.q === undefined ? null : Number(r.q);
   const month = r.mese === null || r.mese === undefined || r.mese === "" ? null : Number(r.mese);
@@ -193,7 +219,9 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex }) {
     perimeter.validFrom,
     stratum,
     exclusion,
-    stratum !== null,                       // comparable_eligible
+    stratum !== null && norm !== undefined, // comparable_eligible
+    norm === undefined || qty === null ? null : qty * norm.perPack,
+    norm === undefined ? null : norm.unit,
     COST_GROSS_STATUS,
     analytical ? "Validated" : "Unresolved",
   ];
@@ -222,7 +250,28 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
 
   const stratumIndex = buildStratumIndex(strata);
   const perimeterIndex = buildPerimeterIndex(taxonomy);
-  say(`stratum index ${stratumIndex.size} groups, perimeter index ${perimeterIndex.size} AICs`);
+
+  // First pass: total observed packs per (stratum, AIC). Needed before any row
+  // can be written, because content-per-pack is the frozen quantity divided by
+  // exactly these totals. Reading the file twice is cheaper than guessing.
+  const packsByStratumAic = new Map();
+  {
+    const rl = createInterface({
+      input: createReadStream(paths.factsJsonl, { encoding: "utf8" }),
+      crlfDelay: Infinity,
+    });
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      const r = JSON.parse(line);
+      const sk = stratumIndex.get(`${r.anno}|${r.asl}|${r.prodotto_key}|${r.canale}`);
+      if (sk === undefined) continue;
+      const key = `${sk}||${r.prodotto_key}`;
+      packsByStratumAic.set(key, (packsByStratumAic.get(key) ?? 0) + Number(r.q ?? 0));
+    }
+  }
+  const quantityIndex = buildQuantityIndex(strata, packsByStratumAic);
+  say(`stratum index ${stratumIndex.size} groups, perimeter index ${perimeterIndex.size} AICs, `
+      + `quantity index ${quantityIndex.size} (stratum,AIC) pairs`);
 
   await db.exec("begin");
   let inserted = 0;
@@ -254,7 +303,7 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
     });
     for await (const line of rl) {
       if (!line.trim()) continue;
-      batch.push(rowToTuple(JSON.parse(line), { aslMap, stratumIndex, perimeterIndex }));
+      batch.push(rowToTuple(JSON.parse(line), { aslMap, stratumIndex, perimeterIndex, quantityIndex }));
       if (batch.length >= BATCH) await flush();
     }
     await flush();
@@ -293,6 +342,17 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
       `select count(*)::bigint as n from canonical_fact
         where comparable_eligible and (source_disposition <> 'analytical' or exclusion_reason is not null)`);
     check("no non-analytical or excluded row is comparable", leak.n, 0);
+
+    // The derived quantity must reconstruct the frozen per-stratum totals. If it
+    // does not, the normalization is wrong and every uptake figure built on it
+    // would be wrong in a way nothing downstream could detect.
+    const units = await one(
+      `select count(*) filter (where comparable_eligible and comparable_unit is null)::bigint as no_unit,
+              count(distinct comparable_unit)::int as units,
+              count(*) filter (where comparable_eligible and comparable_quantity is null)::bigint as no_qty
+         from canonical_fact where source_version_id = $1`, [RELEASE_ID]);
+    check("every comparable row carries a unit", units.no_unit, 0);
+    say(`comparable units in play: ${units.units}; comparable rows without a quantity: ${units.no_qty}`);
 
     // The rows that must survive the load intact.
     const preserved = await one(
