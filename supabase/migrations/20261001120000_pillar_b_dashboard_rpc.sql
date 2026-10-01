@@ -123,26 +123,83 @@ $$;
 -- Biosimilar uptake on a normalized quantity, within one SUBSTANCE and ROUTE,
 -- on two denominators.
 --
--- GROUPING BY STRATUM WAS WRONG AND IS FIXED HERE. A comparable stratum is
--- keyed by molecule|route|form|unit|year, and a biosimilar and its reference
--- medicine very often sit in DIFFERENT strata: of the strata touching the
--- perimeter, only 16 contain both sides, while 37 hold a biosimilar alone and 55
--- a reference alone. Grouping by stratum therefore forced the share to 0% or
--- 100% for 92 of 108 of them, which is the same defect as the earlier AIC
--- grouping wearing a different key.
+-- Three things this shape fixes, each of which previously produced a figure that
+-- looked fine:
 --
--- The grain that actually answers the question is (ASL, substance, ROUTE, year).
--- Route is part of it, not a detail: 13 substance-years span ENDOVENOSO and
--- SOTTOCUTANEO -- ustekinumab, natalizumab, tocilizumab among them -- and pooling
--- an intravenous with a subcutaneous presentation is not a substitution share.
+--   GROUPING. A comparable stratum separates a biosimilar from its reference
+--   medicine -- only 16 of 108 perimeter strata hold both sides -- so grouping by
+--   stratum forced the share to 0% or 100%. The grain is (ASL, substance, route).
 --
--- ONE UNIT IS REQUIRED, NOT ASSUMED. The stratum used to carry that guarantee;
--- at substance grain it must be enforced, so a group whose sides do not share a
--- single comparable_unit is withheld. Four substance-years need it: enoxaparin
--- sodium (MG and UI) and insulin glargine (U, UI and UNITA).
+--   ROUTE comes from product_route, recorded per product, NOT from
+--   split_part(comparable_stratum_id, ...). That ID is NULL on a non-comparable
+--   row, so deriving route from it silently dropped 2,269 biosimilar dispensings
+--   from the window, and two substances (eculizumab and teriparatide in AQ)
+--   opened not late but never.
 --
--- BOTH SIDES MUST BE PRESENT. A group with no biosimilar row has no uptake to
--- report -- not 0%, which would assert the biosimilar was available and unused.
+--   MEMBERSHIP IS ROW-LEVEL. pillar_b_uptake_rows names every source row this
+--   function consumed, and the withheld function is its exact complement. An
+--   earlier version excluded from withheld every row in a GROUP that had an
+--   uptake result, so a row whose own quantity was withheld inside an otherwise
+--   usable group appeared in neither -- and the reconciliation test used that
+--   same group rule as its definition of "usable", so it passed while rows
+--   disappeared.
+
+-- Every source row pillar_b_uptake actually consumes. One definition, used by
+-- the aggregate, by the withheld complement, and by the tests.
+create or replace function public.pillar_b_uptake_rows(
+  p_year       int,
+  p_from_month int default 1,
+  p_to_month   int default 12
+)
+returns table (
+  source_record_id text,
+  asl_code         text,
+  active_substance text,
+  route            text,
+  comparable_unit  text,
+  perimeter_status text,
+  year             int,
+  month            int,
+  quantity         numeric,
+  spend_eur        numeric
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with candidate as (
+    select cf.*
+      from canonical_fact cf
+     where cf.source_version_id = public.pillar_b_release()
+       and cf.year = p_year
+       and cf.month between p_from_month and p_to_month
+       and cf.source_disposition = 'analytical'
+       and cf.perimeter_status in ('biosimilar','reference_medicine')
+       and cf.comparable_eligible
+       and cf.comparable_quantity is not null
+       and cf.comparable_unit is not null
+       and cf.active_substance is not null
+       and cf.product_route is not null
+  ),
+  eligible_groups as (
+    select asl_code, active_substance, product_route
+      from candidate
+     group by 1, 2, 3
+    having count(distinct comparable_unit) = 1
+       and count(*) filter (where perimeter_status = 'biosimilar') > 0
+       and count(*) filter (where perimeter_status = 'reference_medicine') > 0
+  )
+  select c.source_record_id, c.asl_code, c.active_substance, c.product_route,
+         c.comparable_unit, c.perimeter_status, c.year, c.month,
+         c.comparable_quantity, c.total_cost_eur
+    from candidate c
+    join eligible_groups g
+      on g.asl_code = c.asl_code
+     and g.active_substance = c.active_substance
+     and g.product_route = c.product_route
+$$;
+
 create or replace function public.pillar_b_uptake(
   p_year       int,
   p_from_month int default 1,
@@ -158,90 +215,76 @@ returns table (
   window_biosimilar_qty         numeric,
   window_total_qty              numeric,
   first_local_biosimilar_key    int,
-  strata_pooled                 int
+  opening_evidence              text
 )
 language sql
 stable
 security invoker
 set search_path = public
 as $$
-  with usable as (
-    select cf.*,
-           -- route is the third segment of the stratum key
-           split_part(cf.comparable_stratum_id, '|', 3) as route_key
-      from canonical_fact cf
-     where cf.source_version_id = public.pillar_b_release()
-       and cf.year = p_year
-       and cf.month between p_from_month and p_to_month
-       and cf.source_disposition = 'analytical'
-       and cf.perimeter_status in ('biosimilar','reference_medicine')
-       and cf.comparable_eligible
-       and cf.comparable_quantity is not null
-       and cf.comparable_unit is not null
-       and cf.active_substance is not null
-  ),
-  grouped as (
-    select asl_code, active_substance, route_key,
-           count(distinct comparable_unit) as units,
-           count(*) filter (where perimeter_status = 'biosimilar')         as bio_rows,
-           count(*) filter (where perimeter_status = 'reference_medicine') as ref_rows
-      from usable
-     group by 1, 2, 3
-  ),
-  eligible_groups as (
-    -- one unit, and both sides present
-    select * from grouped where units = 1 and bio_rows > 0 and ref_rows > 0
+  with used as (
+    select * from public.pillar_b_uptake_rows(p_year, p_from_month, p_to_month)
   ),
   opened as (
-    -- observed POSITIVE source quantity, across the WHOLE fact set, and NOT
-    -- restricted to comparable rows: availability is a fact about dispensing.
-    select cf.asl_code, cf.active_substance,
-           split_part(cf.comparable_stratum_id, '|', 3) as route_key,
+    -- observed POSITIVE source quantity, across the WHOLE fact set, NOT
+    -- restricted to comparable rows, and keyed on product_route so a
+    -- non-comparable dispensing still opens the window it really opened.
+    select cf.asl_code, cf.active_substance, cf.product_route,
            min(cf.year * 12 + cf.month) as first_key
       from canonical_fact cf
      where cf.source_version_id = public.pillar_b_release()
        and cf.source_disposition = 'analytical'
        and cf.perimeter_status = 'biosimilar'
        and cf.active_substance is not null
+       and cf.product_route is not null
        and cf.source_quantity > 0
        and cf.month is not null
      group by 1, 2, 3
+  ),
+  route_unknown as (
+    -- a dispensing that WOULD open a window but whose route is not determinable.
+    -- The substance's opening is reported as partial: the true opening may be
+    -- earlier than the one computed here. Silence would have asserted otherwise.
+    select cf.asl_code, cf.active_substance, count(*)::bigint as n
+      from canonical_fact cf
+     where cf.source_version_id = public.pillar_b_release()
+       and cf.source_disposition = 'analytical'
+       and cf.perimeter_status = 'biosimilar'
+       and cf.active_substance is not null
+       and cf.product_route is null
+       and cf.source_quantity > 0
+       and cf.month is not null
+     group by 1, 2
   )
   select
     u.asl_code,
     u.active_substance,
-    u.route_key,
+    u.route,
     max(u.comparable_unit),
-    sum(u.comparable_quantity) filter (where u.perimeter_status = 'biosimilar'),
-    sum(u.comparable_quantity),
-    sum(u.comparable_quantity) filter (
+    sum(u.quantity) filter (where u.perimeter_status = 'biosimilar'),
+    sum(u.quantity),
+    sum(u.quantity) filter (
       where u.perimeter_status = 'biosimilar'
         and o.first_key is not null and (u.year * 12 + u.month) >= o.first_key),
-    sum(u.comparable_quantity) filter (
+    sum(u.quantity) filter (
       where o.first_key is not null and (u.year * 12 + u.month) >= o.first_key),
     max(o.first_key),
-    count(distinct u.comparable_stratum_id)::int
-  from usable u
-  join eligible_groups g
-    on g.asl_code = u.asl_code and g.active_substance = u.active_substance
-   and g.route_key = u.route_key
+    case when max(ru.n) is not null
+         then 'partial: route not determinable for some dispensing of this substance'
+         else 'complete' end
+  from used u
   left join opened o
     on o.asl_code = u.asl_code and o.active_substance = u.active_substance
-   and o.route_key = u.route_key
-  group by u.asl_code, u.active_substance, u.route_key
+   and o.product_route = u.route
+  left join route_unknown ru
+    on ru.asl_code = u.asl_code and ru.active_substance = u.active_substance
+  group by u.asl_code, u.active_substance, u.route
 $$;
 
 -- --------------------------------------------------------- uptake, withheld
--- Everything in scope for uptake that uptake could NOT use, as its own rows.
---
--- An earlier version attached a withheld count to each uptake row. That both
--- DUPLICATED (a substance spanning two strata carried the same count twice) and
--- DISAPPEARED (a group with no usable stratum produced no uptake row at all, so
--- its withheld rows vanished). Neither is detectable by looking at the output.
---
--- Returned separately, every in-scope row appears exactly once across the two
--- functions, so usable + withheld reconciles to the in-scope total by row count
--- AND by euros. The reason is named so the loss can be read, not just measured.
+-- The EXACT complement of pillar_b_uptake_rows, row by row. Not a group rule: a
+-- row whose own quantity was withheld inside an otherwise usable group must
+-- appear here, and under the group rule it appeared nowhere at all.
 create or replace function public.pillar_b_uptake_withheld(
   p_year       int,
   p_from_month int default 1,
@@ -251,28 +294,36 @@ returns table (
   asl_code          text,
   active_substance  text,
   withheld_reason   text,
-  rows_n              bigint,
-  spend_eur           numeric
-  -- No quantity total here either. The withheld set spans every basis by
-  -- definition, so a sum over it is the least coherent of all.
+  rows_n            bigint,
+  spend_eur         numeric
 )
 language sql
 stable
 security invoker
 set search_path = public
 as $$
+  -- Materialise the used-row set ONCE. A correlated NOT EXISTS over a
+  -- set-returning function re-evaluates it per outer row: the function scans the
+  -- whole release and the outer query has thousands of rows, so this call took
+  -- over ten minutes. A dashboard query that takes minutes is not shippable,
+  -- whatever it returns.
+  with used as (
+    select source_record_id
+      from public.pillar_b_uptake_rows(p_year, p_from_month, p_to_month)
+  )
   select
     cf.asl_code,
     cf.active_substance,
     case
-      when cf.active_substance is null         then 'substance not named by the frozen taxonomy'
-      when not cf.comparable_eligible          then 'no comparable stratum'
+      when cf.active_substance is null     then 'substance not named by the frozen taxonomy'
+      when not cf.comparable_eligible      then 'no comparable stratum'
       when cf.quantity_basis_status = 'parses_conflict'
         then 'quantity basis unresolved: the two independent parses disagree'
       when cf.quantity_basis_status = 'absent'
         then 'no parsed presentation for this product'
-      when cf.comparable_quantity is null      then 'no normalized quantity for this presentation'
-      when cf.comparable_unit is null          then 'no comparable unit'
+      when cf.comparable_quantity is null  then 'no normalized quantity for this presentation'
+      when cf.comparable_unit is null      then 'no comparable unit'
+      when cf.product_route is null        then 'route not determinable for this product'
       else 'substance/route group not usable: mixed units, or only one side present'
     end,
     count(*)::bigint,
@@ -283,13 +334,7 @@ as $$
     and cf.month between p_from_month and p_to_month
     and cf.source_disposition = 'analytical'
     and cf.perimeter_status in ('biosimilar','reference_medicine')
-    and not exists (
-      -- anything pillar_b_uptake actually used
-      select 1 from public.pillar_b_uptake(p_year, p_from_month, p_to_month) u
-       where u.asl_code = cf.asl_code
-         and u.active_substance is not distinct from cf.active_substance
-         and u.route = split_part(cf.comparable_stratum_id, '|', 3)
-    )
+    and not exists (select 1 from used u where u.source_record_id = cf.source_record_id)
   group by 1, 2, 3
 $$;
 
@@ -445,3 +490,6 @@ revoke all on function public.pillar_b_uptake_withheld(int,int,int) from public,
 revoke all on function public.pillar_b_uptake_scope(int,int,int) from public, anon;
 grant execute on function public.pillar_b_uptake_withheld(int,int,int) to authenticated;
 grant execute on function public.pillar_b_uptake_scope(int,int,int) to authenticated;
+
+revoke all on function public.pillar_b_uptake_rows(int,int,int) from public, anon;
+grant execute on function public.pillar_b_uptake_rows(int,int,int) to authenticated;

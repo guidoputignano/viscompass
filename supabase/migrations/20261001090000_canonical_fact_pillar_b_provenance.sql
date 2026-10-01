@@ -46,6 +46,25 @@ alter table canonical_fact add column if not exists classification_valid_from da
 alter table canonical_fact add column if not exists comparable_stratum_id text;
 alter table canonical_fact add column if not exists exclusion_reason      text;
 
+-- Route of administration, recorded PER PRODUCT rather than read off the
+-- comparability key.
+--
+-- An earlier version derived route with split_part(comparable_stratum_id,'|',3).
+-- That ID is NULL for a non-comparable row, so every non-comparable dispensing
+-- produced a NULL route and could never join a route-specific uptake group. The
+-- window therefore ignored 2,269 biosimilar rows that carry positive quantity --
+-- rows which, by the window's own definition, DID make the biosimilar locally
+-- available. Two windows (eculizumab and teriparatide in AQ) opened not late but
+-- never.
+--
+-- Populated from the frozen strata's route for that AIC, and ONLY where that
+-- route is unambiguous: 135 of 160 biosimilar AICs qualify. The independent
+-- parse covers more but is multi-valued for some products, and this project has
+-- already rejected route extraction once for exactly that ambiguity. NULL here
+-- means "not determinable", never "unspecified route", and a window that depends
+-- on a NULL-route row is reported as partial rather than silently started late.
+alter table canonical_fact add column if not exists product_route text;
+
 -- The structural gate. See the note above: this is why a forgotten WHERE clause
 -- cannot publish an excluded row.
 alter table canonical_fact add column if not exists comparable_eligible boolean not null default false;
@@ -223,3 +242,6 @@ comment on column canonical_fact.source_quantity_basis is
   'INFERRED by the parser, never confirmed by the Region. mixed = this product carries more than one inferred convention.';
 comment on column canonical_fact.quantity_basis_status is
   'parses_agree means the two independent parses reconcile. It does NOT mean the source definition is validated.';
+
+comment on column canonical_fact.product_route is
+  'Unambiguous route for this AIC from the frozen strata. NULL = not determinable, never "none".';

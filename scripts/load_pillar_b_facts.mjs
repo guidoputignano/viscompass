@@ -47,7 +47,7 @@ const COLUMNS = [
   "total_cost_eur", "erogato_cost_eur", "cost_basis",
   "source_disposition", "source_key_class",
   "perimeter_status", "perimeter_evidence_grade", "classification_valid_from",
-  "comparable_stratum_id", "exclusion_reason", "comparable_eligible",
+  "comparable_stratum_id", "exclusion_reason", "comparable_eligible", "product_route",
   "comparable_quantity", "comparable_unit", "quantity_basis_status",
   "cost_gross_status", "mapping_confidence",
 ];
@@ -120,6 +120,29 @@ export async function verifyFrozenInputs(manifestPath, root, readPaths = {}) {
  * A group appearing in two strata would make eligibility ambiguous, so that is
  * rejected rather than resolved by last-write-wins.
  */
+/**
+ * AIC -> unambiguous route, from the frozen strata.
+ *
+ * Only products whose strata agree on ONE route get a route. The alternative
+ * source (b04_parse_v1) covers more AICs but is multi-valued for some, and a
+ * multi-valued route cannot key a comparison group.
+ */
+export function buildRouteIndex(strataJson) {
+  const seen = new Map();
+  for (const st of strataJson.strata) {
+    for (const aic of Object.keys(st.aic_quantity ?? {})) {
+      if (!seen.has(aic)) seen.set(aic, new Set());
+      seen.get(aic).add(st.route ?? null);
+    }
+  }
+  const index = new Map();
+  for (const [aic, routes] of seen) {
+    const clean = [...routes].filter((r) => r !== null && r !== "");
+    if (clean.length === 1) index.set(aic, clean[0]);   // unambiguous only
+  }
+  return index;
+}
+
 export function buildStratumIndex(strataJson) {
   const index = new Map();
   for (const st of strataJson.strata) {
@@ -238,7 +261,7 @@ export function buildQuantityIndex(comparableQuantityJson, stratumIndex, strataJ
   return index;
 }
 
-function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) {
+function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex, routeIndex }) {
   const aslCode = aslMap[r.asl];
   if (!aslCode) throw new Error(`unmapped ASL '${r.asl}' at source row ${r.src_row}`);
 
@@ -307,6 +330,7 @@ function rowToTuple(r, { aslMap, stratumIndex, perimeterIndex, quantityIndex }) 
     // caught. Rows in a stratum with no parsed presentation keep their
     // eligibility and are withheld from uptake with a named reason.
     stratum !== null,                       // comparable_eligible
+    analytical ? (routeIndex.get(r.prodotto_key) ?? null) : null,   // product_route
     norm === undefined || norm.perPack === null || qty === null ? null : qty * norm.perPack,
     norm === undefined ? null : norm.unit,
     norm === undefined ? null : norm.basis,
@@ -344,11 +368,13 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
   if (!aslMap) throw new Error("asl mapping absent from its evidence file");
 
   const stratumIndex = buildStratumIndex(strata);
+  const routeIndex = buildRouteIndex(strata);
   const perimeterIndex = buildPerimeterIndex(taxonomy);
 
   const comparableQuantity = JSON.parse(await readFile(paths.comparableQuantityJson, "utf8"));
   const quantityIndex = buildQuantityIndex(comparableQuantity, stratumIndex, strata);
   say(`quantity basis unresolved for ${quantityIndex.conflictedPairs} (stratum,AIC) pairs -- withheld`);
+  say(`route index ${routeIndex.size} AICs with an unambiguous route`);
   say(`stratum index ${stratumIndex.size} groups, perimeter index ${perimeterIndex.size} AICs, `
       + `quantity index ${quantityIndex.size} (stratum,AIC) pairs`);
 
@@ -382,7 +408,7 @@ export async function loadPillarBFacts(db, paths, expected, opts = {}) {
     });
     for await (const line of rl) {
       if (!line.trim()) continue;
-      batch.push(rowToTuple(JSON.parse(line), { aslMap, stratumIndex, perimeterIndex, quantityIndex }));
+      batch.push(rowToTuple(JSON.parse(line), { aslMap, stratumIndex, perimeterIndex, quantityIndex, routeIndex }));
       if (batch.length >= BATCH) await flush();
     }
     await flush();
