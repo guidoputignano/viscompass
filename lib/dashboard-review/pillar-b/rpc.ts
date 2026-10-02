@@ -12,6 +12,14 @@
 // file can read across two releases, and nothing can read a release that has not
 // been activated.
 //
+// THE CLIENT IS AN ARGUMENT. Every reader takes the Supabase client it must use,
+// because WHO is asking is decided in exactly one place — lib/dashboard-review/
+// pillar-b/scope.ts — and that decision is what picks the client: the caller's
+// own session under RLS, or, for an allow-listed platform reviewer whose
+// widening succeeded, the service-role client. A reader that created its own
+// session client would silently re-scope a reviewer to their membership, which
+// is the defect this signature exists to make impossible.
+//
 // WHAT THESE DELIBERATELY DO NOT RETURN:
 //   - a package total, or any quantity summed across bases (see pillar_b_spend)
 //   - an uptake figure without its withheld counterpart (see getUptake)
@@ -19,13 +27,20 @@
 //   - 2026 as a year: it holds five months and zero comparable-eligible rows
 
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import type { createClient } from "@/lib/supabase/server";
+import type { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { parseFacets, type Facets } from "./facets";
 
 // Re-exported from the pure module, which owns the list so that it can be
 // asserted without a database client. 2026 is not offered.
 import type { PillarBYear } from "./review-data";
 export { PILLAR_B_YEARS } from "./review-data";
 export type { PillarBYear };
+
+/** A session client (RLS) or the service-role client (reviewer path). SERVER ONLY. */
+export type PillarBDb =
+  | Awaited<ReturnType<typeof createClient>>
+  | ReturnType<typeof createServiceRoleClient>;
 
 export interface SpendRow {
   asl_code: string;
@@ -103,24 +118,34 @@ function count(value: unknown): number {
   return num(value) ?? 0;
 }
 
-async function callRpc<T>(name: string, args: Record<string, unknown>): Promise<T[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc(name, args);
+export class PillarBRpcError extends Error {
+  dbCode: string;
+  constructor(name: string, message: string, dbCode: string | undefined) {
+    super(`${name} failed: ${message}`);
+    this.dbCode = dbCode ?? "UNKNOWN";
+  }
+}
+
+/** True when the failure means the function is not deployed yet, not that it failed. */
+export function isMissingFunction(error: unknown): boolean {
+  return error instanceof PillarBRpcError
+    && (error.dbCode === "PGRST202" || error.dbCode === "42883");
+}
+
+async function callRpc<T>(db: PillarBDb, name: string, args: Record<string, unknown>): Promise<T[]> {
+  const { data, error } = await db.rpc(name, args);
   if (error) {
     // FAIL LOUD. `pillar_b_release()` raises when no release is active, and a
     // swallowed error here would render an empty dashboard that looks like
     // "no activity" rather than "not available".
-    const failure = new Error(`${name} failed: ${error.message}`);
-    Object.assign(failure, { dbCode: error.code ?? "UNKNOWN" });
-    throw failure;
+    throw new PillarBRpcError(name, error.message, error.code);
   }
   return (data ?? []) as T[];
 }
 
 /** Is a Pillar B release active? Null means nothing is published, not zero spend. */
-export const pillarBReleaseId = cache(async (): Promise<string | null> => {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+export const pillarBReleaseId = cache(async (db: PillarBDb): Promise<string | null> => {
+  const { data, error } = await db
     .from("pillar_b_active_release")
     .select("release_id")
     .limit(2);
@@ -133,8 +158,8 @@ export const pillarBReleaseId = cache(async (): Promise<string | null> => {
   return rows[0].release_id;
 });
 
-export const getSpend = cache(async (year: PillarBYear): Promise<SpendRow[]> => {
-  const rows = await callRpc<Record<string, unknown>>("pillar_b_spend", { p_year: year });
+export const getSpend = cache(async (db: PillarBDb, year: PillarBYear): Promise<SpendRow[]> => {
+  const rows = await callRpc<Record<string, unknown>>(db, "pillar_b_spend", { p_year: year });
   return rows.map((r) => ({
     asl_code: String(r.asl_code),
     channel: String(r.channel),
@@ -150,8 +175,8 @@ export const getSpend = cache(async (year: PillarBYear): Promise<SpendRow[]> => 
   }));
 });
 
-export const getEvidenceFunnel = cache(async (year: PillarBYear): Promise<FunnelStage[]> => {
-  const rows = await callRpc<Record<string, unknown>>("pillar_b_evidence_funnel", {
+export const getEvidenceFunnel = cache(async (db: PillarBDb, year: PillarBYear): Promise<FunnelStage[]> => {
+  const rows = await callRpc<Record<string, unknown>>(db, "pillar_b_evidence_funnel", {
     p_year: year,
   });
   return rows
@@ -165,8 +190,8 @@ export const getEvidenceFunnel = cache(async (year: PillarBYear): Promise<Funnel
     .sort((a, b) => a.step - b.step);
 });
 
-export const getPerimeterCoverage = cache(async (year: PillarBYear): Promise<PerimeterRow[]> => {
-  const rows = await callRpc<Record<string, unknown>>("pillar_b_perimeter_coverage", {
+export const getPerimeterCoverage = cache(async (db: PillarBDb, year: PillarBYear): Promise<PerimeterRow[]> => {
+  const rows = await callRpc<Record<string, unknown>>(db, "pillar_b_perimeter_coverage", {
     p_year: year,
   });
   return rows.map((r) => ({
@@ -195,11 +220,11 @@ export interface UptakeWithWithheld {
  * this release 7.88% of eligible spend is withheld for unresolved quantity
  * basis. A caller cannot obtain one without the other from this module.
  */
-export const getUptake = cache(async (year: PillarBYear): Promise<UptakeWithWithheld> => {
+export const getUptake = cache(async (db: PillarBDb, year: PillarBYear): Promise<UptakeWithWithheld> => {
   const [rawRows, rawWithheld, rawScope] = await Promise.all([
-    callRpc<Record<string, unknown>>("pillar_b_uptake", { p_year: year }),
-    callRpc<Record<string, unknown>>("pillar_b_uptake_withheld", { p_year: year }),
-    callRpc<Record<string, unknown>>("pillar_b_uptake_scope", { p_year: year }),
+    callRpc<Record<string, unknown>>(db, "pillar_b_uptake", { p_year: year }),
+    callRpc<Record<string, unknown>>(db, "pillar_b_uptake_withheld", { p_year: year }),
+    callRpc<Record<string, unknown>>(db, "pillar_b_uptake_scope", { p_year: year }),
   ]);
 
   const rows: UptakeRow[] = rawRows.map((r) => ({
@@ -270,7 +295,7 @@ export interface MoleculeSpendRow {
 
 /** Spend by active substance for one year, at ASL x channel grain. */
 export const getMoleculeSpend = cache(
-  async (year: PillarBYear): Promise<MoleculeSpendRow[]> => {
+  async (db: PillarBDb, year: PillarBYear): Promise<MoleculeSpendRow[]> => {
     // PostgREST caps each response (1,000 rows on this project). A single RPC
     // call silently returned only the first 1,000 of 1,534 rows for Azienda
     // 201 in 2025, making concentration and trends irreconcilable. Order the
@@ -289,10 +314,9 @@ export const getMoleculeSpend = cache(
     // The _json variant returns the whole grouped result as a single jsonb row.
     // One row cannot hit the 1,000-row response cap, so there is nothing to
     // page and the aggregate runs once.
-    const supabase = await createClient();
-    const { data, error } = await supabase
+    const { data, error } = await db
       .rpc("pillar_b_molecule_spend_json", { p_year: year });
-    if (error) throw new Error(`pillar_b_molecule_spend_json failed: ${error.message}`);
+    if (error) throw new PillarBRpcError("pillar_b_molecule_spend_json", error.message, error.code);
 
     const rows = (data ?? []) as Record<string, unknown>[];
     if (!Array.isArray(rows)) {
@@ -355,47 +379,89 @@ export interface ValueUptakeRow {
   undated_rows: number;
 }
 
-export interface ValueUptakeFilters {
-  year: PillarBYear | null;
-  channel: string | null;
-  substance: string | null;
+function valueUptakeRow(r: Record<string, unknown>): ValueUptakeRow {
+  return {
+    active_substance: String(r.active_substance),
+    inside_biosimilar_eur: num(r.inside_biosimilar_eur),
+    inside_reference_eur: num(r.inside_reference_eur),
+    predates_biosimilar_eur: num(r.predates_biosimilar_eur),
+    predates_reference_eur: num(r.predates_reference_eur),
+    boundary_biosimilar_eur: num(r.boundary_biosimilar_eur),
+    boundary_reference_eur: num(r.boundary_reference_eur),
+    outside_biosimilar_eur: num(r.outside_biosimilar_eur),
+    outside_reference_eur: num(r.outside_reference_eur),
+    unknown_biosimilar_eur: num(r.unknown_biosimilar_eur),
+    unknown_reference_eur: num(r.unknown_reference_eur),
+    window_biosimilar_eur: num(r.window_biosimilar_eur),
+    window_reference_eur: num(r.window_reference_eur),
+    first_local_month_key: num(r.first_local_month_key),
+    perimeter_rows: count(r.perimeter_rows),
+    undated_rows: count(r.undated_rows),
+  };
 }
 
 /**
- * Biosimilar vs reference spend, filtered SERVER-SIDE.
+ * Biosimilar vs reference spend, filtered SERVER-SIDE, one year at a time.
  *
- * The filters go to the database, not to a client that received the regional
- * ledger and narrowed it locally. An Azienda's browser never receives another
- * Azienda's rows, because RLS decides what the function can read before it
- * aggregates.
- *
- * Bounded by construction: one row per active substance in the biosimilar
- * perimeter — tens, not thousands — so there is nothing to page and no repeat
- * of the 57014 that molecule paging caused.
+ * Kept for the deployed section and its reconciliation (b36/b38). The scoped
+ * variant below supersedes it on the page once migration 20261003090000 is
+ * applied; until then the page falls back to this one.
  */
 export const getValueUptake = cache(
-  async (year: number | null, channel: string | null,
+  async (db: PillarBDb, year: number | null, channel: string | null,
          substance: string | null): Promise<ValueUptakeRow[]> => {
-    const rows = await callRpc<Record<string, unknown>>("pillar_b_value_uptake", {
+    const rows = await callRpc<Record<string, unknown>>(db, "pillar_b_value_uptake", {
       p_year: year, p_channel: channel, p_substance: substance,
     });
-    return rows.map((r) => ({
-      active_substance: String(r.active_substance),
-      inside_biosimilar_eur: num(r.inside_biosimilar_eur),
-      inside_reference_eur: num(r.inside_reference_eur),
-      predates_biosimilar_eur: num(r.predates_biosimilar_eur),
-      predates_reference_eur: num(r.predates_reference_eur),
-      boundary_biosimilar_eur: num(r.boundary_biosimilar_eur),
-      boundary_reference_eur: num(r.boundary_reference_eur),
-      outside_biosimilar_eur: num(r.outside_biosimilar_eur),
-      outside_reference_eur: num(r.outside_reference_eur),
-      unknown_biosimilar_eur: num(r.unknown_biosimilar_eur),
-      unknown_reference_eur: num(r.unknown_reference_eur),
-      window_biosimilar_eur: num(r.window_biosimilar_eur),
-      window_reference_eur: num(r.window_reference_eur),
-      first_local_month_key: num(r.first_local_month_key),
-      perimeter_rows: count(r.perimeter_rows),
-      undated_rows: count(r.undated_rows),
-    }));
+    return rows.map(valueUptakeRow);
+  },
+);
+
+export interface ScopedArgs {
+  /** Explicit. The RPC refuses a null, so a partial 2026 cannot be swept in. */
+  years: ReadonlyArray<number>;
+  /** null = all channels. */
+  channels: ReadonlyArray<string> | null;
+  substance: string | null;
+  /** canonical_fact.asl_code, e.g. "130201". null = the whole visible scope. */
+  aslCode: string | null;
+}
+
+/**
+ * The same measure with an explicit set of years, a set of channels and an
+ * optional Azienda. Bounded by construction: one row per substance.
+ */
+export const getValueUptakeScoped = cache(
+  async (db: PillarBDb, args: ScopedArgs): Promise<ValueUptakeRow[]> => {
+    const rows = await callRpc<Record<string, unknown>>(db, "pillar_b_value_uptake_scoped", {
+      p_years: [...args.years],
+      p_channels: args.channels === null ? null : [...args.channels],
+      p_substance: args.substance,
+      p_asl_code: args.aslCode,
+    });
+    return rows.map(valueUptakeRow);
+  },
+);
+
+export type FacetName = "months" | "asl" | "channels" | "perimeter" | "molecules";
+
+/**
+ * Spend facets from ONE scan, as ONE jsonb row — nothing to page.
+ *
+ * `facets` names which to compute. The calendar is the only caller that asks
+ * for 2026, and it asks for `months` alone, so a partial year can appear as
+ * five labelled cells and never inside another facet's total.
+ */
+export const getFacets = cache(
+  async (db: PillarBDb, args: ScopedArgs & { facets: ReadonlyArray<FacetName> | null }): Promise<Facets> => {
+    const { data, error } = await db.rpc("pillar_b_facets", {
+      p_years: [...args.years],
+      p_channels: args.channels === null ? null : [...args.channels],
+      p_substance: args.substance,
+      p_asl_code: args.aslCode,
+      p_facets: args.facets === null ? null : [...args.facets],
+    });
+    if (error) throw new PillarBRpcError("pillar_b_facets", error.message, error.code);
+    return parseFacets(data);
   },
 );
