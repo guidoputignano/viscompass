@@ -275,20 +275,46 @@ export const getMoleculeSpend = cache(
     // call silently returned only the first 1,000 of 1,534 rows for Azienda
     // 201 in 2025, making concentration and trends irreconcilable. Order the
     // grouped result by its complete key before paging so no group is skipped.
-    const rows: Record<string, unknown>[] = [];
-    const pageSize = 1000;
-    for (let offset = 0; ; offset += pageSize) {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .rpc("pillar_b_molecule_spend", { p_year: year })
-        .order("active_substance", { ascending: true })
-        .order("asl_code", { ascending: true })
-        .order("channel", { ascending: true })
-        .range(offset, offset + pageSize - 1);
-      if (error) throw new Error(`pillar_b_molecule_spend failed: ${error.message}`);
-      const page = (data ?? []) as Record<string, unknown>[];
-      rows.push(...page);
-      if (page.length < pageSize) break;
+    // ONE call, not one per page.
+    //
+    // The previous version paged with .order().range(). PostgREST wraps the
+    // function in an ordered LIMIT/OFFSET query, so the ENTIRE aggregate
+    // re-executed for every page: measured on the real ledger, 0.44 s x 2 pages
+    // for Azienda 201 but 5.08 s x 8 pages for the Regione — about 70 s across
+    // both years, against the `authenticated` role's 8 s statement_timeout.
+    // That is the 57014 the review page was failing with, and it is why
+    // bounding request concurrency changed nothing: serialising the same work
+    // does not make it smaller.
+    //
+    // The _json variant returns the whole grouped result as a single jsonb row.
+    // One row cannot hit the 1,000-row response cap, so there is nothing to
+    // page and the aggregate runs once.
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .rpc("pillar_b_molecule_spend_json", { p_year: year });
+    if (error) throw new Error(`pillar_b_molecule_spend_json failed: ${error.message}`);
+
+    const rows = (data ?? []) as Record<string, unknown>[];
+    if (!Array.isArray(rows)) {
+      throw new Error(
+        `pillar_b_molecule_spend_json returned ${typeof data}, expected an array`,
+      );
+    }
+
+    // The function's GROUP BY is (active_substance, asl_code, channel), so that
+    // triple is unique over the result. A duplicate would mean the aggregate
+    // changed shape, and would double-count that group's euros in both the
+    // concentration table and the trend.
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const key = `${row.active_substance}\u0000${row.asl_code}\u0000${row.channel}`;
+      if (seen.has(key)) {
+        throw new Error(
+          `pillar_b_molecule_spend_json returned a duplicate group ` +
+          `(${key.replace(/\u0000/g, " / ")})`,
+        );
+      }
+      seen.add(key);
     }
     return rows.map((r) => ({
       active_substance: String(r.active_substance),

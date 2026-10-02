@@ -105,3 +105,81 @@ Bounded concurrency alone is not the fix.
   rollback, and never roll back the gated application code while facts remain.
 - The approved RLS mapping is region-bound; do not broaden reviewer access or
   make any analysis public.
+
+---
+
+# Addendum — 2 October 2026, diagnosis of PBR-SPEND24-57014
+
+**Production unchanged. `active_releases = 0`, `canonical_fact` = 261,153 rows.
+Nothing was activated, migrated or imported.** Every statement run against
+production in this pass was read-only or inside `begin … rollback`.
+
+## Two explanations were wrong. Recorded so they are not retried.
+
+**It is not the RLS policy.** The repository's `20261002120000` is a correlated
+`EXISTS`; profiled on the real ledger it costs **110,509 subplan executions** for
+2024 and about 1.2 s. But production does not run it. Read back from
+`pg_policy`, production carries the `20261002140000_canonical_fact_cached_scope`
+form — uncorrelated authorized sets with `auth.uid()` already wrapped as
+`(select auth.uid())`. Against that shape the subplan runs **once** and
+`pillar_b_spend(2024)` costs about **0.1–0.3 s**. An RLS rewrite was drafted,
+measured, and then **withdrawn** as solving a problem production does not have.
+
+**It is not concurrency.** Bounding the page to three-then-two-then-one request
+serialises the same work without reducing it, which is why `fd4f8cb` changed
+nothing.
+
+## What it is
+
+`getMoleculeSpend` paged with `.order().range()`. PostgREST wraps the function in
+an ordered `LIMIT/OFFSET` query, so **the entire aggregate re-executes for every
+page**. Per execution on the real 261,153 rows:
+
+| account | one execution | pages/yr | two-year total |
+|---|---|---|---|
+| Azienda 201 | 0.44 s | 2 | ~3.3 s — fits |
+| Regione 130 | **5.08 s** | **8** | **~70.5 s** — does not, by 9× |
+
+## The budget, confirmed on production
+
+`select rolname, rolconfig from pg_roles` gives
+`anon = 3s`, **`authenticated = 8s`**, `postgres` = none. PostgREST runs as
+`authenticated`; the SQL editor runs as `postgres`. That is the whole asymmetry:
+the earlier "~1 s standalone" measurement had **no deadline at all**.
+
+## The fix in this branch
+
+`20261002160000_pillar_b_molecule_spend_single_call.sql` adds
+`pillar_b_molecule_spend_json`, returning the grouped result as one `jsonb` row —
+one row cannot hit the 1,000-row cap, so there is nothing to page and the
+aggregate runs once. It also adds
+`idx_canonical_fact_release_year_substance`. `getMoleculeSpend` now makes a
+single call. Equivalence is asserted, not argued:
+
+| | rows, both forms | euros, both forms |
+|---|---|---|
+| 201 / 2025 | 1,534 | **€100,675,853.35** |
+| 201 / 2024 | 1,672 | €100,330,941.30 |
+| Regione / 2025 | 7,131 | €452,687,361.73 |
+
+## Why it is still not applied
+
+The migration is **DDL**. The only credential on this machine is a PostgREST
+service-role key, which cannot run DDL. The signed-in SQL editor is reachable in
+the browser, but synthetic keystrokes do not land reliably in its Monaco editor —
+short queries worked, longer ones silently re-ran stale text. Typing a
+multi-thousand-character RLS/DDL migration that way risks a half-applied
+statement on production, so it was not attempted.
+
+**Next action for an authorized operator:** paste
+`supabase/migrations/20261002160000_pillar_b_molecule_spend_single_call.sql` into
+the SQL editor and run it, deploy this branch, and only then activate. Keep the
+rest of the handover's step order. Do not apply the withdrawn RLS rewrite; it is
+deleted from this branch.
+
+## Audit gap found
+
+`20261002140000_canonical_fact_cached_scope.sql` — the policy **actually running
+in production** — was untracked in the working tree, and `supabase_schema.sql`
+carried the same change uncommitted. The handover's commit `726b9de` therefore
+does not contain the live policy. Both are committed here.
