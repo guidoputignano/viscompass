@@ -220,7 +220,8 @@ export function AziendaBars({ rows, years }: { rows: AslBreakdownRow[]; years: R
             <div className="h-3.5 flex-1 overflow-hidden rounded bg-muted/60">
               <div className="h-full rounded" style={{ width: `${Math.max(0, (r.byYear[y] ?? 0)) / max * 100}%`, background: colors[i % colors.length] }} />
             </div>
-            <span className="w-20 text-right font-mono text-[11px] text-foreground">{compact(r.byYear[y] ?? 0)}</span>
+            {/* An absent (Azienda, year) group is "no record", never a zero. */}
+            <span className="w-20 text-right font-mono text-[11px] text-foreground">{r.byYear[y] === undefined ? "n/o" : compact(r.byYear[y])}</span>
           </div>)}
         </div>
         <div className="text-[11px] text-muted-foreground">
@@ -251,15 +252,23 @@ export function ChannelStack({ rows, years }: { rows: ChannelMixRow[]; years: Re
       {rows.map((r) => <span key={r.channel}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm" style={{ background: CHANNEL_COLORS[r.channel] ?? muted }} />{r.channel} · {CHANNEL_NAMES[r.channel] ?? ""}</span>)}
     </div>
     <div className="space-y-2">
-      {[...years.map((y) => ({ label: String(y), get: (r: ChannelMixRow) => r.byYear[y] ?? 0 })),
-        ...(years.length > 1 ? [{ label: "Totale", get: (r: ChannelMixRow) => r.spend_eur }] : [])].map((bar) => {
+      {[...years.map((y) => ({
+          label: String(y),
+          get: (r: ChannelMixRow) => r.byYear[y] ?? 0,
+          observed: (r: ChannelMixRow) => r.byYear[y] !== undefined,
+        })),
+        ...(years.length > 1 ? [{
+          label: "Totale",
+          get: (r: ChannelMixRow) => r.spend_eur,
+          observed: () => true,
+        }] : [])].map((bar) => {
         const t = rows.reduce((s, r) => s + bar.get(r), 0);
         return <div key={bar.label} className="grid gap-1.5 sm:grid-cols-[5rem_1fr] sm:items-center sm:gap-3">
           <div className="text-xs font-medium text-foreground">{bar.label}</div>
           <div role="img" aria-label={`Composizione per canale, ${bar.label}`} className="flex h-7 overflow-hidden rounded-lg bg-muted/40">
             {rows.map((r) => {
               const w = t === 0 ? 0 : Math.max(0, bar.get(r)) / t * 100;
-              return <div key={r.channel} title={`${r.channel}: ${formatEur(bar.get(r))}`} className="flex items-center justify-center text-[10px] font-semibold text-white" style={{ width: `${w}%`, background: CHANNEL_COLORS[r.channel] ?? muted }}>
+              return <div key={r.channel} title={`${r.channel}: ${bar.observed(r) ? formatEur(bar.get(r)) : "non osservato"}`} className="flex items-center justify-center text-[10px] font-semibold text-white" style={{ width: `${w}%`, background: CHANNEL_COLORS[r.channel] ?? muted }}>
                 {w > 9 ? `${r.channel} ${formatPercent(w / 100)}` : ""}
               </div>;
             })}
@@ -277,7 +286,7 @@ export function PerimeterBars({ rows }: { rows: PerimeterRow[] }) {
   const max = Math.max(1, ...rows.map((r) => r.spend_eur ?? 0));
   return <Frame
     title="Dove sta il denaro rispetto al perimetro biosimilare"
-    lead="Stato di ogni prodotto nella tassonomia riconciliata (B03). Solo biosimilari e medicinali di riferimento entrano nelle misure di adozione; tutto il resto è mostrato perché il perimetro sia visibile, non nascosto."
+    lead="Stato di ogni prodotto nella tassonomia riconciliata (B03), sotto i filtri attivi di anno, Azienda e canale — a differenza dell'imbuto qui sopra, che copre l'intero perimetro visibile. Solo biosimilari e medicinali di riferimento entrano nelle misure di adozione; tutto il resto è mostrato perché il perimetro sia visibile, non nascosto. Con un filtro per molecola questa vista non viene mostrata: la quota per stato di una sola molecola coinciderebbe con una misura di adozione senza regola di validità."
   >
     {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessun prodotto classificato.</p> :
     <div role="img" aria-label="Spesa per stato di perimetro" className="space-y-2">
@@ -288,7 +297,8 @@ export function PerimeterBars({ rows }: { rows: PerimeterRow[] }) {
         </div>
         <div className="font-mono text-[11px] text-muted-foreground">
           <span className="text-foreground">{r.spend_eur === null ? "n/d" : formatEur(r.spend_eur)}</span>
-          {" · "}{r.share === null ? "n/d" : formatPercent(r.share)}{" · "}{formatNumber(r.aic_count, 0)} AIC
+          {" · "}{r.share === null ? "n/d" : formatPercent(r.share)}{" · "}
+          {r.perimeter_status === "unclassified" ? "nessun AIC" : `${formatNumber(r.aic_count, 0)} AIC`}
         </div>
       </div>)}
     </div>}

@@ -178,70 +178,99 @@ export default async function RevisionePillarBPage({
   };
   try {
     const funnelYear = filters.years.includes(2025) ? 2025 : 2024;
-    const [spend2024, spend2025, funnel] = await Promise.all([
-      identified("SPEND24", getSpend(db, 2024)),
-      identified("SPEND25", getSpend(db, 2025)),
-      identified("FUNNEL", getEvidenceFunnel(db, funnelYear)),
-    ]);
+
+    // TWO WAVES, NOT A CHAIN. Measured live as a reviewer, the previous five
+    // serial awaits took 15.0 s for a page whose longest single statement is
+    // ~5 s. Nothing below consumes another call's result, so the independent
+    // calls are issued together. The two Region-scale molecule aggregates stay
+    // in a wave of their own: they are the statements nearest the
+    // `authenticated` role's 8 s statement_timeout, and sharing CPU with eight
+    // other statements is how a 5 s statement becomes a 9 s one. Everything
+    // light (spend, funnel, uptake, scoped uptake, facets — each well under
+    // 2 s) runs concurrently in the second wave.
     const [molecules2024, molecules2025] = await Promise.all([
       identified("MOLECULE24", getMoleculeSpend(db, 2024)),
       identified("MOLECULE25", getMoleculeSpend(db, 2025)),
     ]);
-    const uptakeParts = await Promise.all(
-      filters.years.map((y) => identified(`UPTAKE${y}`, getUptake(db, y))));
-    const uptake = mergeUptake(uptakeParts);
 
     // The scoped function honours every filter in one call. Until migration
     // 20261003090000 is applied it does not exist; the live function then
     // stands in — one year per call, merged, single channel only — and the
     // page says which filters it could not apply.
-    let valueUptakeRows: ValueUptakeRow[];
-    let allSubstances: ValueUptakeRow[];
-    try {
-      // The chooser and the quick picks follow the Azienda selection, so a
-      // reader narrowed to one Azienda is offered that Azienda's molecules
-      // and that Azienda's "most to decide", not the Region's.
-      [valueUptakeRows, allSubstances] = await Promise.all([
-        getValueUptakeScoped(db, { years, channels, substance: filters.substance, aslCode }),
-        getValueUptakeScoped(db, { years: [2024, 2025], channels: null, substance: null, aslCode }),
-      ]);
-    } catch (error) {
-      if (!isMissingFunction(error)) throw phaseError("VALUEUPTAKE", error);
-      fallback = true;
-      const single = filters.channels.length === 1 ? filters.channels[0] : null;
-      const [perYear, substanceYears] = await Promise.all([
-        Promise.all(filters.years.map((y, i) => identified(
-          `VALUEUPTAKE${i}`, getValueUptake(db, y, single, filters.substance)))),
-        Promise.all([2024, 2025].map((y, i) => identified(
-          `VALUESUBST${i}`, getValueUptake(db, y, null, null)))),
-      ]);
-      valueUptakeRows = mergeValueUptakeRows(...perYear);
-      allSubstances = mergeValueUptakeRows(...substanceYears);
-      const notApplied = [
-        aslCode !== null ? "il filtro per Azienda" : null,
-        filters.channels.length > 1 ? "la combinazione di più canali" : null,
-      ].filter((s): s is string => s !== null);
-      if (notApplied.length > 0) {
-        degraded.push(`Adozione in valore: ${notApplied.join(" e ")} non ${notApplied.length > 1 ? "sono stati applicati" : "è stato applicato"} (funzione pillar_b_value_uptake_scoped assente).`);
+    // Each closure returns its outcome; the outer scope records it after the
+    // await. (Reassigning an outer binding from inside the closure is what the
+    // React compiler's immutability rule rejects.)
+    const valueUptakeWork = (async (): Promise<{
+      rows: ValueUptakeRow[]; substances: ValueUptakeRow[]; fallback: boolean; notice: string | null;
+    }> => {
+      try {
+        // The chooser and the quick picks follow the Azienda selection, so a
+        // reader narrowed to one Azienda is offered that Azienda's molecules
+        // and that Azienda's "most to decide", not the Region's.
+        const [rows, substances] = await Promise.all([
+          getValueUptakeScoped(db, { years, channels, substance: filters.substance, aslCode }),
+          getValueUptakeScoped(db, { years: [2024, 2025], channels: null, substance: null, aslCode }),
+        ]);
+        return { rows, substances, fallback: false, notice: null };
+      } catch (error) {
+        if (!isMissingFunction(error)) throw phaseError("VALUEUPTAKE", error);
+        const single = filters.channels.length === 1 ? filters.channels[0] : null;
+        const [perYear, substanceYears] = await Promise.all([
+          Promise.all(filters.years.map((y, i) => identified(
+            `VALUEUPTAKE${i}`, getValueUptake(db, y, single, filters.substance)))),
+          Promise.all([2024, 2025].map((y, i) => identified(
+            `VALUESUBST${i}`, getValueUptake(db, y, null, null)))),
+        ]);
+        const notApplied = [
+          aslCode !== null ? "il filtro per Azienda" : null,
+          filters.channels.length > 1 ? "la combinazione di più canali" : null,
+        ].filter((s): s is string => s !== null);
+        return {
+          rows: mergeValueUptakeRows(...perYear),
+          substances: mergeValueUptakeRows(...substanceYears),
+          fallback: true,
+          notice: notApplied.length > 0
+            ? `Adozione in valore: ${notApplied.join(" e ")} non ${notApplied.length > 1 ? "sono stati applicati" : "è stato applicato"} (funzione pillar_b_value_uptake_scoped assente).`
+            : null,
+        };
       }
-    }
+    })();
 
-    let facets: Facets | null = null;
-    let calendarFacets: Facets | null = null;
-    try {
-      [facets, calendarFacets] = await Promise.all([
-        getFacets(db, { years, channels, substance: filters.substance, aslCode,
-                        facets: ["asl", "channels", "perimeter"] }),
-        getFacets(db, { years: [2024, 2025, 2026], channels, substance: filters.substance, aslCode,
-                        facets: ["months"] }),
+    const facetsWork = (async (): Promise<{ facets: Facets | null; calendar: Facets | null; notice: string | null }> => {
+      try {
+        const [facets, calendar] = await Promise.all([
+          getFacets(db, { years, channels, substance: filters.substance, aslCode,
+                          facets: ["asl", "channels", "perimeter"] }),
+          getFacets(db, { years: [2024, 2025, 2026], channels, substance: filters.substance, aslCode,
+                          facets: ["months"] }),
+        ]);
+        return { facets, calendar, notice: null };
+      } catch (error) {
+        if (!isMissingFunction(error)) throw phaseError("FACETS", error);
+        return {
+          facets: null, calendar: null,
+          notice: "Panorama (calendario mensile, spesa per Azienda e per canale) ed Evidenza (perimetro): non disponibili finché pillar_b_facets non è pubblicata.",
+        };
+      }
+    })();
+
+    const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome] =
+      await Promise.all([
+        identified("SPEND24", getSpend(db, 2024)),
+        identified("SPEND25", getSpend(db, 2025)),
+        identified("FUNNEL", getEvidenceFunnel(db, funnelYear)),
+        Promise.all(filters.years.map((y) => identified(`UPTAKE${y}`, getUptake(db, y)))),
+        valueUptakeWork,
+        facetsWork,
       ]);
-    } catch (error) {
-      if (!isMissingFunction(error)) throw phaseError("FACETS", error);
-      degraded.push("Panorama (calendario mensile, spesa per Azienda e per canale) ed Evidenza (perimetro): non disponibili finché pillar_b_facets non è pubblicata.");
-    }
+    const uptake = mergeUptake(uptakeParts);
+    fallback = valueOutcome.fallback;
+    if (valueOutcome.notice) degraded.push(valueOutcome.notice);
+    if (facetsOutcome.notice) degraded.push(facetsOutcome.notice);
 
     data = { spend2024, spend2025, funnel, molecules2024, molecules2025, uptake,
-             valueUptakeRows, allSubstances, facets, calendarFacets };
+             valueUptakeRows: valueOutcome.rows, allSubstances: valueOutcome.substances,
+             facets: facetsOutcome.facets, calendarFacets: facetsOutcome.calendar };
   } catch (error) {
     // The server log retains the full cause. The scoped browser gets only a
     // stable phase code, never a SQL message or a misleading zero-valued chart.
@@ -257,6 +286,16 @@ export default async function RevisionePillarBPage({
 
   // ------------------------------------------------------------ view models
   const view = buildValueUptake(data.valueUptakeRows);
+
+  // THE PARTIAL YEAR AS OBSERVED UNDER THE ACTIVE FILTERS, not a constant.
+  // A molecule or channel may have 2026 records in fewer than five months, or
+  // in none, and the calendar row says what it found; the filter bar's pill
+  // must say the same thing. Without the facets the release-wide fact stands.
+  const calendar = data.calendarFacets?.months ? calendarRows(data.calendarFacets.months) : null;
+  const partialRow = calendar?.find((r) => r.year === PARTIAL_YEAR.year) ?? null;
+  const partialYear = calendar === null
+    ? PARTIAL_YEAR
+    : partialRow === null ? null : { year: PARTIAL_YEAR.year, months: partialRow.monthsObserved };
 
   // WHAT THE VALUE-UPTAKE FIGURES ACTUALLY COVER. In the fallback the live
   // function cannot narrow by Azienda and takes at most one channel, so the
@@ -367,7 +406,7 @@ export default async function RevisionePillarBPage({
         scopeLine={scopeLine}
         recordCount={view.perimeterRows}
         recordCountScope={vuScopeLine === scopeLine ? null : vuScopeLine}
-        partialYear={PARTIAL_YEAR}
+        partialYear={partialYear}
       />
     }
     degraded={degraded}
@@ -376,7 +415,7 @@ export default async function RevisionePillarBPage({
       totals: data.facets?.totals ?? null,
       valueUptake: view,
       valueUptakeScope: vuScopeLine === scopeLine ? null : vuScopeLine,
-      calendar: data.calendarFacets?.months ? calendarRows(data.calendarFacets.months) : null,
+      calendar,
       azienda: data.facets?.asl ? aslBreakdown(data.facets.asl, aslLabel) : null,
       channels: data.facets?.channelsByYear ? channelMix(data.facets.channelsByYear) : null,
     }}
@@ -415,7 +454,13 @@ export default async function RevisionePillarBPage({
       funnel: funnelRows(data.funnel),
       funnelYear: filters.years.includes(2025) ? 2025 : 2024,
       funnelIgnoresFilters: aslCode !== null || filters.channels.length > 0 || filters.substance !== null,
-      perimeter: data.facets?.perimeter ? perimeterRows(data.facets.perimeter) : null,
+      // NOT UNDER A MOLECULE FILTER. For one substance the perimeter rows are
+      // just that substance's statuses, and the per-status share becomes
+      // biosimilar / (biosimilar + reference) by status with no validity rule —
+      // a third adoption denominator, matching neither published measure.
+      // Withheld rather than shown; the two real measures are in Adozione.
+      perimeter: data.facets?.perimeter && filters.substance === null
+        ? perimeterRows(data.facets.perimeter) : null,
     }}
     notices={coverageNotices(yearsSpend, uptakeForView)}
   />;

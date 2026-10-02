@@ -290,7 +290,10 @@ export const PERIMETER_LABELS: Record<string, string> = {
   non_biosimilar_same_substance: "Stessa sostanza, non biosimilare",
   unresolved: "Stato non stabilito",
   outside_biosimilar_perimeter: "Fuori dal perimetro biosimilare",
-  unclassified: "Non classificato",
+  // Rows whose key is not a 9-digit AIC (bridge A's A0 line). They were never
+  // eligible for the B03 taxonomy, so "not classified" would be a false status
+  // and "0 AIC" a false count: they have no AIC at all.
+  unclassified: "Chiave non-AIC, fuori dalla tassonomia",
 };
 
 export interface PerimeterRow extends FacetPerimeter {
