@@ -68,11 +68,14 @@ function ShareBar({ share }: { share: number | null }) {
 }
 
 export function PillarBValueUptake({
-  view, dumbbell, timeline, substanceHref, resetHref,
+  view, dumbbell, timeline, timelineFollowsAzienda = true, scopeNote = null, substanceHref, resetHref,
 }: {
   view: ValueUptakeView;
   dumbbell: DumbbellRow[];
   timeline: TimelineModel;
+  timelineFollowsAzienda?: boolean;
+  /** Set when this section's figures cover a scope WIDER than the page's scope line. */
+  scopeNote?: string | null;
   /** Builds the URL that narrows the page to one substance. */
   substanceHref: (substance: string) => string;
   resetHref: string;
@@ -91,6 +94,12 @@ export function PillarBValueUptake({
 
   return (
     <div className="flex flex-col gap-4">
+      {scopeNote && (
+        <div className="flex gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-600" />
+          <p><strong className="text-foreground">{scopeNote}</strong></p>
+        </div>
+      )}
       {/* ------------------------------------------------- the two denominators */}
       <div className="grid gap-3 sm:grid-cols-2">
         <MeasureCard
@@ -101,7 +110,7 @@ export function PillarBValueUptake({
         <MeasureCard
           accent
           title="Su mesi con biosimilare osservato qui"
-          lead="Mesi in cui un biosimilare era già stato effettivamente dispensato nell'ambito visibile: la domanda onesta «lo scambio era possibile qui?»."
+          lead="Mesi successivi al primo uso del biosimilare registrato nell'ambito visibile; non misura la possibilità clinica di sostituzione."
           measure={view.locallyObserved}
         />
       </div>
@@ -166,7 +175,7 @@ export function PillarBValueUptake({
       )}
 
       <DumbbellUptakeChart rows={dumbbell} />
-      <FirstUseTimeline model={timeline} />
+      <FirstUseTimeline model={timeline} followsAzienda={timelineFollowsAzienda} />
 
       {/* --------------------------------------------------- the numeric table */}
       <details className="group">
@@ -248,9 +257,9 @@ export function PillarBValueUptake({
       )}
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Una molecola con riferimento ma senza biosimilare acquistato mostra 0,00%:
-        significa che un&apos;alternativa autorizzata esisteva e non è stata
-        comprata qui, non che non esistesse. «Primo uso locale» è il primo mese con
+        Una quota pari a 0,00% indica spesa per il riferimento, ma nessuna spesa
+        registrata per il biosimilare nei mesi validi selezionati. Non descrive
+        trattamenti né appropriatezza clinica. «Primo uso locale» è il primo mese con
         quantità osservata nell&apos;ambito visibile, ed è indipendente dai filtri
         di anno e canale: un passaggio avvenuto nel 2024 non smette di essere
         avvenuto perché si seleziona il 2025.

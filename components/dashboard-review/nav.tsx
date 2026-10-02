@@ -23,13 +23,18 @@ const NAV_GROUPS = [
     items: [
       { href: "/dashboard-review/spend", label: "Quadro esecutivo", icon: ChartNoAxesCombined },
       { href: "/dashboard-review/benchmark", label: "Benchmark territoriale", icon: ChartSpline },
+    ],
+  },
+  {
+    label: "Pilastri",
+    items: [
+      { href: "/pillar-a", label: "Pillar A · fonti pubbliche", icon: ChartSpline },
       { href: "/dashboard-review/revisione-pillar-b", label: "Pillar B · Biosimilari ed esclusività", icon: ClipboardList },
     ],
   },
   {
     label: "Esplorazione",
     items: [
-      { href: "/pillar-a", label: "Pillar A · fonti pubbliche", icon: ChartSpline },
       { href: "/dashboard-review/ricerca", label: "Regione → AIC", icon: ListTree },
       { href: "/dashboard-review/antibiotici", label: "Antibiotici AWaRe", icon: ShieldPlus },
     ],

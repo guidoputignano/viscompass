@@ -9,7 +9,9 @@ import {
 import {
   aslBreakdown, calendarRows, channelMix, parseFacets, perimeterRows,
 } from "../lib/dashboard-review/pillar-b/facets.ts";
-import { dumbbellRows, timelineModel, volumeBreakdown } from "../lib/dashboard-review/pillar-b/adoption.ts";
+import {
+  distinctUptakeGroups, distinctWithheldGroups, dumbbellRows, timelineModel, volumeBreakdown,
+} from "../lib/dashboard-review/pillar-b/adoption.ts";
 import { buildValueUptake } from "../lib/dashboard-review/pillar-b/value-uptake.ts";
 
 const BASE = "/dashboard-review/revisione-pillar-b";
@@ -197,6 +199,53 @@ test("the timeline separates opened substances from never-observed ones", () => 
   assert.deepEqual(m.rows.map((r) => r.substance), ["a"]);
   assert.equal(m.rows[0].firstLabel, "2024-03");
   assert.deepEqual(m.neverObserved.map((r) => r.substance), ["b"]);
+  assert.deepEqual(m.notYetValid, []);
+});
+
+test("a substance with no date-valid spend is distinct from 'an alternative existed and was not used'", () => {
+  // pertuzumab in 2024–2025: every month is `outside` (biosimilar authorised
+  // 2026-04), so the date-valid denominator is 0 and nothing could be used.
+  const rows = [...VU, {
+    active_substance: "pertuzumab", inside_biosimilar_eur: null, inside_reference_eur: null,
+    predates_biosimilar_eur: null, predates_reference_eur: null, boundary_biosimilar_eur: null,
+    boundary_reference_eur: null, outside_biosimilar_eur: null, outside_reference_eur: 9_000_000,
+    unknown_biosimilar_eur: null, unknown_reference_eur: null, window_biosimilar_eur: null,
+    window_reference_eur: null, first_local_month_key: null, perimeter_rows: 12, undated_rows: 0,
+  }];
+  const m = timelineModel(buildValueUptake(rows), { fromKey: 2024 * 12 + 1, toKey: 2026 * 12 + 5 });
+  assert.deepEqual(m.neverObserved.map((r) => r.substance), ["b"]);
+  assert.deepEqual(m.notYetValid.map((r) => r.substance), ["pertuzumab"]);
+});
+
+test("the dumbbell keeps a first use outside the selected period distinguishable from 'never'", () => {
+  // aflibercept: first local use 2026-03, selected years 2024–2025 → no window
+  // month in the period, but it WAS dispensed here.
+  const rows = [...VU, {
+    active_substance: "aflibercept", inside_biosimilar_eur: 0, inside_reference_eur: 5_900_000,
+    predates_biosimilar_eur: null, predates_reference_eur: null, boundary_biosimilar_eur: null,
+    boundary_reference_eur: null, outside_biosimilar_eur: null, outside_reference_eur: null,
+    unknown_biosimilar_eur: null, unknown_reference_eur: null, window_biosimilar_eur: null,
+    window_reference_eur: null, first_local_month_key: 2026 * 12 + 3, perimeter_rows: 24, undated_rows: 0,
+  }];
+  const d = dumbbellRows(buildValueUptake(rows)).find((r) => r.substance === "aflibercept");
+  assert.equal(d.locallyObserved, null);
+  assert.equal(d.firstLocalLabel, "2026-03");   // the chart must say "fuori periodo", not "mai"
+  assert.ok(d.denominatorEur > 0);
+});
+
+test("group counts are of groups, not of per-year rows", () => {
+  // The same (Azienda, substance, route, unit) group appears once per selected
+  // year; concatenating two years must not count it twice.
+  const row = (year) => ({
+    asl_code: "130201", active_substance: "x", route: "sc", comparable_unit: "mg",
+    whole_period_biosimilar_qty: 1, whole_period_total_qty: 2, window_biosimilar_qty: 1,
+    window_total_qty: 2, first_local_biosimilar_key: year * 12 + 1, opening_evidence: "",
+  });
+  assert.equal(distinctUptakeGroups([row(2024), row(2025)]), 1);
+  assert.equal(distinctUptakeGroups([row(2024), { ...row(2025), comparable_unit: "IU" }]), 2);
+  const w = (year) => ({ asl_code: "130201", active_substance: "x", withheld_reason: "basis", rows_n: year, spend_eur: 1 });
+  assert.equal(distinctWithheldGroups([w(2024), w(2025)]), 1);
+  assert.equal(distinctWithheldGroups([w(2024), { ...w(2025), asl_code: "130202" }]), 2);
 });
 
 test("volume breakdown never adds quantities across units", () => {

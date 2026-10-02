@@ -43,6 +43,8 @@ export interface FilterBarProps {
   /** The scope in words, already resolved against the pseudonym rule. */
   scopeLine: string;
   recordCount: number | null;
+  /** Set when the record count covers a scope WIDER than the scope line. */
+  recordCountScope?: string | null;
   /** 2026's observed months, for the fragment pill. */
   partialYear: { year: number; months: number } | null;
 }
@@ -53,8 +55,8 @@ const CHANNEL_NAMES: Record<PillarBChannel, string> = {
   DPC: "Distribuzione per conto",
 };
 
-const label = "text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground";
-const control = "h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground " +
+const label = "text-xs font-semibold text-foreground";
+const control = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
 function Segment({
@@ -68,12 +70,12 @@ function Segment({
       title={title}
       aria-pressed={active}
       className={
-        "h-8 rounded-md px-3 text-xs font-semibold transition " +
+        "min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary " +
         (disabled
-          ? "cursor-help border border-dashed border-amber-500/50 text-muted-foreground"
+          ? "cursor-help border border-dashed border-border text-muted-foreground"
           : active
-            ? "bg-card text-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground")
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-card hover:text-foreground")
       }
     >
       {children}
@@ -82,7 +84,7 @@ function Segment({
 }
 
 export function PillarBFilterBar({
-  base, filters, aziende, substances, quickPicks, scopeLine, recordCount, partialYear,
+  base, filters, aziende, substances, quickPicks, scopeLine, recordCount, recordCountScope = null, partialYear,
 }: FilterBarProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -108,15 +110,31 @@ export function PillarBFilterBar({
   const bothYears = filters.years.length === 2;
 
   return (
-    <div
-      className="sticky top-0 z-20 -mx-1 flex flex-col gap-3 rounded-xl border border-border bg-background/95 p-3.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+    <section
+      id="filtri"
+      className="scroll-mt-6 rounded-2xl border border-border bg-card p-4 shadow-[0_16px_36px_-32px_rgba(13,43,52,0.45)] sm:p-5"
       role="region"
       aria-label="Filtri della sezione Pillar B"
       aria-busy={pending}
     >
-      <div className="grid gap-3 md:grid-cols-[auto_auto_auto_minmax(14rem,1fr)] md:items-end">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Perimetro di analisi</p>
+          <h2 className="font-display mt-1 text-lg text-foreground">Configura la vista</h2>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Seleziona periodo, canali e molecola. Le analisi vengono ricalcolate sul perimetro autorizzato.
+          </p>
+        </div>
+        {pending && (
+          <span role="status" className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <Loader2 size={13} className="animate-spin" /> Aggiornamento in corso
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-4 border-t border-border/70 pt-4 sm:grid-cols-2 xl:grid-cols-4">
         {aziende.length > 1 && (
-          <label className="flex flex-col gap-1">
+          <label className="flex min-w-0 flex-col gap-2">
             <span className={label}>Azienda</span>
             <select
               className={control}
@@ -129,40 +147,36 @@ export function PillarBFilterBar({
           </label>
         )}
 
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-2">
           <span className={label}>Periodo</span>
-          <div className="flex h-9 items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Anno">
+          <div className="flex min-h-10 flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Anno">
             <Segment active={bothYears} onClick={() => go({ years: [2024, 2025] })}>2024 + 2025</Segment>
             <Segment active={!bothYears && filters.years[0] === 2024} onClick={() => go({ years: [2024] })}>2024</Segment>
             <Segment active={!bothYears && filters.years[0] === 2025} onClick={() => go({ years: [2025] })}>2025</Segment>
-            {partialYear && (
-              <Segment
-                active={false}
-                disabled
-                title={`Il ${partialYear.year} copre ${partialYear.months} mesi e nessun record con quantità confrontabile: non è un anno e non entra in nessun confronto. Compare solo nel calendario mensile, segnalato come parziale.`}
-              >
-                {partialYear.year} · {partialYear.months} mesi
-              </Segment>
-            )}
           </div>
+          {partialYear && <span className="text-[11px] text-muted-foreground">
+            {partialYear.year}: {partialYear.months} mesi; visibile solo nel calendario, non nei confronti.
+          </span>}
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-2">
           <span className={label}>Canale</span>
-          <div className="flex h-9 items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Canali di erogazione, combinabili">
+          <div className="flex min-h-10 flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Canali di erogazione, combinabili">
+            <Segment active={filters.channels.length === 0} onClick={() => go({ channels: [] })}>Tutti</Segment>
             {PILLAR_B_CHANNELS.map((c) => {
-              const on = filters.channels.length === 0 || filters.channels.includes(c);
+              const on = filters.channels.includes(c);
               return (
                 <Segment key={c} active={on} title={CHANNEL_NAMES[c]}
-                         onClick={() => go({ channels: toggleChannel(filters, c) })}>
+                         onClick={() => go({ channels: filters.channels.length === 0 ? [c] : toggleChannel(filters, c) })}>
                   {c}
                 </Segment>
               );
             })}
           </div>
+          <span className="text-[11px] text-muted-foreground">Puoi combinare più canali.</span>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-2">
           <span className={label}>Molecola</span>
           <div className="flex items-center gap-2">
             <input
@@ -195,7 +209,7 @@ export function PillarBFilterBar({
 
       {quickPicks.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground">Dove c&apos;è più da decidere:</span>
+          <span className="text-[11px] font-medium text-muted-foreground">In evidenza per spesa di riferimento:</span>
           {quickPicks.map((q) => (
             <button
               key={q.substance}
@@ -216,18 +230,13 @@ export function PillarBFilterBar({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/70 pt-2.5 text-xs">
-        <span className="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-[11px] text-foreground">
-          Ambito: {scopeLine}
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/70 pt-3 text-xs">
+        <span className="max-w-full rounded-lg bg-secondary px-3 py-1.5 text-[11px] font-medium text-foreground">
+          Ambito attivo: {scopeLine}
         </span>
         {recordCount !== null && (
           <span className="text-muted-foreground">
-            {formatNumber(recordCount, 0)} record nel perimetro biosimilare
-          </span>
-        )}
-        {pending && (
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <Loader2 size={12} className="animate-spin" /> aggiorno…
+            {formatNumber(recordCount, 0)} record nel perimetro biosimilare{recordCountScope ? ` (${recordCountScope})` : ""}
           </span>
         )}
         <span className="ml-auto flex items-center gap-3">
@@ -244,6 +253,6 @@ export function PillarBFilterBar({
           )}
         </span>
       </div>
-    </div>
+    </section>
   );
 }

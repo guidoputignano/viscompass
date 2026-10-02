@@ -68,9 +68,19 @@ export function DumbbellUptakeChart({ rows, limit = 16 }: { rows: DumbbellRow[];
           <text x={left - 10} y={y + 4} textAnchor="end" fontSize="12" fill={ink}>{r.substance}</text>
           {a !== null && b !== null && <line x1={x(a)} y1={y} x2={x(b)} y2={y} stroke={teal} strokeWidth="4" strokeOpacity="0.45" strokeLinecap="round" />}
           {a !== null && <circle cx={x(a)} cy={y} r="5.5" fill={slate} />}
+          {/* THREE different absences, three different words. A missing teal
+              dot means no biosimilar month fell inside BOTH the selected
+              period and the local window — which happens when the first local
+              use lies outside the selected years (aflibercept: 2026-03), not
+              only when it never happened. And a row with no date-valid month
+              at all (pertuzumab in 2024–2025) had no alternative to use. */}
           {b !== null
             ? <circle cx={x(b)} cy={y} r="6" fill={teal} stroke="white" strokeWidth="1.5" />
-            : <text x={right + 8} y={y + 4} fontSize="10" fill={coral}>mai dispensato qui</text>}
+            : r.denominatorEur === 0
+              ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>nessun mese valido nel periodo</text>
+              : r.firstLocalLabel !== null
+                ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>primo uso {r.firstLocalLabel}, fuori periodo</text>
+                : <text x={right + 8} y={y + 4} fontSize="10" fill={coral}>mai dispensato qui</text>}
           <text x={width - 4} y={y + 4} textAnchor="end" fontSize="11" fill={muted}>{compact(r.referenceEur)}</text>
         </g>;
       })}
@@ -82,7 +92,11 @@ export function DumbbellUptakeChart({ rows, limit = 16 }: { rows: DumbbellRow[];
 
 // ------------------------------------------------------------------ timeline
 
-export function FirstUseTimeline({ model }: { model: TimelineModel }) {
+export function FirstUseTimeline({ model, followsAzienda = true }: {
+  model: TimelineModel;
+  /** False when the opening clock could not be narrowed to the selected Azienda. */
+  followsAzienda?: boolean;
+}) {
   const { fromKey, toKey, rows, neverObserved } = model;
   const width = 760, left = 180, right = 740, top = 34, lane = 20;
   const height = top + Math.max(rows.length, 1) * lane + 26;
@@ -94,7 +108,9 @@ export function FirstUseTimeline({ model }: { model: TimelineModel }) {
   for (let k = fromKey; k <= toKey; k++) if ((k - 1) % 12 === 0) years.push(Math.floor((k - 1) / 12));
   return <Frame
     title="Quando il primo biosimilare è comparso qui"
-    lead="Un punto per molecola, nel mese della prima dispensazione osservata nell'ambito visibile. L'area del punto cresce con la spesa di riferimento. La finestra «osservato qui» parte da lì: segue l'Azienda selezionata, non i filtri di anno e canale."
+    lead={"Un punto per molecola, nel mese della prima dispensazione osservata nell'ambito visibile. L'area del punto cresce con la spesa di riferimento. La finestra «osservato qui» parte da lì" + (followsAzienda
+      ? ": segue l'Azienda selezionata, non i filtri di anno e canale."
+      : ", calcolata sull'intero perimetro visibile: il filtro per Azienda non è applicato in questa vista.")}
   >
     {rows.length === 0 && neverObserved.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
     {rows.length > 0 && <svg role="img" aria-label="Mese della prima dispensazione locale di un biosimilare, per molecola" viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
@@ -116,11 +132,16 @@ export function FirstUseTimeline({ model }: { model: TimelineModel }) {
       })}
     </svg>}
     {neverObserved.length > 0 && <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
-      <p className="font-semibold text-foreground">Mai dispensato qui, pur avendo un biosimilare autorizzato:</p>
+      <p className="font-semibold text-foreground">Mai dispensato qui, pur avendo un biosimilare autorizzato nel periodo selezionato:</p>
       <p className="mt-1 text-muted-foreground">
         {neverObserved.map((n) => `${n.substance} (${formatEur(n.referenceEur)} di riferimento)`).join(" · ")}
       </p>
     </div>}
+    {model.notYetValid.length > 0 && <p className="mt-2 text-[11px] text-muted-foreground">
+      Senza spesa nei mesi a validità riconosciuta del periodo selezionato; questo dato
+      da solo non dimostra se un&apos;alternativa fosse disponibile:{" "}
+      {model.notYetValid.map((n) => n.substance).join(", ")}.
+    </p>}
     </>}
   </Frame>;
 }

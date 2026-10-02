@@ -52,6 +52,8 @@ export interface TimelineRow {
   firstLabel: string | null;
   /** Reference spend in date-valid months: what was spendable on an alternative. */
   referenceEur: number;
+  /** Biosimilar + reference spend in date-valid months of the selected period. */
+  validEur: number;
   share: number | null;
 }
 
@@ -60,7 +62,17 @@ export interface TimelineModel {
   fromKey: number;
   toKey: number;
   rows: TimelineRow[];
+  /**
+   * Never dispensed here although at least one month of the selected period
+   * was date-valid — i.e. an authorised alternative existed and was not used.
+   */
   neverObserved: TimelineRow[];
+  /**
+   * Never dispensed here AND no date-valid spend in the selected period.
+   * Kept apart because neither authorisation nor an unused alternative can be
+   * inferred from a zero spend denominator alone.
+   */
+  notYetValid: TimelineRow[];
 }
 
 /**
@@ -78,13 +90,16 @@ export function timelineModel(
     firstKey: r.firstLocalMonthKey,
     firstLabel: r.firstLocalLabel,
     referenceEur: r.dateValid.reference,
+    validEur: r.dateValid.denominator,
     share: r.dateValid.share,
   }));
+  const never = rows.filter((r) => r.firstKey === null);
   return {
     fromKey: window.fromKey,
     toKey: window.toKey,
     rows: rows.filter((r) => r.firstKey !== null).sort((a, b) => a.firstKey! - b.firstKey!),
-    neverObserved: rows.filter((r) => r.firstKey === null).sort((a, b) => b.referenceEur - a.referenceEur),
+    neverObserved: never.filter((r) => r.validEur > 0).sort((a, b) => b.referenceEur - a.referenceEur),
+    notYetValid: never.filter((r) => r.validEur === 0).sort((a, b) => a.substance.localeCompare(b.substance)),
   };
 }
 
@@ -93,6 +108,28 @@ export function monthKeyLabel(key: number): string {
   const year = Math.floor((key - 1) / 12);
   const month = key - year * 12;
   return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+// ------------------------------------------------------------- group counts
+
+/**
+ * How many (Azienda, substance, route, unit) groups the rows cover.
+ *
+ * The RPC returns one row per group PER YEAR, and the page concatenates the
+ * selected years, so `rows.length` double-counts every group present in both
+ * years. A count shown to a reader must be of groups, not of rows.
+ */
+export function distinctUptakeGroups(rows: ReadonlyArray<UptakeRow>): number {
+  return new Set(rows.map((r) =>
+    `${r.asl_code}\u0000${r.active_substance}\u0000${r.route}\u0000${r.comparable_unit}`)).size;
+}
+
+/** How many (Azienda, substance, reason) withheld groups the rows cover. */
+export function distinctWithheldGroups(
+  rows: ReadonlyArray<{ asl_code: string; active_substance: string; withheld_reason: string }>,
+): number {
+  return new Set(rows.map((r) =>
+    `${r.asl_code}\u0000${r.active_substance}\u0000${r.withheld_reason}`)).size;
 }
 
 // ------------------------------------------------- volume uptake by molecule

@@ -18,7 +18,7 @@
 //   - a saving, an opportunity, or any recoverable-money figure
 //   - 2026 as a year — it appears only as five labelled calendar cells
 
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Info } from "lucide-react";
 import { PageHeader } from "@/components/dashboard-review/analytics-ui";
 import {
   ChannelSlopeChart, ConcentrationCurve, EvidenceFunnelChart,
@@ -51,6 +51,8 @@ export interface PillarBReviewProps {
   panorama: {
     totals: FacetTotals | null;
     valueUptake: ValueUptakeView;
+    /** Set when the value-uptake figures cover a scope WIDER than the page's. */
+    valueUptakeScope: string | null;
     calendar: CalendarRow[] | null;
     azienda: AslBreakdownRow[] | null;
     channels: ChannelMixRow[] | null;
@@ -58,9 +60,12 @@ export interface PillarBReviewProps {
   adoption: {
     valueUptakeSection: React.ReactNode;
     uptake: UptakeWithWithheld;
+    /** Distinct (Azienda, substance, route, unit) groups — not per-year rows. */
+    groupCount: number;
+    withheldGroupCount: number;
     volume: VolumeBreakdownRow[];
-    /** Which filters the volume measure could not honour. */
-    note: string | null;
+    /** Which filters the volume measure could not honour, one sentence each. */
+    notes: string[];
   };
   spend: {
     moleculeTrend: TrendRow[];
@@ -80,11 +85,11 @@ export interface PillarBReviewProps {
 }
 
 const GROUPS = [
-  { id: "panorama", label: "Panorama" },
-  { id: "adozione", label: "Adozione" },
-  { id: "spesa", label: "Spesa" },
-  { id: "evidenza", label: "Evidenza" },
-  { id: "limiti", label: "Limiti" },
+  { id: "panorama", label: "Panorama", description: "Il quadro in sintesi" },
+  { id: "adozione", label: "Adozione", description: "Valore e volume" },
+  { id: "spesa", label: "Spesa", description: "Variazioni e concentrazione" },
+  { id: "evidenza", label: "Evidenza", description: "Copertura dei dati" },
+  { id: "limiti", label: "Metodo", description: "Cosa non si può concludere" },
 ] as const;
 
 const MONTHS_OBSERVED_NOTE =
@@ -95,11 +100,20 @@ const MONTHS_OBSERVED_NOTE =
 function Group({
   id, title, lead, children,
 }: { id: string; title: string; lead: string; children: React.ReactNode }) {
+  const number = GROUPS.findIndex((group) => group.id === id) + 1;
   return (
-    <section id={id} className="flex scroll-mt-40 flex-col gap-4">
-      <div>
-        <h2 className="font-display text-lg text-foreground">{title}</h2>
-        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">{lead}</p>
+    <section id={id} className="flex scroll-mt-8 flex-col gap-5 border-t border-border pt-8">
+      <div className="flex flex-wrap items-start gap-3 sm:gap-4">
+        <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-mono text-sm font-semibold text-primary">
+          {String(number).padStart(2, "0")}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-2xl leading-tight text-foreground">{title}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">{lead}</p>
+        </div>
+        <a href="#filtri" className="rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+          Modifica filtri
+        </a>
       </div>
       {children}
     </section>
@@ -108,8 +122,8 @@ function Group({
 
 function Sub({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+    <div className="flex flex-col gap-4">
+      <h3 className="border-l-2 border-primary/60 pl-3 text-base font-semibold text-foreground">{title}</h3>
       {children}
     </div>
   );
@@ -117,10 +131,10 @@ function Sub({ title, children }: { title: string; children: React.ReactNode }) 
 
 function Stat({ label, value, detail, accent }: { label: string; value: string; detail?: string; accent?: boolean }) {
   return (
-    <div className={"rounded-xl border p-4 " + (accent ? "border-primary/30 bg-primary/5" : "border-border bg-card")}>
-      <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
-      <p className="font-display mt-1 text-lg text-foreground">{value}</p>
-      {detail && <p className="mt-0.5 text-[11px] text-muted-foreground">{detail}</p>}
+    <div className={"min-w-0 rounded-2xl border p-5 shadow-[0_12px_28px_-26px_rgba(13,43,52,0.4)] " + (accent ? "border-primary/30 bg-primary/10" : "border-border bg-card")}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
+      <p className="font-display mt-3 break-words text-2xl tabular-nums leading-tight text-foreground">{value}</p>
+      {detail && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{detail}</p>}
     </div>
   );
 }
@@ -157,11 +171,11 @@ export function PillarBReview(props: PillarBReviewProps) {
   const periodLabel = years.length === 2 ? "2024 e 2025 · 12 mesi osservati ciascuno" : `${years[0]} · 12 mesi osservati`;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-9 pb-10">
       <PageHeader
         eyebrow="Pillar B · biosimilari ed esclusività"
-        title="Biosimilari: evidenza, adozione e spesa"
-        description={`Spesa e adozione osservate su ${props.scope.perimeterLabel}. Le date di esclusività legale non sono certificate.`}
+        title="Biosimilari, dalla spesa all'adozione"
+        description={`Una lettura interattiva della spesa, dei biosimilari e della qualità dell'evidenza su ${props.scope.perimeterLabel}. Le date di esclusività legale non sono certificate.`}
         period={periodLabel}
         scope={`Release ${props.releaseId}`}
       />
@@ -176,11 +190,16 @@ export function PillarBReview(props: PillarBReviewProps) {
 
       {props.filterBar}
 
-      <nav aria-label="Sezioni" className="flex flex-wrap gap-1.5 text-xs">
-        {GROUPS.map((g) => (
+      <nav aria-label="Esplora le analisi di Pillar B" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        {GROUPS.map((g, index) => (
           <a key={g.id} href={`#${g.id}`}
-             className="rounded-full border border-border bg-card px-3 py-1 font-medium text-muted-foreground hover:border-primary/50 hover:text-foreground">
-            {g.label}
+             className="group flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/50 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+            <span className="font-mono text-xs font-semibold text-primary">{String(index + 1).padStart(2, "0")}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-foreground">{g.label}</span>
+              <span className="block text-[11px] leading-snug text-muted-foreground">{g.description}</span>
+            </span>
+            <ArrowUpRight aria-hidden="true" size={15} className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
           </a>
         ))}
       </nav>
@@ -196,8 +215,8 @@ export function PillarBReview(props: PillarBReviewProps) {
 
       {/* ============================================================ PANORAMA */}
       <Group id="panorama" title="Panorama"
-             lead="Dove sta il denaro nel perimetro selezionato, e quanto di quello sostituibile è già su biosimilare.">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+             lead="Le grandezze principali del perimetro selezionato, prima di entrare nelle singole analisi.">
+        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
           <Stat label="Spesa rendicontata"
                 value={panorama.totals?.spend_eur == null ? "n/d" : formatEur(panorama.totals.spend_eur)}
                 detail={panorama.totals ? `${formatNumber(panorama.totals.rows_n, 0)} record · ${formatNumber(panorama.totals.substance_count, 0)} molecole` : "richiede la migrazione 20261003090000"} />
@@ -207,10 +226,10 @@ export function PillarBReview(props: PillarBReviewProps) {
                 detail="la base su cui ogni misura di volume riposa" />
           <Stat label="Quota biosimilare · validità riconosciuta"
                 value={vu.dateValid.share === null ? "n/d" : formatPercent(vu.dateValid.share)}
-                detail={`su ${formatEur(vu.dateValid.denominator)} nel perimetro`} />
+                detail={`su ${formatEur(vu.dateValid.denominator)}` + (panorama.valueUptakeScope ? ` · ambito: ${panorama.valueUptakeScope}` : " nel perimetro selezionato")} />
           <Stat accent label="Quota biosimilare · osservato qui"
                 value={vu.locallyObserved.share === null ? "n/d" : formatPercent(vu.locallyObserved.share)}
-                detail={held > 0 ? `${formatEur(held)} fuori da entrambe le misure` : undefined} />
+                detail={(held > 0 ? `${formatEur(held)} fuori da entrambe le misure` : "") + (panorama.valueUptakeScope ? `${held > 0 ? " · " : ""}ambito: ${panorama.valueUptakeScope}` : "") || undefined} />
         </div>
 
         {panorama.calendar && (
@@ -228,12 +247,12 @@ export function PillarBReview(props: PillarBReviewProps) {
 
       {/* ============================================================ ADOZIONE */}
       <Group id="adozione" title="Adozione dei biosimilari"
-             lead="La domanda che questa sezione sostiene è: dove esiste un'alternativa e non viene usata? Prima in valore, poi — solo dove la quantità ha un'unità — in volume.">
+             lead="Due letture dell'adozione: quota di spesa sul perimetro classificato e, solo dove le unità sono confrontabili, quota in volume.">
         <Sub title="In valore · due denominatori, mai uno solo">
           <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
-            Una quota di <strong>denaro</strong>, non di pazienti: un biosimilare costa
-            meno per unità, quindi la quota di spesa <strong>sottostima</strong> la quota
-            di trattamenti.
+            Questa è una quota di <strong>spesa</strong>, non di pazienti o trattamenti.
+            Prezzi e presentazioni possono far divergere le due quote in entrambe le
+            direzioni; non si può dedurre l&apos;adozione clinica dalla sola spesa.
           </p>
           {adoption.valueUptakeSection}
         </Sub>
@@ -245,8 +264,12 @@ export function PillarBReview(props: PillarBReviewProps) {
               somministrazione) su una quantità normalizzata, e soltanto dove la base
               della quantità è risolta. La quota trattenuta qui sotto è il complemento
               esatto a livello di record, non di gruppo.
-              {adoption.note && <> <strong className="text-foreground">{adoption.note}</strong></>}
             </p>
+            {adoption.notes.length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs leading-relaxed">
+                {adoption.notes.map((n) => <li key={n}><strong className="text-foreground">{n}</strong></li>)}
+              </ul>
+            )}
             <div className="mt-4">
               <UptakeCoverageChart
                 withheldShare={adoption.uptake.withheldShare}
@@ -257,9 +280,10 @@ export function PillarBReview(props: PillarBReviewProps) {
             <dl className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border border-border bg-muted/30 p-3">
                 <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Gruppi con uptake calcolabile</dt>
-                <dd className="font-display mt-1 text-base text-foreground">{formatNumber(adoption.uptake.rows.length, 0)}</dd>
+                <dd className="font-display mt-1 text-base text-foreground">{formatNumber(adoption.groupCount, 0)}</dd>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">(Azienda, principio attivo, via, unità) · {years.length === 2 ? "presenti in almeno uno dei due anni" : String(years[0])}</p>
               </div>
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
                 <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Spesa trattenuta</dt>
                 <dd className="font-display mt-1 text-base text-foreground">{formatEur(adoption.uptake.withheldSpendEur)}</dd>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -323,7 +347,7 @@ export function PillarBReview(props: PillarBReviewProps) {
             {adoption.uptake.withheld.length > 0 && (
               <details className="mt-4">
                 <summary className="cursor-pointer text-xs font-semibold text-primary">
-                  Apri i {formatNumber(adoption.uptake.withheld.length, 0)} gruppi trattenuti e i motivi
+                  Apri i {formatNumber(adoption.withheldGroupCount, 0)} gruppi trattenuti e i motivi
                 </summary>
                 <div className="mt-3 overflow-x-auto rounded-lg border border-border">
                   <table className="w-full min-w-[34rem] text-sm" translate="no">
@@ -479,17 +503,19 @@ export function PillarBReview(props: PillarBReviewProps) {
       </Group>
 
       {/* ============================================================== LIMITI */}
-      <Group id="limiti" title="Limiti: cosa questa pagina non mostra, e perché"
-             lead="Le rinunce del workbook congelato (fogli 22 e 24), riportate tali e quali. Omettere queste righe renderebbe ogni altra cifra più forte di quanto l'evidenza la sostenga.">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Notice tone="info"><strong className="text-foreground">Nessuna previsione (B10).</strong> Un backtest a origine mobile su 11 orizzonti non ha battuto il livello costante. Il livello viene portato avanti invariato; non è una previsione.</Notice>
-          <Notice tone="info"><strong className="text-foreground">Nessuna attribuzione causale (B12).</strong> Nessun intervento datato è registrato nei dati; senza un disegno non c&apos;è effetto da stimare.</Notice>
-          <Notice tone="info"><strong className="text-foreground">Nessuna cifra di risparmio (B14).</strong> Ogni «opportunità» è un limite superiore sotto quattro assunzioni non verificate. La dispersione di prezzo fra Aziende (B07) è dispersione osservata, non denaro recuperabile.</Notice>
-          <Notice tone="info"><strong className="text-foreground">Nessuna classifica fra Aziende (B09).</strong> La graduatoria grezza misura cosa è stato comprato; standardizzata, le differenze non sono stabili. Il case-mix non è controllabile: ATC assente sul rilascio.</Notice>
-          <Notice tone="info"><strong className="text-foreground">Nessun totale di confezioni.</strong> La base della quantità è confezioni, unità, mista e ignota nello stesso rilascio. Una somma fra basi non ha unità.</Notice>
-          <Notice tone="info"><strong className="text-foreground">Il 2026 non è un anno.</strong> Cinque mesi osservati, zero record con quantità confrontabile. Compare nel calendario, segnalato; non entra in nessun confronto.</Notice>
-          <Notice tone="info"><strong className="text-foreground">La spesa è lorda.</strong> IVA inclusa, al lordo di payback e note di credito di registro. Non è un prezzo netto, né un prezzo di riferimento AIFA.</Notice>
-          <Notice tone="info"><strong className="text-foreground">«Anni senza concorrenza» non è esclusività legale.</strong> B15 pubblica un limite superiore fra autorizzazione EU del riferimento e del primo biosimilare; nessuna scadenza brevettuale o SPC è evidenziata.</Notice>
+      <Group id="limiti" title="Metodo e limiti"
+             lead="Le condizioni di lettura del workbook congelato (fogli 22 e 24). Sono parte dell'analisi, non avvisi di errore.">
+        <div className="rounded-2xl border border-border bg-card px-4 sm:px-6">
+          <ul className="grid gap-x-8 md:grid-cols-2">
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">Previsione (B10).</strong> Il backtest a origine mobile su 11 orizzonti non ha battuto il livello costante. Il livello portato avanti non è una previsione.</li>
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">Causalità (B12).</strong> Nessun intervento datato è registrato nei dati; senza un disegno non c&apos;è effetto da stimare.</li>
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">Risparmio (B14).</strong> Ogni «opportunità» è un limite superiore sotto quattro assunzioni non verificate. La dispersione di prezzo (B07) non è denaro recuperabile.</li>
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">Classifiche fra Aziende (B09).</strong> La graduatoria grezza misura cosa è stato comprato; standardizzata, le differenze non sono stabili. Il case-mix non è controllabile: ATC assente sul rilascio.</li>
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">Confezioni.</strong> La base della quantità è confezioni, unità, mista e ignota nello stesso rilascio. Una somma fra basi non ha unità.</li>
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">2026 parziale.</strong> Cinque mesi osservati, zero record con quantità confrontabile. Compare nel calendario, segnalato; non entra nei confronti annuali.</li>
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">Spesa lorda.</strong> IVA inclusa, al lordo di payback e note di credito di registro. Non è un prezzo netto, né un prezzo di riferimento AIFA.</li>
+            <li className="border-b border-border/70 py-4 text-sm leading-relaxed text-muted-foreground"><strong className="text-foreground">Esclusività legale.</strong> Gli «anni senza concorrenza» (B15) sono un limite superiore fra autorizzazione EU del riferimento e del primo biosimilare; non sono scadenze brevettuali o SPC.</li>
+          </ul>
         </div>
 
         <div className="border-t border-border pt-4 text-xs text-muted-foreground">
