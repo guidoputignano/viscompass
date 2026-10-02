@@ -1,8 +1,7 @@
 // Pillar B review page — evidence funnel, 2024–2025 trends, spend concentration.
 //
-// Server-rendered throughout. The magnitude bars are CSS widths over values the
-// table already states in full, so nothing is conveyed by the bar alone and
-// there is no client-side charting to hydrate or mis-format. Italian number
+// Server-rendered throughout. Charts encode the same verified values as the
+// audit tables and never introduce a second calculation path. Italian number
 // formatting goes through the shared helpers for the reason pinned in
 // tests/it-number.test.mjs: `toLocaleString("it-IT")` written inline sets
 // minimumGroupingDigits = 2 and produces a server/client mismatch on 4-digit
@@ -15,8 +14,11 @@
 //   - a saving, an opportunity, or any recoverable-money figure
 //   - 2026 as a year
 
-import { AlertTriangle, Info } from "lucide-react";
-import { PageHeader, StatusPill } from "@/components/dashboard-review/analytics-ui";
+import { PageHeader } from "@/components/dashboard-review/analytics-ui";
+import {
+  ChannelSlopeChart, ConcentrationCurve, EvidenceFunnelChart,
+  MoleculeChangeChart, UptakeCoverageChart,
+} from "@/components/dashboard-review/pillar-b-review-visuals";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { CoverageNotice, Concentration, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
 import type { UptakeWithWithheld } from "@/lib/dashboard-review/pillar-b/rpc";
@@ -63,32 +65,6 @@ function Bar({ share }: { share: number }) {
   );
 }
 
-function Notices({ notices }: { notices: CoverageNotice[] }) {
-  if (notices.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-2">
-      {notices.map((n) => (
-        <div
-          key={n.label}
-          className={
-            "flex gap-2.5 rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed " +
-            (n.tone === "warning"
-              ? "border-amber-500/30 bg-amber-500/10 text-foreground"
-              : "border-border/70 bg-muted/40 text-muted-foreground")
-          }
-        >
-          {n.tone === "warning"
-            ? <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-600" />
-            : <Info size={14} className="mt-0.5 shrink-0" />}
-          <p>
-            <span className="font-semibold text-foreground">{n.label}:</span> {n.detail}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function PillarBReview(props: PillarBReviewProps) {
   const { funnel, concentration: conc, uptake, notices, totals } = props;
   const yoy = totals.spend2024 === 0
@@ -105,36 +81,26 @@ export function PillarBReview(props: PillarBReviewProps) {
         scope={`Release ${props.releaseId}`}
       />
 
-      {/* Period and source, stated once and applying to every figure below. */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusPill tone="neutral">Periodo: {PERIOD_LABEL}</StatusPill>
-          <StatusPill tone="neutral">Release: {props.releaseId}</StatusPill>
-          <StatusPill tone="neutral">Fonte: DIR_OSP_TRA_003AS (NSIS, DM 31/07/2007)</StatusPill>
-          <StatusPill tone="warning">2026 escluso</StatusPill>
-        </div>
-        <p className="mt-3 max-w-4xl text-xs leading-relaxed text-muted-foreground">
-          {MONTHS_OBSERVED_NOTE}
-        </p>
-        <p className="mt-2 max-w-4xl text-xs leading-relaxed text-muted-foreground">
-          Il 2026 presente nella release copre cinque mesi (gennaio–maggio) e non
-          contiene alcun record idoneo al confronto. Non è mostrato come anno e non
-          entra in nessun confronto: cinque mesi contro dodici non sono confrontabili.
-        </p>
+      <div className="border-b border-border pb-4 text-xs text-muted-foreground">
+        <span>DIR_OSP_TRA_003AS · {props.releaseId} · 2026 escluso</span>
+        <details className="mt-2 max-w-4xl">
+          <summary className="cursor-pointer font-medium text-foreground">Metodo, copertura e rettifiche</summary>
+          <div className="mt-2 space-y-2 leading-relaxed">
+            <p>{MONTHS_OBSERVED_NOTE}</p>
+            <p>Il 2026 copre solo gennaio–maggio e non entra nei confronti 2024–2025.</p>
+            {notices.map((n) => <p key={n.label}><strong className="text-foreground">{n.label}:</strong> {n.detail}</p>)}
+          </div>
+        </details>
       </div>
-
-      <Notices notices={notices} />
 
       {/* ------------------------------------------------ 1. evidence funnel */}
       <Section
         title="1 · Evidenza ed esclusioni"
-        lead={
-          "Da tutti i record osservati a quelli effettivamente utilizzabili per il " +
-          "confronto. Ogni riga dichiara quanti record restano, quanti se ne perdono " +
-          "rispetto al passaggio precedente e perché. Le esclusioni sono mostrate, " +
-          "non sottintese."
-        }
+        lead="Dal totale osservato ai record utilizzabili per il confronto."
       >
+        <EvidenceFunnelChart rows={funnel} />
+        <details className="group">
+          <summary className="cursor-pointer text-xs font-semibold text-primary">Apri il dettaglio dei passaggi, della spesa e dei motivi</summary>
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full min-w-[46rem] text-sm">
             <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -171,6 +137,7 @@ export function PillarBReview(props: PillarBReviewProps) {
             </tbody>
           </table>
         </div>
+        </details>
 
         {/* Uptake is shown ONLY beside what it excludes. */}
         <div className="rounded-xl border border-border bg-card p-4">
@@ -183,6 +150,13 @@ export function PillarBReview(props: PillarBReviewProps) {
             della quantità è risolta. La quota trattenuta qui sotto è il complemento
             esatto a livello di record, non di gruppo.
           </p>
+          <div className="mt-4">
+            <UptakeCoverageChart
+              withheldShare={uptake.withheldShare}
+              usedSpend={uptake.scope?.spend_eur ?? 0}
+              withheldSpend={uptake.withheldSpendEur}
+            />
+          </div>
           <dl className="mt-3 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -222,7 +196,9 @@ export function PillarBReview(props: PillarBReviewProps) {
           </dl>
 
           {uptake.withheld.length > 0 && (
-            <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+            <details className="mt-4">
+              <summary className="cursor-pointer text-xs font-semibold text-primary">Apri i {formatNumber(uptake.withheld.length, 0)} gruppi trattenuti e i motivi</summary>
+            <div className="mt-3 overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[34rem] text-sm">
                 <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                   <tr>
@@ -248,6 +224,7 @@ export function PillarBReview(props: PillarBReviewProps) {
                 </tbody>
               </table>
             </div>
+            </details>
           )}
         </div>
       </Section>
@@ -255,12 +232,7 @@ export function PillarBReview(props: PillarBReviewProps) {
       {/* -------------------------------------------------------- 2. trends */}
       <Section
         title="2 · Andamento della spesa 2024–2025"
-        lead={
-          "Due anni con dodici mesi osservati ciascuno, confrontabili fra loro. " +
-          "La variazione percentuale è calcolata sul valore assoluto del 2024, così " +
-          "che una base negativa non inverta il segno rispetto alla variazione in euro " +
-          "mostrata accanto. Dove il 2024 è zero la percentuale non esiste e si legge n/d."
-        }
+        lead="Due anni con dodici mesi osservati ciascuno, confrontati sullo stesso perimetro autorizzato."
       >
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-4">
@@ -288,6 +260,11 @@ export function PillarBReview(props: PillarBReviewProps) {
           </div>
         </div>
 
+        <ChannelSlopeChart rows={props.channelTrend} />
+        <MoleculeChangeChart rows={props.moleculeTrend} />
+        <details className="group">
+          <summary className="cursor-pointer text-xs font-semibold text-primary">Apri le serie numeriche per canale e principio attivo</summary>
+          <div className="mt-3 space-y-4">
         <TrendTable
           caption="Per canale di erogazione"
           rows={props.channelTrend}
@@ -304,18 +281,16 @@ export function PillarBReview(props: PillarBReviewProps) {
               : undefined
           }
         />
+          </div>
+        </details>
       </Section>
 
       {/* ------------------------------------------------- 3. concentration */}
       <Section
         title="3 · Concentrazione della spesa"
-        lead={
-          "Quanta parte della spesa 2025 è riconducibile a poche molecole. Il " +
-          "denominatore è la spesa netta — lo stesso totale della sezione precedente — " +
-          "non la somma delle sole voci positive, così che la tabella riconcili con il " +
-          "totale di periodo."
-        }
+        lead="Quota cumulata della spesa netta 2025, ordinata per principio attivo."
       >
+        <ConcentrationCurve data={conc} />
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -346,7 +321,9 @@ export function PillarBReview(props: PillarBReviewProps) {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <details className="group">
+          <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la classifica numerica delle prime 25 molecole</summary>
+        <div className="mt-3 overflow-x-auto rounded-xl border border-border">
           <table className="w-full min-w-[40rem] text-sm">
             <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
@@ -387,6 +364,7 @@ export function PillarBReview(props: PillarBReviewProps) {
             </tfoot>
           </table>
         </div>
+        </details>
       </Section>
     </div>
   );
