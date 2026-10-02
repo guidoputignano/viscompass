@@ -8,8 +8,9 @@ review page must render and reconcile before the gate is left on.
 ## Current state
 
 - Repository: `viscompass-pillar-b-gate`, branch `pillar-b/gates-20261001`.
-  Latest pushed `origin/main`: `fd4f8cb`. Build (`next build --webpack`) and
-  TypeScript passed before that push. Inspect `git status` and deployed commit.
+  Latest code pushed to `origin/main`: `fd4f8cb` (plus handover-only commit
+  `2b62bee`). Build (`next build --webpack`) and TypeScript passed before the
+  code push. Inspect `git status` and deployed commit.
 - Production Supabase project: `yxumhjfsoqfckaeydgxt`. Release ID:
   `PILLAR-B-R2-20261001`.
 - `canonical_fact` has **261,153 frozen R2 rows** (2024 110,509; 2025 106,639;
@@ -51,13 +52,20 @@ uses stable-key, 1,000-row paging for molecule RPCs. Earlier code silently
 truncated >1,000 molecule groups; the paging fix is necessary even if it does
 not fix the timeout. The database index did not materially reduce a standalone
 `pillar_b_spend(2025)` simulated-JWT call (about 0.8–1.0 s), so do not assume
-the index alone solved it. The latest commit may still be deploying when you
-start. Verify deployment before activating.
+the index alone solved it. **A subsequent live attempt with this code still
+failed `PBR-SPEND24-57014`.** I immediately removed the gate row and confirmed
+`active_releases = 0` in production. Do not reactivate until the timeout is
+actually corrected. A standalone authenticated SQL call succeeds in ~1 s,
+whereas the live PostgREST path times out, so investigate the actual REST/RLS
+query plans, Supabase role statement timeout, and the cost of concurrent RPCs.
+Bounded concurrency alone is not the fix.
 
 ## Next actions, in order
 
 1. Confirm active-release count is 0 and production code is `fd4f8cb` or
-   newer. Inspect the branch and diff; do not reset unrelated work.
+   newer. Inspect the branch and diff; do not reset unrelated work. Diagnose
+   and fix the `57014` timeout before another activation attempt; avoid simply
+   raising the timeout without a measured query plan and load check.
 2. Activate exactly `PILLAR-B-R2-20261001` once, then load the live review page
    as the existing approved `201` account. If any error or timeout remains,
    immediately remove **only the gate row** (not the facts). The safe page
