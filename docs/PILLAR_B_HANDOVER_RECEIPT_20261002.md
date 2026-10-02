@@ -42,6 +42,10 @@ above; the boundary reviewer found no reachable leak.
    make the repository private; and/or scrub the tree and rewrite history
    (a force-push to a public repository, which only the owner should
    authorise). Nothing was rewritten.
+   **Owner decision, 3 October 2026: leave it as it is.** The figures already
+   published stay; the repository stays public and its history unchanged. New
+   work keeps workbook figures out of the repository (they live in the local
+   evidence repository), consistent with the rule that they stay behind login.
 2. **Visual review at desktop and mobile is incomplete.** The browser pane in
    this session is hidden: screenshots time out and frame-driven rendering is
    paused. Layout was checked by script (no horizontal overflow at 375 px),
