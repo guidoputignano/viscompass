@@ -66,8 +66,33 @@ independent groups together would cut the chain without any statement nearing
 the `authenticated` role's 8 s timeout. This is a page-logic change, left for
 the next iteration so as not to collide with the layout work in progress.
 
+## Independent production RLS check (SQL editor, simulated JWTs, rolled back)
+
+Production holds two approved memberships. Under `set local role
+authenticated` with each one's claims:
+
+| identity | two-year share | substances | perimeter rows | T2 reference | facets total | Aziende | asking for `130202` |
+|---|---|---|---|---|---|---|---|
+| Regione (org 130) | **37.70 %** | 28 | 14,519 | €17,481,859.01 | €887,736,230.46 | 4 | — |
+| Azienda 201 | **29.22 %** | 26 | 3,435 | €2,450,485.52 | €201,006,794.65 | 1 | **0 rows** from both functions |
+
+Identical to `outputs/pillar-b/logs/b41` and to b39 under the harness's RLS.
+
+## After the finalised deploy (`bbd78d2`, Pillar A-style layout)
+
+Live as REVISORE: the headline row shows both years (€435,048,869 /
+€452,687,362, +4.1 %, 217,148 records) and declares the comparison fixed; the
+hero and the comparison detail read "12 e 12 mesi osservati" computed from the
+calendar; the facets totals line (€887,736,230 · 217,148 · 1,773 · comparable
+78.8 %) opens the distribution panel; `?molecola=adalimumab` withholds the
+perimeter chart with the reason stated; the non-AIC bucket reads "nessun AIC".
+Latency, warm: default **10.8–11.3 s** (15.0 s before the two fetch waves),
+one Azienda **9.5–13.6 s**. The floor is the two Region-scale
+`pillar_b_molecule_spend_json` calls; sourcing the molecule trend from
+`pillar_b_facets` per year (~1.3 s) is the next cut.
+
 ## Not changed
 
-No re-import. No release-gate change. No UI change. The eight workbook sheets
-of statistical results (B06–B16) remain un-imported pending the owner's
-decision on a provenance-labelled import.
+No re-import. No release-gate change. The eight workbook sheets of statistical
+results (B06–B16) remain un-imported pending the owner's decision on a
+provenance-labelled import.

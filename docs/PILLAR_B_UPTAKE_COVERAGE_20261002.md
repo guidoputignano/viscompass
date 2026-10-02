@@ -58,8 +58,18 @@ naming the function.
 - an Azienda asking for another Azienda gets an empty scope; anon refused
 - the production 2025 figures reproduced to the cent
 
+## Live after `bbd78d2` (REVISORE, `www.eurekene.com`)
+
+| state | coverage card |
+|---|---|
+| default (2024 + 2025) | **Utilizzata 17,4 % · €13.267.183 / Trattenuta 82,6 % · €63.148.561**, Copertura della misura 17,4 % — was 54,8 % / 45,2 % |
+| `?molecola=adalimumab` | coverage withheld with the notice naming `pillar_b_uptake_coverage`; 4 groups, withheld €873.772 from the narrowed rows |
+| `?ambito=201` | coverage withheld with the same notice; 7 groups, withheld €17.555.642 |
+
 ## Apply
 
 Not applied. Apply through the SQL editor as for `20261003090000`, then verify
 with `VERIFY_20261003130000_live.sql` (to be run as `postgres`: both years'
-identity, and the Regione/Azienda 201 simulated-JWT figures above).
+identity, and the Regione/Azienda 201 simulated-JWT figures above). Once
+applied, the two narrowed states above show their own coverage with no notice;
+no deploy is needed.
