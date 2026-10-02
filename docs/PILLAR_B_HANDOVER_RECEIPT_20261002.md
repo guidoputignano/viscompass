@@ -46,11 +46,9 @@ above; the boundary reviewer found no reachable leak.
    this session is hidden: screenshots time out and frame-driven rendering is
    paused. Layout was checked by script (no horizontal overflow at 375 px),
    but the charts were not seen drawn.
-3. **The authenticated page was not viewed after these edits**, and "all three
-   reviewers in the deployed environment" is not verified: the local page
-   needs a sign-in, the live session has expired, and credentials are not
-   entered by the agent. After a deploy, the Control Center line gives the
-   number of valid reviewer addresses (and any refused tokens).
+3. **Resolved on 3 October 2026:** the authenticated page was verified live as
+   REVISORE, and the Control Center reports three valid reviewer addresses
+   (see the live verification below).
 4. **Workbook sheets 08, 13–18, 20, 21 stay blocked** pending a data contract
    or a migration; sheet 09 is implementable now.
 5. **Not fixed, recorded:** the reviewer's release-wide Azienda list is built
@@ -84,5 +82,35 @@ normalisation, which is not a leak).
   widening codes).
 - HSTS and `X-Frame-Options: DENY` present.
 
-Still not verified live: the signed-in private page and the three reviewers
-(needs a session).
+## Live verification of the private page as REVISORE, 3 October 2026
+
+Signed in by the owner; checked in the browser after deploys `1dbff6d` and
+`617bcc2`. Expectations computed on the real release rows by the evidence
+harness b45 (RPC path cross-checked against direct SQL, 21/21), formatted by
+the page's own formatter, compared inside the page. Figures stay in the local
+evidence repository.
+
+- Reviewer scope: "tutte le Aziende del rilascio (4)", real names in the
+  Azienda selector (keys are org codes), no fallback warning. The Control
+  Center reports **3 valid reviewer addresses** in `REVIEWER_EMAILS`, none
+  refused.
+- Seven states matched to the expectations: default; Azienda 201; Azienda 202
+  with CO+DD; adalimumab; 2024 only; the empty selection (denosumab, Azienda
+  201, CO) with its hint naming the channels and years that hold perimeter
+  rows; and the panel-local options from the URL (2026 profile falling back
+  from comparable share to spend, five bars; trend by rate, 25 perimeter
+  molecules; concentration 2024 perimeter; Azienda comparable share; route
+  filter). Headline cards, totals line, every monthly bar, Azienda totals,
+  value-uptake shares and amounts, volume coverage, concentration, trend order
+  and the "nessun record" cells all matched.
+- A panel toggle rewrites the URL without a navigation; a global filter change
+  keeps every panel option; "Azzera" appears with only panel options set.
+- Found and fixed in `617bcc2`: React hydration error #418 on every load (the
+  monthly bars' SVG `<title>` had several JSX children and rendered empty on
+  the server); withheld reasons in English; "1.774 molecole" against "1.773
+  principi attivi" (the unresolved-substance group, now "voci" and explained);
+  "1 principi attivi". After the deploy the server HTML carries all 24 bar
+  titles and a fresh load raises no hydration error.
+
+Not verified: the other two reviewer accounts' own sessions (the code path
+and the configured count are; each also needs an approved membership).
