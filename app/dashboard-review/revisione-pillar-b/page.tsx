@@ -60,15 +60,19 @@ export default async function RevisionePillarBPage() {
   // 2026 is absent from this list by construction: five months observed and zero
   // comparable-eligible rows. It is described on the page, never totalled.
   try {
-    const [spend2024, spend2025, molecules2024, molecules2025, funnel, uptake] =
-      await Promise.all([
-        identified("SPEND24", getSpend(2024)),
-        identified("SPEND25", getSpend(2025)),
-        identified("MOLECULE24", getMoleculeSpend(2024)),
-        identified("MOLECULE25", getMoleculeSpend(2025)),
-        identified("FUNNEL", getEvidenceFunnel(2025)),
-        identified("UPTAKE", getUptake(2025)),
-      ]);
+    // Six top-level calls at once, plus three inside uptake and molecule
+    // pagination, exceeded the database statement timeout under real RLS.
+    // Bound concurrency by phase; retain independent, fail-closed RPCs.
+    const [spend2024, spend2025, funnel] = await Promise.all([
+      identified("SPEND24", getSpend(2024)),
+      identified("SPEND25", getSpend(2025)),
+      identified("FUNNEL", getEvidenceFunnel(2025)),
+    ]);
+    const [molecules2024, molecules2025] = await Promise.all([
+      identified("MOLECULE24", getMoleculeSpend(2024)),
+      identified("MOLECULE25", getMoleculeSpend(2025)),
+    ]);
+    const uptake = await identified("UPTAKE", getUptake(2025));
 
     return <PillarBReview
       releaseId={releaseId}

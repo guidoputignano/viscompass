@@ -276,7 +276,7 @@ export const getMoleculeSpend = cache(
     // 201 in 2025, making concentration and trends irreconcilable. Order the
     // grouped result by its complete key before paging so no group is skipped.
     const rows: Record<string, unknown>[] = [];
-    const pageSize = 500;
+    const pageSize = 1000;
     for (let offset = 0; ; offset += pageSize) {
       const supabase = await createClient();
       const { data, error } = await supabase
