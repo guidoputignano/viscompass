@@ -5,7 +5,7 @@ import fs from "node:fs";
 import {
   ITALY, MEASURES, MOLECULES, biosimilarShare, compositionRows, diffFromItaly, measureComparison,
   moleculeComparison, parseSelection, positionOf, rankTerritories, rowFor, scFormPresence, scFormSentence,
-  scShare, selectionHref, originatorShare,
+  scShare, selectionHref, originatorShare, territoryDeviationRows,
 } from "../lib/pillar-b-public/ev-sc-view.ts";
 
 // The public asset, read exactly as the server loader reads it. The figures
@@ -98,6 +98,24 @@ test("derived shares are sums of published columns with the same base, rounded t
   assert.equal(diffFromItaly(asset, { molecule: "infliximab", measure: "spesa", territory: "130" }), Math.round((93.92 - 97.53) * 100) / 100);
   assert.equal(diffFromItaly(asset, { molecule: "infliximab", measure: "spesa", territory: ITALY }), 0);
   assert.equal(diffFromItaly({ rows: [] }, { molecule: "infliximab", measure: "spesa", territory: "130" }), null);
+});
+
+test("territorial deviation profile keeps three molecule-specific Italy bases and never creates a total", () => {
+  for (const measure of MEASURES) for (const focus of MOLECULES) {
+    const rows = territoryDeviationRows(asset, measure, focus, "130");
+    assert.equal(rows.length, 21);
+    assert.equal(rows.filter((r) => r.selected).length, 1);
+    assert.ok(rows.every((r) => r.territory !== ITALY));
+    assert.ok(rows.every((r) => !Object.hasOwn(r, "total")));
+    for (const row of rows) for (const molecule of MOLECULES) {
+      assert.equal(row.differences[molecule], diffFromItaly(asset, { territory: row.territory, molecule, measure }));
+    }
+    for (let i = 1; i < rows.length; i++) {
+      assert.ok(rows[i - 1].focusDifference >= rows[i].focusDifference, `${measure}/${focus} sort`);
+    }
+  }
+  const abruzzo = territoryDeviationRows(asset, "spesa", "infliximab", "130").find((r) => r.territory === "130");
+  assert.deepEqual(abruzzo.differences, { infliximab: -3.61, rituximab: -19.71, trastuzumab: -3.92 });
 });
 
 test("the ranking excludes Italia, uses standard competition positions and is stable on ties", () => {

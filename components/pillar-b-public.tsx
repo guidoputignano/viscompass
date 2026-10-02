@@ -25,6 +25,7 @@ import {
   COMPONENTS, COMPONENT_LABELS, ITALY, MEASURES, MEASURE_LABELS, MEASURE_SENTENCE, MOLECULES, MOLECULE_LABELS,
   biosimilarShare, compositionRows, diffFromItaly, measureComparison, moleculeComparison, originatorShare,
   positionOf, rankTerritories, rowFor, scFormPresence, scFormSentence, scShare, selectionHref, territoryLabel,
+  territoryDeviationRows,
   type ComponentId, type EvScAsset, type MeasureId, type MoleculeId, type Selection,
 } from "@/lib/pillar-b-public/ev-sc-view";
 
@@ -109,6 +110,20 @@ function Tile({ label, value, note, accent }: { label: string; value: string; no
   </div>;
 }
 
+/** The midpoint is Italia (0 p.p.); either half is a fixed 100 p.p. scale. */
+function DeviationMark({ value }: { value: number | null }) {
+  if (value === null) return <span className="text-muted-foreground">—</span>;
+  const width = `${Math.min(Math.abs(value), 100) / 2}%`;
+  return <span className="inline-flex items-center justify-end gap-2 whitespace-nowrap">
+    <span aria-hidden="true" className="relative hidden h-2 w-20 rounded-full bg-secondary sm:inline-block">
+      <span className="absolute left-1/2 top-[-2px] h-3 w-px bg-foreground/50" />
+      {value !== 0 && <span className={`absolute top-0 h-2 rounded-full ${value > 0 ? "left-1/2 bg-[#13998f]" : "right-1/2 bg-[#c27a1a]"}`}
+        style={{ width }} />}
+    </span>
+    <span className="w-[5.8rem] text-right font-mono text-xs tabular-nums">{pp(value)}</span>
+  </span>;
+}
+
 type TickProps = { x?: number; y?: number; payload?: { value: string } };
 
 // Narrow screens get short territory labels and a narrower axis. Read through
@@ -156,6 +171,10 @@ export function PillarBPublic({ asset, initial }: { asset: EvScAsset; initial: S
   const composition = useMemo(() => compositionRows(asset, sel.molecule, sel.measure, sel.territory), [asset, sel.molecule, sel.measure, sel.territory]);
   const byMeasure = measureComparison(asset, sel.molecule, sel.territory);
   const byMolecule = moleculeComparison(asset, sel.measure, sel.territory);
+  const territorialDeviations = useMemo(
+    () => territoryDeviationRows(asset, sel.measure, sel.molecule, sel.territory),
+    [asset, sel.measure, sel.molecule, sel.territory],
+  );
   const isItaly = sel.territory === ITALY;
   const builtOn = formatDate(asset.version);
 
@@ -321,6 +340,35 @@ export function PillarBPublic({ asset, initial }: { asset: EvScAsset; initial: S
         </table>
       </Panel>
     </div>
+
+    <Panel title={`Scostamento dall'Italia · ${measureName}`}
+      note={`Tre molecole, 21 territori, ${SCOPE}. Ogni cella è la quota biosimilare del territorio meno quella dell'Italia per la stessa molecola e misura, in punti percentuali. Le righe sono ordinate per ${moleculeName}; scegli un territorio per aggiornare gli altri grafici. Le celle non si sommano e non indicano qualità clinica o risparmio.`}>
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+        <span>− originator relativamente più presente</span><span>0 = Italia</span><span>+ biosimilare relativamente più presente</span>
+        <span className="sm:ml-auto">Barre: scala fissa −100 a +100 p.p.; cifra esatta accanto</span>
+      </div>
+      <div className="max-h-[34rem] overflow-auto rounded-xl border">
+        <table className="w-full min-w-[47rem] text-sm" translate="no">
+          <caption className="sr-only">Differenza dalla quota biosimilare italiana, in punti percentuali, per territorio e molecola; {measureName}, {SCOPE}</caption>
+          <thead className="sticky top-0 z-10 bg-card text-left text-xs text-muted-foreground">
+            <tr><th scope="col" className="py-3 pl-3">Territorio</th>
+              {MOLECULES.map((m) => <th scope="col" key={m} className={`py-3 pr-3 text-right ${m === sel.molecule ? "text-foreground" : ""}`}>{MOLECULE_LABELS[m]}{m === sel.molecule ? " ↓" : ""}</th>)}</tr>
+          </thead>
+          <tbody>{territorialDeviations.map((r) => <tr key={r.territory} className={`border-t ${r.selected ? "bg-secondary/70 font-semibold" : ""}`}>
+            <th scope="row" className="py-2.5 pl-3 text-left font-normal">
+              <button type="button" onClick={() => update({ territory: r.territory })}
+                aria-current={r.selected ? "true" : undefined}
+                aria-label={`Seleziona ${r.label} in tutti i grafici`}
+                className="text-left underline-offset-2 hover:text-primary hover:underline focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                {r.selected ? "▸ " : ""}{r.label}
+              </button>
+            </th>
+            {MOLECULES.map((m) => <td key={m} className="py-2.5 pr-3 text-right"><DeviationMark value={r.differences[m]} /></td>)}
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Le barre condividono una scala centrata su zero, non un denominatore di volume. Le differenze non sono corrette per casistica, disponibilità delle forme o gare. Cambia «Misura» per confrontare confezioni, DDD e spesa separatamente.</p>
+    </Panel>
 
     <Panel title={`Graduatoria dei territori · ${moleculeName} · ${measureName}`}
       note={`I 21 territori AIFA per quota biosimilare ${MEASURE_SENTENCE[sel.measure]} di ${moleculeName} (${SCOPE}); la tabella è mostrata ${order === "desc" ? "dalla quota più alta" : "dalla quota più bassa"}, la posizione si conta sempre dalla più alta. Ordina una ripartizione, non la qualità clinica né l'appropriatezza: composizione dei pazienti, forme disponibili e gare variano fra territori, e la graduatoria non identifica risparmi conseguibili.`}

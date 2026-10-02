@@ -35,7 +35,8 @@ import { getReviewerEmail } from "@/lib/auth/reviewer";
 import { labelScopedOrgs } from "./scope-labels";
 import { decidePrivateScope, type ScopeDecision } from "@/lib/analytics/private-scope-rules";
 import { aslCodeFor, orgCodeFromAsl } from "./filters";
-import { getSpend, type PillarBDb } from "./rpc";
+import { getFacets, type PillarBDb } from "./rpc";
+import { releaseAslCodes } from "./release-asl-codes";
 
 export interface ScopedOrg {
   /** Membership / pseudonym key, e.g. "201". */
@@ -65,7 +66,8 @@ type OrgRow = { org_code: string; org_name: string | null; org_type: string; reg
 /**
  * Every Azienda that actually has rows in the active release, by real name.
  *
- * Derived from the release itself (the spend RPC groups by asl_code) and joined
+ * Derived from all observed years of this release, including its partial 2026,
+ * and joined
  * to `organizations` for names. An asl_code present in the release but missing
  * from the directory still appears, under its bare code, so a reviewer never
  * silently loses an Azienda.
@@ -73,10 +75,17 @@ type OrgRow = { org_code: string; org_name: string | null; org_type: string; reg
 async function organizationsInRelease(admin: PillarBDb): Promise<ScopedOrg[] | null> {
   let aslCodes: string[];
   try {
-    const [s24, s25] = await Promise.all([getSpend(admin, 2024), getSpend(admin, 2025)]);
-    aslCodes = [...new Set([...s24, ...s25].map((r) => r.asl_code))].sort();
+    // This query is only for the reviewer directory. It does not make 2026 a
+    // comparable analysis year; it prevents a 2026-only Azienda from silently
+    // disappearing from the list of organizations in the active release.
+    const listing = await getFacets(admin, {
+      years: [2024, 2025, 2026], channels: null, substance: null,
+      aslCode: null, facets: ["asl"],
+    });
+    if (listing.asl === null) throw new Error("Azienda facet missing from release listing");
+    aslCodes = releaseAslCodes(listing.asl);
   } catch (cause) {
-    console.error("PBR-WIDEN-SPEND reviewer release listing failed", cause instanceof Error ? cause.message : cause);
+    console.error("PBR-WIDEN-FACETS reviewer release listing failed", cause instanceof Error ? cause.message : cause);
     return null;
   }
   if (aslCodes.length === 0) {

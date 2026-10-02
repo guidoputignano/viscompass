@@ -160,6 +160,32 @@ export function diffFromItaly(asset: Pick<EvScAsset, "rows">, sel: Selection): n
   return round2(biosimilarShare(row) - biosimilarShare(italy));
 }
 
+/**
+ * A three-molecule territorial profile for ONE selected measure. Each cell is
+ * its own molecule's biosimilar share minus that molecule's Italia share; the
+ * three values are never added or treated as a common volume denominator.
+ */
+export function territoryDeviationRows(
+  asset: Pick<EvScAsset, "rows" | "territories">,
+  measure: MeasureId,
+  focus: MoleculeId,
+  selected: string,
+) {
+  return asset.territories
+    .filter((t) => t.code !== ITALY)
+    .map((t) => {
+      const differences = Object.fromEntries(MOLECULES.map((molecule) => [
+        molecule, diffFromItaly(asset, { territory: t.code, molecule, measure }),
+      ])) as Record<MoleculeId, number | null>;
+      return {
+        territory: t.code, label: t.label, selected: t.code === selected,
+        differences, focusDifference: differences[focus],
+      };
+    })
+    .sort((a, b) => (b.focusDifference ?? -Infinity) - (a.focusDifference ?? -Infinity)
+      || a.label.localeCompare(b.label, "it"));
+}
+
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
 // ---------------------------------------------------------------- ranking

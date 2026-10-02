@@ -7,6 +7,7 @@ import { isReviewerEmail, reviewerEmails } from "../lib/auth/reviewer-list.ts";
 import { decidePrivateScope } from "../lib/analytics/private-scope-rules.ts";
 import { labelScopedOrgs } from "../lib/dashboard-review/pillar-b/scope-labels.ts";
 import { aziendaKeys, parsePillarBFilters } from "../lib/dashboard-review/pillar-b/filters.ts";
+import { releaseAslCodes } from "../lib/dashboard-review/pillar-b/release-asl-codes.ts";
 
 // Pillar B reviewer scope: every configured reviewer, not only the first, is
 // widened to the whole release and sees real names; everyone else stays where
@@ -18,6 +19,15 @@ const THREE = ["reviewer.one@example.org", "reviewer.two@example.org", "reviewer
 const NAMES = { "201": "Azienda Alfa", "202": "Azienda Beta", "203": "Azienda Gamma", "204": "Azienda Delta" };
 const RELEASE = Object.entries(NAMES).map(([org_code, org_name]) => ({ org_code, org_name }));
 const SCOPED = Object.entries(NAMES).map(([orgCode, label]) => ({ orgCode, aslCode: `130${orgCode}`, regionCode: "130", label }));
+
+test("reviewer listing includes an Azienda found only in the partial year, without making it a comparison year", () => {
+  const codes = releaseAslCodes([
+    { asl_code: "130201" }, { asl_code: "130201" }, { asl_code: "130202" },
+    { asl_code: "130299" }, // first appears in the partial 2026 facet
+  ]);
+  assert.deepEqual(codes, ["130201", "130202", "130299"]);
+  assert.deepEqual(releaseAslCodes([]), []);
+});
 
 const withEnv = (value, fn) => {
   const had = Object.prototype.hasOwnProperty.call(process.env, "REVIEWER_EMAILS");
@@ -78,6 +88,21 @@ test("a Regione account reads its region under RLS and sees the Aziende as ASL 1
   });
 });
 
+test("reviewer labels cannot collide across regions and unreviewed regional aliases stay explicit", () => {
+  const peers = [
+    { orgCode: "201", aslCode: "130201", regionCode: "130", label: "Azienda Abruzzo" },
+    { orgCode: "201", aslCode: "999201", regionCode: "999", label: "Azienda Altrove" },
+  ];
+  const reviewer = decidePrivateScope({
+    isReviewer: true,
+    releaseOrgs: peers.map((o) => ({ org_code: o.orgCode, org_name: o.label })),
+    org: null, regionMembers: null,
+  });
+  assert.deepEqual(labelScopedOrgs(reviewer, peers).map((o) => o.label), ["Azienda Abruzzo", "Azienda Altrove"]);
+  const ordinary = { viewerCode: null, showRealNames: false, allOrganizations: false };
+  assert.deepEqual(labelScopedOrgs(ordinary, peers).map((o) => o.label), ["ASL 1", "999201"]);
+});
+
 test("a pseudonymised viewer's Azienda keys carry no org code; a reviewer's do, and both round-trip", () => {
   const regione = decidePrivateScope({ isReviewer: false, releaseOrgs: null, org: { org_code: "130", org_name: "Regione", org_type: "regione" }, regionMembers: RELEASE });
   const pseudo = labelScopedOrgs(regione, SCOPED);
@@ -122,7 +147,8 @@ test("the Pillar B scope resolver widens only reviewers, only server-side, and t
   assert.match(scope, /getReviewerEmail\(\)/);
   assert.match(scope, /if \(isReviewer && hasServiceRoleConfig\(\)\) \{\s*try \{\s*admin = createServiceRoleClient\(\);/, "the service-role client is created only inside the reviewer branch");
   assert.ok(scope.includes("db: decision.allOrganizations && admin ? admin : session"), "the widened client is attached only when the widening succeeded");
-  for (const code of ["PBR-WIDEN-SPEND", "PBR-WIDEN-EMPTY", "PBR-WIDEN-ORGS", "PBR-WIDEN-CONFIG", "PBR-WIDEN-CLIENT"]) {
+  assert.match(scope, /years: \[2024, 2025, 2026\]/, "release listing considers the partial year for membership only");
+  for (const code of ["PBR-WIDEN-FACETS", "PBR-WIDEN-EMPTY", "PBR-WIDEN-ORGS", "PBR-WIDEN-CONFIG", "PBR-WIDEN-CLIENT"]) {
     assert.ok(scope.includes(code), `a widening failure leaves a ${code} trace`);
   }
   assert.match(read("lib/supabase/service-role.ts"), /^import "server-only";/m, "the service-role module cannot be bundled for the browser");
