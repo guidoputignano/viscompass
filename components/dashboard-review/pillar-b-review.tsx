@@ -74,9 +74,9 @@ export function PillarBReview(props: PillarBReviewProps) {
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
-        eyebrow="Pillar B · revisione"
-        title="Evidenza, esclusioni e spesa"
-        description="Spesa osservata sul perimetro autorizzato, con le esclusioni dichiarate riga per riga."
+        eyebrow="Pillar B · biosimilari ed esclusività"
+        title="Biosimilari: evidenza, adozione e spesa"
+        description="Spesa e adozione osservate sul perimetro autorizzato. Le date di esclusività legale non sono ancora certificate."
         period={PERIOD_LABEL}
         scope={`Release ${props.releaseId}`}
       />

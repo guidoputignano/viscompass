@@ -647,7 +647,7 @@ function buildReviewSignals({
       title: row.active_substance,
       context: `Confronto originator/biosimilare su base ${row.penetration_basis}.`,
       value_label: `${compactEur(row.substitution_headroom_eur)} margine (limite superiore)`,
-      href: "/dashboard-review/biosimilar-to-euros",
+      href: "/dashboard-review/revisione-pillar-b",
       severity: row.substitution_headroom_eur >= 100000 ? "high" as const : "medium" as const,
     }));
 

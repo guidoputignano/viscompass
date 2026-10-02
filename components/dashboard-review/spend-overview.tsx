@@ -63,7 +63,7 @@ const DEMO_MOLECULES = [
 ];
 
 const DEMO_REVIEWS: SpendDashboardData["review_items"] = [
-  { id: "demo-bio", kind: "biosimilar", title: "Variabilità biosimilare", context: "Scostamento tra aziende", value_label: "6,8 p.p.", href: "/dashboard-review/biosimilar-to-euros", severity: "high" },
+  { id: "demo-bio", kind: "biosimilar", title: "Variabilità biosimilare", context: "Scostamento tra aziende", value_label: "6,8 p.p.", href: "/dashboard-review/revisione-pillar-b", severity: "high" },
   { id: "demo-quality", kind: "quality", title: "Riconciliazione incompleta", context: "Righe da verificare", value_label: "1.876", href: "/dashboard-review/dati", severity: "medium" },
   { id: "demo-upload", kind: "upload", title: "Aggiornamento mensile", context: "Nuovo periodo da riconciliare", value_label: "Pronto", href: "/dashboard-review/dati", severity: "info" },
 ];
