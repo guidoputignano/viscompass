@@ -13,6 +13,20 @@ import {
   distinctUptakeGroups, distinctWithheldGroups, dumbbellRows, timelineModel, volumeBreakdown,
 } from "../lib/dashboard-review/pillar-b/adoption.ts";
 import { buildValueUptake } from "../lib/dashboard-review/pillar-b/value-uptake.ts";
+import { uptakeCoverage } from "../lib/dashboard-review/pillar-b/review-data.ts";
+
+// --- volume-uptake coverage ----------------------------------------------------
+
+test("the withheld share divides by the scope, which already contains the withheld rows", () => {
+  // Live 2025 ledger: used 7,469,067.17 + withheld 28,747,938.98 = scope 36,217,006.15.
+  const c = uptakeCoverage(36_217_006.15, 28_747_938.98);
+  assert.ok(Math.abs(c.usedSpendEur - 7_469_067.17) < 0.01);
+  assert.ok(Math.abs(c.withheldShare - 0.7938) < 0.0005);
+  // The defective form, withheld / (scope + withheld), would read 44.2 %.
+  assert.ok(c.withheldShare > 0.6);
+  assert.deepEqual(uptakeCoverage(null, 5), { usedSpendEur: null, withheldShare: null });
+  assert.equal(uptakeCoverage(0, 0).withheldShare, null);
+});
 
 const BASE = "/dashboard-review/revisione-pillar-b";
 

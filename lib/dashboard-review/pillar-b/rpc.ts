@@ -30,6 +30,7 @@ import { cache } from "react";
 import type { createClient } from "@/lib/supabase/server";
 import type { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { parseFacets, type Facets } from "./facets";
+import { uptakeCoverage } from "./review-data";
 
 // Re-exported from the pure module, which owns the list so that it can be
 // asserted without a database client. 2026 is not offered.
@@ -205,8 +206,11 @@ export const getPerimeterCoverage = cache(async (db: PillarBDb, year: PillarBYea
 export interface UptakeWithWithheld {
   rows: UptakeRow[];
   withheld: WithheldRow[];
+  /** Every analytical perimeter row in scope: USED + WITHHELD. Not "used". */
   scope: UptakeScope | null;
-  /** Withheld spend as a share of (used + withheld) spend; null when nothing observed. */
+  /** scope − withheld: what the measure actually consumed. null when scope is unknown. */
+  usedSpendEur: number | null;
+  /** withheld ÷ scope; null when nothing observed. */
   withheldShare: number | null;
   withheldSpendEur: number;
   withheldRows: number;
@@ -262,20 +266,63 @@ export const getUptake = cache(async (db: PillarBDb, year: PillarBYear): Promise
 
   const withheldSpendEur = withheld.reduce((sum, w) => sum + (w.spend_eur ?? 0), 0);
   const withheldRows = withheld.reduce((sum, w) => sum + w.rows_n, 0);
-  const usedSpend = scope?.spend_eur ?? null;
-  const denominator = usedSpend === null ? null : usedSpend + withheldSpendEur;
+  // scope = used + withheld (see uptakeCoverage). Dividing by scope + withheld
+  // here is the defect that put "Utilizzata 54,8 %" on the live page.
+  const coverage = uptakeCoverage(scope?.spend_eur ?? null, withheldSpendEur);
 
   return {
     rows,
     withheld,
     scope,
+    usedSpendEur: coverage.usedSpendEur,
     withheldSpendEur,
     withheldRows,
-    withheldShare: denominator === null || denominator === 0
-      ? null
-      : withheldSpendEur / denominator,
+    withheldShare: coverage.withheldShare,
   };
 });
+
+/** One year's coverage of the volume measure, optionally for one Azienda and substance. */
+export interface UptakeCoverageRow {
+  rows_n: number;
+  spend_eur: number | null;
+  used_rows: number;
+  used_spend_eur: number | null;
+  withheld_rows: number;
+  withheld_spend_eur: number | null;
+  rows_basis_packages: number;
+  rows_basis_units: number;
+  rows_basis_mixed: number;
+  rows_basis_unknown: number;
+}
+
+/**
+ * scope / used / withheld from ONE left join (migration 20261003130000), so
+ * the identity scope = used + withheld holds by construction and the figures
+ * can be narrowed to an Azienda or a substance exactly. Throws a
+ * PillarBRpcError with dbCode PGRST202 while the function is not deployed;
+ * callers use isMissingFunction() and withhold the coverage instead.
+ */
+export const getUptakeCoverage = cache(
+  async (db: PillarBDb, year: PillarBYear, aslCode: string | null,
+         substance: string | null): Promise<UptakeCoverageRow> => {
+    const rows = await callRpc<Record<string, unknown>>(db, "pillar_b_uptake_coverage", {
+      p_year: year, p_asl_code: aslCode, p_substance: substance,
+    });
+    const r = rows[0] ?? {};
+    return {
+      rows_n: count(r.rows_n),
+      spend_eur: num(r.spend_eur),
+      used_rows: count(r.used_rows),
+      used_spend_eur: num(r.used_spend_eur),
+      withheld_rows: count(r.withheld_rows),
+      withheld_spend_eur: num(r.withheld_spend_eur),
+      rows_basis_packages: count(r.rows_basis_packages),
+      rows_basis_units: count(r.rows_basis_units),
+      rows_basis_mixed: count(r.rows_basis_mixed),
+      rows_basis_unknown: count(r.rows_basis_unknown),
+    };
+  },
+);
 
 /** A molecule x ASL x channel spend row. Spend only — never a quantity. */
 export interface MoleculeSpendRow {

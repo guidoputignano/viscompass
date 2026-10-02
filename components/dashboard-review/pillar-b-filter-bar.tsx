@@ -55,8 +55,8 @@ const CHANNEL_NAMES: Record<PillarBChannel, string> = {
   DPC: "Distribuzione per conto",
 };
 
-const label = "text-xs font-semibold text-foreground";
-const control = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground " +
+const label = "text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+const control = "h-11 w-full rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
 function Segment({
@@ -112,27 +112,12 @@ export function PillarBFilterBar({
   return (
     <section
       id="filtri"
-      className="scroll-mt-6 rounded-2xl border border-border bg-card p-4 shadow-[0_16px_36px_-32px_rgba(13,43,52,0.45)] sm:p-5"
+      className="scroll-mt-6 rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
       role="region"
       aria-label="Filtri della sezione Pillar B"
       aria-busy={pending}
     >
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Perimetro di analisi</p>
-          <h2 className="font-display mt-1 text-lg text-foreground">Configura la vista</h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Seleziona periodo, canali e molecola. Le analisi vengono ricalcolate sul perimetro autorizzato.
-          </p>
-        </div>
-        {pending && (
-          <span role="status" className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            <Loader2 size={13} className="animate-spin" /> Aggiornamento in corso
-          </span>
-        )}
-      </div>
-
-      <div className="grid gap-4 border-t border-border/70 pt-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${aziende.length > 1 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         {aziende.length > 1 && (
           <label className="flex min-w-0 flex-col gap-2">
             <span className={label}>Azienda</span>
@@ -149,7 +134,7 @@ export function PillarBFilterBar({
 
         <div className="flex min-w-0 flex-col gap-2">
           <span className={label}>Periodo</span>
-          <div className="flex min-h-10 flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Anno">
+          <div className="flex min-h-11 flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Anno">
             <Segment active={bothYears} onClick={() => go({ years: [2024, 2025] })}>2024 + 2025</Segment>
             <Segment active={!bothYears && filters.years[0] === 2024} onClick={() => go({ years: [2024] })}>2024</Segment>
             <Segment active={!bothYears && filters.years[0] === 2025} onClick={() => go({ years: [2025] })}>2025</Segment>
@@ -161,7 +146,7 @@ export function PillarBFilterBar({
 
         <div className="flex min-w-0 flex-col gap-2">
           <span className={label}>Canale</span>
-          <div className="flex min-h-10 flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Canali di erogazione, combinabili">
+          <div className="flex min-h-11 flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-0.5" role="group" aria-label="Canali di erogazione, combinabili">
             <Segment active={filters.channels.length === 0} onClick={() => go({ channels: [] })}>Tutti</Segment>
             {PILLAR_B_CHANNELS.map((c) => {
               const on = filters.channels.includes(c);
@@ -208,37 +193,36 @@ export function PillarBFilterBar({
       </div>
 
       {quickPicks.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">In evidenza per spesa di riferimento:</span>
-          {quickPicks.map((q) => (
-            <button
-              key={q.substance}
-              type="button"
-              title={q.hint}
-              aria-pressed={filters.substance === q.substance}
-              onClick={() => go({ substance: filters.substance === q.substance ? null : q.substance })}
-              className={
-                "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors " +
-                (filters.substance === q.substance
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground")
-              }
-            >
-              {q.substance}
-            </button>
-          ))}
-        </div>
+        <details className="mt-4 border-t border-border/70 pt-3">
+          <summary className="cursor-pointer text-xs font-medium text-primary">Esplora i principi attivi con maggiore spesa di riferimento</summary>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {quickPicks.map((q) => (
+              <button
+                key={q.substance}
+                type="button"
+                title={q.hint}
+                aria-pressed={filters.substance === q.substance}
+                onClick={() => go({ substance: filters.substance === q.substance ? null : q.substance })}
+                className={
+                  "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors " +
+                  (filters.substance === q.substance
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground")
+                }
+              >
+                {q.substance}
+              </button>
+            ))}
+          </div>
+        </details>
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/70 pt-3 text-xs">
-        <span className="max-w-full rounded-lg bg-secondary px-3 py-1.5 text-[11px] font-medium text-foreground">
-          Ambito attivo: {scopeLine}
-        </span>
+        <span className="max-w-full font-medium text-foreground">Ambito: {scopeLine}</span>
         {recordCount !== null && (
-          <span className="text-muted-foreground">
-            {formatNumber(recordCount, 0)} record nel perimetro biosimilare{recordCountScope ? ` (${recordCountScope})` : ""}
-          </span>
+          <span className="text-muted-foreground">Analisi in valore: {formatNumber(recordCount, 0)} record nel perimetro biosimilare{recordCountScope ? ` · ambito effettivo: ${recordCountScope}` : ""}</span>
         )}
+        {pending && <span role="status" className="flex items-center gap-1.5 font-medium text-primary"><Loader2 size={13} className="animate-spin" /> Aggiornamento in corso</span>}
         <span className="ml-auto flex items-center gap-3">
           <button type="button" onClick={copyLink}
                   className="flex items-center gap-1 text-muted-foreground hover:text-foreground">

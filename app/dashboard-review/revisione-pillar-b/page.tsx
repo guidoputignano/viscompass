@@ -23,12 +23,13 @@ import { PillarBReview } from "@/components/dashboard-review/pillar-b-review";
 import { PillarBFilterBar } from "@/components/dashboard-review/pillar-b-filter-bar";
 import { PillarBValueUptake } from "@/components/dashboard-review/pillar-b-value-uptake";
 import {
-  channelTrend, concentration, coverageNotices, funnelRows, moleculeTrend, sumSpend,
+  channelTrend, concentration, coverageNotices, funnelRows, moleculeTrend, sumSpend, uptakeCoverage,
 } from "@/lib/dashboard-review/pillar-b/review-data";
 import {
-  getEvidenceFunnel, getFacets, getMoleculeSpend, getSpend, getUptake,
+  getEvidenceFunnel, getFacets, getMoleculeSpend, getSpend, getUptake, getUptakeCoverage,
   getValueUptake, getValueUptakeScoped, isMissingFunction, pillarBReleaseId,
-  type MoleculeSpendRow, type SpendRow, type UptakeWithWithheld, type ValueUptakeRow,
+  type MoleculeSpendRow, type SpendRow, type UptakeCoverageRow, type UptakeRow, type UptakeScope,
+  type UptakeWithWithheld, type ValueUptakeRow, type WithheldRow,
 } from "@/lib/dashboard-review/pillar-b/rpc";
 import { buildValueUptake, mergeValueUptakeRows } from "@/lib/dashboard-review/pillar-b/value-uptake";
 import {
@@ -109,11 +110,33 @@ function mergeUptake(parts: ReadonlyArray<UptakeWithWithheld>): UptakeWithWithhe
   }));
   const withheldSpendEur = withheld.reduce((s, w) => s + (w.spend_eur ?? 0), 0);
   const withheldRows = withheld.reduce((s, w) => s + w.rows_n, 0);
-  const used = scope?.spend_eur ?? null;
-  const denominator = used === null ? null : used + withheldSpendEur;
+  // scope = used + withheld; the share is formed in ONE place (uptakeCoverage).
+  const coverage = uptakeCoverage(scope?.spend_eur ?? null, withheldSpendEur);
   return {
     rows, withheld, scope, withheldSpendEur, withheldRows,
-    withheldShare: denominator === null || denominator === 0 ? null : withheldSpendEur / denominator,
+    usedSpendEur: coverage.usedSpendEur, withheldShare: coverage.withheldShare,
+  };
+}
+
+/** Sum one year's coverage rows into the shape the view expects. */
+function coverageToUptake(
+  parts: ReadonlyArray<UptakeCoverageRow>, rows: UptakeRow[], withheld: WithheldRow[],
+): UptakeWithWithheld {
+  const scope: UptakeScope = parts.reduce((a, c) => ({
+    rows_n: a.rows_n + c.rows_n,
+    spend_eur: a.spend_eur === null && c.spend_eur === null ? null : (a.spend_eur ?? 0) + (c.spend_eur ?? 0),
+    rows_basis_packages: a.rows_basis_packages + c.rows_basis_packages,
+    rows_basis_units: a.rows_basis_units + c.rows_basis_units,
+    rows_basis_mixed: a.rows_basis_mixed + c.rows_basis_mixed,
+    rows_basis_unknown: a.rows_basis_unknown + c.rows_basis_unknown,
+  }), { rows_n: 0, spend_eur: null as number | null, rows_basis_packages: 0, rows_basis_units: 0,
+        rows_basis_mixed: 0, rows_basis_unknown: 0 });
+  const withheldSpendEur = parts.reduce((s, c) => s + (c.withheld_spend_eur ?? 0), 0);
+  const withheldRows = parts.reduce((s, c) => s + c.withheld_rows, 0);
+  const coverage = uptakeCoverage(scope.spend_eur, withheldSpendEur);
+  return {
+    rows, withheld, scope, withheldSpendEur, withheldRows,
+    usedSpendEur: coverage.usedSpendEur, withheldShare: coverage.withheldShare,
   };
 }
 
@@ -166,11 +189,16 @@ export default async function RevisionePillarBPage({
   // rather than the scoped one. Every label that would otherwise attribute
   // those figures to the selected Azienda or channel set is keyed on this.
   let fallback = false;
+  // The volume measure's rows are narrowed server-side by Azienda and substance;
+  // its COVERAGE needs the dedicated RPC (migration 20261003130000) to follow.
+  const uptakeNarrowed = aslCode !== null || filters.substance !== null;
   let data: {
     spend2024: SpendRow[]; spend2025: SpendRow[];
     funnel: Awaited<ReturnType<typeof getEvidenceFunnel>>;
     molecules2024: MoleculeSpendRow[]; molecules2025: MoleculeSpendRow[];
     uptake: UptakeWithWithheld;
+    /** Per selected year, narrowed; null when not narrowed or not yet deployed. */
+    coverage: UptakeCoverageRow[] | null;
     valueUptakeRows: ValueUptakeRow[];
     allSubstances: ValueUptakeRow[];
     facets: Facets | null;
@@ -254,7 +282,22 @@ export default async function RevisionePillarBPage({
       }
     })();
 
-    const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome] =
+    // Narrowed coverage of the volume measure: one call per selected year.
+    // Absent until its migration is applied; the page then withholds the
+    // coverage under these filters and says so, rather than showing the
+    // whole perimeter's figure beside narrowed rows.
+    const coverageWork = (async (): Promise<UptakeCoverageRow[] | null> => {
+      if (!uptakeNarrowed) return null;
+      try {
+        return await Promise.all(filters.years.map((y) =>
+          getUptakeCoverage(db, y, aslCode, filters.substance)));
+      } catch (error) {
+        if (!isMissingFunction(error)) throw phaseError("COVERAGE", error);
+        return null;
+      }
+    })();
+
+    const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome, coverage] =
       await Promise.all([
         identified("SPEND24", getSpend(db, 2024)),
         identified("SPEND25", getSpend(db, 2025)),
@@ -262,13 +305,14 @@ export default async function RevisionePillarBPage({
         Promise.all(filters.years.map((y) => identified(`UPTAKE${y}`, getUptake(db, y)))),
         valueUptakeWork,
         facetsWork,
+        coverageWork,
       ]);
     const uptake = mergeUptake(uptakeParts);
     fallback = valueOutcome.fallback;
     if (valueOutcome.notice) degraded.push(valueOutcome.notice);
     if (facetsOutcome.notice) degraded.push(facetsOutcome.notice);
 
-    data = { spend2024, spend2025, funnel, molecules2024, molecules2025, uptake,
+    data = { spend2024, spend2025, funnel, molecules2024, molecules2025, uptake, coverage,
              valueUptakeRows: valueOutcome.rows, allSubstances: valueOutcome.substances,
              facets: facetsOutcome.facets, calendarFacets: facetsOutcome.calendar };
   } catch (error) {
@@ -296,6 +340,20 @@ export default async function RevisionePillarBPage({
   const partialYear = calendar === null
     ? PARTIAL_YEAR
     : partialRow === null ? null : { year: PARTIAL_YEAR.year, months: partialRow.monthsObserved };
+
+  // "12 mesi osservati" is a fact about the RELEASE, not about every filter
+  // state: a molecule or channel can leave months with no record. The labels
+  // therefore count the months the calendar actually found under the active
+  // filters, and fall back to the release-wide statement only without facets.
+  const observed = (y: number): number | null =>
+    calendar === null ? null : (calendar.find((r) => r.year === y)?.monthsObserved ?? 0);
+  const monthsPhrase = (ys: ReadonlyArray<number>): string => {
+    const counts = ys.map(observed);
+    if (counts.some((c) => c === null)) return ys.length === 2 ? "12 mesi osservati ciascuno" : "12 mesi osservati";
+    return counts.length === 2 ? `${counts[0]} e ${counts[1]} mesi osservati` : `${counts[0]} mesi osservati`;
+  };
+  const periodLabel = `${filters.years.length === 2 ? "2024 e 2025" : String(filters.years[0])} · ${monthsPhrase(filters.years)}`;
+  const comparisonLabel = `2024 e 2025 · ${monthsPhrase([2024, 2025])}`;
 
   // WHAT THE VALUE-UPTAKE FIGURES ACTUALLY COVER. In the fallback the live
   // function cannot narrow by Azienda and takes at most one channel, so the
@@ -347,32 +405,39 @@ export default async function RevisionePillarBPage({
   // predicate either — so under those filters it is withheld rather than shown
   // beside rows it does not describe. The withheld euros and records ARE
   // recomputed from the narrowed withheld rows.
-  const uptakeNarrowed = aslCode !== null || filters.substance !== null;
   const uptakeRows = data.uptake.rows.filter((r) =>
     (aslCode === null || r.asl_code === aslCode)
     && (filters.substance === null || r.active_substance === filters.substance));
   const uptakeWithheld = data.uptake.withheld.filter((r) =>
     (aslCode === null || r.asl_code === aslCode)
     && (filters.substance === null || r.active_substance === filters.substance));
-  const uptakeForView: UptakeWithWithheld = uptakeNarrowed
-    ? {
-        rows: uptakeRows,
-        withheld: uptakeWithheld,
-        scope: null,
-        withheldShare: null,
-        withheldSpendEur: uptakeWithheld.reduce((s, w) => s + (w.spend_eur ?? 0), 0),
-        withheldRows: uptakeWithheld.reduce((s, w) => s + w.rows_n, 0),
-      }
-    : data.uptake;
+  // Narrowed: the coverage comes from the dedicated RPC when deployed, with the
+  // withheld euros and records of the SAME call so scope = used + withheld
+  // holds. Without it, the coverage is withheld (scope null) and the withheld
+  // sums come from the narrowed withheld rows. Not narrowed: the year merge.
+  const uptakeForView: UptakeWithWithheld = !uptakeNarrowed
+    ? data.uptake
+    : data.coverage !== null
+      ? coverageToUptake(data.coverage, uptakeRows, uptakeWithheld)
+      : {
+          rows: uptakeRows,
+          withheld: uptakeWithheld,
+          scope: null,
+          usedSpendEur: null,
+          withheldShare: null,
+          withheldSpendEur: uptakeWithheld.reduce((s, w) => s + (w.spend_eur ?? 0), 0),
+          withheldRows: uptakeWithheld.reduce((s, w) => s + w.rows_n, 0),
+        };
   const adoptionNotes: string[] = [];
   if (filters.channels.length > 0) {
     adoptionNotes.push("Il filtro per canale non si applica alla misura in volume, che non distingue il canale.");
   }
-  if (uptakeNarrowed) {
+  if (uptakeNarrowed && data.coverage === null) {
     adoptionNotes.push(
       "Con un filtro per Azienda o molecola la copertura della misura (spesa utilizzata e quota trattenuta) " +
-      "non è disponibile: il database la calcola sull'intero perimetro visibile. I gruppi, la spesa " +
-      "trattenuta e i record qui sotto sono invece quelli del perimetro selezionato.");
+      "non è disponibile finché la funzione pillar_b_uptake_coverage non è pubblicata: il database la " +
+      "calcola sull'intero perimetro visibile. I gruppi, la spesa trattenuta e i record qui sotto sono " +
+      "invece quelli del perimetro selezionato.");
   }
 
   const aslLabel = (code: string) => scope.aslLabels[code] ?? code;
@@ -411,6 +476,8 @@ export default async function RevisionePillarBPage({
     }
     degraded={degraded}
     years={filters.years}
+    periodLabel={periodLabel}
+    comparisonLabel={comparisonLabel}
     panorama={{
       totals: data.facets?.totals ?? null,
       valueUptake: view,
@@ -454,6 +521,7 @@ export default async function RevisionePillarBPage({
       funnel: funnelRows(data.funnel),
       funnelYear: filters.years.includes(2025) ? 2025 : 2024,
       funnelIgnoresFilters: aslCode !== null || filters.channels.length > 0 || filters.substance !== null,
+      perimeterWithheld: data.facets?.perimeter !== null && data.facets?.perimeter !== undefined && filters.substance !== null,
       // NOT UNDER A MOLECULE FILTER. For one substance the perimeter rows are
       // just that substance's statuses, and the per-status share becomes
       // biosimilar / (biosimilar + reference) by status with no validity rule —

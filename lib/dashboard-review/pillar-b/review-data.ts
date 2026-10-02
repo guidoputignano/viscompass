@@ -189,6 +189,35 @@ export function concentration(rows: ReadonlyArray<MoleculeSpendRow>): Concentrat
   };
 }
 
+// ------------------------------------------------- volume-uptake coverage
+
+/**
+ * The coverage of the volume-uptake measure from its two published sums.
+ *
+ * THE IDENTITY. `pillar_b_uptake_scope` is every analytical perimeter row for
+ * the year — the rows the measure CONSUMED plus the rows it WITHHELD. On the
+ * live 2025 ledger: used €7.469.067,17 + withheld €28.747.938,98 = scope
+ * €36.217.006,15, to the cent. So the withheld share is withheld ÷ scope, and
+ * the used spend is scope − withheld.
+ *
+ * The first version of this computation divided by (scope + withheld) and
+ * handed the whole scope to the chart as "used": the live card then read
+ * "Utilizzata 54,8 % · €76.415.744" where the truth is 17,4 % · €13.267.183.
+ * The measure's coverage was overstated three-fold. This helper is the single
+ * place the share is formed, so that cannot recur by composing the sums twice.
+ */
+export function uptakeCoverage(
+  scopeSpendEur: number | null, withheldSpendEur: number,
+): { usedSpendEur: number | null; withheldShare: number | null } {
+  if (scopeSpendEur === null) return { usedSpendEur: null, withheldShare: null };
+  return {
+    usedSpendEur: scopeSpendEur - withheldSpendEur,
+    // A share of nothing is not 0 %. Credit notes make a negative scope
+    // possible in principle; the chart clamps for layout and prints the value.
+    withheldShare: scopeSpendEur === 0 ? null : withheldSpendEur / scopeSpendEur,
+  };
+}
+
 // --------------------------------------------------------- coverage notices
 
 export interface CoverageNotice {

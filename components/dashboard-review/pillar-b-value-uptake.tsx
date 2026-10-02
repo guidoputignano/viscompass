@@ -95,9 +95,8 @@ export function PillarBValueUptake({
   return (
     <div className="flex flex-col gap-4">
       {scopeNote && (
-        <div className="flex gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-600" />
-          <p><strong className="text-foreground">{scopeNote}</strong></p>
+        <div className="rounded-lg border-l-4 border-primary bg-secondary/50 px-4 py-3 text-sm leading-relaxed text-foreground">
+          <p>{scopeNote}</p>
         </div>
       )}
       {/* ------------------------------------------------- the two denominators */}
