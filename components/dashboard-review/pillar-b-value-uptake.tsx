@@ -117,7 +117,14 @@ export function PillarBValueUptake({
   const gap = view.dateValid.share !== null && view.locallyObserved.share !== null
     ? view.locallyObserved.share - view.dateValid.share
     : null;
-  const held = view.boundary.total + view.unknown.total;
+  // EVERYTHING in neither published measure, not just the two classes it is
+  // tempting to name. `outside` -- months in which no biosimilar of the
+  // substance existed anywhere yet -- is excluded from date-valid AND from the
+  // locally-observed window, so omitting it made the banner's own claim false:
+  // it read EUR 1.109.465 held out for the Region while EUR 16.103.129,03
+  // actually was, hiding 93% of it, and EUR 332.923 for Azienda 201 against a
+  // true EUR 3.752.368,64.
+  const held = view.boundary.total + view.unknown.total + view.outside.total;
 
   return (
     <section className="flex flex-col gap-4">
@@ -204,10 +211,20 @@ export function PillarBValueUptake({
               <span className="font-semibold text-foreground">
                 Fuori da entrambe le misure: {formatEur(held)}.
               </span>{" "}
-              Non è spesa scartata, è spesa che non può essere attribuita a nessuna
-              delle due parti senza inventare un dato.
+              Non è spesa scartata: è spesa che non può entrare in nessuna delle due
+              quote senza affermare qualcosa che l&apos;evidenza non sostiene. Le tre
+              ragioni sono diverse e vengono tenute distinte.
             </p>
             <ul className="mt-1.5 space-y-0.5">
+              {view.outside.total > 0 && (
+                <li>
+                  <strong className="text-foreground">{formatEur(view.outside.total)}</strong>{" "}
+                  in mesi in cui <em>nessun</em> biosimilare di quella sostanza esisteva
+                  ancora: il riferimento non era ancora un riferimento. Contarli
+                  abbasserebbe meccanicamente l&apos;adozione per un periodo in cui
+                  nessuna alternativa era disponibile.
+                </li>
+              )}
               {view.boundary.total > 0 && (
                 <li>
                   <strong className="text-foreground">{formatEur(view.boundary.total)}</strong>{" "}
@@ -272,7 +289,8 @@ export function PillarBValueUptake({
                   {r.firstLocalLabel ?? "mai"}
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
-                  {r.boundary + r.unknown === 0 ? "—" : formatEur(r.boundary + r.unknown)}
+                  {r.boundary + r.unknown + r.outside === 0
+                    ? "—" : formatEur(r.boundary + r.unknown + r.outside)}
                 </td>
               </tr>
             ))}

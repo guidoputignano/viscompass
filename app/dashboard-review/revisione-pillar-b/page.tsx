@@ -18,7 +18,9 @@ import {
   pillarBReleaseId,
 } from "@/lib/dashboard-review/pillar-b/rpc";
 import { PillarBValueUptake } from "@/components/dashboard-review/pillar-b-value-uptake";
-import { buildValueUptake, parseFilters } from "@/lib/dashboard-review/pillar-b/value-uptake";
+import {
+  DEFAULT_YEARS, buildValueUptake, mergeValueUptakeRows, parseFilters,
+} from "@/lib/dashboard-review/pillar-b/value-uptake";
 
 // The content depends entirely on who is asking, so there is no static shell.
 export const instant = false;
@@ -84,8 +86,8 @@ export default async function RevisionePillarBPage({
     molecules2024: Awaited<ReturnType<typeof getMoleculeSpend>>;
     molecules2025: Awaited<ReturnType<typeof getMoleculeSpend>>;
     uptake: Awaited<ReturnType<typeof getUptake>>;
-    valueUptakeRows: Awaited<ReturnType<typeof getValueUptake>>;
-    allSubstances: Awaited<ReturnType<typeof getValueUptake>>;
+    valueUptakeRows: ReturnType<typeof mergeValueUptakeRows>;
+    allSubstances: ReturnType<typeof mergeValueUptakeRows>;
   };
   try {
     // Six top-level calls at once, plus three inside uptake and molecule
@@ -104,11 +106,22 @@ export default async function RevisionePillarBPage({
     // One row per substance, so this is bounded and needs no paging. Fetched
     // unfiltered once for the molecule chooser, and again under the active
     // filters for the figures themselves.
-    const [valueUptakeRows, allSubstances] = await Promise.all([
-      identified("VALUEUPTAKE", getValueUptake(
-        filters.year, filters.channel, filters.substance)),
-      identified("VALUESUBST", getValueUptake(null, null, null)),
+    //
+    // "Both years" is TWO EXPLICIT CALLS, never p_year = null. The RPC's year
+    // predicate has no upper bound, so null would also sweep in January-May
+    // 2026 and publish a 29-month figure under a chip reading "2024 e 2025" --
+    // 39,48% where the labelled scope is 37,70%. parseFilters refuses a
+    // hand-edited ?anno=2026; that guard was useless while the DEFAULT state
+    // bypassed it.
+    const years = filters.year === null ? DEFAULT_YEARS : [filters.year];
+    const [perYear, substanceYears] = await Promise.all([
+      Promise.all(years.map((y, i) => identified(
+        `VALUEUPTAKE${i}`, getValueUptake(y, filters.channel, filters.substance)))),
+      Promise.all(DEFAULT_YEARS.map((y, i) => identified(
+        `VALUESUBST${i}`, getValueUptake(y, null, null)))),
     ]);
+    const valueUptakeRows = mergeValueUptakeRows(...perYear);
+    const allSubstances = mergeValueUptakeRows(...substanceYears);
     data = { spend2024, spend2025, funnel, molecules2024, molecules2025,
              uptake, valueUptakeRows, allSubstances };
   } catch (error) {

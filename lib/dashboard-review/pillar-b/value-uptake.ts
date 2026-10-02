@@ -191,3 +191,70 @@ export function describeFilters(state: UptakeFilterState): string {
   if (state.substance !== null) parts.push(state.substance);
   return parts.join(" · ");
 }
+
+// ------------------------------------------------- the "both years" default
+
+/**
+ * Merge two per-year results into one.
+ *
+ * WHY THIS EXISTS, and it is not a convenience. The RPC's year predicate is
+ * `(p_year is null or cf.year = p_year)` with NO upper bound, so passing null
+ * aggregates every year the release holds — which is 2024, 2025 **and
+ * January–May 2026**. The default chip reads "2024 e 2025" and the scope pill
+ * repeats it, so a null year published a 29-month figure under a 24-month
+ * label: 39,48% where the labelled scope is 37,70%, a 1,79-point overstatement,
+ * with 2026 contributing €6.112.176,41 biosimilar and €6.594.771,54 reference.
+ *
+ * `parseFilters` already refuses a hand-edited `?anno=2026`; that guard was
+ * bypassed by the state the page loads in by default, which is worse, because
+ * nobody has to do anything unusual to see it.
+ *
+ * So "both years" is two explicit calls, merged here. It is NOT `p_year = null`.
+ *
+ * The opening month is identical in both calls by construction: the RPC's
+ * `opened` CTE reads `canonical_fact` without the year filter, so a 2024 switch
+ * is still 2024 in the 2025 call. The merge takes the earliest non-null anyway,
+ * so it stays correct even if that ever changes.
+ */
+export function mergeValueUptakeRows(
+  ...sets: ReadonlyArray<ReadonlyArray<ValueUptakeRow>>
+): ValueUptakeRow[] {
+  const bySubstance = new Map<string, ValueUptakeRow>();
+  const addNullable = (a: number | null, b: number | null): number | null =>
+    a === null && b === null ? null : (a ?? 0) + (b ?? 0);
+
+  for (const set of sets) {
+    for (const row of set) {
+      const prior = bySubstance.get(row.active_substance);
+      if (prior === undefined) {
+        bySubstance.set(row.active_substance, { ...row });
+        continue;
+      }
+      bySubstance.set(row.active_substance, {
+        active_substance: row.active_substance,
+        inside_biosimilar_eur: addNullable(prior.inside_biosimilar_eur, row.inside_biosimilar_eur),
+        inside_reference_eur: addNullable(prior.inside_reference_eur, row.inside_reference_eur),
+        predates_biosimilar_eur: addNullable(prior.predates_biosimilar_eur, row.predates_biosimilar_eur),
+        predates_reference_eur: addNullable(prior.predates_reference_eur, row.predates_reference_eur),
+        boundary_biosimilar_eur: addNullable(prior.boundary_biosimilar_eur, row.boundary_biosimilar_eur),
+        boundary_reference_eur: addNullable(prior.boundary_reference_eur, row.boundary_reference_eur),
+        outside_biosimilar_eur: addNullable(prior.outside_biosimilar_eur, row.outside_biosimilar_eur),
+        outside_reference_eur: addNullable(prior.outside_reference_eur, row.outside_reference_eur),
+        unknown_biosimilar_eur: addNullable(prior.unknown_biosimilar_eur, row.unknown_biosimilar_eur),
+        unknown_reference_eur: addNullable(prior.unknown_reference_eur, row.unknown_reference_eur),
+        window_biosimilar_eur: addNullable(prior.window_biosimilar_eur, row.window_biosimilar_eur),
+        window_reference_eur: addNullable(prior.window_reference_eur, row.window_reference_eur),
+        first_local_month_key:
+          prior.first_local_month_key === null ? row.first_local_month_key
+          : row.first_local_month_key === null ? prior.first_local_month_key
+          : Math.min(prior.first_local_month_key, row.first_local_month_key),
+        perimeter_rows: prior.perimeter_rows + row.perimeter_rows,
+        undated_rows: prior.undated_rows + row.undated_rows,
+      });
+    }
+  }
+  return [...bySubstance.values()];
+}
+
+/** The years a null (default) selection covers. Never includes 2026. */
+export const DEFAULT_YEARS: ReadonlyArray<2024 | 2025> = [2024, 2025];
