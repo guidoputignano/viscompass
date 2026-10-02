@@ -332,3 +332,70 @@ export const getMoleculeSpend = cache(
     }));
   },
 );
+
+// ---------------------------------------------------- biosimilar value uptake
+
+/** One substance's spend, split by the B05 monthly validity rule. */
+export interface ValueUptakeRow {
+  active_substance: string;
+  inside_biosimilar_eur: number | null;
+  inside_reference_eur: number | null;
+  predates_biosimilar_eur: number | null;
+  predates_reference_eur: number | null;
+  boundary_biosimilar_eur: number | null;
+  boundary_reference_eur: number | null;
+  outside_biosimilar_eur: number | null;
+  outside_reference_eur: number | null;
+  unknown_biosimilar_eur: number | null;
+  unknown_reference_eur: number | null;
+  window_biosimilar_eur: number | null;
+  window_reference_eur: number | null;
+  first_local_month_key: number | null;
+  perimeter_rows: number;
+  undated_rows: number;
+}
+
+export interface ValueUptakeFilters {
+  year: PillarBYear | null;
+  channel: string | null;
+  substance: string | null;
+}
+
+/**
+ * Biosimilar vs reference spend, filtered SERVER-SIDE.
+ *
+ * The filters go to the database, not to a client that received the regional
+ * ledger and narrowed it locally. An Azienda's browser never receives another
+ * Azienda's rows, because RLS decides what the function can read before it
+ * aggregates.
+ *
+ * Bounded by construction: one row per active substance in the biosimilar
+ * perimeter — tens, not thousands — so there is nothing to page and no repeat
+ * of the 57014 that molecule paging caused.
+ */
+export const getValueUptake = cache(
+  async (year: number | null, channel: string | null,
+         substance: string | null): Promise<ValueUptakeRow[]> => {
+    const rows = await callRpc<Record<string, unknown>>("pillar_b_value_uptake", {
+      p_year: year, p_channel: channel, p_substance: substance,
+    });
+    return rows.map((r) => ({
+      active_substance: String(r.active_substance),
+      inside_biosimilar_eur: num(r.inside_biosimilar_eur),
+      inside_reference_eur: num(r.inside_reference_eur),
+      predates_biosimilar_eur: num(r.predates_biosimilar_eur),
+      predates_reference_eur: num(r.predates_reference_eur),
+      boundary_biosimilar_eur: num(r.boundary_biosimilar_eur),
+      boundary_reference_eur: num(r.boundary_reference_eur),
+      outside_biosimilar_eur: num(r.outside_biosimilar_eur),
+      outside_reference_eur: num(r.outside_reference_eur),
+      unknown_biosimilar_eur: num(r.unknown_biosimilar_eur),
+      unknown_reference_eur: num(r.unknown_reference_eur),
+      window_biosimilar_eur: num(r.window_biosimilar_eur),
+      window_reference_eur: num(r.window_reference_eur),
+      first_local_month_key: num(r.first_local_month_key),
+      perimeter_rows: count(r.perimeter_rows),
+      undated_rows: count(r.undated_rows),
+    }));
+  },
+);

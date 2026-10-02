@@ -14,8 +14,11 @@ import {
   channelTrend, concentration, coverageNotices, funnelRows, moleculeTrend, sumSpend,
 } from "@/lib/dashboard-review/pillar-b/review-data";
 import {
-  getEvidenceFunnel, getMoleculeSpend, getSpend, getUptake, pillarBReleaseId,
+  getEvidenceFunnel, getMoleculeSpend, getSpend, getUptake, getValueUptake,
+  pillarBReleaseId,
 } from "@/lib/dashboard-review/pillar-b/rpc";
+import { PillarBValueUptake } from "@/components/dashboard-review/pillar-b-value-uptake";
+import { buildValueUptake, parseFilters } from "@/lib/dashboard-review/pillar-b/value-uptake";
 
 // The content depends entirely on who is asking, so there is no static shell.
 export const instant = false;
@@ -31,7 +34,16 @@ async function identified<T>(code: string, work: Promise<T>): Promise<T> {
   }
 }
 
-export default async function RevisionePillarBPage() {
+export default async function RevisionePillarBPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Filter state lives in the URL and is applied SERVER-SIDE: the query goes to
+  // the database with the scope already narrowed, so a browser never receives
+  // rows it then filters locally. Combined with RLS that is what keeps an
+  // Azienda from holding another Azienda's ledger.
+  const filters = parseFilters(await searchParams);
   const releaseId = await pillarBReleaseId();
 
   // FAIL CLOSED. No active release means nothing has been published for review —
@@ -59,6 +71,22 @@ export default async function RevisionePillarBPage() {
 
   // 2026 is absent from this list by construction: five months observed and zero
   // comparable-eligible rows. It is described on the page, never totalled.
+  //
+  // ONLY THE FETCHES ARE GUARDED. JSX is constructed after the try/catch, not
+  // inside it: React does not render at construction time, so a render error
+  // would escape a catch placed around the markup and the catch would read as
+  // protection it does not give. Failures while READING are what this guard is
+  // for, and those all happen above.
+  let data: {
+    spend2024: Awaited<ReturnType<typeof getSpend>>;
+    spend2025: Awaited<ReturnType<typeof getSpend>>;
+    funnel: Awaited<ReturnType<typeof getEvidenceFunnel>>;
+    molecules2024: Awaited<ReturnType<typeof getMoleculeSpend>>;
+    molecules2025: Awaited<ReturnType<typeof getMoleculeSpend>>;
+    uptake: Awaited<ReturnType<typeof getUptake>>;
+    valueUptakeRows: Awaited<ReturnType<typeof getValueUptake>>;
+    allSubstances: Awaited<ReturnType<typeof getValueUptake>>;
+  };
   try {
     // Six top-level calls at once, plus three inside uptake and molecule
     // pagination, exceeded the database statement timeout under real RLS.
@@ -73,22 +101,16 @@ export default async function RevisionePillarBPage() {
       identified("MOLECULE25", getMoleculeSpend(2025)),
     ]);
     const uptake = await identified("UPTAKE", getUptake(2025));
-
-    return <PillarBReview
-      releaseId={releaseId}
-      funnel={funnelRows(funnel)}
-      moleculeTrend={moleculeTrend(molecules2024, molecules2025)}
-      channelTrend={channelTrend(spend2024, spend2025)}
-      concentration={concentration(molecules2025)}
-      uptake={uptake}
-      notices={coverageNotices(spend2025, uptake)}
-      totals={{
-        spend2024: sumSpend(spend2024),
-        spend2025: sumSpend(spend2025),
-        rows2024: spend2024.reduce((s, r) => s + r.rows_observed, 0),
-        rows2025: spend2025.reduce((s, r) => s + r.rows_observed, 0),
-      }}
-    />;
+    // One row per substance, so this is bounded and needs no paging. Fetched
+    // unfiltered once for the molecule chooser, and again under the active
+    // filters for the figures themselves.
+    const [valueUptakeRows, allSubstances] = await Promise.all([
+      identified("VALUEUPTAKE", getValueUptake(
+        filters.year, filters.channel, filters.substance)),
+      identified("VALUESUBST", getValueUptake(null, null, null)),
+    ]);
+    data = { spend2024, spend2025, funnel, molecules2024, molecules2025,
+             uptake, valueUptakeRows, allSubstances };
   } catch (error) {
     // The server log retains the full cause. The scoped browser gets only a
     // stable phase code, never a SQL message or a misleading zero-valued chart.
@@ -101,4 +123,29 @@ export default async function RevisionePillarBPage() {
       detail={`La release è attiva, ma una verifica è fallita (${code}). Nessuna cifra viene mostrata finché il problema non è risolto.`}
     />;
   }
+
+  return <PillarBReview
+    releaseId={releaseId}
+    funnel={funnelRows(data.funnel)}
+    moleculeTrend={moleculeTrend(data.molecules2024, data.molecules2025)}
+    channelTrend={channelTrend(data.spend2024, data.spend2025)}
+    concentration={concentration(data.molecules2025)}
+    uptake={data.uptake}
+    notices={coverageNotices(data.spend2025, data.uptake)}
+    totals={{
+      spend2024: sumSpend(data.spend2024),
+      spend2025: sumSpend(data.spend2025),
+      rows2024: data.spend2024.reduce((s, r) => s + r.rows_observed, 0),
+      rows2025: data.spend2025.reduce((s, r) => s + r.rows_observed, 0),
+    }}
+    valueUptake={
+      <PillarBValueUptake
+        view={buildValueUptake(data.valueUptakeRows)}
+        filters={filters}
+        substanceOptions={data.allSubstances
+          .map((r) => r.active_substance)
+          .sort((a, b) => a.localeCompare(b, "it"))}
+      />
+    }
+  />;
 }

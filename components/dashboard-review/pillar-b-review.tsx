@@ -32,6 +32,12 @@ export interface PillarBReviewProps {
   uptake: UptakeWithWithheld;
   notices: CoverageNotice[];
   totals: { spend2024: number; spend2025: number; rows2024: number; rows2025: number };
+  /**
+   * The interactive biosimilar/reference section. Passed as a node because it
+   * owns its own URL-driven filter state and its own server-side query; this
+   * component composes the page and does not fetch.
+   */
+  valueUptake?: React.ReactNode;
 }
 
 const PERIOD_LABEL = "2024 e 2025 · 12 mesi osservati ciascuno";
@@ -228,6 +234,8 @@ export function PillarBReview(props: PillarBReviewProps) {
           )}
         </div>
       </Section>
+
+      {props.valueUptake}
 
       {/* -------------------------------------------------------- 2. trends */}
       <Section
