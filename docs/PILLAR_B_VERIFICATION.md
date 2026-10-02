@@ -1,5 +1,9 @@
 # Reproducing the Pillar B Gate 2 / Gate 3 / Gate 4 verification
 
+> Historical verification snapshot. Its production-status statements below
+> predate the R2 import, activation, and value-uptake migration. See
+> `docs/PILLAR_B_VALUE_UPTAKE_LIVE_20261002.md` for the latest RPC status.
+
 The Gate 2, Gate 3 and Gate 4 harnesses are **not** in this repository, and their
 dependency is **not** in this `package.json`. This file exists so a reviewer
 working from the checkout finds them without being told.

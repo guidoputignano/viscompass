@@ -1,6 +1,8 @@
 -- Pillar B — biosimilar vs reference SPEND with the B05 monthly validity rule.
 --
--- Section 14. NOT YET APPLIED TO PRODUCTION.
+-- Section 14. Applied manually to production on 2026-10-02. The RPC remains
+-- dormant: the application does not call it yet. See
+-- docs/PILLAR_B_VALUE_UPTAKE_LIVE_20261002.md for the live verification.
 --
 -- This replaces an earlier draft of the same migration that classified validity
 -- two ways. That draft was wrong in two specific, measurable ways, and both are

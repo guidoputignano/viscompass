@@ -1,5 +1,9 @@
 # Pillar B production release handover — 2 October 2026
 
+> Historical handover snapshot. The release-gate and migration states below
+> have since changed. See `docs/PILLAR_B_VALUE_UPTAKE_LIVE_20261002.md` before
+> taking further production action.
+
 Claude Code: take over the production release from this exact state. Do not
 re-import, regenerate, or activate blindly. The owner authorized the frozen
 Abruzzo ledger import and activation for approved VIS accounts, but the live
