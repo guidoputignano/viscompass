@@ -78,6 +78,10 @@ returns table (
   -- Not yet valid: the reference was not yet a reference.
   outside_biosimilar_eur      numeric,
   outside_reference_eur       numeric,
+  -- Undated and NOT on the evidence list. Counted as valid by nobody, reported
+  -- so it cannot vanish.
+  unknown_biosimilar_eur      numeric,
+  unknown_reference_eur       numeric,
   -- T2: months at or after the first LOCALLY OBSERVED biosimilar dispensing,
   -- restricted to date-valid months on the same rule.
   window_biosimilar_eur       numeric,
@@ -96,6 +100,7 @@ as $$
       cf.active_substance,
       cf.perimeter_status,
       cf.total_cost_eur,
+      cf.aic,
       cf.classification_valid_from,
       cf.source_quantity,
       (cf.year * 12 + cf.month) as month_key,
@@ -112,26 +117,64 @@ as $$
   classified as (
     select s.*,
       case
-        -- No EU centralised date: the decentralised-procedure enoxaparins.
-        when s.classification_valid_from is null                then 'predates_window'
-        when s.classification_valid_from <= s.month_first       then 'inside'
-        when s.classification_valid_from >  s.month_last        then 'outside'
-        else                                                         'boundary'
+        -- PREDATES_WINDOW IS AN EVIDENCE LIST, NOT A NULL DEFAULT.
+        -- Only these ten AICs carry the four independent lines placing their
+        -- authorisation before 2024-01-01 (aicRegistrationEra 2014/2015;
+        -- moleculeBiosimilarFrom 2016-09-14; both B03 tracks recording
+        -- periodValidity: valid-whole-period; observed dispensing from 2024-01,
+        -- which an unauthorised medicine cannot have). They are the
+        -- decentralised-procedure enoxaparin biosimilars, which hold no EU
+        -- centralised date.
+        --
+        -- Any OTHER undated AIC is `unknown` and is counted as valid by nobody.
+        -- Treating null as predates_window would silently admit a future AIC
+        -- whose date is merely missing -- the opposite of what the evidence says.
+        when s.classification_valid_from is null
+             and s.aic in ('044039028','044039079','044039143','044039206',
+                           '044039269','044269037','044269064','044269090',
+                           '044269126','044269153')      then 'predates_window'
+        when s.classification_valid_from is null          then 'unknown'
+        when s.classification_valid_from <= s.month_first then 'inside'
+        when s.classification_valid_from >  s.month_last  then 'outside'
+        else                                                   'boundary'
       end as validity
     from scoped s
   ),
-  -- The OBSERVED LOCAL clock, third of the three the audit keeps apart. The
-  -- workbook defines it as "first month the AIC appears with non-zero QUANTITY
-  -- in any of the four ASLs" -- quantity, not cost. A credit note carries a
-  -- negative cost and no dispensing; a zero-cost dispensing is still a
-  -- dispensing. Keyed on the substance because that is the grain the uptake
-  -- measure is published at.
+  -- The OBSERVED LOCAL clock, third of the three the audit keeps apart.
+  --
+  -- COMPUTED OVER THE CALLER'S FULL VISIBLE HISTORY, BEFORE DISPLAY FILTERS.
+  -- This deliberately does NOT read from `scoped`: p_year and p_channel are
+  -- presentation choices, and a switch that happened in 2024 did not stop
+  -- happening because a reader selected 2025. Deriving the opening from the
+  -- filtered set made the clock restart at the first row of the filter, so a
+  -- 2025 view would have reported an opening of 2025-01 and silently counted
+  -- the whole year as "after the switch".
+  --
+  -- The RLS scope is still honoured: this reads canonical_fact, so an Azienda
+  -- sees only its own history and gets its own opening. That is the intended
+  -- meaning -- "was a switch possible HERE" -- and it is why the filter must be
+  -- stripped but the tenancy must not.
+  --
+  -- "First month the AIC appears with non-zero QUANTITY in any of the four
+  -- ASLs" -- quantity, not cost. A credit note carries a negative cost and no
+  -- dispensing; a zero-cost dispensing is still a dispensing.
   opened as (
-    select c.active_substance, min(c.month_key) as first_key
-    from classified c
-    where c.perimeter_status = 'biosimilar'
-      and coalesce(c.source_quantity, 0) > 0
-    group by c.active_substance
+    select f.active_substance, min(f.year * 12 + f.month) as first_key
+    from canonical_fact f
+    where f.source_version_id = public.pillar_b_release()
+      and f.perimeter_status = 'biosimilar'
+      and f.month between 1 and 12
+      and coalesce(f.source_quantity, 0) > 0
+      -- The same validity gate, inlined: an opening cannot be claimed from a
+      -- month in which the product was not yet valid.
+      and (
+        (f.classification_valid_from is null
+           and f.aic in ('044039028','044039079','044039143','044039206',
+                         '044039269','044269037','044269064','044269090',
+                         '044269126','044269153'))
+        or f.classification_valid_from <= make_date(f.year, f.month, 1)
+      )
+    group by f.active_substance
   )
   select
     c.active_substance,
@@ -143,24 +186,24 @@ as $$
     sum(c.total_cost_eur) filter (where c.validity = 'boundary'        and c.perimeter_status = 'reference_medicine'),
     sum(c.total_cost_eur) filter (where c.validity = 'outside'         and c.perimeter_status = 'biosimilar'),
     sum(c.total_cost_eur) filter (where c.validity = 'outside'         and c.perimeter_status = 'reference_medicine'),
-    -- T2 is a SUBSTITUTION TIER, and the tiers partition the whole reference
-    -- total differently from the date-valid measure. The workbook's
-    -- local_substitutability.py gives
-    --   T0 no biosimilar existed anywhere yet   EUR 14.993.664,38  (= `outside`)
-    --   T1 EU-authorised, never dispensed here  EUR 25.583.172,71
-    --   T2 dispensed locally by then            EUR 20.322.838,90
-    --   total reference-medicine                EUR 60.899.675,99
-    -- T0+T1+T2 is the FULL reference total, so the tiers include `boundary`
-    -- while the date-valid measure excludes it. T2 therefore excludes only
-    -- `outside`; restricting it to inside+predates as well understated it by
-    -- EUR 257.478,77, which is the boundary spend falling inside the window.
+    sum(c.total_cost_eur) filter (where c.validity = 'unknown'         and c.perimeter_status = 'biosimilar'),
+    sum(c.total_cost_eur) filter (where c.validity = 'unknown'         and c.perimeter_status = 'reference_medicine'),
+    -- BOUNDARY IS EXCLUDED FROM T2. The B05 generator states its own period
+    -- rule in derived/b05_spending_and_uptake.json:
+    --   "date-valid months only (inside + predates_window); outside and
+    --    boundary excluded"
+    -- An earlier revision here included boundary and still reproduced the
+    -- aggregate EUR 20.322.838,90 -- but only because the observed-local clock
+    -- was changed in the same edit. Two changes, one aggregate, no way to tell
+    -- which was right. The generator's method string settles it, and the
+    -- per-substance comparison in b36 now proves it cell by cell.
     sum(c.total_cost_eur) filter (
       where c.perimeter_status = 'biosimilar'
-        and c.validity <> 'outside'
+        and c.validity in ('inside', 'predates_window')
         and o.first_key is not null and c.month_key >= o.first_key),
     sum(c.total_cost_eur) filter (
       where c.perimeter_status = 'reference_medicine'
-        and c.validity <> 'outside'
+        and c.validity in ('inside', 'predates_window')
         and o.first_key is not null and c.month_key >= o.first_key),
     max(o.first_key)::int,
     count(*)::bigint,
