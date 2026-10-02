@@ -66,10 +66,26 @@ naming the function.
 | `?molecola=adalimumab` | coverage withheld with the notice naming `pillar_b_uptake_coverage`; 4 groups, withheld €873.772 from the narrowed rows |
 | `?ambito=201` | coverage withheld with the same notice; 7 groups, withheld €17.555.642 |
 
-## Apply
+## Applied — 2 October 2026, with the owner's authorisation
 
-Not applied. Apply through the SQL editor as for `20261003090000`, then verify
-with `VERIFY_20261003130000_live.sql` (to be run as `postgres`: both years'
-identity, and the Regione/Azienda 201 simulated-JWT figures above). Once
-applied, the two narrowed states above show their own coverage with no notice;
-no deploy is needed.
+Through the SQL editor of project `yxumhjfsoqfckaeydgxt` as `postgres`, one
+transaction: **Success. No rows returned.** Pre-check: function absent,
+release gate one row (`PILLAR-B-R2-20261001`), unchanged afterwards. No fact
+rows touched, no application change needed.
+
+| check | result |
+|---|---|
+| exists, `prosecdef = false`; `authenticated` / `service_role` EXECUTE; `anon` | yes; true / true; **false** (`42501` under `set local role anon`) |
+| identity 2024 | €40,198,737.95 = €5,798,115.89 + €34,400,622.05 · 7,580 = 1,352 + 6,228 · residual 0 |
+| identity 2025 | €36,217,006.15 = €7,469,067.17 + €28,747,938.98 · 6,939 = 1,416 + 5,523 · residual 0 |
+| equals the three existing functions (2025) | scope / used / withheld identical |
+| Azienda 201 under its own RLS (2025) | scope €9,505,212.03 · used €2,098,449.98 · withheld €7,406,762.06 · 1,641 rows; asking for `130202` → 0 rows |
+| Regione naming `130201` (2025) | identical row |
+| `EXPLAIN ANALYZE`, one Azienda | **81 ms** |
+
+### Live after the apply (REVISORE), no deploy
+
+| state | coverage card |
+|---|---|
+| `?ambito=201` | **Utilizzata 15,9 % · €3.320.987 / Trattenuta 84,1 % · €17.555.642 · 2.722 record** — the two-year sum of the harness figures; the notice is gone |
+| `?molecola=adalimumab` | **Utilizzata 68,9 % · €1.936.040 / Trattenuta 31,1 % · €873.772 · 314 record**; €1.936.040 + €873.772 = €2.809.812, the molecule's perimeter total from the other RPC |
