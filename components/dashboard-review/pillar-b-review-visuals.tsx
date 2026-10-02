@@ -63,15 +63,23 @@ export function ChannelSlopeChart({ rows }: { rows: TrendRow[] }) {
   const width = 760, left = 190, right = 655, top = 42, rowGap = 58;
   const height = top + Math.max(rows.length, 1) * rowGap + 42;
   const values = rows.flatMap((r) => [r.spend2024, r.spend2025]);
-  const lo = Math.min(0, ...values), hi = Math.max(0, ...values);
+  const observedLo = Math.min(0, ...values), observedHi = Math.max(0, ...values);
+  const rawStep = Math.max(1, (observedHi - observedLo) / 4);
+  const order = 10 ** Math.floor(Math.log10(rawStep));
+  const step = [1, 1.5, 2, 2.5, 5, 7.5, 10].find((v) => v * order >= rawStep)! * order;
+  const lo = Math.floor(observedLo / step) * step;
+  const hi = Math.max(step, Math.ceil(observedHi / step) * step);
   const span = hi - lo || 1;
   const x = (v: number) => left + (v - lo) / span * (right - left);
-  const ticks = [0, .25, .5, .75, 1];
+  const ticks = Array.from({ length: Math.round(span / step) + 1 }, (_, i) => lo + i * step);
+  const axisLabel = (v: number) => Math.abs(v) >= 1_000_000
+    ? `${formatNumber(v / 1_000_000, 1)} Mln €`
+    : formatEur(v);
   return <Frame title="Come cambia la spesa per canale">
     {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessun canale osservato.</p> : <>
     <div className="mb-2 flex gap-4 text-xs text-muted-foreground"><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-slate-500" />2024</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-primary" />2025</span></div>
     <svg role="img" aria-label="Confronto della spesa 2024 e 2025 per canale, in euro" viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
-      {ticks.map((t) => { const xx = left + t * (right - left); return <g key={t}><line x1={xx} y1={top - 8} x2={xx} y2={height - 30} stroke={grid} strokeDasharray="3 4"/><text x={xx} y={height - 9} textAnchor="middle" fontSize="11" fill={muted}>{formatEur(lo + t * span)}</text></g>; })}
+      {ticks.map((tick) => { const xx = x(tick); return <g key={tick}><line x1={xx} y1={top - 8} x2={xx} y2={height - 30} stroke={grid} strokeDasharray="3 4"/><text x={xx} y={height - 9} textAnchor="middle" fontSize="11" fill={muted}>{axisLabel(tick)}</text></g>; })}
       {rows.map((r, i) => { const y = top + i * rowGap + 17; return <g key={r.key}>
         <text x={left - 12} y={y + 4} textAnchor="end" fontSize="13" fill={ink}>{r.label}</text>
         <line x1={x(r.spend2024)} y1={y} x2={x(r.spend2025)} y2={y} stroke={r.changeEur >= 0 ? teal : coral} strokeWidth="5" strokeLinecap="round" />
