@@ -12,7 +12,7 @@
 //   - 2026 is never a selectable year: five months, zero comparable-eligible
 
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 import type { DumbbellRow, TimelineModel } from "@/lib/dashboard-review/pillar-b/adoption";
@@ -54,7 +54,7 @@ function MeasureCard({
 /** A horizontal share bar. The number is always stated beside it. */
 function ShareBar({ share }: { share: number | null }) {
   if (share === null) {
-    return <span className="text-[11px] text-muted-foreground">n/d</span>;
+    return <span className="text-[11px] text-muted-foreground" title="Denominatore non osservato in questa selezione">—</span>;
   }
   const pct = Math.max(0, Math.min(1, share)) * 100;
   return (
@@ -91,6 +91,13 @@ export function PillarBValueUptake({
   // actually was, hiding 93% of it, and EUR 332.923 for Azienda 201 against a
   // true EUR 3.752.368,64.
   const held = view.boundary.total + view.unknown.total + view.outside.total;
+  const bothMeasuresAvailable = view.dateValid.share !== null && view.locallyObserved.share !== null;
+  const visibleRows = view.rows.filter((r) => r.dateValid.share !== null || r.locallyObserved.share !== null);
+  const excludedRows = view.rows.length - visibleRows.length;
+  // The table footer totals the rows the table lists; the banner above keeps
+  // the whole scope's held-out amount.
+  const heldVisible = visibleRows.reduce((s, r) => s + r.boundary + r.unknown + r.outside, 0);
+  const molecole = (n: number) => `${formatNumber(n, 0)} ${n === 1 ? "molecola" : "molecole"}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -100,7 +107,7 @@ export function PillarBValueUptake({
         </div>
       )}
       {/* ------------------------------------------------- the two denominators */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      {bothMeasuresAvailable ? <div className="grid gap-3 sm:grid-cols-2">
         <MeasureCard
           title="Su mesi a validità riconosciuta"
           lead="Mesi in cui il riferimento era già un riferimento, cioè dopo l'autorizzazione del biosimilare."
@@ -112,7 +119,13 @@ export function PillarBValueUptake({
           lead="Mesi successivi al primo uso del biosimilare registrato nell'ambito visibile; non misura la possibilità clinica di sostituzione."
           measure={view.locallyObserved}
         />
-      </div>
+      </div> : <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        Le due quote si leggono solo insieme, e in questa selezione non sono entrambe calcolabili:{" "}
+        {view.dateValid.share === null && "nessun mese a validità riconosciuta nel denominatore"}
+        {view.dateValid.share === null && view.locallyObserved.share === null && "; "}
+        {view.locallyObserved.share === null && "nessuna spesa nei mesi successivi al primo uso locale del biosimilare, entro il periodo e i canali selezionati"}.
+        {visibleRows.length > 0 && " Il dettaglio per principio attivo mostra le misure disponibili; un trattino indica un denominatore non osservato, non uno zero."}
+      </p>}
       {gap !== null && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           I due denominatori differiscono di{" "}
@@ -126,13 +139,10 @@ export function PillarBValueUptake({
 
       {/* ------------------------------------------- what is held out, and why */}
       {held > 0 && (
-        <div className="flex gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-600" />
-          <div>
+        <details className="rounded-xl border border-border bg-card px-4 py-3 text-xs leading-relaxed">
+          <summary className="cursor-pointer font-semibold text-foreground">Importi fuori dalle due quote · {formatEur(held)}</summary>
+          <div className="mt-3 text-muted-foreground">
             <p>
-              <span className="font-semibold text-foreground">
-                Fuori da entrambe le misure: {formatEur(held)}.
-              </span>{" "}
               Non è spesa scartata: è spesa che non può entrare in nessuna delle due
               quote senza affermare qualcosa che l&apos;evidenza non sostiene. Le tre
               ragioni sono diverse e vengono tenute distinte.
@@ -170,16 +180,16 @@ export function PillarBValueUptake({
               )}
             </ul>
           </div>
-        </div>
+        </details>
       )}
 
       <DumbbellUptakeChart rows={dumbbell} />
       <FirstUseTimeline model={timeline} followsAzienda={timelineFollowsAzienda} />
 
       {/* --------------------------------------------------- the numeric table */}
-      <details className="group">
+      {visibleRows.length > 0 && <details className="group">
         <summary className="cursor-pointer text-xs font-semibold text-primary">
-          Apri la tabella numerica per principio attivo ({formatNumber(view.substances, 0)} molecole)
+          Apri la tabella numerica per principio attivo ({molecole(visibleRows.length)} con misura)
         </summary>
         <div className="mt-3 overflow-x-auto rounded-xl border border-border">
           <table className="w-full min-w-[52rem] text-sm" translate="no">
@@ -198,13 +208,12 @@ export function PillarBValueUptake({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {view.rows.map((r) => (
+              {visibleRows.map((r) => (
                 <tr key={r.substance}>
                   <td className="px-4 py-2.5 text-xs text-foreground">
-                    <Link href={substanceHref(r.substance)} scroll={false}
-                          className="hover:text-primary hover:underline">
+                    <KeepLink href={substanceHref(r.substance)} className="hover:text-primary hover:underline">
                       {r.substance}
-                    </Link>
+                    </KeepLink>
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs">
                     {formatEur(r.dateValid.biosimilar)}
@@ -227,7 +236,7 @@ export function PillarBValueUptake({
             <tfoot className="bg-muted/30">
               <tr>
                 <td className="px-4 py-2.5 text-xs font-semibold text-foreground">
-                  Totale {formatNumber(view.substances, 0)} molecole
+                  Totale {visibleRows.length === 1 ? "della" : "delle"} {molecole(visibleRows.length)} con misura
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
                   {formatEur(view.dateValid.biosimilar)}
@@ -239,13 +248,17 @@ export function PillarBValueUptake({
                 <td className="px-4 py-2.5"><ShareBar share={view.locallyObserved.share} /></td>
                 <td className="px-4 py-2.5" />
                 <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
-                  {held === 0 ? "—" : formatEur(held)}
+                  {heldVisible === 0 ? "—" : formatEur(heldVisible)}
                 </td>
               </tr>
             </tfoot>
           </table>
         </div>
-      </details>
+      </details>}
+
+      {excludedRows > 0 && <p className="text-[11px] text-muted-foreground">
+        {molecole(excludedRows)} senza mesi nei denominatori selezionati {excludedRows === 1 ? "non è elencata" : "non sono elencate"} nella tabella delle quote; {excludedRows === 1 ? "resta" : "restano"} nel perimetro di classificazione, e la {excludedRows === 1 ? "sua" : "loro"} spesa resta negli importi fuori dalle due quote.
+      </p>}
 
       {view.rows.length === 0 && (
         <p className="rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-xs text-muted-foreground">

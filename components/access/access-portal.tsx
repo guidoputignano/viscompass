@@ -51,7 +51,9 @@ function InvitationCard({ invitation }: { invitation: OrganizationInvitation }) 
     "idle",
   );
   const [message, setMessage] = useState("");
-  const expired = new Date(invitation.expires_at).getTime() <= Date.now();
+  // The clock is read once, at mount, not on every render (react-hooks/purity).
+  const [now] = useState(() => Date.now());
+  const expired = new Date(invitation.expires_at).getTime() <= now;
 
   async function respond(outcome: "accept" | "decline") {
     setState(outcome === "accept" ? "accepting" : "declining");
@@ -125,9 +127,12 @@ function InvitationCard({ invitation }: { invitation: OrganizationInvitation }) 
 export function AccessPortal({
   overview,
   isAdmin = false,
+  isReviewer = false,
 }: {
   overview: AccessOverview;
   isAdmin?: boolean;
+  /** The session's email is on the platform-reviewer allow-list. */
+  isReviewer?: boolean;
 }) {
   const router = useRouter();
   const [orgCode, setOrgCode] = useState(overview.organizations[0]?.org_code ?? "");
@@ -180,6 +185,13 @@ export function AccessPortal({
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-5 py-8 md:px-8 md:py-12">
+        {isReviewer && (
+          <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
+            Accesso revisore riconosciuto. La lettura estesa a tutte le Aziende si applica a un account con
+            un&apos;iscrizione approvata a un&apos;organizzazione: questo account non ne ha ancora una. Richiedi
+            l&apos;accesso qui sotto, o chiedi a un amministratore di approvarlo.
+          </p>
+        )}
         <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:items-end">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[hsl(174_46%_24%)]">

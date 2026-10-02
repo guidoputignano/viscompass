@@ -1,0 +1,2162 @@
+{
+ "version": "2026-10-02",
+ "source": {
+  "publisher": "AIFA - Ufficio Monitoraggio della Spesa Farmaceutica e Rapporti con le Regioni",
+  "title": "Biosimilari: distribuzione dei consumi e della spesa secondo la forma di somministrazione",
+  "edition": "gennaio-dicembre 2025, dato NSIS / Tracciabilità del farmaco aggiornato a dicembre 2025",
+  "channel": "acquisti diretti",
+  "period": {
+   "from": "2025-01",
+   "to": "2025-12"
+  },
+  "url": "https://www.aifa.gov.it/documents/20142/3423405/5_FocusForme_EV_SC_gen_dic_2025.pdf",
+  "unit": "percentuali come pubblicate (punti percentuali, due decimali); ogni riga ripartisce il totale della molecola nel canale e nel territorio"
+ },
+ "molecules": [
+  {
+   "id": "infliximab",
+   "label": "Infliximab"
+  },
+  {
+   "id": "rituximab",
+   "label": "Rituximab"
+  },
+  {
+   "id": "trastuzumab",
+   "label": "Trastuzumab"
+  }
+ ],
+ "measures": [
+  {
+   "id": "confezioni",
+   "label": "Confezioni",
+   "note": "unità di confezionamento tracciate"
+  },
+  {
+   "id": "ddd",
+   "label": "DDD",
+   "note": "dosi definite giornaliere"
+  },
+  {
+   "id": "spesa",
+   "label": "Spesa",
+   "note": "valori tracciabilità"
+  }
+ ],
+ "territories": [
+  {
+   "code": "130",
+   "label": "Abruzzo",
+   "kind": "regione",
+   "source_label": "ABRUZZO"
+  },
+  {
+   "code": "170",
+   "label": "Basilicata",
+   "kind": "regione",
+   "source_label": "BASILICATA"
+  },
+  {
+   "code": "180",
+   "label": "Calabria",
+   "kind": "regione",
+   "source_label": "CALABRIA"
+  },
+  {
+   "code": "150",
+   "label": "Campania",
+   "kind": "regione",
+   "source_label": "CAMPANIA"
+  },
+  {
+   "code": "080",
+   "label": "Emilia-Romagna",
+   "kind": "regione",
+   "source_label": "EMILIA R."
+  },
+  {
+   "code": "060",
+   "label": "Friuli Venezia Giulia",
+   "kind": "regione",
+   "source_label": "FRIULI V.G."
+  },
+  {
+   "code": "120",
+   "label": "Lazio",
+   "kind": "regione",
+   "source_label": "LAZIO"
+  },
+  {
+   "code": "070",
+   "label": "Liguria",
+   "kind": "regione",
+   "source_label": "LIGURIA"
+  },
+  {
+   "code": "030",
+   "label": "Lombardia",
+   "kind": "regione",
+   "source_label": "LOMBARDIA"
+  },
+  {
+   "code": "110",
+   "label": "Marche",
+   "kind": "regione",
+   "source_label": "MARCHE"
+  },
+  {
+   "code": "140",
+   "label": "Molise",
+   "kind": "regione",
+   "source_label": "MOLISE"
+  },
+  {
+   "code": "010",
+   "label": "Piemonte",
+   "kind": "regione",
+   "source_label": "PIEMONTE"
+  },
+  {
+   "code": "041",
+   "label": "Prov. aut. di Bolzano",
+   "kind": "provincia autonoma",
+   "source_label": "P.A. BOLZANO"
+  },
+  {
+   "code": "042",
+   "label": "Prov. aut. di Trento",
+   "kind": "provincia autonoma",
+   "source_label": "P.A. TRENTO"
+  },
+  {
+   "code": "160",
+   "label": "Puglia",
+   "kind": "regione",
+   "source_label": "PUGLIA"
+  },
+  {
+   "code": "200",
+   "label": "Sardegna",
+   "kind": "regione",
+   "source_label": "SARDEGNA"
+  },
+  {
+   "code": "190",
+   "label": "Sicilia",
+   "kind": "regione",
+   "source_label": "SICILIA"
+  },
+  {
+   "code": "090",
+   "label": "Toscana",
+   "kind": "regione",
+   "source_label": "TOSCANA"
+  },
+  {
+   "code": "100",
+   "label": "Umbria",
+   "kind": "regione",
+   "source_label": "UMBRIA"
+  },
+  {
+   "code": "020",
+   "label": "Valle d’Aosta",
+   "kind": "regione",
+   "source_label": "V.AOSTA"
+  },
+  {
+   "code": "050",
+   "label": "Veneto",
+   "kind": "regione",
+   "source_label": "VENETO"
+  },
+  {
+   "code": "000",
+   "label": "Italia",
+   "kind": "italia",
+   "source_label": "ITALIA"
+  }
+ ],
+ "rows": [
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "130",
+   "originator_ev": 2.2,
+   "biosimilar_ev": 80.04,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 17.76,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "170",
+   "originator_ev": 0.63,
+   "biosimilar_ev": 83.88,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 15.49,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "180",
+   "originator_ev": 4.8,
+   "biosimilar_ev": 68.37,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 26.83,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "150",
+   "originator_ev": 1.38,
+   "biosimilar_ev": 81.73,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 16.88,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "080",
+   "originator_ev": 0.99,
+   "biosimilar_ev": 90.78,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 8.23,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "060",
+   "originator_ev": 0.16,
+   "biosimilar_ev": 81.22,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 18.62,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "120",
+   "originator_ev": 0.01,
+   "biosimilar_ev": 76.44,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 23.55,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "070",
+   "originator_ev": 1.08,
+   "biosimilar_ev": 55.94,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 42.99,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "030",
+   "originator_ev": 1.86,
+   "biosimilar_ev": 80.29,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 17.85,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "110",
+   "originator_ev": 1.14,
+   "biosimilar_ev": 78.79,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 20.07,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "140",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 47.86,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 52.14,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "010",
+   "originator_ev": 0.12,
+   "biosimilar_ev": 55.12,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 44.76,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 97.62,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 2.38,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "042",
+   "originator_ev": 1.77,
+   "biosimilar_ev": 94.44,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 3.8,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "160",
+   "originator_ev": 0.33,
+   "biosimilar_ev": 79.74,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 19.93,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "200",
+   "originator_ev": 1.39,
+   "biosimilar_ev": 96.01,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 2.6,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "190",
+   "originator_ev": 0.12,
+   "biosimilar_ev": 71.64,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 28.24,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "090",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 77.78,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 22.22,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "100",
+   "originator_ev": 3.09,
+   "biosimilar_ev": 77.68,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 19.23,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 62.79,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 37.21,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "050",
+   "originator_ev": 1.13,
+   "biosimilar_ev": 85.26,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 13.62,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "territory": "000",
+   "originator_ev": 0.84,
+   "biosimilar_ev": 79.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 20.16,
+   "page": 3
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "130",
+   "originator_ev": 2.08,
+   "biosimilar_ev": 75.52,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 22.41,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "170",
+   "originator_ev": 0.61,
+   "biosimilar_ev": 81.36,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 18.03,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "180",
+   "originator_ev": 4.53,
+   "biosimilar_ev": 64.49,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 30.98,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "150",
+   "originator_ev": 1.15,
+   "biosimilar_ev": 69.56,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 29.3,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "080",
+   "originator_ev": 0.97,
+   "biosimilar_ev": 89.31,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 9.72,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "060",
+   "originator_ev": 0.15,
+   "biosimilar_ev": 78.3,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 21.54,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "120",
+   "originator_ev": 0.01,
+   "biosimilar_ev": 73.92,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 26.07,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "070",
+   "originator_ev": 0.97,
+   "biosimilar_ev": 50.64,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 48.39,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "030",
+   "originator_ev": 1.63,
+   "biosimilar_ev": 70.68,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 27.69,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "110",
+   "originator_ev": 1.0,
+   "biosimilar_ev": 68.87,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 30.14,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "140",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 43.34,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 56.66,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "010",
+   "originator_ev": 0.11,
+   "biosimilar_ev": 50.59,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 49.3,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 93.76,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 6.24,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "042",
+   "originator_ev": 1.75,
+   "biosimilar_ev": 93.72,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 4.52,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "160",
+   "originator_ev": 0.32,
+   "biosimilar_ev": 76.69,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 23.0,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "200",
+   "originator_ev": 1.37,
+   "biosimilar_ev": 94.81,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 3.82,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "190",
+   "originator_ev": 0.11,
+   "biosimilar_ev": 67.94,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 31.95,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "090",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 74.47,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 25.53,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "100",
+   "originator_ev": 2.97,
+   "biosimilar_ev": 74.95,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 22.08,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 58.44,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 41.56,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "050",
+   "originator_ev": 1.09,
+   "biosimilar_ev": 82.47,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 16.44,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "territory": "000",
+   "originator_ev": 0.79,
+   "biosimilar_ev": 74.12,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 25.1,
+   "page": 4
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "130",
+   "originator_ev": 6.08,
+   "biosimilar_ev": 49.55,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 44.37,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "170",
+   "originator_ev": 2.04,
+   "biosimilar_ev": 56.91,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 41.04,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "180",
+   "originator_ev": 11.64,
+   "biosimilar_ev": 34.56,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 53.79,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "150",
+   "originator_ev": 3.27,
+   "biosimilar_ev": 40.2,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 56.53,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "080",
+   "originator_ev": 3.71,
+   "biosimilar_ev": 71.18,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 25.11,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "060",
+   "originator_ev": 0.5,
+   "biosimilar_ev": 52.06,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 47.44,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "120",
+   "originator_ev": 0.03,
+   "biosimilar_ev": 62.78,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 37.19,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "070",
+   "originator_ev": 2.2,
+   "biosimilar_ev": 23.97,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 73.83,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "030",
+   "originator_ev": 4.49,
+   "biosimilar_ev": 44.02,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 51.49,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "110",
+   "originator_ev": 2.86,
+   "biosimilar_ev": 42.53,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 54.62,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "140",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 17.68,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 82.32,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "010",
+   "originator_ev": 0.25,
+   "biosimilar_ev": 23.64,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 76.11,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 82.32,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 17.68,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "042",
+   "originator_ev": 7.17,
+   "biosimilar_ev": 80.32,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 12.51,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "160",
+   "originator_ev": 0.99,
+   "biosimilar_ev": 50.11,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 48.9,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "200",
+   "originator_ev": 5.81,
+   "biosimilar_ev": 83.23,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 10.96,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "190",
+   "originator_ev": 0.32,
+   "biosimilar_ev": 40.07,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 59.61,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "090",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 55.91,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 44.09,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "100",
+   "originator_ev": 8.63,
+   "biosimilar_ev": 47.83,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 43.54,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 30.16,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 69.84,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "050",
+   "originator_ev": 3.73,
+   "biosimilar_ev": 58.22,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 38.05,
+   "page": 5
+  },
+  {
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "territory": "000",
+   "originator_ev": 2.47,
+   "biosimilar_ev": 49.04,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 48.49,
+   "page": 5
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "130",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 90.51,
+   "originator_sc": 9.49,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "170",
+   "originator_ev": 0.53,
+   "biosimilar_ev": 91.11,
+   "originator_sc": 8.36,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "180",
+   "originator_ev": 2.81,
+   "biosimilar_ev": 96.76,
+   "originator_sc": 0.43,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "150",
+   "originator_ev": 0.39,
+   "biosimilar_ev": 84.95,
+   "originator_sc": 14.66,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "080",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 99.95,
+   "originator_sc": 0.05,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "060",
+   "originator_ev": 0.05,
+   "biosimilar_ev": 99.95,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "120",
+   "originator_ev": 0.01,
+   "biosimilar_ev": 99.32,
+   "originator_sc": 0.67,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "070",
+   "originator_ev": 0.07,
+   "biosimilar_ev": 93.07,
+   "originator_sc": 6.85,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "030",
+   "originator_ev": 1.11,
+   "biosimilar_ev": 88.77,
+   "originator_sc": 10.12,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "110",
+   "originator_ev": 0.17,
+   "biosimilar_ev": 96.8,
+   "originator_sc": 3.03,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "140",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 95.02,
+   "originator_sc": 4.98,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "010",
+   "originator_ev": 0.13,
+   "biosimilar_ev": 97.58,
+   "originator_sc": 2.29,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 95.59,
+   "originator_sc": 4.41,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "042",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "160",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "200",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 93.22,
+   "originator_sc": 6.78,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "190",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 95.73,
+   "originator_sc": 4.27,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "090",
+   "originator_ev": 0.3,
+   "biosimilar_ev": 99.61,
+   "originator_sc": 0.09,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "100",
+   "originator_ev": 6.62,
+   "biosimilar_ev": 93.38,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "050",
+   "originator_ev": 0.08,
+   "biosimilar_ev": 98.32,
+   "originator_sc": 1.6,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "territory": "000",
+   "originator_ev": 0.46,
+   "biosimilar_ev": 95.39,
+   "originator_sc": 4.15,
+   "biosimilar_sc": 0.0,
+   "page": 7
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "130",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 76.38,
+   "originator_sc": 23.62,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "170",
+   "originator_ev": 0.62,
+   "biosimilar_ev": 72.22,
+   "originator_sc": 27.16,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "180",
+   "originator_ev": 1.86,
+   "biosimilar_ev": 96.75,
+   "originator_sc": 1.39,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "150",
+   "originator_ev": 0.32,
+   "biosimilar_ev": 64.55,
+   "originator_sc": 35.13,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "080",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 99.84,
+   "originator_sc": 0.16,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "060",
+   "originator_ev": 0.06,
+   "biosimilar_ev": 99.94,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "120",
+   "originator_ev": 0.01,
+   "biosimilar_ev": 97.88,
+   "originator_sc": 2.11,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "070",
+   "originator_ev": 0.07,
+   "biosimilar_ev": 80.97,
+   "originator_sc": 18.96,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "030",
+   "originator_ev": 1.03,
+   "biosimilar_ev": 72.55,
+   "originator_sc": 26.42,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "110",
+   "originator_ev": 0.17,
+   "biosimilar_ev": 91.46,
+   "originator_sc": 8.37,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "140",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 80.02,
+   "originator_sc": 19.98,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "010",
+   "originator_ev": 0.13,
+   "biosimilar_ev": 93.33,
+   "originator_sc": 6.54,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 88.16,
+   "originator_sc": 11.84,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "042",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "160",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "200",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 75.8,
+   "originator_sc": 24.2,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "190",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 87.71,
+   "originator_sc": 12.29,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "090",
+   "originator_ev": 0.24,
+   "biosimilar_ev": 99.5,
+   "originator_sc": 0.26,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "100",
+   "originator_ev": 4.79,
+   "biosimilar_ev": 95.21,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "050",
+   "originator_ev": 0.07,
+   "biosimilar_ev": 94.5,
+   "originator_sc": 5.44,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "territory": "000",
+   "originator_ev": 0.39,
+   "biosimilar_ev": 87.54,
+   "originator_sc": 12.07,
+   "biosimilar_sc": 0.0,
+   "page": 8
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "130",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 37.59,
+   "originator_sc": 62.41,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "170",
+   "originator_ev": 2.81,
+   "biosimilar_ev": 36.05,
+   "originator_sc": 61.14,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "180",
+   "originator_ev": 15.47,
+   "biosimilar_ev": 78.82,
+   "originator_sc": 5.71,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "150",
+   "originator_ev": 1.35,
+   "biosimilar_ev": 25.81,
+   "originator_sc": 72.85,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "080",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 99.12,
+   "originator_sc": 0.88,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "060",
+   "originator_ev": 0.38,
+   "biosimilar_ev": 99.62,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "120",
+   "originator_ev": 0.12,
+   "biosimilar_ev": 89.81,
+   "originator_sc": 10.08,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "070",
+   "originator_ev": 0.41,
+   "biosimilar_ev": 47.15,
+   "originator_sc": 52.44,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "030",
+   "originator_ev": 4.83,
+   "biosimilar_ev": 33.65,
+   "originator_sc": 61.52,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "110",
+   "originator_ev": 1.19,
+   "biosimilar_ev": 70.01,
+   "originator_sc": 28.79,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "140",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 43.38,
+   "originator_sc": 56.62,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "010",
+   "originator_ev": 1.13,
+   "biosimilar_ev": 69.94,
+   "originator_sc": 28.93,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 57.11,
+   "originator_sc": 42.89,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "042",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "160",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "200",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 41.4,
+   "originator_sc": 58.6,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "190",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 58.39,
+   "originator_sc": 41.61,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "090",
+   "originator_ev": 2.59,
+   "biosimilar_ev": 96.02,
+   "originator_sc": 1.39,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "100",
+   "originator_ev": 31.45,
+   "biosimilar_ev": 68.55,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "050",
+   "originator_ev": 0.49,
+   "biosimilar_ev": 79.57,
+   "originator_sc": 19.94,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "territory": "000",
+   "originator_ev": 2.59,
+   "biosimilar_ev": 57.3,
+   "originator_sc": 40.11,
+   "biosimilar_sc": 0.0,
+   "page": 9
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "130",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 92.29,
+   "originator_sc": 7.71,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "170",
+   "originator_ev": 3.45,
+   "biosimilar_ev": 49.64,
+   "originator_sc": 46.91,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "180",
+   "originator_ev": 1.33,
+   "biosimilar_ev": 73.28,
+   "originator_sc": 25.38,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "150",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 80.33,
+   "originator_sc": 19.67,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "080",
+   "originator_ev": 0.28,
+   "biosimilar_ev": 92.77,
+   "originator_sc": 6.95,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "060",
+   "originator_ev": 3.06,
+   "biosimilar_ev": 90.45,
+   "originator_sc": 6.49,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "120",
+   "originator_ev": 0.15,
+   "biosimilar_ev": 95.9,
+   "originator_sc": 3.95,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "070",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 97.14,
+   "originator_sc": 2.86,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "030",
+   "originator_ev": 0.86,
+   "biosimilar_ev": 71.99,
+   "originator_sc": 27.15,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "110",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 95.27,
+   "originator_sc": 4.73,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "140",
+   "originator_ev": 0.3,
+   "biosimilar_ev": 83.13,
+   "originator_sc": 16.57,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "010",
+   "originator_ev": 0.31,
+   "biosimilar_ev": 86.15,
+   "originator_sc": 13.54,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 72.0,
+   "originator_sc": 28.0,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "042",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "160",
+   "originator_ev": 1.62,
+   "biosimilar_ev": 94.02,
+   "originator_sc": 4.36,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "200",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 77.87,
+   "originator_sc": 22.13,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "190",
+   "originator_ev": 0.7,
+   "biosimilar_ev": 84.26,
+   "originator_sc": 15.05,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "090",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 98.3,
+   "originator_sc": 1.7,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "100",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 97.98,
+   "originator_sc": 2.02,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 78.77,
+   "originator_sc": 21.23,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "050",
+   "originator_ev": 0.04,
+   "biosimilar_ev": 93.48,
+   "originator_sc": 6.48,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "territory": "000",
+   "originator_ev": 0.36,
+   "biosimilar_ev": 88.32,
+   "originator_sc": 11.32,
+   "biosimilar_sc": 0.0,
+   "page": 11
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "130",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 72.85,
+   "originator_sc": 27.15,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "170",
+   "originator_ev": 1.12,
+   "biosimilar_ev": 25.78,
+   "originator_sc": 73.09,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "180",
+   "originator_ev": 0.68,
+   "biosimilar_ev": 37.3,
+   "originator_sc": 62.02,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "150",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 57.3,
+   "originator_sc": 42.7,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "080",
+   "originator_ev": 0.11,
+   "biosimilar_ev": 86.79,
+   "originator_sc": 13.1,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "060",
+   "originator_ev": 1.38,
+   "biosimilar_ev": 84.56,
+   "originator_sc": 14.06,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "120",
+   "originator_ev": 0.1,
+   "biosimilar_ev": 87.39,
+   "originator_sc": 12.5,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "070",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 91.67,
+   "originator_sc": 8.33,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "030",
+   "originator_ev": 0.33,
+   "biosimilar_ev": 50.19,
+   "originator_sc": 49.48,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "110",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 86.49,
+   "originator_sc": 13.51,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "140",
+   "originator_ev": 0.15,
+   "biosimilar_ev": 60.78,
+   "originator_sc": 39.07,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "010",
+   "originator_ev": 0.13,
+   "biosimilar_ev": 73.89,
+   "originator_sc": 25.98,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 47.9,
+   "originator_sc": 52.1,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "042",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "160",
+   "originator_ev": 0.62,
+   "biosimilar_ev": 91.35,
+   "originator_sc": 8.03,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "200",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 60.6,
+   "originator_sc": 39.4,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "190",
+   "originator_ev": 0.44,
+   "biosimilar_ev": 53.6,
+   "originator_sc": 45.95,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "090",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 96.43,
+   "originator_sc": 3.57,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "100",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 96.19,
+   "originator_sc": 3.81,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 63.78,
+   "originator_sc": 36.22,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "050",
+   "originator_ev": 0.02,
+   "biosimilar_ev": 88.17,
+   "originator_sc": 11.81,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "territory": "000",
+   "originator_ev": 0.17,
+   "biosimilar_ev": 74.65,
+   "originator_sc": 25.18,
+   "biosimilar_sc": 0.0,
+   "page": 12
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "130",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 35.21,
+   "originator_sc": 64.79,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "170",
+   "originator_ev": 2.67,
+   "biosimilar_ev": 7.49,
+   "originator_sc": 89.84,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "180",
+   "originator_ev": 1.85,
+   "biosimilar_ev": 10.9,
+   "originator_sc": 87.25,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "150",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 23.47,
+   "originator_sc": 76.53,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "080",
+   "originator_ev": 0.64,
+   "biosimilar_ev": 59.77,
+   "originator_sc": 39.6,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "060",
+   "originator_ev": 7.43,
+   "biosimilar_ev": 53.48,
+   "originator_sc": 39.09,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "120",
+   "originator_ev": 0.65,
+   "biosimilar_ev": 57.96,
+   "originator_sc": 41.39,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "070",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 72.19,
+   "originator_sc": 27.81,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "030",
+   "originator_ev": 1.03,
+   "biosimilar_ev": 18.52,
+   "originator_sc": 80.45,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "110",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 60.61,
+   "originator_sc": 39.39,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "140",
+   "originator_ev": 0.55,
+   "biosimilar_ev": 23.96,
+   "originator_sc": 75.49,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "010",
+   "originator_ev": 0.6,
+   "biosimilar_ev": 35.26,
+   "originator_sc": 64.14,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "041",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 17.34,
+   "originator_sc": 82.66,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "042",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 100.0,
+   "originator_sc": 0.0,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "160",
+   "originator_ev": 3.57,
+   "biosimilar_ev": 69.93,
+   "originator_sc": 26.5,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "200",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 33.21,
+   "originator_sc": 66.79,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "190",
+   "originator_ev": 1.45,
+   "biosimilar_ev": 20.7,
+   "originator_sc": 77.85,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "090",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 83.74,
+   "originator_sc": 16.26,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "100",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 84.87,
+   "originator_sc": 15.13,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "020",
+   "originator_ev": 0.0,
+   "biosimilar_ev": 25.19,
+   "originator_sc": 74.81,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "050",
+   "originator_ev": 0.1,
+   "biosimilar_ev": 63.28,
+   "originator_sc": 36.62,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  },
+  {
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "territory": "000",
+   "originator_ev": 0.76,
+   "biosimilar_ev": 39.13,
+   "originator_sc": 60.11,
+   "biosimilar_sc": 0.0,
+   "page": 13
+  }
+ ]
+}

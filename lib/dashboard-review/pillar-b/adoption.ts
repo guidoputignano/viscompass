@@ -146,6 +146,29 @@ export interface VolumeBreakdownRow {
   firstKey: number | null;
 }
 
+/**
+ * What the volume panel (a client component) may hold: the labels, the two
+ * shares, the Azienda count and the first-use key. Not the summed quantities
+ * behind the shares: the page shows no quantity total of any kind, and a
+ * client prop is readable by anyone holding the page.
+ */
+export interface VolumePanelRow {
+  substance: string;
+  route: string;
+  unit: string;
+  aslCount: number;
+  wholePeriodShare: number | null;
+  windowShare: number | null;
+  firstKey: number | null;
+}
+
+export function volumePanelRows(rows: ReadonlyArray<VolumeBreakdownRow>): VolumePanelRow[] {
+  return rows.map((r) => ({
+    substance: r.substance, route: r.route, unit: r.unit, aslCount: r.aslCount,
+    wholePeriodShare: r.wholePeriod.share, windowShare: r.window.share, firstKey: r.firstKey,
+  }));
+}
+
 function share(bio: number, total: number): number | null {
   return total === 0 ? null : bio / total;
 }

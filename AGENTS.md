@@ -107,6 +107,16 @@ without understanding them:
 
 ## Current state (update this section when it changes)
 
+**2 October 2026, Pillar B:** the private page `/dashboard-review/revisione-pillar-b`
+(Pillar A-style sections, panel-local controls, reviewer path) reads the live
+Pillar B release through RLS-bound RPCs; a reviewer (REVIEWER_EMAILS) is
+widened server-side to every Azienda. The public page `/pillar-b` renders ONE
+independently published AIFA table (biosimilar EV/SC focus, 2025, direct
+purchases; `data/public-compiled/pillar-b-aifa-ev-sc-2025.json`, built by
+`scripts/build_pillar_b_public_aifa_ev_sc.py`) and nothing from the
+confidential workbook, not even a regional aggregate. See
+`docs/PILLAR_B_PUBLIC_PAGE_20261002.md` and `docs/PILLAR_B_WORKBOOK_MAP_20261002.md`.
+
 **20 Sep 2026 public-data addition:** `/pillar-a` adds separate public
 AIFA 2016–2025 trends, ISTAT 2019–2025 per-resident spending and SDO
 2021–2024 activity context. See `docs/PILLAR_A_PUBLIC_RELEASE.md` for

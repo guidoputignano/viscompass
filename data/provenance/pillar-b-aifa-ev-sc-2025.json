@@ -1,0 +1,97 @@
+{
+ "asset": "data/public-compiled/pillar-b-aifa-ev-sc-2025.json",
+ "built": "2026-10-02",
+ "source_url": "https://www.aifa.gov.it/documents/20142/3423405/5_FocusForme_EV_SC_gen_dic_2025.pdf",
+ "source_sha256": "c8f12948f1162a9062920a50b53c3514644429bc6934d46d7fb73e41b00831ce",
+ "source_bytes": 492008,
+ "physical_pages": 13,
+ "page_offset_note": "printed page = physical page - 1; page 1 is the cover with the table of contents",
+ "tables": [
+  {
+   "page": 3,
+   "printed_page": 2,
+   "molecule": "infliximab",
+   "measure": "confezioni",
+   "title": "INFLIXIMAB - Distribuzione dei consumi (confezioni) secondo la via di somministrazione nel canale degli acquisti diretti nel periodo",
+   "rows": 22
+  },
+  {
+   "page": 4,
+   "printed_page": 3,
+   "molecule": "infliximab",
+   "measure": "ddd",
+   "title": "INFLIXIMAB - Distribuzione dei consumi (DDD) secondo la via di somministrazione nel canale degli acquisti diretti nel periodo gen-dic",
+   "rows": 22
+  },
+  {
+   "page": 5,
+   "printed_page": 4,
+   "molecule": "infliximab",
+   "measure": "spesa",
+   "title": "INFLIXIMAB - Distribuzione della spesa secondo la via di somministrazione nel canale degli acquisti diretti nel periodo gen-dic 2025",
+   "rows": 22
+  },
+  {
+   "page": 7,
+   "printed_page": 6,
+   "molecule": "rituximab",
+   "measure": "confezioni",
+   "title": "RITUXIMAB - Distribuzione dei consumi (confezioni) secondo la via di somministrazione nel canale degli acquisti diretti nel periodo",
+   "rows": 22
+  },
+  {
+   "page": 8,
+   "printed_page": 7,
+   "molecule": "rituximab",
+   "measure": "ddd",
+   "title": "RITUXIMAB - Distribuzione dei consumi (DDD) secondo la via di somministrazione nel canale degli acquisti diretti nel periodo gen-dic",
+   "rows": 22
+  },
+  {
+   "page": 9,
+   "printed_page": 8,
+   "molecule": "rituximab",
+   "measure": "spesa",
+   "title": "RITUXIMAB - Distribuzione della spesa secondo la via di somministrazione nel canale degli acquisti diretti nel periodo gen-dic 2025",
+   "rows": 22
+  },
+  {
+   "page": 11,
+   "printed_page": 10,
+   "molecule": "trastuzumab",
+   "measure": "confezioni",
+   "title": "TRASTUZUMAB - Distribuzione dei consumi (confezioni) secondo la via di somministrazione nel canale degli acquisti diretti nel periodo",
+   "rows": 22
+  },
+  {
+   "page": 12,
+   "printed_page": 11,
+   "molecule": "trastuzumab",
+   "measure": "ddd",
+   "title": "TRASTUZUMAB - Distribuzione dei consumi (DDD) secondo la via di somministrazione nel canale degli acquisti diretti nel periodo",
+   "rows": 22
+  },
+  {
+   "page": 13,
+   "printed_page": 12,
+   "molecule": "trastuzumab",
+   "measure": "spesa",
+   "title": "TRASTUZUMAB - Distribuzione della spesa secondo la via di somministrazione nel canale degli acquisti diretti nel periodo gen-dic 2025",
+   "rows": 22
+  }
+ ],
+ "checks": {
+  "rows": 198,
+  "territories_per_table": 22,
+  "row_sum_tolerance": 0.02,
+  "labels_identical_across_tables": true,
+  "sc_originator_zero_everywhere": {
+   "infliximab": true
+  },
+  "sc_biosimilar_zero_everywhere": {
+   "rituximab": true,
+   "trastuzumab": true
+  }
+ },
+ "method": "pdfplumber extract_words(x_tolerance=5, y_tolerance=3), rows rebuilt by vertical position; the PDF text layer alone misorders the label column"
+}

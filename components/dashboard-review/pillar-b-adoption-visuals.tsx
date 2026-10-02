@@ -3,13 +3,15 @@
 // Same contract as pillar-b-review-visuals.tsx: every mark encodes a figure
 // that also appears in a table on the page, nothing is computed here that the
 // pure modules did not already compute, and null is drawn as "not observed",
-// never as zero. No client JavaScript: the charts are plain SVG, so they
-// render identically for the harness, the reader and a screen reader.
+// never as zero. The charts are plain SVG with no state of their own, so they
+// render identically for the harness, the reader and a screen reader; the
+// panel-local controls live in pillar-b-panels.tsx.
 
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { DumbbellRow, TimelineModel } from "@/lib/dashboard-review/pillar-b/adoption";
 import { monthKeyLabel } from "@/lib/dashboard-review/pillar-b/adoption";
-import type { AslBreakdownRow, CalendarRow, ChannelMixRow, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
+import type { AziendaPanelRow, ChannelMixRow, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
+import { aziendaMetricValue, type AziendaMetric } from "@/lib/dashboard-review/pillar-b/view-options";
 
 const ink = "hsl(var(--foreground))";
 const muted = "hsl(var(--muted-foreground))";
@@ -17,7 +19,6 @@ const grid = "hsl(var(--border))";
 const teal = "hsl(var(--primary))";
 const slate = "hsl(204 15% 55%)";
 const coral = "#e87955";
-const amber = "hsl(38 92% 50%)";
 
 const compact = (v: number): string =>
   Math.abs(v) >= 1_000_000 ? `${formatNumber(v / 1_000_000, 1)} M€`
@@ -146,59 +147,39 @@ export function FirstUseTimeline({ model, followsAzienda = true }: {
   </Frame>;
 }
 
-// ------------------------------------------------------------------ calendar
-
-export function CalendarHeatmap({ rows, title, lead }: { rows: CalendarRow[]; title: string; lead: string }) {
-  const cellW = 56, cellH = 44, left = 118, top = 26, gap = 3;
-  const width = left + 12 * (cellW + gap) + 8;
-  const height = top + rows.length * (cellH + gap) + 8;
-  const max = Math.max(1, ...rows.flatMap((r) => r.cells.map((c) => c.spend_eur ?? 0)));
-  const months = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
-  return <Frame title={title} lead={lead}>
-    {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessun mese osservato con questi filtri.</p> : <>
-    <svg role="img" aria-label="Spesa mensile per anno; celle tratteggiate non osservate" viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <pattern id="pb-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="6" stroke={grid} strokeWidth="2" />
-        </pattern>
-      </defs>
-      {months.map((m, i) => <text key={m} x={left + i * (cellW + gap) + cellW / 2} y={top - 8} textAnchor="middle" fontSize="11" fill={muted}>{m}</text>)}
-      {rows.map((row, ri) => {
-        const y = top + ri * (cellH + gap);
-        return <g key={row.year}>
-          <text x={left - 10} y={y + cellH / 2 - 2} textAnchor="end" fontSize="13" fontWeight="600" fill={row.partial ? amber : ink}>{row.year}</text>
-          <text x={left - 10} y={y + cellH / 2 + 12} textAnchor="end" fontSize="10" fill={muted}>
-            {row.partial ? `${row.monthsObserved} mesi · parziale` : row.total_eur === null ? "non osservato" : compact(row.total_eur)}
-          </text>
-          {row.cells.map((c, ci) => {
-            const cx = left + ci * (cellW + gap);
-            const v = c.spend_eur;
-            const alpha = v === null ? 0 : 0.12 + 0.78 * Math.max(0, v) / max;
-            return <g key={c.month}>
-              <rect x={cx} y={y} width={cellW} height={cellH} rx="5"
-                    fill={v === null ? "url(#pb-hatch)" : teal} fillOpacity={v === null ? 1 : alpha}
-                    stroke={row.partial && v !== null ? amber : "none"} strokeWidth="1.5" strokeDasharray={row.partial ? "3 2" : undefined} />
-              <text x={cx + cellW / 2} y={y + cellH / 2 + 4} textAnchor="middle" fontSize="10"
-                    fill={v === null ? muted : alpha > 0.55 ? "white" : ink}>
-                {v === null ? "n/o" : compact(v)}
-              </text>
-            </g>;
-          })}
-        </g>;
-      })}
-    </svg>
-    <p className="mt-2 text-[11px] text-muted-foreground">
-      Tono proporzionale alla spesa del mese. «n/o»: nessun record in quel mese, che non è uno zero. Una riga parziale (bordo ambra) non ha un totale annuo confrontabile.
-    </p>
-    </>}
-  </Frame>;
-}
-
 // -------------------------------------------------------------- by Azienda
 
-export function AziendaBars({ rows, years }: { rows: AslBreakdownRow[]; years: ReadonlyArray<number> }) {
+export function AziendaBars({ rows, years, metric = "spesa" }: {
+  rows: AziendaPanelRow[]; years: ReadonlyArray<number>;
+  /** "spesa" draws one bar per year; the others draw one bar per Azienda. */
+  metric?: AziendaMetric;
+}) {
   const max = Math.max(1, ...rows.flatMap((r) => years.map((y) => r.byYear[y] ?? 0)));
   const colors = [slate, teal];
+  if (metric !== "spesa") {
+    const scale = metric === "comparabile" ? 1 : Math.max(1, ...rows.map((r) => r.rows_n));
+    const fmt = (v: number) => (metric === "comparabile" ? formatPercent(v) : formatNumber(v, 0));
+    return <Frame
+      title={metric === "comparabile" ? "Quota con quantità confrontabile per Azienda" : "Record per Azienda"}
+      lead={metric === "comparabile"
+        ? "Quanta parte della spesa di ciascuna Azienda, negli anni selezionati, raggiunge una quantità confrontabile: la base su cui ogni misura di volume riposa. Non è una misura di adozione."
+        : "Righe rendicontate per Azienda negli anni selezionati. Record, non pazienti né confezioni."}
+    >
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna Azienda nel perimetro.</p> :
+      <div role="img" aria-label={metric === "comparabile" ? "Quota confrontabile per Azienda" : "Record per Azienda"} className="space-y-2">
+        {rows.map((r) => {
+          const v = aziendaMetricValue(r, metric);
+          return <div key={r.label} className="grid gap-1 sm:grid-cols-[9rem_1fr_7rem] sm:items-center sm:gap-3">
+            <div className="text-xs font-medium text-foreground">{r.label}</div>
+            <div className="h-4 overflow-hidden rounded bg-muted/60">
+              <div className="h-full rounded" style={{ width: `${v === null ? 0 : Math.max(0, Math.min(1, v / scale)) * 100}%`, background: teal }} />
+            </div>
+          <span className="text-right font-mono text-[11px] text-foreground">{v === null ? "—" : fmt(v)}</span>
+          </div>;
+        })}
+      </div>}
+    </Frame>;
+  }
   // NO ADOPTION SHARE HERE. A biosimilar/(biosimilar+reference) ratio by
   // perimeter status alone — without the monthly validity rule — would be a
   // third denominator, matching neither published measure. Adoption per
@@ -213,20 +194,26 @@ export function AziendaBars({ rows, years }: { rows: AslBreakdownRow[]; years: R
       {years.map((y, i) => <span key={y}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm" style={{ background: colors[i % colors.length] }} />{y}</span>)}
     </div>
     <div role="img" aria-label="Spesa per Azienda e anno" className="space-y-3">
-      {rows.map((r) => <div key={r.asl_code} className="grid gap-1.5 sm:grid-cols-[9rem_1fr_11rem] sm:items-center sm:gap-3">
+      {rows.map((r) => <div key={r.label} className="grid gap-1.5 sm:grid-cols-[9rem_1fr_11rem] sm:items-center sm:gap-3">
         <div className="text-xs font-medium text-foreground">{r.label}</div>
         <div className="space-y-1">
-          {years.map((y, i) => <div key={y} className="flex items-center gap-2">
-            <div className="h-3.5 flex-1 overflow-hidden rounded bg-muted/60">
-              <div className="h-full rounded" style={{ width: `${Math.max(0, (r.byYear[y] ?? 0)) / max * 100}%`, background: colors[i % colors.length] }} />
-            </div>
-            {/* An absent (Azienda, year) group is "no record", never a zero. */}
-            <span className="w-20 text-right font-mono text-[11px] text-foreground">{r.byYear[y] === undefined ? "n/o" : compact(r.byYear[y])}</span>
-          </div>)}
+          {years.map((y, i) => r.byYear[y] === undefined
+            // An absent (Azienda, year) group is "no record", never a zero: the
+            // track stays, the bar does not, and the label says why.
+            ? <div key={y} className="flex items-center gap-2">
+                <div className="h-3.5 flex-1 rounded border border-dashed border-border" />
+                <span className="w-20 text-right text-[10px] text-muted-foreground">{y}: nessun record</span>
+              </div>
+            : <div key={y} className="flex items-center gap-2">
+                <div className="h-3.5 flex-1 overflow-hidden rounded bg-muted/60">
+                  <div className="h-full rounded" style={{ width: `${Math.max(0, r.byYear[y]) / max * 100}%`, background: colors[i % colors.length] }} />
+                </div>
+                <span className="w-20 text-right font-mono text-[11px] text-foreground">{compact(r.byYear[y])}</span>
+              </div>)}
         </div>
         <div className="text-[11px] text-muted-foreground">
           totale <span className="font-mono text-foreground">{formatEur(r.spend_eur)}</span>
-          <br />con quantità confrontabile: <span className="font-mono">{r.comparable_share === null ? "n/d" : formatPercent(r.comparable_share)}</span>
+          {r.comparable_share !== null && <><br />con quantità confrontabile: <span className="font-mono">{formatPercent(r.comparable_share)}</span></>}
         </div>
       </div>)}
     </div>
@@ -283,21 +270,22 @@ export function ChannelStack({ rows, years }: { rows: ChannelMixRow[]; years: Re
 // ------------------------------------------------------------- perimeter
 
 export function PerimeterBars({ rows }: { rows: PerimeterRow[] }) {
-  const max = Math.max(1, ...rows.map((r) => r.spend_eur ?? 0));
+  const observed = rows.filter((r) => r.spend_eur !== null);
+  const max = Math.max(1, ...observed.map((r) => r.spend_eur ?? 0));
   return <Frame
     title="Dove sta il denaro rispetto al perimetro biosimilare"
     lead="Stato di ogni prodotto nella tassonomia riconciliata (B03), sotto i filtri attivi di anno, Azienda e canale — a differenza dell'imbuto qui sopra, che copre l'intero perimetro visibile. Solo biosimilari e medicinali di riferimento entrano nelle misure di adozione; tutto il resto è mostrato perché il perimetro sia visibile, non nascosto. Con un filtro per molecola questa vista non viene mostrata: la quota per stato di una sola molecola coinciderebbe con una misura di adozione senza regola di validità."
   >
-    {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessun prodotto classificato.</p> :
+    {observed.length === 0 ? <p className="text-sm text-muted-foreground">Nessun prodotto classificato nella selezione.</p> :
     <div role="img" aria-label="Spesa per stato di perimetro" className="space-y-2">
-      {rows.map((r) => <div key={r.perimeter_status} className="grid gap-1 sm:grid-cols-[15rem_1fr_13rem] sm:items-center sm:gap-3">
+      {observed.map((r) => <div key={r.perimeter_status} className="grid gap-1 sm:grid-cols-[15rem_1fr_13rem] sm:items-center sm:gap-3">
         <div className="text-xs text-foreground">{r.label}</div>
         <div className="h-4 overflow-hidden rounded bg-muted/60">
           <div className="h-full rounded" style={{ width: `${Math.max(0, r.spend_eur ?? 0) / max * 100}%`, background: r.perimeter_status === "biosimilar" ? teal : r.perimeter_status === "reference_medicine" ? coral : slate }} />
         </div>
         <div className="font-mono text-[11px] text-muted-foreground">
-          <span className="text-foreground">{r.spend_eur === null ? "n/d" : formatEur(r.spend_eur)}</span>
-          {" · "}{r.share === null ? "n/d" : formatPercent(r.share)}{" · "}
+          <span className="text-foreground">{formatEur(r.spend_eur!)}</span>
+          {r.share !== null && <> · {formatPercent(r.share)}</>}{" · "}
           {r.perimeter_status === "unclassified" ? "nessun AIC" : `${formatNumber(r.aic_count, 0)} AIC`}
         </div>
       </div>)}

@@ -145,7 +145,22 @@ export interface CalendarCell {
   /** null = no record in that month. Distinct from a zero. */
   spend_eur: number | null;
   rows_n: number;
+  /**
+   * Comparable spend over the month's spend. null when the month is not
+   * observed, when its spend is zero (no ratio), or when the year is partial
+   * (the comparable-quantity basis covers the complete years only, so for
+   * 2026 the share is not assessable, not zero). A complete-year month
+   * observed with no comparable row is a known 0: the SQL sum is null for
+   * "no such row", and that is a zero of a known total.
+   */
   comparable_share: number | null;
+  /**
+   * Spend in the biosimilar perimeter that month, by STATUS (biosimilar +
+   * reference). An amount, never a share: a biosimilar share of it would be
+   * an adoption ratio without the monthly validity rule. null only when the
+   * month is not observed; an observed month with no perimeter row is 0.
+   */
+  perimeter_eur: number | null;
   /** True for a year the release does not hold in full. */
   partial: boolean;
 }
@@ -184,8 +199,10 @@ export function calendarRows(months: ReadonlyArray<FacetMonth>): CalendarRow[] {
         year, month: i + 1,
         spend_eur: m ? spend : null,
         rows_n: m?.rows_n ?? 0,
-        comparable_share: m && spend !== null && spend !== 0 && m.comparable_spend_eur !== null
-          ? m.comparable_spend_eur / spend : null,
+        comparable_share: m && spend !== null && spend !== 0 && !partial
+          ? (m.comparable_spend_eur ?? 0) / spend : null,
+        perimeter_eur: m && spend !== null
+          ? (m.biosimilar_eur ?? 0) + (m.reference_eur ?? 0) : null,
         partial,
       };
     });
@@ -224,6 +241,18 @@ export interface AslBreakdownRow {
  * @param label resolves an asl_code to the name the reader may see. The page
  *   passes the pseudonymised map, so this module never decides who may be named.
  */
+/**
+ * What the Azienda panel (a client component) may hold: the pseudonym and
+ * the figures it draws. Not the asl_code (a pseudonym beside its code is no
+ * pseudonym) and not the two status amounts, which are carried for totals
+ * only and must never reach a place that could divide them.
+ */
+export type AziendaPanelRow = Pick<AslBreakdownRow, "label" | "spend_eur" | "rows_n" | "comparable_share" | "byYear">;
+
+export function aziendaPanelRows(rows: ReadonlyArray<AslBreakdownRow>): AziendaPanelRow[] {
+  return rows.map(({ label, spend_eur, rows_n, comparable_share, byYear }) => ({ label, spend_eur, rows_n, comparable_share, byYear }));
+}
+
 export function aslBreakdown(
   rows: ReadonlyArray<FacetAsl>, label: (aslCode: string) => string,
 ): AslBreakdownRow[] {
@@ -308,4 +337,37 @@ export function perimeterRows(rows: ReadonlyArray<FacetPerimeter>): PerimeterRow
     label: PERIMETER_LABELS[r.perimeter_status] ?? r.perimeter_status,
     share: total === 0 || r.spend_eur === null ? null : r.spend_eur / total,
   }));
+}
+
+// ------------------------------------------------------------- empty set
+
+/**
+ * The sentence shown when the selection holds no perimeter row: where the
+ * nearest PERIMETER rows are, read from a wider facets call (same substance
+ * and Azienda, every channel, both complete years). An empty set is
+ * explained, never printed as a zero.
+ *
+ * Presence is judged on the perimeter amounts, not on the record count: the
+ * trigger counts biosimilar and reference rows, so a channel that holds only
+ * out-of-perimeter rows of the substance must not be offered as "present".
+ * The SQL sums are null when no such row exists, so "either amount not null"
+ * is exactly "at least one perimeter row".
+ *
+ * @param subject what was looked for, e.g. "denosumab in ASL 1"
+ */
+export function emptySelectionHint(
+  subject: string,
+  channelsByYear: ReadonlyArray<Pick<FacetChannel, "channel" | "year" | "biosimilar_eur" | "reference_eur">>,
+): string {
+  const present = channelsByYear.filter((c) => c.biosimilar_eur !== null || c.reference_eur !== null);
+  if (present.length === 0) {
+    return `Nessun record nel perimetro biosimilare per ${subject} nel 2024 e nel 2025, su nessun canale: l'insieme è vuoto, non uno zero.`;
+  }
+  const byChannel = new Map<string, Set<number>>();
+  for (const c of present) byChannel.set(c.channel, (byChannel.get(c.channel) ?? new Set<number>()).add(c.year));
+  const where = [...byChannel.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([ch, ys]) => `${ch} (${[...ys].sort((a, b) => a - b).join(", ")})`)
+    .join(" · ");
+  return `Nessun record nel perimetro biosimilare per ${subject} con questi canali e anni. Record del perimetro presenti in: ${where}.`;
 }

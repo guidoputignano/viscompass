@@ -29,7 +29,10 @@ export default async function DashboardReviewLayout({
         </div>
       );
     }
-    return <AccessPortal overview={overview} isAdmin={Boolean(adminEmail)} />;
+    // A recognised reviewer without a membership is told why, rather than
+    // shown an ordinary access request: the reviewer exception widens what an
+    // approved account sees, it does not replace the membership.
+    return <AccessPortal overview={overview} isAdmin={Boolean(adminEmail)} isReviewer={Boolean(viewer?.isReviewer)} />;
   }
 
   return (

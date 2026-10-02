@@ -11,11 +11,18 @@
 // rule is unchanged for every other account and is still enforced by
 // lib/analytics/org-pseudonym.ts.
 //
+// Extended on 2 October 2026 to three platform reviewers, on the technical
+// lead's handover instruction ("the three already-approved platform
+// reviewers"). The addresses stay in the environment, never here.
+//
 // THE LIST LIVES IN THE ENVIRONMENT, NOT IN THIS FILE, and must stay there:
 // this repository is public, so a compiled-in address would publish the
 // personal email of everyone granted the exception. Set REVIEWER_EMAILS in the
 // deployment environment (Vercel) and locally in .env.local. Onboarding or
 // removing a reviewer is an environment change, with no deploy and no commit.
+// The reviewer also needs an approved organization membership: the dashboard
+// layout shows the access portal to any account without one, reviewer or not,
+// and the portal says so to a recognised reviewer.
 //
 // FAILS CLOSED. With REVIEWER_EMAILS unset there are no reviewers at all and
 // every account is scoped to its own Azienda — the pre-existing behaviour. An
@@ -36,12 +43,40 @@
  * so a change takes effect without a restart and so tests can vary it.
  */
 export function reviewerEmails(): Set<string> {
-  return new Set(
-    (process.env.REVIEWER_EMAILS ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
-  );
+  return new Set(parseReviewerList(process.env.REVIEWER_EMAILS).valid);
+}
+
+// A deliberately plain shape check: one "@", a dot in the domain, nothing that
+// belongs to a display name or a quoted form. It decides only whether a token
+// is admitted to the list; matching stays exact.
+const EMAIL = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
+
+/**
+ * Parse the raw variable into valid addresses and a count of tokens that are
+ * not addresses. Tolerates what a value pasted into a hosting dashboard tends
+ * to carry: surrounding quotes, "Name <addr>" forms, zero-width characters,
+ * and ";" or newlines as separators. A malformed token is never admitted,
+ * so this can only withhold the exception, never widen it.
+ */
+export function parseReviewerList(raw: string | undefined): { valid: string[]; malformed: number } {
+  const cleaned = (raw ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "");
+  const valid: string[] = [];
+  let malformed = 0;
+  for (const piece of cleaned.split(/[,;\n]+/)) {
+    let token = piece.trim().replace(/^["']+|["']+$/g, "").trim();
+    if (!token) continue;
+    const angle = token.match(/<([^<>]+)>/);
+    if (angle) token = angle[1].trim();
+    token = token.toLowerCase();
+    if (EMAIL.test(token)) valid.push(token); else malformed += 1;
+  }
+  return { valid: [...new Set(valid)], malformed };
+}
+
+/** Counts only, for an operator: how many reviewers are configured and how many tokens were refused. */
+export function reviewerConfigReport(): { valid: number; malformed: number } {
+  const { valid, malformed } = parseReviewerList(process.env.REVIEWER_EMAILS);
+  return { valid: valid.length, malformed };
 }
 
 /**

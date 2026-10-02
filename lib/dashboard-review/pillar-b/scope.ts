@@ -27,11 +27,12 @@
 // reviewer, by lib/analytics/org-pseudonym.ts. The labels are resolved HERE,
 // server-side, and only the resulting strings reach a component.
 
+import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleConfig } from "@/lib/supabase/service-role";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getReviewerEmail } from "@/lib/auth/reviewer";
-import { orgDisplayMap } from "@/lib/analytics/org-pseudonym";
+import { labelScopedOrgs } from "./scope-labels";
 import { decidePrivateScope, type ScopeDecision } from "@/lib/analytics/private-scope-rules";
 import { aslCodeFor, orgCodeFromAsl } from "./filters";
 import { getSpend, type PillarBDb } from "./rpc";
@@ -74,16 +75,23 @@ async function organizationsInRelease(admin: PillarBDb): Promise<ScopedOrg[] | n
   try {
     const [s24, s25] = await Promise.all([getSpend(admin, 2024), getSpend(admin, 2025)]);
     aslCodes = [...new Set([...s24, ...s25].map((r) => r.asl_code))].sort();
-  } catch {
+  } catch (cause) {
+    console.error("PBR-WIDEN-SPEND reviewer release listing failed", cause instanceof Error ? cause.message : cause);
     return null;
   }
-  if (aslCodes.length === 0) return null;
+  if (aslCodes.length === 0) {
+    console.error("PBR-WIDEN-EMPTY reviewer release listing returned no Azienda");
+    return null;
+  }
 
   const { data, error } = await admin
     .from("organizations")
     .select("org_code, org_name, org_type, region_code")
     .eq("org_type", "asl");
-  if (error) return null;
+  if (error) {
+    console.error("PBR-WIDEN-ORGS reviewer organization directory read failed", error.message);
+    return null;
+  }
   const orgs = (data ?? []) as OrgRow[];
 
   return aslCodes.map((aslCode) => {
@@ -104,10 +112,14 @@ export async function resolvePillarBScope(): Promise<PillarBScope | null> {
 
   let admin: PillarBDb | null = null;
   let releaseOrgs: ScopedOrg[] | null = null;
+  if (isReviewer && !hasServiceRoleConfig()) {
+    console.error("PBR-WIDEN-CONFIG reviewer recognised but the service-role configuration is missing");
+  }
   if (isReviewer && hasServiceRoleConfig()) {
     try {
       admin = createServiceRoleClient();
-    } catch {
+    } catch (cause) {
+      console.error("PBR-WIDEN-CLIENT service-role client could not be created", cause instanceof Error ? cause.message : cause);
       admin = null;
     }
     if (admin) releaseOrgs = await organizationsInRelease(admin);
@@ -154,12 +166,7 @@ export async function resolvePillarBScope(): Promise<PillarBScope | null> {
   // Labels resolved once, under the pseudonym rule. A reviewer with a
   // successful widening sees real names; everyone else sees their own Azienda
   // by name and the rest as ASL 1–4.
-  const labels = orgDisplayMap(
-    scopedOrgs.map((o) => ({ org_code: o.orgCode, org_name: o.label })),
-    decision.viewerCode,
-    { unrestricted: decision.showRealNames && decision.allOrganizations },
-  );
-  const labelled = scopedOrgs.map((o) => ({ ...o, label: labels[o.orgCode] ?? o.orgCode }));
+  const labelled = labelScopedOrgs(decision, scopedOrgs);
   const aslLabels = Object.fromEntries(labelled.map((o) => [o.aslCode, o.label]));
 
   const perimeterLabel = decision.allOrganizations

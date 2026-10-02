@@ -1,25 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { isPublicPath } from "./public-paths";
 
 // Session cookies last at most seven days. The Supabase default of 400 days keeps
 // a stolen session usable long after the user believes it ended.
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 export async function updateSession(request: NextRequest) {
-  // The approved public observatory: the page and the three read routes that
-  // serve the aggregate it renders. The compiled files are no longer under
-  // `public/`, so there is no static asset path to allowlist.
-  //
-  // There is no bulk-export route to allowlist: it was removed outright, so the
-  // compiled series is not delivered whole to anyone, signed in or not.
-  const PUBLIC_PATHS = [
-    "/pillar-a",
-    "/api/pillar-a/series",
-    "/api/pillar-a/osmed",
-    "/api/pillar-a/atc4",
-  ];
-  if (PUBLIC_PATHS.includes(request.nextUrl.pathname)) {
+  // The public observatories (/pillar-a, its three read routes, /pillar-b):
+  // the list and its exact-match rule live in ./public-paths.ts, where they
+  // are tested. Everything else needs a session.
+  if (isPublicPath(request.nextUrl.pathname)) {
     return NextResponse.next({ request });
   }
   let supabaseResponse = NextResponse.next({

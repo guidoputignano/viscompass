@@ -2,7 +2,8 @@
 //
 // The layout follows Pillar A: editorial introduction, a compact filter card,
 // four comparable headline measures, then self-contained analytical panels.
-// Server-rendered throughout. Charts encode the
+// A server component; the panels with a local control (pillar-b-panels.tsx)
+// are a client island and receive only the rows they draw. Charts encode the
 // same verified values as the audit tables and never introduce a second
 // calculation path. Italian number formatting goes through the shared helpers
 // for the reason pinned in tests/it-number.test.mjs.
@@ -22,18 +23,20 @@
 
 import { AlertTriangle, Info } from "lucide-react";
 import {
-  ChannelSlopeChart, ConcentrationCurve, EvidenceFunnelChart,
-  MoleculeChangeChart, UptakeCoverageChart,
+  ChannelSlopeChart, EvidenceFunnelChart, UptakeCoverageChart,
 } from "@/components/dashboard-review/pillar-b-review-visuals";
+import { ChannelStack, PerimeterBars } from "@/components/dashboard-review/pillar-b-adoption-visuals";
 import {
-  AziendaBars, CalendarHeatmap, ChannelStack, PerimeterBars,
-} from "@/components/dashboard-review/pillar-b-adoption-visuals";
+  AziendaPanel, CalendarPanel, ConcentrationPanel, TrendPanel, TrendTable, VolumePanel,
+  type ConcentrationVariants, type TrendVariants,
+} from "@/components/dashboard-review/pillar-b-panels";
+import type { ConcentrationYear, PerimeterMode, ViewOptions } from "@/lib/dashboard-review/pillar-b/view-options";
+import { WORKBOOK_STATUS_LABELS, workbookByStatus, workbookTally } from "@/lib/dashboard-review/pillar-b/workbook-map";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
-import type { CoverageNotice, Concentration, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
+import type { CoverageNotice, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
 import type { UptakeWithWithheld } from "@/lib/dashboard-review/pillar-b/rpc";
-import type { AslBreakdownRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
-import type { VolumeBreakdownRow } from "@/lib/dashboard-review/pillar-b/adoption";
-import { monthKeyLabel } from "@/lib/dashboard-review/pillar-b/adoption";
+import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
+import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 
 export interface PillarBReviewProps {
@@ -64,7 +67,9 @@ export interface PillarBReviewProps {
     /** Set when the value-uptake figures cover a scope WIDER than the page's. */
     valueUptakeScope: string | null;
     calendar: CalendarRow[] | null;
-    azienda: AslBreakdownRow[] | null;
+    azienda: AziendaPanelRow[] | null;
+    /** Aziende in scope with no record under the filters, named so absence is not read as non-existence. */
+    aziendaAbsent: string[];
     channels: ChannelMixRow[] | null;
   };
   adoption: {
@@ -73,15 +78,21 @@ export interface PillarBReviewProps {
     /** Distinct (Azienda, substance, route, unit) groups — not per-year rows. */
     groupCount: number;
     withheldGroupCount: number;
-    volume: VolumeBreakdownRow[];
+    volume: VolumePanelRow[];
+    /** Routes present in `volume`, for the local route control. */
+    routes: string[];
     /** Which filters the volume measure could not honour, one sentence each. */
     notes: string[];
   };
+  /** The panel-local options as read from the URL on this request. */
+  viewOptions: ViewOptions;
   spend: {
-    moleculeTrend: TrendRow[];
     channelTrend: TrendRow[];
-    concentration: Concentration;
-    concentrationYear: number;
+    /** Every (perimeter, order) variant of the molecule trend, pre-sorted and sliced. */
+    trendVariants: TrendVariants;
+    trendTotals: Record<PerimeterMode, number>;
+    concentrationVariants: ConcentrationVariants;
+    concentrationYear: ConcentrationYear;
     totals: { spend2024: number; spend2025: number; rows2024: number; rows2025: number };
   };
   evidence: {
@@ -139,12 +150,39 @@ function Stat({ label, value, detail, accent }: { label: string; value: string; 
   );
 }
 
-function Bar({ share }: { share: number }) {
-  const width = Math.max(0, Math.min(1, share)) * 100;
+/**
+ * The 25 workbook sheets and where each one stands. Shown closed; a reader
+ * who asks "is all of the workbook here?" gets the answer sheet by sheet.
+ */
+function WorkbookMap() {
+  const tally = workbookTally();
   return (
-    <span aria-hidden="true" className="block h-1.5 w-full rounded-full bg-muted">
-      <span className="block h-full rounded-full bg-primary/70" style={{ width: `${width}%` }} />
-    </span>
+    <details className="rounded-xl border border-border bg-card p-4">
+      <summary className="cursor-pointer text-sm font-semibold text-foreground">
+        Il workbook, foglio per foglio · {formatNumber(tally.implemented, 0)} {tally.implemented === 1 ? "implementato" : "implementati"} · {formatNumber(tally.implementable, 0)} {tally.implementable === 1 ? "implementabile" : "implementabili"} · {formatNumber(tally.blocked, 0)} {tally.blocked === 1 ? "bloccato" : "bloccati"} · {formatNumber(tally.evidence, 0)} di evidenza
+      </summary>
+      <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+        Venticinque fogli: non tutti sono analisi, e non tutte le analisi possono vivere sul libro mastro.
+        Lo stato è quello del contenuto intero del foglio; dove il titolo è vivo e il dettaglio no, la nota lo dice.
+        Niente è promosso in silenzio: un risultato statistico congelato non diventa una cifra viva finché non è importato con la sua provenienza.
+      </p>
+      <div className="mt-3 space-y-4">
+        {workbookByStatus().map(({ status, sheets }) => sheets.length === 0 ? null : (
+          <div key={status}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{WORKBOOK_STATUS_LABELS[status]} · {formatNumber(sheets.length, 0)}</p>
+            <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border">
+              {sheets.map((s) => (
+                <li key={s.id} className="grid gap-x-4 gap-y-0.5 px-3 py-2 text-xs sm:grid-cols-[7rem_1fr_1fr]">
+                  <span className="font-mono text-muted-foreground">{s.id} · {s.sheet}</span>
+                  <span className="text-foreground">{s.holds}</span>
+                  <span className="text-muted-foreground">{s.where}{s.note ? <> · <em>{s.note}</em></> : null}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -162,14 +200,18 @@ function Notice({ tone, children }: { tone: "warning" | "info"; children: React.
 }
 
 export function PillarBReview(props: PillarBReviewProps) {
-  const { panorama, adoption, spend, evidence, notices, years } = props;
+  const { panorama, adoption, spend, evidence, notices, years, viewOptions } = props;
   const yoy = spend.totals.spend2024 === 0
     ? null
     : (spend.totals.spend2025 - spend.totals.spend2024) / Math.abs(spend.totals.spend2024);
   const periodLabel = props.periodLabel;
   const headlineYear = years.length === 1 ? years[0] : 2025;
   const headlineRows = headlineYear === 2024 ? spend.totals.rows2024 : spend.totals.rows2025;
-  const hasDistribution = Boolean(panorama.calendar || (panorama.azienda && panorama.azienda.length > 1) || panorama.channels);
+  const has2024 = spend.totals.rows2024 > 0;
+  const has2025 = spend.totals.rows2025 > 0;
+  const shownRows = years.length === 2 ? spend.totals.rows2024 + spend.totals.rows2025 : headlineRows;
+  const hasDistribution = Boolean(panorama.calendar?.some((r) => r.monthsObserved > 0)
+    || (panorama.azienda && panorama.azienda.length > 1) || panorama.channels?.length);
 
   return (
     <div className="flex flex-col gap-7 pb-10 sm:gap-8">
@@ -206,28 +248,40 @@ export function PillarBReview(props: PillarBReviewProps) {
           filter narrows the sections below; it is declared here as NOT
           applying. An empty narrowed set is "non osservato", never "0,00 €":
           sumSpend coerces an empty row set to 0, so the row count decides. */}
-      <div id="panorama" className="grid scroll-mt-8 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat accent={years.length === 2 || headlineYear === 2024}
+      {(has2024 || has2025) && <div id="panorama" className="grid scroll-mt-8 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {has2024 && <Stat accent={years.length === 2 || headlineYear === 2024}
               label="Spesa riportata · 2024"
-              value={spend.totals.rows2024 === 0 ? "n/o" : formatEur(spend.totals.spend2024)}
-              detail={spend.totals.rows2024 === 0
-                ? "Nessun record con questi filtri: non è uno zero"
-                : `${formatNumber(spend.totals.rows2024, 0)} record · Azienda, canale e molecola selezionati`} />
-        <Stat accent={years.length === 2 || headlineYear === 2025}
+              value={formatEur(spend.totals.spend2024)}
+              detail={`${formatNumber(spend.totals.rows2024, 0)} record · Azienda, canale e molecola selezionati`} />}
+        {has2025 && <Stat accent={years.length === 2 || headlineYear === 2025}
               label="Spesa riportata · 2025"
-              value={spend.totals.rows2025 === 0 ? "n/o" : formatEur(spend.totals.spend2025)}
-              detail={spend.totals.rows2025 === 0
-                ? "Nessun record con questi filtri: non è uno zero"
-                : `${formatNumber(spend.totals.rows2025, 0)} record · Azienda, canale e molecola selezionati`} />
-        <Stat label="Variazione · 2024 → 2025"
-              value={yoy === null || spend.totals.rows2024 === 0 || spend.totals.rows2025 === 0 ? "n/d" : formatPercent(yoy)}
-              detail={yoy === null || spend.totals.rows2024 === 0 || spend.totals.rows2025 === 0
-                ? "Confronto non calcolabile: un anno senza record"
-                : `${formatEur(spend.totals.spend2025 - spend.totals.spend2024)} · confronto fisso fra i due anni, il filtro anno non si applica · ${props.comparisonLabel}`} />
-        <Stat label={`Record · ${years.length === 2 ? "2024 e 2025" : headlineYear}`}
-              value={formatNumber(years.length === 2 ? spend.totals.rows2024 + spend.totals.rows2025 : headlineRows, 0)}
-              detail="Righe rendicontate, non pazienti" />
-      </div>
+              value={formatEur(spend.totals.spend2025)}
+              detail={`${formatNumber(spend.totals.rows2025, 0)} record · Azienda, canale e molecola selezionati`} />}
+        {has2024 && has2025 && yoy !== null && <Stat label="Variazione · 2024 → 2025"
+              value={formatPercent(yoy)}
+              detail={`${formatEur(spend.totals.spend2025 - spend.totals.spend2024)} · confronto fisso fra i due anni, il filtro anno non si applica · ${props.comparisonLabel}`} />}
+        {shownRows > 0 && <Stat label={`Record · ${years.length === 2 ? "2024 e 2025" : headlineYear}`}
+              value={formatNumber(shownRows, 0)} detail="Righe rendicontate, non pazienti" />}
+      </div>}
+      {/* A year with no record under these filters is not drawn as a card, and
+          it is not a zero either: it is said in one line, so the absence of
+          the comparison card reads as "not calculable", not as "nothing to see". */}
+      {has2024 && has2025 && yoy === null && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Variazione percentuale 2024 → 2025 non calcolabile: la spesa netta 2024 è pari a zero (acquisti e rettifiche si compensano).
+          Movimento in euro: <span className="font-mono text-foreground">{formatEur(spend.totals.spend2025 - spend.totals.spend2024)}</span>.
+        </p>
+      )}
+      {(has2024 !== has2025) && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Nel {has2024 ? 2025 : 2024} nessun record con i filtri selezionati: non è uno zero, e il confronto 2024 → 2025 non è calcolabile.
+        </p>
+      )}
+      {!has2024 && !has2025 && (
+        <Notice tone="info">
+          Nessun record nel 2024 né nel 2025 con i filtri selezionati. L&apos;insieme è vuoto, non uno zero; la barra dei filtri indica dove esistono record.
+        </Notice>
+      )}
 
       {props.degraded.length > 0 && (
         <Notice tone="warning">
@@ -244,22 +298,21 @@ export function PillarBReview(props: PillarBReviewProps) {
           <p className="text-sm text-muted-foreground">
             Negli anni selezionati: <span className="font-mono text-foreground">{formatEur(panorama.totals.spend_eur)}</span>
             {" · "}{formatNumber(panorama.totals.rows_n, 0)} record · {formatNumber(panorama.totals.substance_count, 0)} principi attivi
-            {" · "}con quantità confrontabile{" "}
-            <span className="font-mono text-foreground">
-              {panorama.totals.comparable_spend_eur === null || panorama.totals.spend_eur === 0
-                ? "n/d" : formatPercent(panorama.totals.comparable_spend_eur / panorama.totals.spend_eur)}
-            </span>
-            {" "}— la base su cui ogni misura di volume riposa.
+            {panorama.totals.spend_eur !== 0 && <>
+              {/* A null comparable sum is "no comparable row": a known 0 % of a known total. */}
+              {" · "}con quantità confrontabile{" "}
+              <span className="font-mono text-foreground">{formatPercent((panorama.totals.comparable_spend_eur ?? 0) / panorama.totals.spend_eur)}</span>
+              {" "}— la base su cui ogni misura di volume riposa.
+            </>}
           </p>
         )}
         {panorama.calendar && (
-          <CalendarHeatmap rows={panorama.calendar}
-            title="Spesa mese per mese"
-            lead="Ogni mese osservato nel rilascio, sotto i filtri di Azienda, canale e molecola. Il 2026 è presente perché esiste, non perché sia confrontabile: è un anno parziale e nessun suo record ha una quantità confrontabile." />
+          <CalendarPanel rows={panorama.calendar} initial={viewOptions.calendar} initialView={viewOptions.monthView}
+            title="Spesa mese per mese" />
         )}
 
         {panorama.azienda && panorama.azienda.length > 1 && (
-          <AziendaBars rows={panorama.azienda} years={years} />
+          <AziendaPanel rows={panorama.azienda} years={years} initial={viewOptions.azienda} absent={panorama.aziendaAbsent} />
         )}
 
         {panorama.channels && <ChannelStack rows={panorama.channels} years={years} />}
@@ -277,7 +330,7 @@ export function PillarBReview(props: PillarBReviewProps) {
           {adoption.valueUptakeSection}
         </Sub>
 
-        <Sub title="In volume · dove la quantità ha un'unità">
+        {(adoption.volume.length > 0 || adoption.uptake.withheldRows > 0) && <Sub title="In volume · dove la quantità ha un'unità">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
               L&apos;uptake in volume è calcolato per (Azienda, principio attivo, via di
@@ -290,79 +343,37 @@ export function PillarBReview(props: PillarBReviewProps) {
                 {adoption.notes.map((n) => <li key={n}><strong className="text-foreground">{n}</strong></li>)}
               </ul>
             )}
-            <div className="mt-4">
+            {adoption.uptake.withheldShare !== null && <div className="mt-4">
               <UptakeCoverageChart
                 withheldShare={adoption.uptake.withheldShare}
                 usedSpend={adoption.uptake.usedSpendEur ?? 0}
                 withheldSpend={adoption.uptake.withheldSpendEur}
               />
-            </div>
+            </div>}
             <dl className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
+              {adoption.groupCount > 0 && <div className="rounded-lg border border-border bg-muted/30 p-3">
                 <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Gruppi con uptake calcolabile</dt>
                 <dd className="font-display mt-1 text-base text-foreground">{formatNumber(adoption.groupCount, 0)}</dd>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">(Azienda, principio attivo, via, unità) · {years.length === 2 ? "presenti in almeno uno dei due anni" : String(years[0])}</p>
-              </div>
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
+              </div>}
+              {adoption.uptake.withheldRows > 0 && <div className="rounded-lg border border-border bg-muted/30 p-3">
                 <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Spesa trattenuta</dt>
                 <dd className="font-display mt-1 text-base text-foreground">{formatEur(adoption.uptake.withheldSpendEur)}</dd>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {adoption.uptake.withheldShare === null ? "quota non calcolabile" : `${formatPercent(adoption.uptake.withheldShare)} del perimetro della misura`}
-                  {" · "}{formatNumber(adoption.uptake.withheldRows, 0)} record
+                  {adoption.uptake.withheldShare !== null && <>{formatPercent(adoption.uptake.withheldShare)} del perimetro della misura · </>}
+                  {formatNumber(adoption.uptake.withheldRows, 0)} record
                 </p>
-              </div>
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
+              </div>}
+              {adoption.uptake.withheldShare !== null && <div className="rounded-lg border border-border bg-muted/30 p-3">
                 <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Copertura della misura</dt>
                 <dd className="font-display mt-1 text-base text-foreground">
-                  {adoption.uptake.withheldShare === null ? "n/d" : formatPercent(1 - adoption.uptake.withheldShare)}
+                  {formatPercent(1 - adoption.uptake.withheldShare)}
                 </dd>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">quota utilizzata del perimetro della misura; non riferibile all&apos;intera popolazione</p>
-              </div>
+              </div>}
             </dl>
 
-            {adoption.volume.length > 0 && (
-              <div className="mt-4 overflow-x-auto rounded-lg border border-border">
-                <table className="w-full min-w-[48rem] text-sm" translate="no">
-                  <caption className="sr-only">Uptake in volume per molecola e via di somministrazione</caption>
-                  <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
-                      <th className="px-4 py-2.5 text-left font-semibold">Via</th>
-                      <th className="px-4 py-2.5 text-left font-semibold">Unità</th>
-                      <th className="px-4 py-2.5 text-right font-semibold">Aziende</th>
-                      <th className="px-4 py-2.5 text-left font-semibold">Quota (intero periodo)</th>
-                      <th className="px-4 py-2.5 text-left font-semibold">Quota (dal primo uso)</th>
-                      <th className="px-4 py-2.5 text-right font-semibold">Primo uso</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {adoption.volume.map((v) => (
-                      <tr key={`${v.substance}/${v.route}/${v.unit}`}>
-                        <td className="px-4 py-2.5 text-xs text-foreground">{v.substance}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{v.route}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{v.unit}</td>
-                        <td className="px-4 py-2.5 text-right font-mono text-xs">{v.aslCount}</td>
-                        <td className="px-4 py-2.5">
-                          <span className="flex items-center gap-2">
-                            <span className="w-20"><Bar share={v.wholePeriod.share ?? 0} /></span>
-                            <span className="font-mono text-xs">{v.wholePeriod.share === null ? "n/d" : formatPercent(v.wholePeriod.share)}</span>
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span className="flex items-center gap-2">
-                            <span className="w-20"><Bar share={v.window.share ?? 0} /></span>
-                            <span className="font-mono text-xs">{v.window.share === null ? "n/d" : formatPercent(v.window.share)}</span>
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
-                          {v.firstKey === null ? "mai" : monthKeyLabel(v.firstKey)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <VolumePanel rows={adoption.volume} routes={adoption.routes} initial={viewOptions.route} />
 
             {adoption.uptake.withheld.length > 0 && (
               <details className="mt-4">
@@ -382,12 +393,14 @@ export function PillarBReview(props: PillarBReviewProps) {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {adoption.uptake.withheld.map((w, i) => (
-                        <tr key={`${w.asl_code}-${w.active_substance}-${w.withheld_reason}-${i}`}>
-                          <td className="px-4 py-2.5 text-xs">{props.scope.aslLabels[w.asl_code] ?? w.asl_code}</td>
+                        /* The key carries no asl_code: React keys reach the page payload,
+                           and a code beside a pseudonym would undo the pseudonym. */
+                        <tr key={`${i}-${w.active_substance}-${w.withheld_reason}`}>
+                          <td className="px-4 py-2.5 text-xs">{props.scope.aslLabels[w.asl_code] ?? "Azienda non mappata"}</td>
                           <td className="px-4 py-2.5 text-xs">{w.active_substance}</td>
                           <td className="px-4 py-2.5 text-xs text-muted-foreground">{w.withheld_reason}</td>
                           <td className="px-4 py-2.5 text-right font-mono text-xs">{formatNumber(w.rows_n, 0)}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-xs">{w.spend_eur === null ? "n/d" : formatEur(w.spend_eur)}</td>
+                          <td className="px-4 py-2.5 text-right font-mono text-xs">{w.spend_eur === null ? "—" : formatEur(w.spend_eur)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -396,81 +409,33 @@ export function PillarBReview(props: PillarBReviewProps) {
               </details>
             )}
           </div>
-        </Sub>
+        </Sub>}
       </Group>
 
       {/* =============================================================== SPESA */}
       <Group id="spesa" title="La traiettoria nel tempo"
-             lead="Due anni con dodici mesi osservati ciascuno, confrontati sullo stesso perimetro. Il confronto usa sempre entrambi gli anni; i filtri di Azienda, canale e molecola si applicano.">
+             lead={`Il confronto 2024 → 2025 usa sempre entrambi gli anni (${props.comparisonLabel}); i filtri di Azienda, canale e molecola si applicano. Il perimetro, l'ordinamento e il numero di molecole mostrate si scelgono qui sotto.`}>
         <ChannelSlopeChart rows={spend.channelTrend} />
-        <MoleculeChangeChart rows={spend.moleculeTrend} />
         <details className="group">
-          <summary className="cursor-pointer text-xs font-semibold text-primary">Apri le serie numeriche per canale e principio attivo</summary>
-          <div className="mt-3 space-y-4">
+          <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la serie numerica per canale</summary>
+          <div className="mt-3">
             <TrendTable caption="Per canale di erogazione" rows={spend.channelTrend} firstColumn="Canale" />
-            <TrendTable caption="Per principio attivo · prime 25 voci per spesa 2025" rows={spend.moleculeTrend.slice(0, 25)} firstColumn="Principio attivo"
-              footnote={spend.moleculeTrend.length > 25
-                ? `Mostrate 25 di ${formatNumber(spend.moleculeTrend.length, 0)} voci. Le voci non mostrate restano incluse in tutti i totali di questa pagina.`
-                : undefined} />
           </div>
         </details>
-
+        <TrendPanel
+          variants={spend.trendVariants}
+          totals={spend.trendTotals}
+          initial={{ order: viewOptions.trendOrder, limit: viewOptions.trendLimit, perimeter: viewOptions.perimeter }}
+        />
       </Group>
 
-      <Group id="concentrazione" title={`Concentrazione della spesa · ${spend.concentrationYear}`}
-             lead="Quanto della spesa del periodo si concentra nei principi attivi più rilevanti, sullo stesso perimetro dei grafici sopra.">
-          {spend.concentration.moleculeCount <= 1 ? (
-            <Notice tone="info">
-              La concentrazione descrive come la spesa si distribuisce fra molecole: con una
-              sola molecola selezionata non c&apos;è nulla da concentrare. Togliere il filtro
-              per molecola per vederla.
-            </Notice>
-          ) : (
-          <ConcentrationCurve data={spend.concentration} />
-          )}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Stat label="Quota delle prime 5" value={spend.concentration.topFiveShare === null ? "n/d" : formatPercent(spend.concentration.topFiveShare)} />
-            <Stat label="Molecole osservate" value={formatNumber(spend.concentration.moleculeCount, 0)} />
-            <Stat label="Molecole a saldo negativo" value={formatNumber(spend.concentration.negativeMolecules, 0)} detail="resi e note di credito superiori agli acquisti" />
-          </div>
-          <details className="group">
-            <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la classifica numerica delle prime 25 molecole</summary>
-            <div className="mt-3 overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[40rem] text-sm" translate="no">
-                <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2.5 text-left font-semibold">#</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
-                    <th className="px-4 py-2.5 text-right font-semibold">Spesa {spend.concentrationYear}</th>
-                    <th className="px-4 py-2.5 text-right font-semibold">Quota</th>
-                    <th className="px-4 py-2.5 text-right font-semibold">Quota cumulata</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">&nbsp;</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {spend.concentration.rows.slice(0, 25).map((row) => (
-                    <tr key={row.label}>
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{row.rank}</td>
-                      <td className="px-4 py-2.5 text-xs text-foreground">{row.label}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs">{formatEur(row.spend_eur)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs">{formatPercent(row.share)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs">{formatPercent(row.cumulativeShare)}</td>
-                      <td className="w-32 px-4 py-2.5"><Bar share={row.cumulativeShare} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-muted/30">
-                  <tr>
-                    <td className="px-4 py-2.5" />
-                    <td className="px-4 py-2.5 text-xs font-semibold text-foreground">Totale {formatNumber(spend.concentration.moleculeCount, 0)} molecole</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">{formatEur(spend.concentration.totalEur)}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">100,00%</td>
-                    <td className="px-4 py-2.5" colSpan={2} />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </details>
+      <Group id="concentrazione" title="Concentrazione della spesa"
+             lead="Quanto della spesa di un anno completo si concentra nei principi attivi più rilevanti, sotto i filtri di Azienda, canale e molecola. L'anno e il perimetro si scelgono qui sotto, indipendentemente dal periodo selezionato in alto e dal perimetro scelto per le variazioni.">
+        <ConcentrationPanel
+          variants={spend.concentrationVariants}
+          defaultYear={spend.concentrationYear}
+          initial={{ year: viewOptions.concentrationYear, perimeter: viewOptions.concentrationPerimeter }}
+        />
       </Group>
 
       {/* ============================================================ EVIDENZA */}
@@ -504,9 +469,9 @@ export function PillarBReview(props: PillarBReviewProps) {
                     <tr key={stage.step}>
                       <td className="px-4 py-3 font-medium text-foreground">{stage.step}. {stage.stage}</td>
                       <td className="px-4 py-3 text-right font-mono text-xs">{formatNumber(stage.rows_n, 0)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs">{stage.shareOfObserved === null ? "n/d" : formatPercent(stage.shareOfObserved)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-xs">{stage.shareOfObserved === null ? "—" : formatPercent(stage.shareOfObserved)}</td>
                       <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">{stage.droppedRows === 0 ? "—" : `−${formatNumber(stage.droppedRows, 0)}`}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs">{stage.spend_eur === null ? "n/d" : formatEur(stage.spend_eur)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-xs">{stage.spend_eur === null ? "—" : formatEur(stage.spend_eur)}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{stage.note}</td>
                     </tr>
                   ))}
@@ -544,6 +509,7 @@ export function PillarBReview(props: PillarBReviewProps) {
 
       <Group id="fonte" title="Dalla visualizzazione alla fonte"
              lead="Periodo, flusso e copertura restano distinguibili anche quando una misura non è pubblicabile.">
+        <WorkbookMap />
         <div className="text-xs text-muted-foreground">
           <span>DIR_OSP_TRA_003AS · {props.releaseId} · 2026 escluso dai confronti</span>
           <details className="mt-2 max-w-4xl">
@@ -556,46 +522,6 @@ export function PillarBReview(props: PillarBReviewProps) {
           </details>
         </div>
       </Group>
-    </div>
-  );
-}
-
-function TrendTable({
-  caption, rows, firstColumn, footnote,
-}: { caption: string; rows: TrendRow[]; firstColumn: string; footnote?: string }) {
-  const max = rows.reduce((m, r) => Math.max(m, Math.abs(r.spend2025)), 0);
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs font-semibold text-foreground">{caption}</p>
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[44rem] text-sm" translate="no">
-          <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2.5 text-left font-semibold">{firstColumn}</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Spesa 2024</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Spesa 2025</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Variazione €</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Variazione %</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Record 2025</th>
-              <th className="w-32 px-4 py-2.5 text-left font-semibold">&nbsp;</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rows.map((row) => (
-              <tr key={row.key}>
-                <td className="px-4 py-2.5 text-xs text-foreground">{row.label}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{formatEur(row.spend2024)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{formatEur(row.spend2025)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{formatEur(row.changeEur)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{row.change === null ? "n/d" : formatPercent(row.change)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">{formatNumber(row.rows2025, 0)}</td>
-                <td className="px-4 py-2.5"><Bar share={max === 0 ? 0 : Math.abs(row.spend2025) / max} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {footnote && <p className="text-[11px] text-muted-foreground">{footnote}</p>}
     </div>
   );
 }

@@ -12,7 +12,9 @@
 //
 // THE ONE EXCEPTION is a platform reviewer (lib/auth/reviewer-list.ts), who
 // sees every Azienda by real name. That was authorized by the technical lead on
-// 24 September 2026 for two named accounts. It is requested here through the
+// 24 September 2026 for two named accounts, and extended on 2 October 2026 to
+// the three platform reviewers named in the technical lead's handover
+// (addresses only in REVIEWER_EMAILS). It is requested here through the
 // explicit `unrestricted` option and NEVER inferred: the caller must have
 // checked a session-derived email against the allow-list first. Passing
 // `unrestricted` on behalf of anyone else defeats the whole module.

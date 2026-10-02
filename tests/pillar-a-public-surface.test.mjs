@@ -51,7 +51,10 @@ test('every compiled public artifact is free of internal provenance', () => {
 
 test('the middleware allowlist releases only the approved public observatory', () => {
   const proxy = read('lib/supabase/proxy.ts');
-  const block = proxy.slice(proxy.indexOf('PUBLIC_PATHS'), proxy.indexOf('includes(request.nextUrl.pathname)'));
+  // The list moved to an import-free module so it can be pinned exactly
+  // (tests/pillar-b-public-surface.test.mjs); the proxy must use it.
+  assert.ok(proxy.includes('isPublicPath(request.nextUrl.pathname)'), 'the proxy consults the public-path list');
+  const block = read('lib/supabase/public-paths.ts');
   for (const allowed of ['/pillar-a', '/api/pillar-a/series', '/api/pillar-a/osmed', '/api/pillar-a/atc4']) {
     assert.ok(block.includes(`"${allowed}"`), `${allowed} should be public`);
   }

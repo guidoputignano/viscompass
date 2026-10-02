@@ -328,3 +328,35 @@ export function funnelRows(stages: ReadonlyArray<FunnelStage>): FunnelRow[] {
 }
 
 export { sumSpend };
+
+// ------------------------------------------------ narrowing (page helpers)
+
+/**
+ * Narrow rows the caller already holds to one Azienda and a set of channels.
+ * An empty channel list means every channel. Moved here from the page so the
+ * headline totals, which decide between a figure and "nessun record", can be
+ * tested.
+ */
+export function narrowRows<T extends { asl_code: string; channel: string }>(
+  rows: ReadonlyArray<T>, channels: ReadonlyArray<string>, aslCode: string | null,
+): T[] {
+  return rows.filter((r) =>
+    (aslCode === null || r.asl_code === aslCode)
+    && (channels.length === 0 || channels.includes(r.channel)));
+}
+
+/**
+ * Molecule rows as spend rows: under a molecule filter the spend totals and
+ * the channel trend come from the molecule rows, which group by (substance,
+ * Azienda, channel) over the same release rows and carry the same measures.
+ * Both sum to the same ledger (evidence harness b39).
+ */
+export function spendLike(rows: ReadonlyArray<MoleculeSpendRow>): SpendRow[] {
+  return rows.map((r) => ({
+    asl_code: r.asl_code, channel: r.channel, rows_observed: r.rows_n, spend_eur: r.spend_eur,
+    rows_basis_packages: r.rows_basis_packages, rows_basis_units: r.rows_basis_units,
+    rows_basis_mixed: r.rows_basis_mixed, rows_basis_unknown: r.rows_basis_unknown,
+    comparable_rows: r.comparable_rows, comparable_spend_eur: r.comparable_spend_eur,
+    negative_rows: r.negative_rows,
+  }));
+}

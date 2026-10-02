@@ -23,7 +23,7 @@ import { PillarBReview } from "@/components/dashboard-review/pillar-b-review";
 import { PillarBFilterBar } from "@/components/dashboard-review/pillar-b-filter-bar";
 import { PillarBValueUptake } from "@/components/dashboard-review/pillar-b-value-uptake";
 import {
-  channelTrend, concentration, coverageNotices, funnelRows, moleculeTrend, sumSpend, uptakeCoverage,
+  channelTrend, concentration, coverageNotices, funnelRows, moleculeTrend, narrowRows, spendLike, sumSpend, uptakeCoverage,
 } from "@/lib/dashboard-review/pillar-b/review-data";
 import {
   getEvidenceFunnel, getFacets, getMoleculeSpend, getSpend, getUptake, getUptakeCoverage,
@@ -33,13 +33,16 @@ import {
 } from "@/lib/dashboard-review/pillar-b/rpc";
 import { buildValueUptake, mergeValueUptakeRows } from "@/lib/dashboard-review/pillar-b/value-uptake";
 import {
-  channelsArg, describePillarBFilters, parsePillarBFilters, pillarBHref,
-  yearsArg, type PillarBFilters,
+  aziendaKeys, channelsArg, describePillarBFilters, parsePillarBFilters, pillarBHref, yearsArg, type PillarBFilters,
 } from "@/lib/dashboard-review/pillar-b/filters";
-import { aslBreakdown, calendarRows, channelMix, perimeterRows, type Facets } from "@/lib/dashboard-review/pillar-b/facets";
+import { aslBreakdown, aziendaPanelRows, calendarRows, channelMix, emptySelectionHint, perimeterRows, type Facets } from "@/lib/dashboard-review/pillar-b/facets";
 import {
-  distinctUptakeGroups, distinctWithheldGroups, dumbbellRows, timelineModel, volumeBreakdown,
+  distinctUptakeGroups, distinctWithheldGroups, dumbbellRows, timelineModel, volumeBreakdown, volumePanelRows,
 } from "@/lib/dashboard-review/pillar-b/adoption";
+import {
+  localOptionParams, parseViewOptions, perimeterOnly, routeOptions, slimConcentration, sortTrend,
+  type ConcentrationYear, type PerimeterMode, type TrendOrder,
+} from "@/lib/dashboard-review/pillar-b/view-options";
 import { resolvePillarBScope } from "@/lib/dashboard-review/pillar-b/scope";
 
 const BASE = "/dashboard-review/revisione-pillar-b";
@@ -65,35 +68,6 @@ async function identified<T>(code: string, work: Promise<T>): Promise<T> {
   } catch (cause) {
     throw phaseError(code, cause);
   }
-}
-
-/** Narrow rows the caller already holds to the selected Azienda and channels. */
-function narrow<T extends { asl_code: string; channel: string }>(
-  rows: ReadonlyArray<T>, filters: PillarBFilters, aslCode: string | null,
-): T[] {
-  return rows.filter((r) =>
-    (aslCode === null || r.asl_code === aslCode)
-    && (filters.channels.length === 0 || (filters.channels as readonly string[]).includes(r.channel)));
-}
-
-/**
- * Molecule rows as spend rows.
- *
- * pillar_b_spend groups by (Azienda, channel) and carries no substance, so
- * under a molecule filter the spend totals and the channel trend must come
- * from the molecule rows instead — which group by (substance, Azienda,
- * channel) over the same release rows and carry the same measures. Both sum to
- * the same ledger (asserted in outputs/pillar-b/logs/b39). Using the molecule
- * rows is what makes "i filtri … si applicano" true for the whole section.
- */
-function spendLike(rows: ReadonlyArray<MoleculeSpendRow>): SpendRow[] {
-  return rows.map((r) => ({
-    asl_code: r.asl_code, channel: r.channel, rows_observed: r.rows_n, spend_eur: r.spend_eur,
-    rows_basis_packages: r.rows_basis_packages, rows_basis_units: r.rows_basis_units,
-    rows_basis_mixed: r.rows_basis_mixed, rows_basis_unknown: r.rows_basis_unknown,
-    comparable_rows: r.comparable_rows, comparable_spend_eur: r.comparable_spend_eur,
-    negative_rows: r.negative_rows,
-  }));
 }
 
 function mergeUptake(parts: ReadonlyArray<UptakeWithWithheld>): UptakeWithWithheld {
@@ -150,8 +124,13 @@ export default async function RevisionePillarBPage({
     return <EmptyState title="Nessun perimetro" detail="Nessuna organizzazione approvata è associata a questo account." />;
   }
   const db = scope.db;
-  const filters = parsePillarBFilters(await searchParams, scope.narrowable.map((o) => o.orgCode));
-  const narrowed = filters.asl === null ? null : scope.narrowable.find((o) => o.orgCode === filters.asl) ?? null;
+  const params = await searchParams;
+  // `ambito` carries an org code only for a reviewer (real names); for
+  // everyone else an opaque slug of the pseudonym they see. The server maps it
+  // back; no org code reaches a pseudonymised viewer's page.
+  const aziendaKey = aziendaKeys(scope.narrowable, scope.showRealNames && scope.allOrganizations);
+  const filters = parsePillarBFilters(params, [...aziendaKey.values()]);
+  const narrowed = filters.asl === null ? null : scope.narrowable.find((o) => aziendaKey.get(o.orgCode) === filters.asl) ?? null;
   const aslCode = narrowed?.aslCode ?? null;
   const releaseId = await pillarBReleaseId(db);
 
@@ -382,21 +361,57 @@ export default async function RevisionePillarBPage({
     .slice(0, 6)
     .map((r) => ({
       substance: r.substance,
-      hint: `${hintScope} · 2024 e 2025 · tutti i canali: riferimento ${formatEur(r.dateValid.reference)} nei mesi validi, quota biosimilare ${r.dateValid.share === null ? "n/d" : formatPercent(r.dateValid.share)}`,
+      hint: `${hintScope} · 2024 e 2025 · tutti i canali: riferimento ${formatEur(r.dateValid.reference)} nei mesi validi${r.dateValid.share === null ? "" : `, quota biosimilare ${formatPercent(r.dateValid.share)}`}`,
     }));
 
   // Spend and molecule rows carry asl_code x channel, so the Azienda and
   // channel selections narrow them on the server before shaping. The substance
   // filter narrows the molecule rows only; a channel trend for one molecule is
   // still a channel trend.
-  const m24 = narrow(data.molecules2024, filters, aslCode).filter((r) => filters.substance === null || r.active_substance === filters.substance);
-  const m25 = narrow(data.molecules2025, filters, aslCode).filter((r) => filters.substance === null || r.active_substance === filters.substance);
+  const m24 = narrowRows(data.molecules2024, filters.channels, aslCode).filter((r) => filters.substance === null || r.active_substance === filters.substance);
+  const m25 = narrowRows(data.molecules2025, filters.channels, aslCode).filter((r) => filters.substance === null || r.active_substance === filters.substance);
   // Under a molecule filter the spend rows (no substance) cannot be narrowed;
   // the molecule rows carry the same measures and are used instead, so the
   // totals, the channel trend and the coverage notices all honour it.
-  const s24 = filters.substance === null ? narrow(data.spend2024, filters, aslCode) : spendLike(m24);
-  const s25 = filters.substance === null ? narrow(data.spend2025, filters, aslCode) : spendLike(m25);
-  const concentrationYear = filters.years.includes(2025) ? 2025 : 2024;
+  const s24 = filters.substance === null ? narrowRows(data.spend2024, filters.channels, aslCode) : spendLike(m24);
+  const s25 = filters.substance === null ? narrowRows(data.spend2025, filters.channels, aslCode) : spendLike(m25);
+  const concentrationYear: ConcentrationYear = filters.years.includes(2025) ? 2025 : 2024;
+
+  // LOCAL VIEW VARIANTS. Every variant a panel can switch to is shaped HERE by
+  // the same pure functions the harness reconciles, and sent to the panel
+  // already sliced; the browser only chooses among them. The perimeter mode is
+  // substance-level (the molecule rows carry no product status) and every
+  // label that shows it says so.
+  const perimeterSet = new Set(data.allSubstances.map((r) => r.active_substance));
+  const trendAll = moleculeTrend(m24, m25);
+  const trendPerimeter = perimeterOnly(trendAll, perimeterSet);
+  const TREND_SEND = 50;
+  const trendVariants = Object.fromEntries((["tutto", "biosimilare"] as const).map((mode) => [
+    mode,
+    Object.fromEntries((["delta", "pct", "spesa"] as const).map((order) => [
+      order, sortTrend(mode === "tutto" ? trendAll : trendPerimeter, order).slice(0, TREND_SEND),
+    ])),
+  ])) as Record<PerimeterMode, Record<TrendOrder, ReturnType<typeof sortTrend>>>;
+  const trendTotals: Record<PerimeterMode, number> = { tutto: trendAll.length, biosimilare: trendPerimeter.length };
+  const inPerimeter = (rows: ReadonlyArray<MoleculeSpendRow>) => rows.filter((r) => perimeterSet.has(r.active_substance));
+  const concentrationVariants = {
+    tutto: { 2024: slimConcentration(concentration(m24)), 2025: slimConcentration(concentration(m25)) },
+    biosimilare: { 2024: slimConcentration(concentration(inPerimeter(m24))), 2025: slimConcentration(concentration(inPerimeter(m25))) },
+  } as const;
+  // THE EMPTY SET, EXPLAINED. When the selection holds no perimeter row, say
+  // where the nearest rows are rather than print a zero: one extra facets call
+  // without the channel narrowing, read for the channels and years that do
+  // hold the substance (or the Azienda) — the same ledger, under RLS.
+  let emptyHint: string | null = null;
+  if (view.perimeterRows === 0 && (filters.channels.length > 0 || filters.substance !== null || aslCode !== null)) {
+    try {
+      const wider = await getFacets(db, { years: [2024, 2025], channels: null, substance: filters.substance, aslCode, facets: ["channels"] });
+      const subject = `${filters.substance ?? "il perimetro"}${narrowed ? ` in ${narrowed.label}` : ""}`;
+      emptyHint = emptySelectionHint(subject, wider.channelsByYear ?? []);
+    } catch {
+      emptyHint = null;
+    }
+  }
 
   // The volume measure's RPCs have no channel predicate and are grouped by
   // (Azienda, substance, route): Azienda and substance narrow the ROWS on the
@@ -428,6 +443,11 @@ export default async function RevisionePillarBPage({
           withheldSpendEur: uptakeWithheld.reduce((s, w) => s + (w.spend_eur ?? 0), 0),
           withheldRows: uptakeWithheld.reduce((s, w) => s + w.rows_n, 0),
         };
+  const volume = volumeBreakdown(uptakeRows);
+  const routes = routeOptions(volume);
+  const viewOptions = parseViewOptions(params, routes, concentrationYear);
+  const requestSearch = new URLSearchParams(Object.entries(params).flatMap(([k, v]) =>
+    v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]]));
   const adoptionNotes: string[] = [];
   if (filters.channels.length > 0) {
     adoptionNotes.push("Il filtro per canale non si applica alla misura in volume, che non distingue il canale.");
@@ -465,12 +485,14 @@ export default async function RevisionePillarBPage({
       <PillarBFilterBar
         base={BASE}
         filters={filters}
-        aziende={scope.narrowable.map((o) => ({ orgCode: o.orgCode, label: o.label }))}
+        aziende={scope.narrowable.map((o) => ({ key: aziendaKey.get(o.orgCode)!, label: o.label }))}
+        hasLocalOptions={[...localOptionParams(requestSearch.toString()).keys()].length > 0}
         substances={substanceOptions}
         quickPicks={quickPicks}
         scopeLine={scopeLine}
         recordCount={view.perimeterRows}
         recordCountScope={vuScopeLine === scopeLine ? null : vuScopeLine}
+        emptyHint={emptyHint}
         partialYear={partialYear}
       />
     }
@@ -483,7 +505,12 @@ export default async function RevisionePillarBPage({
       valueUptake: view,
       valueUptakeScope: vuScopeLine === scopeLine ? null : vuScopeLine,
       calendar,
-      azienda: data.facets?.asl ? aslBreakdown(data.facets.asl, aslLabel) : null,
+      // Only what the client panel draws: no asl_code beside a pseudonym, no
+      // status amounts that a client could divide.
+      azienda: data.facets?.asl ? aziendaPanelRows(aslBreakdown(data.facets.asl, aslLabel)) : null,
+      aziendaAbsent: data.facets?.asl && aslCode === null && scope.narrowable.length > 1
+        ? scope.narrowable.filter((o) => !data.facets!.asl!.some((r) => r.asl_code === o.aslCode)).map((o) => o.label)
+        : [],
       channels: data.facets?.channelsByYear ? channelMix(data.facets.channelsByYear) : null,
     }}
     adoption={{
@@ -502,13 +529,16 @@ export default async function RevisionePillarBPage({
       uptake: uptakeForView,
       groupCount: distinctUptakeGroups(uptakeRows),
       withheldGroupCount: distinctWithheldGroups(uptakeWithheld),
-      volume: volumeBreakdown(uptakeRows),
+      volume: volumePanelRows(volume),
+      routes,
       notes: adoptionNotes,
     }}
+    viewOptions={viewOptions}
     spend={{
-      moleculeTrend: moleculeTrend(m24, m25),
       channelTrend: channelTrend(s24, s25),
-      concentration: concentration(concentrationYear === 2025 ? m25 : m24),
+      trendVariants,
+      trendTotals,
+      concentrationVariants,
       concentrationYear,
       totals: {
         spend2024: sumSpend(s24),

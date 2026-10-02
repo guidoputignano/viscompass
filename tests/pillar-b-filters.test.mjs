@@ -13,7 +13,8 @@ import {
   distinctUptakeGroups, distinctWithheldGroups, dumbbellRows, timelineModel, volumeBreakdown,
 } from "../lib/dashboard-review/pillar-b/adoption.ts";
 import { buildValueUptake } from "../lib/dashboard-review/pillar-b/value-uptake.ts";
-import { uptakeCoverage } from "../lib/dashboard-review/pillar-b/review-data.ts";
+import { moleculeTrend, narrowRows, spendLike, sumSpend, uptakeCoverage } from "../lib/dashboard-review/pillar-b/review-data.ts";
+import { volumePanelRows } from "../lib/dashboard-review/pillar-b/adoption.ts";
 
 // --- volume-uptake coverage ----------------------------------------------------
 
@@ -154,10 +155,27 @@ test("the calendar keeps 'not observed' apart from zero and marks 2026 partial",
   assert.equal(y24.total_eur, 40);
   const y26 = rows[2];
   assert.equal(y26.partial, true);
-  assert.equal(y26.cells[0].comparable_share, null); // null comparable, not 0%
+  assert.equal(y26.cells[0].comparable_share, null); // partial year: not assessable, not 0%
+  assert.equal(y26.cells[0].perimeter_eur, 0);       // observed month, no perimeter product: a known 0 EUR
+  assert.equal(y26.cells[1].perimeter_eur, null);    // not observed
+  assert.equal(y26.cells[1].comparable_share, null);
 });
 
-test("the Azienda breakdown sums years, labels through the caller, and keeps shares honest", () => {
+test("a complete-year month observed with no comparable row is a known 0 %, not 'not calculable'", () => {
+  const rows = calendarRows([
+    { year: 2024, month: 3, key: 2024 * 12 + 3, spend_eur: 50, rows_n: 2, comparable_spend_eur: null, biosimilar_eur: null, reference_eur: null },
+    { year: 2024, month: 4, key: 2024 * 12 + 4, spend_eur: 0, rows_n: 1, comparable_spend_eur: null, biosimilar_eur: null, reference_eur: null },
+  ]);
+  const c = rows[0].cells;
+  assert.equal(c[2].comparable_share, 0);
+  assert.equal(c[2].perimeter_eur, 0);
+  assert.equal(c[3].comparable_share, null); // zero spend: no ratio
+  assert.equal(c[3].perimeter_eur, 0);
+  assert.equal(c[0].comparable_share, null); // January: not observed
+  assert.equal(c[0].perimeter_eur, null);
+});
+
+test("the Azienda breakdown sums years, labels through the caller, and keeps shares honest", async () => {
   const rows = aslBreakdown(parseFacets(FACETS).asl, (c) => (c === "130201" ? "ASL 1" : c));
   assert.equal(rows.length, 2);
   const a = rows.find((r) => r.asl_code === "130201");
@@ -167,6 +185,11 @@ test("the Azienda breakdown sums years, labels through the caller, and keeps sha
   assert.equal(a.comparable_share, 40 / 60);
   assert.equal(a.biosimilar_eur, 10);
   assert.equal(a.reference_eur, 10);
+  // What crosses to the client panel: the pseudonym and the drawn figures only.
+  const { aziendaPanelRows } = await import("../lib/dashboard-review/pillar-b/facets.ts");
+  const slim = aziendaPanelRows(rows);
+  assert.deepEqual(Object.keys(slim[0]).sort(), ["byYear", "comparable_share", "label", "rows_n", "spend_eur"]);
+  assert.equal("asl_code" in slim[0], false);
   // No adoption ratio on this row: a status-only share would be a third
   // denominator. The model must not offer one for a component to reach for.
   assert.equal("perimeter_share" in a, false);
@@ -280,4 +303,74 @@ test("volume breakdown never adds quantities across units", () => {
   assert.equal(mg.wholePeriod.share, 0.2);
   assert.equal(mg.window.share, 0.2);              // the null window row contributed nothing
   assert.equal(mg.firstKey, 2024 * 12 + 6);
+});
+
+// --- the empty set, explained ---------------------------------------------------
+
+test("the empty-selection hint names the channels and years that hold records, and never a zero", async () => {
+  const { emptySelectionHint } = await import("../lib/dashboard-review/pillar-b/facets.ts");
+  const rows = [
+    { channel: "DPC", year: 2024, biosimilar_eur: 12, reference_eur: null },
+    { channel: "DD", year: 2025, biosimilar_eur: null, reference_eur: 3 },
+    { channel: "DPC", year: 2025, biosimilar_eur: 9, reference_eur: null },
+    { channel: "CO", year: 2024, biosimilar_eur: null, reference_eur: null },
+  ];
+  assert.equal(emptySelectionHint("denosumab in ASL 1", rows),
+    "Nessun record nel perimetro biosimilare per denosumab in ASL 1 con questi canali e anni. Record del perimetro presenti in: DD (2025) · DPC (2024, 2025).");
+  assert.equal(emptySelectionHint("xyz", [{ channel: "CO", year: 2024, biosimilar_eur: null, reference_eur: null }]),
+    "Nessun record nel perimetro biosimilare per xyz nel 2024 e nel 2025, su nessun canale: l'insieme è vuoto, non uno zero.");
+});
+
+// --- absence is pinned as absence -----------------------------------------------
+
+test("an (Azienda, year) or (channel, year) with no record has no entry, never a zero", async () => {
+  const { aziendaPanelRows } = await import("../lib/dashboard-review/pillar-b/facets.ts");
+  const F = parseFacets(FACETS);
+  const b = aslBreakdown(F.asl, (c) => c).find((r) => r.asl_code === "130202");
+  assert.deepEqual(b.byYear, { 2025: 40 });
+  assert.equal(2024 in b.byYear, false);
+  assert.equal(2024 in aziendaPanelRows([b])[0].byYear, false);
+  const mix = channelMix(F.channelsByYear);
+  const dd = mix.find((m) => m.channel === "DD");
+  assert.deepEqual(dd.byYear, { 2024: 40 });
+  assert.equal(2025 in dd.byYear, false);
+});
+
+const mol = (s, asl, ch, spend, rows = 1) => ({
+  active_substance: s, asl_code: asl, channel: ch, rows_n: rows, spend_eur: spend,
+  comparable_rows: 0, comparable_spend_eur: null, negative_rows: 0,
+  rows_basis_packages: 0, rows_basis_units: 0, rows_basis_mixed: 0, rows_basis_unknown: 0,
+});
+
+test("a molecule first bought in 2025 carries zero 2024 records, so the table can say 'nessun record'", () => {
+  const [t] = moleculeTrend([], [mol("x", "130201", "DD", 40)]);
+  assert.equal(t.rows2024, 0);
+  assert.equal(t.rows2025, 1);
+  assert.equal(t.change, null, "a rate off nothing is undefined");
+});
+
+test("headline totals: narrowing by Azienda and channel, and molecule rows as spend rows", () => {
+  const rows = [
+    { asl_code: "130201", channel: "DD", spend_eur: 10, rows_observed: 1 },
+    { asl_code: "130201", channel: "CO", spend_eur: 20, rows_observed: 2 },
+    { asl_code: "130202", channel: "DD", spend_eur: 40, rows_observed: 4 },
+  ];
+  assert.equal(sumSpend(narrowRows(rows, ["DD"], "130201")), 10);
+  assert.equal(sumSpend(narrowRows(rows, [], "130201")), 30);
+  assert.equal(narrowRows(rows, [], null).length, 3);
+  assert.equal(narrowRows(rows, ["DPC"], null).length, 0, "an empty narrowing is an empty set");
+  assert.equal(narrowRows(rows, [], "201").length, 0, "the org code is not the asl code: no silent match");
+  const sl = spendLike([mol("x", "130201", "DD", 7, 3)]);
+  assert.deepEqual([sl[0].asl_code, sl[0].channel, sl[0].spend_eur, sl[0].rows_observed], ["130201", "DD", 7, 3]);
+});
+
+test("the volume panel receives shares and labels, never the summed quantities", () => {
+  const v = volumeBreakdown([
+    { asl_code: "130201", active_substance: "x", route: "SC", comparable_unit: "mg", whole_period_biosimilar_qty: 2, whole_period_total_qty: 8, window_biosimilar_qty: 2, window_total_qty: 4, first_local_biosimilar_key: 2024 * 12 + 3, opening_evidence: "" },
+  ]);
+  const slim = volumePanelRows(v);
+  assert.deepEqual(Object.keys(slim[0]).sort(), ["aslCount", "firstKey", "route", "substance", "unit", "wholePeriodShare", "windowShare"]);
+  assert.equal(slim[0].wholePeriodShare, 0.25);
+  assert.equal(slim[0].windowShare, 0.5);
+  assert.equal(JSON.stringify(slim).includes('"total"'), false);
 });

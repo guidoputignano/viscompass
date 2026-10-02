@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAdminControlCenterData } from "@/lib/access/admin";
 import { getAdminEmail } from "@/lib/auth/admin";
+import { reviewerConfigReport } from "@/lib/auth/reviewer-list";
 import { hasServiceRoleConfig } from "@/lib/supabase/service-role";
 
 export const instant = false;
@@ -55,11 +56,28 @@ export default async function ControlCenterPage() {
   if (!adminEmail) return <Restricted />;
   if (!hasServiceRoleConfig()) return <SetupRequired />;
 
+  // The data read is the only thing that can throw; the JSX is built outside
+  // the try so a render error is not mistaken for a schema error.
+  let data: Awaited<ReturnType<typeof getAdminControlCenterData>>;
   try {
-    const data = await getAdminControlCenterData();
-    return <AccessControlCenter adminEmail={adminEmail} data={data} />;
+    data = await getAdminControlCenterData();
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Schema non disponibile";
     return <SetupRequired detail={detail} />;
   }
+  // A count, never the addresses: lets an administrator confirm that the
+  // deployed environment carries the expected number of platform reviewers
+  // (REVIEWER_EMAILS) without publishing who they are. ADMIN_EMAILS grants
+  // nothing here; the two lists are separate capabilities.
+  const reviewers = reviewerConfigReport();
+  return (
+    <>
+      <AccessControlCenter adminEmail={adminEmail} data={data} />
+      <p className="mx-auto max-w-6xl px-6 pb-8 text-xs text-muted-foreground">
+        Revisori di piattaforma configurati in questo ambiente (REVIEWER_EMAILS): <strong className="text-foreground">{reviewers.valid}</strong> indirizzi validi
+        {reviewers.malformed > 0 && <>, <strong className="text-amber-700 dark:text-amber-300">{reviewers.malformed} voci non valide ignorate</strong> (controlla virgolette, separatori o nomi fra parentesi angolari)</>}.
+        Gli indirizzi non sono mostrati. Un revisore con un&apos;iscrizione approvata vede ogni Azienda del rilascio Pillar B per nome; tutti gli altri account restano nel proprio perimetro.
+      </p>
+    </>
+  );
 }

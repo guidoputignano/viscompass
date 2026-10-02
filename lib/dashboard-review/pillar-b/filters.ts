@@ -86,9 +86,15 @@ export function parsePillarBFilters(
   return { years, channels: channelsOrAll, substance: one(params, "molecola"), asl };
 }
 
-/** A shareable URL. Absent keys mean "all". */
+/**
+ * A shareable URL. Absent keys mean "all".
+ *
+ * @param keep entries to carry unchanged (the panel-local view options, which
+ *   are not filters and must survive a filter change). They never override a
+ *   filter key.
+ */
 export function pillarBHref(
-  base: string, state: PillarBFilters, patch: Partial<PillarBFilters>,
+  base: string, state: PillarBFilters, patch: Partial<PillarBFilters>, keep?: URLSearchParams,
 ): string {
   const next: PillarBFilters = { ...state, ...patch };
   const q = new URLSearchParams();
@@ -98,6 +104,8 @@ export function pillarBHref(
   }
   if (next.substance !== null) q.set("molecola", next.substance);
   if (next.asl !== null) q.set("ambito", next.asl);
+  const FILTER_KEYS = new Set(["anno", "canale", "molecola", "ambito"]);
+  keep?.forEach((v, k) => { if (!FILTER_KEYS.has(k) && v !== "") q.set(k, v); });
   const s = q.toString();
   return s === "" ? base : `${base}?${s}`;
 }
@@ -169,4 +177,31 @@ export function yearsArg(state: PillarBFilters): number[] {
 /** The channels as the RPC wants them: null for all, else the subset. */
 export function channelsArg(state: PillarBFilters): string[] | null {
   return state.channels.length === 0 ? null : [...state.channels];
+}
+
+// ------------------------------------------------- Azienda keys in the URL
+
+/**
+ * The key an Azienda carries in the URL (`ambito`) and in the filter bar.
+ *
+ * A reviewer sees real names, so the org_code is fine. Everyone else sees
+ * pseudonyms, and an org_code beside "ASL 1" is no pseudonym: 201-204 are
+ * public codes. For them the key is derived from the label they already see
+ * ("asl-1"), and the server maps it back. Keys are unique within the list;
+ * a collision falls back to a positional key, never to the code.
+ */
+export function aziendaKeys(
+  orgs: ReadonlyArray<{ orgCode: string; label: string }>, realNames: boolean,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  const used = new Set<string>();
+  orgs.forEach((o, i) => {
+    let key = realNames
+      ? o.orgCode
+      : o.label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!key || used.has(key)) key = `azienda-${i + 1}`;
+    used.add(key);
+    out.set(o.orgCode, key);
+  });
+  return out;
 }

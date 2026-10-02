@@ -107,6 +107,16 @@ without understanding them:
 
 ## Current state (update this section when it changes)
 
+**2 October 2026, Pillar B:** the private page `/dashboard-review/revisione-pillar-b`
+(Pillar A-style sections, panel-local controls, reviewer path) reads the live
+Pillar B release through RLS-bound RPCs; a reviewer (REVIEWER_EMAILS) is
+widened server-side to every Azienda. The public page `/pillar-b` renders ONE
+independently published AIFA table (biosimilar EV/SC focus, 2025, direct
+purchases; `data/public-compiled/pillar-b-aifa-ev-sc-2025.json`, built by
+`scripts/build_pillar_b_public_aifa_ev_sc.py`) and nothing from the
+confidential workbook, not even a regional aggregate. See
+`docs/PILLAR_B_PUBLIC_PAGE_20261002.md` and `docs/PILLAR_B_WORKBOOK_MAP_20261002.md`.
+
 **Live in production** (`eurekene.com`, Vercel project `viscompass-217a`):
 homepage, Italian auth flow, dashboard modules under
 `app/dashboard-review/` (spend, benchmark, biosimilar-to-euros,

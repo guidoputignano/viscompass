@@ -30,6 +30,12 @@ function locate(base) {
 }
 
 export function resolve(specifier, context, nextResolve) {
+  // "server-only" throws when imported outside a React server build. Under the
+  // test runner there is no client bundle to protect, so it resolves to an
+  // empty module; the build still enforces it.
+  if (specifier === 'server-only') {
+    return {url: 'data:text/javascript,export%20%7B%7D', shortCircuit: true};
+  }
   if (specifier.startsWith('@/')) {
     const found = locate(path.join(ROOT, specifier.slice(2)));
     if (!found) {

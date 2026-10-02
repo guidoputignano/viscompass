@@ -23,19 +23,30 @@
 // viewer may not see never reaches this component.
 
 import { useRouter } from "next/navigation";
-import { useCallback, useId, useState, useTransition } from "react";
+import { useCallback, useId, useState, useTransition, useSyncExternalStore } from "react";
 import { Check, Copy, Loader2, RotateCcw } from "lucide-react";
 import { formatNumber } from "@/lib/dashboard-review/format";
 import {
   PILLAR_B_CHANNELS, type PillarBChannel, type PillarBFilters,
   activePillarBFilterCount, pillarBHref, toggleChannel,
 } from "@/lib/dashboard-review/pillar-b/filters";
+import { localOptionParams } from "@/lib/dashboard-review/pillar-b/view-options";
+import { VIEW_OPTION_EVENT } from "@/components/dashboard-review/pillar-b-local-toggle";
+
+const subscribeLocal = (cb: () => void) => {
+  window.addEventListener(VIEW_OPTION_EVENT, cb);
+  window.addEventListener("popstate", cb);
+  return () => { window.removeEventListener(VIEW_OPTION_EVENT, cb); window.removeEventListener("popstate", cb); };
+};
 
 export interface FilterBarProps {
   base: string;
   filters: PillarBFilters;
   /** org_code + label, for the Azienda selector. Empty hides the selector. */
-  aziende: ReadonlyArray<{ orgCode: string; label: string }>;
+  /** key = what `ambito` carries: the org code for a reviewer, an opaque slug of the label otherwise. */
+  aziende: ReadonlyArray<{ key: string; label: string }>;
+  /** True when the request already carries panel-local options (so "Azzera" has something to reset). */
+  hasLocalOptions?: boolean;
   /** Every substance in the perimeter, for the combobox. */
   substances: ReadonlyArray<string>;
   /** A handful of substances worth one click, with the reason shown as a title. */
@@ -45,6 +56,11 @@ export interface FilterBarProps {
   recordCount: number | null;
   /** Set when the record count covers a scope WIDER than the scope line. */
   recordCountScope?: string | null;
+  /**
+   * When the selection is an empty set: why, and the nearest selection that
+   * is not. Computed on the server from the same ledger; never a guess.
+   */
+  emptyHint?: string | null;
   /** 2026's observed months, for the fragment pill. */
   partialYear: { year: number; months: number } | null;
 }
@@ -85,14 +101,25 @@ function Segment({
 
 export function PillarBFilterBar({
   base, filters, aziende, substances, quickPicks, scopeLine, recordCount, recordCountScope = null, partialYear,
+  emptyHint = null, hasLocalOptions = false,
 }: FilterBarProps) {
+  // Panel-local options are written with replaceState, which the router does
+  // not see; the toggles announce each write so "Azzera" appears as soon as a
+  // panel leaves its default view. The server snapshot is the request's own.
+  const localCount = useSyncExternalStore(subscribeLocal,
+    () => [...localOptionParams(window.location.search).keys()].length,
+    () => (hasLocalOptions ? 1 : 0));
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
   const listId = useId();
 
   const go = useCallback((patch: Partial<PillarBFilters>) => {
-    const href = pillarBHref(base, filters, patch);
+    // The panel-local options (calendar metric, sort order, ...) are not
+    // filters: a filter change carries them along, and the server re-parses
+    // them against the new rows. "Azzera" alone resets them.
+    const keep = localOptionParams(typeof window === "undefined" ? "" : window.location.search);
+    const href = pillarBHref(base, filters, patch, keep);
     startTransition(() => router.replace(href, { scroll: false }));
   }, [base, filters, router]);
 
@@ -127,7 +154,7 @@ export function PillarBFilterBar({
               onChange={(e) => go({ asl: e.target.value === "" ? null : e.target.value })}
             >
               <option value="">Tutte · {aziende.length} Aziende</option>
-              {aziende.map((a) => <option key={a.orgCode} value={a.orgCode}>{a.label}</option>)}
+              {aziende.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
             </select>
           </label>
         )}
@@ -223,16 +250,22 @@ export function PillarBFilterBar({
           <span className="text-muted-foreground">Analisi in valore: {formatNumber(recordCount, 0)} record nel perimetro biosimilare{recordCountScope ? ` · ambito effettivo: ${recordCountScope}` : ""}</span>
         )}
         {pending && <span role="status" className="flex items-center gap-1.5 font-medium text-primary"><Loader2 size={13} className="animate-spin" /> Aggiornamento in corso</span>}
+        {emptyHint && (
+          <span role="status" className="basis-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-foreground">
+            {emptyHint}
+          </span>
+        )}
         <span className="ml-auto flex items-center gap-3">
           <button type="button" onClick={copyLink}
                   className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
             {copied ? <Check size={12} /> : <Copy size={12} />}
             {copied ? "Link copiato" : "Copia il link a questa vista"}
           </button>
-          {active > 0 && (
+          {(active > 0 || localCount > 0) && (
             <button type="button" onClick={() => router.replace(base, { scroll: false })}
+                    title="Rimuove i filtri e riporta ogni pannello alla sua vista predefinita."
                     className="flex items-center gap-1 font-semibold text-primary hover:underline">
-              <RotateCcw size={12} /> Azzera ({active})
+              <RotateCcw size={12} /> Azzera{active > 0 ? ` (${active})` : ""}
             </button>
           )}
         </span>

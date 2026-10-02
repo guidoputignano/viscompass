@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {isReviewerEmail,reviewerEmails,hasConfiguredReviewers} from '../lib/auth/reviewer-list.ts';
+import {isReviewerEmail,reviewerEmails,hasConfiguredReviewers,parseReviewerList,reviewerConfigReport} from '../lib/auth/reviewer-list.ts';
 
 // This allow-list decides who may see every Azienda by real name. It is the
 // whole of the authorization for that, so the tests are about what it REFUSES
@@ -98,4 +98,33 @@ test('the reviewer list is not the admin list',()=>{
   } finally {
     if(previous===undefined) delete process.env.ADMIN_EMAILS; else process.env.ADMIN_EMAILS=previous;
   }
+});
+
+test('values pasted into a hosting dashboard keep every reviewer, and the report counts what was refused',()=>{
+  const THREE=['a.one@example.org','b.two@example.org','c.three@example.org'];
+  const cases=[
+    `"${THREE.join(',')}"`,                                   // quotes kept by the dashboard
+    `${THREE[0]}; ${THREE[1]};${THREE[2]}`,                   // semicolons
+    `${THREE[0]}\n${THREE[1]}\n${THREE[2]}`,                // one per line
+    `Uno <${THREE[0]}>, Due <${THREE[1]}>, '${THREE[2]}'`,     // display names and single quotes
+    `\u200B${THREE[0]},${THREE[1]}\uFEFF,${THREE[2]}`,         // zero-width characters
+  ];
+  for(const value of cases){
+    withEnv(value,()=>{
+      for(const e of THREE) assert.equal(isReviewerEmail(e),true,`${JSON.stringify(value)} must keep ${e}`);
+      assert.deepEqual(reviewerConfigReport(),{valid:3,malformed:0});
+    });
+  }
+  withEnv(`${THREE[0]}, not-an-address, ${THREE[1]}, @nope, x@y`,()=>{
+    assert.deepEqual(reviewerConfigReport(),{valid:2,malformed:3});
+    assert.equal(isReviewerEmail('not-an-address'),false);
+  });
+});
+
+test('parsing never admits a token that is not an address, and duplicates count once',()=>{
+  assert.deepEqual(parseReviewerList(undefined),{valid:[],malformed:0});
+  assert.deepEqual(parseReviewerList(' , ; \n '),{valid:[],malformed:0});
+  assert.deepEqual(parseReviewerList('A@Example.org, a@example.org'),{valid:['a@example.org'],malformed:0});
+  assert.deepEqual(parseReviewerList('"a@example.org"@evil.com').valid,[]);
+  assert.equal(parseReviewerList('a@example.org b@example.org').malformed,1,'a space is not a separator: the pair is refused, never split into a guess');
 });
