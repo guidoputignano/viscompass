@@ -186,6 +186,15 @@ function WorkbookMap() {
   );
 }
 
+// The withheld reasons come from the database in English (pillar_b_uptake_withheld).
+// Shown in Italian; an unknown reason is shown as it is rather than guessed.
+const WITHHELD_REASON_IT: Record<string, string> = {
+  "no comparable stratum": "nessuno strato confrontabile",
+  "quantity basis unresolved: the two independent parses disagree": "base della quantità non risolta: le due letture indipendenti non concordano",
+  "no normalized quantity for this presentation": "nessuna quantità normalizzata per questa presentazione",
+  "substance/route group not usable: mixed units, or only one side present": "gruppo sostanza/via non utilizzabile: unità miste, o un solo lato presente",
+};
+
 function Notice({ tone, children }: { tone: "warning" | "info"; children: React.ReactNode }) {
   const Icon = tone === "warning" ? AlertTriangle : Info;
   return (
@@ -297,7 +306,7 @@ export function PillarBReview(props: PillarBReviewProps) {
         {panorama.totals && panorama.totals.spend_eur !== null && (
           <p className="text-sm text-muted-foreground">
             Negli anni selezionati: <span className="font-mono text-foreground">{formatEur(panorama.totals.spend_eur)}</span>
-            {" · "}{formatNumber(panorama.totals.rows_n, 0)} record · {formatNumber(panorama.totals.substance_count, 0)} principi attivi
+            {" · "}{formatNumber(panorama.totals.rows_n, 0)} record · {formatNumber(panorama.totals.substance_count, 0)} {panorama.totals.substance_count === 1 ? "principio attivo" : "principi attivi"}
             {panorama.totals.spend_eur !== 0 && <>
               {/* A null comparable sum is "no comparable row": a known 0 % of a known total. */}
               {" · "}con quantità confrontabile{" "}
@@ -398,7 +407,7 @@ export function PillarBReview(props: PillarBReviewProps) {
                         <tr key={`${i}-${w.active_substance}-${w.withheld_reason}`}>
                           <td className="px-4 py-2.5 text-xs">{props.scope.aslLabels[w.asl_code] ?? "Azienda non mappata"}</td>
                           <td className="px-4 py-2.5 text-xs">{w.active_substance}</td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{w.withheld_reason}</td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{WITHHELD_REASON_IT[w.withheld_reason] ?? w.withheld_reason}</td>
                           <td className="px-4 py-2.5 text-right font-mono text-xs">{formatNumber(w.rows_n, 0)}</td>
                           <td className="px-4 py-2.5 text-right font-mono text-xs">{w.spend_eur === null ? "—" : formatEur(w.spend_eur)}</td>
                         </tr>

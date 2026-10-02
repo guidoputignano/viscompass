@@ -141,7 +141,7 @@ export function TrendPanel({ variants, totals, initial }: {
       </div>
       <MoleculeChangeChart rows={rows}
         title={title}
-        orderNote={`Selezione per ${orderWord}${perimeter === "biosimilare" ? ", fra le molecole del perimetro biosimilare (tutte le presentazioni, a livello di molecola)" : ""}; ${count(total, "molecola", "molecole")} nell'insieme.`} />
+        orderNote={`Selezione per ${orderWord}${perimeter === "biosimilare" ? ", fra le molecole del perimetro biosimilare (tutte le presentazioni, a livello di molecola)" : ""}; ${count(total, "voce", "voci")} nell'insieme (principi attivi; le righe senza principio attivo risolto formano una voce a parte).`} />
       <details className="group">
         <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la serie numerica per principio attivo</summary>
         <div className="mt-3">
@@ -251,7 +251,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
       <ConcentrationCurve data={conc} year={year} scopeNote={scopeNote} />
       <div className="grid gap-3 sm:grid-cols-3">
         {conc.topFiveShare !== null && <Stat label={`Quota delle prime 5 · ${year}`} value={formatPercent(conc.topFiveShare)} detail={scopeShort} />}
-        <Stat label={`Molecole osservate · ${year}`} value={formatNumber(conc.moleculeCount, 0)} detail={scopeShort} />
+        <Stat label={`Voci osservate · ${year}`} value={formatNumber(conc.moleculeCount, 0)} detail={`${scopeShort}; principi attivi, più l'eventuale voce «Principio attivo non risolto»`} />
         <Stat label={`Molecole a saldo negativo · ${year}`} value={formatNumber(conc.negativeMolecules, 0)} detail={`${scopeShort}; resi e note di credito superiori agli acquisti`} />
       </div>
       <details className="group">

@@ -79,7 +79,9 @@ export function MonthlyBars({ rows, metric, view, title }: {
               const x = center - (shownYears.length * barWidth) / 2 + j * barWidth;
               return <rect key={year} x={x} y={topY} width={barWidth - 2} height={barHeight} rx="3"
                 fill={COLORS[year]} tabIndex={0} aria-label={`${MONTHS[month - 1]} ${year}: ${metric === "comparabile" ? formatPercent(point.value) : formatEur(point.value)}`}>
-                <title>{MONTHS[month - 1]} {year}: {metric === "comparabile" ? formatPercent(point.value) : formatEur(point.value)}</title>
+                {/* ONE text child: React 19 renders a multi-part <title> differently on the
+                    server and in the browser (hydration error #418). */}
+                <title>{`${MONTHS[month - 1]} ${year}: ${metric === "comparabile" ? formatPercent(point.value) : formatEur(point.value)}`}</title>
               </rect>;
             })}
           </g>;
