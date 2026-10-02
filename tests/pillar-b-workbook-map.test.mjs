@@ -53,10 +53,10 @@ test("the states that need a data contract or a migration say so, and no scenari
 });
 
 test("every sheet's state is pinned, so none can be promoted quietly", () => {
-  assert.deepEqual(workbookTally(), { implemented: 9, implementable: 1, blocked: 9, evidence: 6 });
+  assert.deepEqual(workbookTally(), { implemented: 10, implementable: 0, blocked: 9, evidence: 6 });
   assert.deepEqual(Object.fromEntries(WORKBOOK_SHEETS.map((s) => [s.id, s.status])), {
     "00": "evidence", "01": "evidence", "03": "implemented", "04": "implemented", "05": "implemented",
-    "06": "implemented", "07": "implemented", "07b": "evidence", "08": "blocked", "09": "implementable",
+    "06": "implemented", "07": "implemented", "07b": "evidence", "08": "blocked", "09": "implemented",
     "10": "implemented", "11": "implemented", "12": "implemented", "13": "blocked", "14": "blocked",
     "15": "blocked", "16": "blocked", "17": "blocked", "18": "blocked", "19": "evidence", "20": "blocked",
     "21": "blocked", "22": "evidence", "23": "evidence", "24": "implemented",

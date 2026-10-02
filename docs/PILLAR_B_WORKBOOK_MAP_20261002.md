@@ -15,11 +15,11 @@ foglio") from `lib/dashboard-review/pillar-b/workbook-map.ts`, and pinned by
 | state | meaning | sheets |
 |---|---|---|
 | **Evidenza e audit** | documentation, verification or a published refusal; not an analysis to render | 00, 01, 07b, 19, 22, 23 |
-| **Analisi riservata implementata** | computed on the live ledger by an RLS-bound RPC and reconciled to the sheet (harnesses b36–b43) | 03, 04, 05, 06, 07, 10, 11, 12, 24 |
-| **Implementabile con le funzioni autenticate attuali** | derivable from an RPC already applied, not yet labelled | 09 |
+| **Analisi riservata implementata** | computed on the live ledger by an RLS-bound RPC and reconciled to the sheet (harnesses b36–b46) | 03, 04, 05, 06, 07, 09, 10, 11, 12, 24 |
+| **Implementabile con le funzioni autenticate attuali** | derivable from an RPC already applied, not yet labelled | — (09 was built on 3 October 2026) |
 | **Bloccato: contratto dati o migrazione** | a frozen statistical result (Python) or a cross-Azienda table that needs either a provenance-tagged import or a new SQL function | 08, 13, 14, 15, 16, 17, 18, 20, 21 |
 
-Tally: 6 · 9 · 1 · 9 = 25.
+Tally: 6 · 10 · 0 · 9 = 25.
 
 ## Sheet by sheet
 
@@ -34,7 +34,7 @@ Tally: 6 · 9 · 1 · 9 = 25.
 | 07 | Perimeter | 5 statuses, AIC counts, spend | implemented | *Evidenza* → spend by perimeter status | counts and spend to the cent; non-AIC keys shown as "fuori dalla tassonomia" |
 | 07b | B03_Candidates | candidate AICs not adopted | evidence | not shown: a record of what was not changed | |
 | 08 | Bridge_A_Comparability | nine exclusion gates partitioning the ledger total | blocked | *Evidenza* → funnel (stages) | **partial**: stages live; the nine named gates with euros need a per-gate function (migration) |
-| 09 | Bridge_B_Opportunity | 6 gates partitioning the same total | implementable | *Adozione* → amounts outside the two shares | T2, B1, B2 live; B0 and B4 derivable from the same RPC, not yet labelled as a bridge |
+| 09 | Bridge_B_Opportunity | 6 gates partitioning the same total | implemented | *Adozione* → the opportunity bridge (B): two-level bar and table | six gates to the cent on the 29-month release (b46); the page shows the selected period; the perimeter is cross-checked on every request against the status facet (sheet 07) and the chart is withheld on a mismatch; B_ADDRESSABLE labelled "NOT a saving" |
 | 10 | Coverage_Cuts | comparable share by Azienda / channel / month | implemented | *Panorama* (metric "quota con quantità confrontabile") | every cut to the cent (b39, b44) |
 | 11 | Date_and_Availability | inside / predates / boundary / outside; T0–T2 | implemented | *Adozione* → amounts outside the two shares; the two cards | four-way split and tiers to the cent (b36, b38, b39) |
 | 12 | Uptake | value uptake on two denominators; by year; 16 volume pairs | implemented | *Adozione* | headline and by-year to the cent; coverage exact (b42); the 16 volume pairs not yet reconciled pair by pair |

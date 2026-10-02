@@ -44,6 +44,7 @@ import {
   type ConcentrationYear, type PerimeterMode, type TrendOrder,
 } from "@/lib/dashboard-review/pillar-b/view-options";
 import { resolvePillarBScope } from "@/lib/dashboard-review/pillar-b/scope";
+import { bridgeB, bridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
 
 const BASE = "/dashboard-review/revisione-pillar-b";
 
@@ -526,6 +527,19 @@ export default async function RevisionePillarBPage({
           resetHref={BASE}
         />
       ),
+      // BRIDGE B. The total and the view must come from the SAME filters and
+      // years, or B0 would be a difference between two populations. Under the
+      // fallback (scoped function missing) the view is wider than the totals,
+      // so the bridge is withheld and says why.
+      bridge: !fallback && data.facets?.totals?.spend_eur != null && view.perimeterRows > 0
+        ? (() => {
+            const model = bridgeB(view, data.facets!.totals!.spend_eur!);
+            return { model, check: data.facets?.perimeter ? bridgeBPerimeterCheck(model, data.facets.perimeter) : null, scopeLabel: scopeLine };
+          })()
+        : null,
+      bridgeWithheld: fallback && view.perimeterRows > 0
+        ? "Il ponte non è calcolato: la funzione scoped non è disponibile e l'uptake copre un ambito più largo del totale selezionato."
+        : null,
       uptake: uptakeForView,
       groupCount: distinctUptakeGroups(uptakeRows),
       withheldGroupCount: distinctWithheldGroups(uptakeWithheld),

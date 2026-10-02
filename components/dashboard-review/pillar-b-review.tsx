@@ -37,6 +37,8 @@ import type { CoverageNotice, FunnelRow, TrendRow } from "@/lib/dashboard-review
 import type { UptakeWithWithheld } from "@/lib/dashboard-review/pillar-b/rpc";
 import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
 import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
+import type { BridgeB, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
+import { BridgeBChart } from "@/components/dashboard-review/pillar-b-bridge-b";
 import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 
 export interface PillarBReviewProps {
@@ -83,6 +85,10 @@ export interface PillarBReviewProps {
     routes: string[];
     /** Which filters the volume measure could not honour, one sentence each. */
     notes: string[];
+    /** Bridge B (sheet 09) for the selection, with its perimeter cross-check; null when withheld. */
+    bridge: { model: BridgeB; check: BridgeBPerimeterCheck | null; scopeLabel: string } | null;
+    /** Why the bridge is withheld, when it is; null when it is shown or when the set is empty. */
+    bridgeWithheld: string | null;
   };
   /** The panel-local options as read from the URL on this request. */
   viewOptions: ViewOptions;
@@ -338,6 +344,20 @@ export function PillarBReview(props: PillarBReviewProps) {
           </p>
           {adoption.valueUptakeSection}
         </Sub>
+
+        {(adoption.bridge || adoption.bridgeWithheld) && <Sub title="Il ponte dell'opportunità (B) · dal totale alla spesa di riferimento sostituibile">
+          <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            Il foglio 09 del workbook fa uscire ogni euro del libro mastro da una sola soglia, fino alla spesa di
+            riferimento nei mesi in cui un biosimilare era già stato dispensato localmente. È una popolazione di
+            spesa, <strong>non un risparmio</strong>: nessuna assunzione di prezzo è applicata, e la dispersione di
+            prezzo non è denaro recuperabile (B14 nei Limiti). Le ultime due soglie dipendono dalla prima dispensazione
+            locale <em>nell&apos;ambito selezionato</em>: per la Regione la finestra si apre con la prima Azienda che ha
+            cambiato, quindi queste due soglie non si sommano tra Aziende; le altre quattro sì.
+          </p>
+          {adoption.bridge
+            ? <BridgeBChart bridge={adoption.bridge.model} check={adoption.bridge.check} periodLabel={props.periodLabel} scopeLabel={adoption.bridge.scopeLabel} />
+            : <Notice tone="info">{adoption.bridgeWithheld}</Notice>}
+        </Sub>}
 
         {(adoption.volume.length > 0 || adoption.uptake.withheldRows > 0) && <Sub title="In volume · dove la quantità ha un'unità">
           <div className="rounded-xl border border-border bg-card p-4">

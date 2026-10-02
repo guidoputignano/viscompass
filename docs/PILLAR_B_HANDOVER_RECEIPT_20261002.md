@@ -54,7 +54,9 @@ above; the boundary reviewer found no reachable leak.
    REVISORE, and the Control Center reports three valid reviewer addresses
    (see the live verification below).
 4. **Workbook sheets 08, 13–18, 20, 21 stay blocked** pending a data contract
-   or a migration; sheet 09 is implementable now.
+   or a migration. Sheet 09 (bridge B) was built on 3 October 2026: six gates
+   from the value-uptake view and the facets total, perimeter cross-checked
+   against the status facet on every request, harness b46.
 5. **Not fixed, recorded:** the reviewer's release-wide Azienda list is built
    from 2024–2025 spend (a code with only 2026 rows would be unlabelled); the
    label map is keyed by org code (latent for a multi-region release); the
