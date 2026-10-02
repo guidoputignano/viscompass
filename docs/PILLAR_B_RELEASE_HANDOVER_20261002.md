@@ -162,20 +162,50 @@ single call. Equivalence is asserted, not argued:
 | 201 / 2024 | 1,672 | €100,330,941.30 |
 | Regione / 2025 | 7,131 | €452,687,361.73 |
 
-## Why it is still not applied
+## Applied to production — database only
 
-The migration is **DDL**. The only credential on this machine is a PostgREST
-service-role key, which cannot run DDL. The signed-in SQL editor is reachable in
-the browser, but synthetic keystrokes do not land reliably in its Monaco editor —
-short queries worked, longer ones silently re-ran stale text. Typing a
-multi-thousand-character RLS/DDL migration that way risks a half-applied
-statement on production, so it was not attempted.
+`20261002160000` **is applied** (SQL editor, signed in, role `postgres`):
+`pillar_b_molecule_spend_json` created, `execute` revoked from `public`/`anon`
+and granted to `authenticated`, `idx_canonical_fact_release_year_substance`
+created, table analyzed. Each statement returned "Success. No rows returned".
 
-**Next action for an authorized operator:** paste
-`supabase/migrations/20261002160000_pillar_b_molecule_spend_single_call.sql` into
-the SQL editor and run it, deploy this branch, and only then activate. Keep the
-rest of the handover's step order. Do not apply the withdrawn RLS rewrite; it is
-deleted from this branch.
+Measured on production as the real Azienda 201 account, with the gate turned on
+**inside a transaction that was then rolled back**, so the release stayed
+de-published throughout:
+
+| | |
+|---|---|
+| groups returned | **1,534** — the full set, not truncated at 1,000 |
+| spend | **€100,675,853.3…** |
+| elapsed | **0.63 s** for *two* executions of the function |
+
+Against an 8 s budget. Afterwards: `active_releases = 0`, `canonical_fact` =
+261,153, and every RPC correctly refuses with
+`P0001: no active Pillar B release is declared`.
+
+## NOT activated, and why — this is a technical blocker, not caution
+
+**Production still serves `fd4f8cb`**, whose `getMoleculeSpend` pages with
+`.order().range()`. The database fix cannot help code that does not call it.
+Activating now would re-run the exact path that produced `57014`.
+
+The remaining order is therefore:
+
+1. Deploy this branch (`a7bb331` or later) so the app calls
+   `pillar_b_molecule_spend_json`. **Nothing else may precede this.**
+2. Confirm the live page still renders "Nessuna release attiva" with the gate off.
+3. `insert into pillar_b_active_release (release_id) values ('PILLAR-B-R2-20261001');`
+4. Load `/dashboard-review/revisione-pillar-b` as `201`; expect funnel stage 1 =
+   **23,545 rows / €100,675,853.35**, molecule groups **1,534**, and **not**
+   106,639 or €452,687,361.73, which are the Regione's figures.
+5. On any error or timeout, `delete from pillar_b_active_release` — the gate row
+   only, never the facts.
+
+The Regione account (`438c0d40…`, org `130`, approved) is the heavier case:
+7,131 groups and roughly 4.5 s of total database work per page load even after
+this fix. Check it too before calling the release live.
+
+Do not apply the withdrawn RLS rewrite; it is deleted from this branch.
 
 ## Audit gap found
 
