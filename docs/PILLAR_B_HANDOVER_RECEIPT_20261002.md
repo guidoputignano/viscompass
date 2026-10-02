@@ -2,7 +2,7 @@
 
 Taken over from Codex on branch `pillar-b/gates-20261001`. Both agents'
 uncommitted edits were reconciled in place (nothing reset or overwritten).
-**No migration was applied. Nothing was deployed or pushed.** No figure from
+**No migration was applied.** Commit `1dbff6d` was pushed to `main` by the owner on 2 October 2026 and deployed by Vercel; the live check is below. No figure from
 the confidential workbook is quoted in this file or in any file added by this
 handover: this repository is public (see blocker 1).
 
@@ -57,7 +57,32 @@ above; the boundary reviewer found no reachable leak.
    from 2024–2025 spend (a code with only 2026 rows would be unlabelled); the
    label map is keyed by org code (latent for a multi-region release); the
    scope resolver is checked by source pattern, not by injected dependencies.
-6. **Deployment needs explicit authorization** for this redesign. The work is
-   committed locally only. Note for the deploy: non-reviewer `?ambito=` links
-   now use the opaque key, so old `?ambito=201` links open the unfiltered view
-   for non-reviewers (reviewers keep org codes).
+6. **Changed behaviour now live:** non-reviewer `?ambito=` links use the
+   opaque key, so old `?ambito=201` links open the unfiltered view for
+   non-reviewers (reviewers keep org codes).
+
+## Live verification, 2 October 2026 (www.eurekene.com, no session)
+
+51 of 52 scripted checks passed; the one flag was the check's own assumption
+(`/pillar-b/` answers 308 to `/pillar-b`, Next's trailing-slash
+normalisation, which is not a leak).
+
+- `/pillar-b` serves 200 without a session; the home page links it with its
+  subtitle beside Pillar A; `/pillar-a` and its series route stay public.
+- Figures match the AIFA tables: default view (Italia · infliximab · DDD)
+  99,22 %; Abruzzo · rituximab · spesa 37,59 %, −19,71 p.p. from Italia
+  (57,30 %), 18º su 21. Changing the selectors in the browser updated the URL
+  and the figures without a reload; flipping the ranking table to "dalla
+  quota più bassa" listed Campania (25,81 %) and Lombardia (33,65 %) first and
+  left the position at 18º. No console error.
+- Still behind the login: `/pillar-b/dati`, `/pillar-bx`, `/api/pillar-b`,
+  `/api/pillar-b/series`, `/dashboard-review/revisione-pillar-b` (also with
+  `?ambito=asl-1`), `/admin/control-center`.
+- No private marker in the public HTML (Azienda codes, ASL 1–4, release id,
+  `canonical_fact`, ledger totals) nor in the 10 JavaScript files the page
+  loads (workbook map, RPC names, service-role key name, reviewer variable,
+  widening codes).
+- HSTS and `X-Frame-Options: DENY` present.
+
+Still not verified live: the signed-in private page and the three reviewers
+(needs a session).
