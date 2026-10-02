@@ -110,7 +110,9 @@ async function callRpc<T>(name: string, args: Record<string, unknown>): Promise<
     // FAIL LOUD. `pillar_b_release()` raises when no release is active, and a
     // swallowed error here would render an empty dashboard that looks like
     // "no activity" rather than "not available".
-    throw new Error(`${name} failed: ${error.message}`);
+    const failure = new Error(`${name} failed: ${error.message}`);
+    Object.assign(failure, { dbCode: error.code ?? "UNKNOWN" });
+    throw failure;
   }
   return (data ?? []) as T[];
 }

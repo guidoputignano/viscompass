@@ -24,7 +24,10 @@ async function identified<T>(code: string, work: Promise<T>): Promise<T> {
   try {
     return await work;
   } catch (cause) {
-    throw new Error(`PBR-${code}`, { cause });
+    const dbCode = cause instanceof Error && "dbCode" in cause
+      ? String(cause.dbCode).replace(/[^A-Z0-9]/g, "").slice(0, 12)
+      : "UNKNOWN";
+    throw new Error(`PBR-${code}-${dbCode}`, { cause });
   }
 }
 
@@ -86,7 +89,7 @@ export default async function RevisionePillarBPage() {
     // The server log retains the full cause. The scoped browser gets only a
     // stable phase code, never a SQL message or a misleading zero-valued chart.
     console.error("Pillar B review failed", error);
-    const code = error instanceof Error && /^PBR-[A-Z0-9]+$/.test(error.message)
+    const code = error instanceof Error && /^PBR-[A-Z0-9-]+$/.test(error.message)
       ? error.message
       : "PBR-SHAPE";
     return <EmptyState
