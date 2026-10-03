@@ -56,7 +56,23 @@ above; the boundary reviewer found no reachable leak.
 4. **Workbook sheets 08, 13–18, 20, 21 stay blocked** pending a data contract
    or a migration. Sheet 09 (bridge B) was built on 3 October 2026: six gates
    from the value-uptake view and the facets total, perimeter cross-checked
-   against the status facet on every request, harness b46.
+   against the status facet on every request, harness b46. Verified live as
+   REVISORE in five states against b46 (every gate to the euro, residual 0,
+   no console error on a fresh load). A six-lens adversarial review of the
+   commit then found, and the follow-up commit fixed: a "Del perimetro"
+   column that was the forbidden status-based biosimilar share (removed; only
+   shares of the ledger total remain, and the lower bar prints no ratio); a
+   B4 wording that said "never dispensed" for a gate that also holds the
+   pre-switch months of substances that did switch ("non ancora"); a 49-cent
+   tolerance behind a sentence that promised cent-exact agreement (now
+   cent-exact, figures printed with cents); a withheld-reason sentence that
+   was false on the fallback path; "nell'ambito selezionato" for a window
+   that is per Azienda, not per channel; a "-0 €" residual; the years printed
+   twice in the caption; in-bar labels unreadable in dark mode (removed); and
+   no drawing over a negative gate. Not changed: a class whose undated euros
+   all net to zero cannot be detected from the function's columns (its
+   undated-row count includes the evidence-listed predates rows); that needs
+   a row count per validity class in a future migration.
 5. **Not fixed, recorded:** the reviewer's release-wide Azienda list is built
    from 2024–2025 spend (a code with only 2026 rows would be unlabelled); the
    label map is keyed by org code (latent for a multi-region release); the

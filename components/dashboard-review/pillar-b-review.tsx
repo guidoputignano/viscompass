@@ -86,7 +86,7 @@ export interface PillarBReviewProps {
     /** Which filters the volume measure could not honour, one sentence each. */
     notes: string[];
     /** Bridge B (sheet 09) for the selection, with its perimeter cross-check; null when withheld. */
-    bridge: { model: BridgeB; check: BridgeBPerimeterCheck | null; scopeLabel: string } | null;
+    bridge: { model: BridgeB; check: BridgeBPerimeterCheck | null; scopeLabel: string; monthsLabel: string } | null;
     /** Why the bridge is withheld, when it is; null when it is shown or when the set is empty. */
     bridgeWithheld: string | null;
   };
@@ -351,11 +351,12 @@ export function PillarBReview(props: PillarBReviewProps) {
             riferimento nei mesi in cui un biosimilare era già stato dispensato localmente. È una popolazione di
             spesa, <strong>non un risparmio</strong>: nessuna assunzione di prezzo è applicata, e la dispersione di
             prezzo non è denaro recuperabile (B14 nei Limiti). Le ultime due soglie dipendono dalla prima dispensazione
-            locale <em>nell&apos;ambito selezionato</em>: per la Regione la finestra si apre con la prima Azienda che ha
-            cambiato, quindi queste due soglie non si sommano tra Aziende; le altre quattro sì.
+            locale di un biosimilare <em>nelle Aziende selezionate</em>, letta su tutta la storia visibile (ogni canale,
+            ogni anno): per la Regione la finestra si apre con la prima Azienda che ha cambiato, quindi queste due soglie
+            non si sommano tra Aziende; tutte le altre sì.
           </p>
           {adoption.bridge
-            ? <BridgeBChart bridge={adoption.bridge.model} check={adoption.bridge.check} periodLabel={props.periodLabel} scopeLabel={adoption.bridge.scopeLabel} />
+            ? <BridgeBChart bridge={adoption.bridge.model} check={adoption.bridge.check} monthsLabel={adoption.bridge.monthsLabel} scopeLabel={adoption.bridge.scopeLabel} />
             : <Notice tone="info">{adoption.bridgeWithheld}</Notice>}
         </Sub>}
 

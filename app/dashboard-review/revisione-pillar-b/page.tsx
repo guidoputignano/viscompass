@@ -534,11 +534,14 @@ export default async function RevisionePillarBPage({
       bridge: !fallback && data.facets?.totals?.spend_eur != null && view.perimeterRows > 0
         ? (() => {
             const model = bridgeB(view, data.facets!.totals!.spend_eur!);
-            return { model, check: data.facets?.perimeter ? bridgeBPerimeterCheck(model, data.facets.perimeter) : null, scopeLabel: scopeLine };
+            return {
+              model, check: data.facets?.perimeter ? bridgeBPerimeterCheck(model, data.facets.perimeter) : null,
+              scopeLabel: scopeLine, monthsLabel: monthsPhrase(filters.years),
+            };
           })()
         : null,
       bridgeWithheld: fallback && view.perimeterRows > 0
-        ? "Il ponte non è calcolato: la funzione scoped non è disponibile e l'uptake copre un ambito più largo del totale selezionato."
+        ? "Il ponte non è calcolato finché la funzione scoped di uptake non è pubblicata: senza di essa il totale e l'uptake non sono letti con certezza sullo stesso ambito."
         : null,
       uptake: uptakeForView,
       groupCount: distinctUptakeGroups(uptakeRows),
