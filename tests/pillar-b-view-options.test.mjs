@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  partialPeriodLabel,
+  partialPeriodLabel, trendFigures, TREND_FIGURE_HEADINGS,
   calendarCellValue, effectiveCalendarState, localOptionParams, monthSlots, monthlyChartSeries, parseViewOptions, perimeterOnly, routeOptions,
   slimConcentration, sortTrend, volumeByRoute, withViewOption,
 } from "../lib/dashboard-review/pillar-b/view-options.ts";
@@ -147,4 +147,16 @@ test("the partial year is named by its observed months, never 'parziale' alone o
   for (const label of [partialPeriodLabel([{ year: 2026, cells: cells(2026, [1, 2, 3, 4, 5, 6]) }])]) {
     assert.doesNotMatch(label, /semestre|parziale/i);
   }
+});
+
+test("the figure beside a molecule follows the sort measure, and a rate over no 2024 base is not calculable", () => {
+  const row = { changeEur: -4321, change: -0.12, spend2025: 31690 };
+  assert.deepEqual(trendFigures(row, "delta"), { primary: { kind: "eur", value: -4321 }, secondary: { kind: "pct", value: -0.12 } });
+  assert.deepEqual(trendFigures(row, "pct"), { primary: { kind: "pct", value: -0.12 }, secondary: { kind: "eur", value: -4321 } });
+  assert.deepEqual(trendFigures(row, "spesa"), { primary: { kind: "eur", value: 31690 }, secondary: { kind: "eur", value: -4321 } });
+  const fromNothing = { changeEur: 777, change: null, spend2025: 777 };
+  assert.deepEqual(trendFigures(fromNothing, "pct").primary, { kind: "na" });
+  assert.deepEqual(trendFigures(fromNothing, "delta").secondary, { kind: "na" });
+  for (const order of ["delta", "pct", "spesa"]) assert.ok(TREND_FIGURE_HEADINGS[order].length > 0);
+  assert.match(TREND_FIGURE_HEADINGS.spesa, /della molecola/);
 });

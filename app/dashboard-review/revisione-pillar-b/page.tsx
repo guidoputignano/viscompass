@@ -387,10 +387,18 @@ export default async function RevisionePillarBPage({
   const trendAll = moleculeTrend(m24, m25);
   const trendPerimeter = perimeterOnly(trendAll, perimeterSet);
   const TREND_SEND = 50;
+  // Each row carries the URL that narrows the page to its substance, as a
+  // string: the panel is a client component and cannot receive a function.
+  // A row that is not one substance (the unresolved entry) gets no link.
+  const substanceSet = new Set([...m24, ...m25].map((r) => r.active_substance));
+  const withHref = (rows: ReturnType<typeof sortTrend>) => rows.map((r) => ({
+    ...r,
+    href: substanceSet.has(r.key) && !/non risolt/i.test(r.key) ? pillarBHref(BASE, filters, { substance: r.key }) : null,
+  }));
   const trendVariants = Object.fromEntries((["tutto", "biosimilare"] as const).map((mode) => [
     mode,
     Object.fromEntries((["delta", "pct", "spesa"] as const).map((order) => [
-      order, sortTrend(mode === "tutto" ? trendAll : trendPerimeter, order).slice(0, TREND_SEND),
+      order, withHref(sortTrend(mode === "tutto" ? trendAll : trendPerimeter, order).slice(0, TREND_SEND)),
     ])),
   ])) as Record<PerimeterMode, Record<TrendOrder, ReturnType<typeof sortTrend>>>;
   const trendTotals: Record<PerimeterMode, number> = { tutto: trendAll.length, biosimilare: trendPerimeter.length };
@@ -501,6 +509,7 @@ export default async function RevisionePillarBPage({
     years={filters.years}
     periodLabel={periodLabel}
     comparisonLabel={comparisonLabel}
+    scopeLine={scopeLine}
     panorama={{
       totals: data.facets?.totals ?? null,
       valueUptake: view,

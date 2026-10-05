@@ -57,6 +57,12 @@ export interface TrendRow {
   rows2025: number;
   /** Rows whose quantity basis is not `packages` — carried so coverage can be stated. */
   negativeRows: number;
+  /**
+   * Where the page narrows to this row's substance (set by the page, as a
+   * string, because the chart that shows it is a client component). null for
+   * a row that is not one substance, e.g. the unresolved-substance entry.
+   */
+  href?: string | null;
 }
 
 function trend(

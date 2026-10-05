@@ -6,6 +6,8 @@
 
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { Concentration, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
+import { TREND_FIGURE_HEADINGS, trendFigures, type TrendFigure, type TrendOrder } from "@/lib/dashboard-review/pillar-b/view-options";
+import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
 
 const ink = "hsl(var(--foreground))";
 const muted = "hsl(var(--muted-foreground))";
@@ -95,32 +97,57 @@ export function ChannelSlopeChart({ rows }: { rows: TrendRow[] }) {
   </Frame>;
 }
 
-export function MoleculeChangeChart({ rows, title, orderNote }: {
+function figureText(f: TrendFigure): string {
+  return f.kind === "eur" ? formatEur(f.value) : f.kind === "pct" ? formatPercent(f.value) : "n/c";
+}
+
+export function MoleculeChangeChart({ rows, title, orderNote, measure = "delta" }: {
   /** Already sorted and limited by the caller; drawn in the order given. */
   rows: TrendRow[];
   title?: string;
   /** How the rows were selected, for the footnote. */
   orderNote?: string;
+  /** The sort measure: the figure printed beside each row follows it. */
+  measure?: TrendOrder;
 }) {
   const selected = rows;
   const max = Math.max(1, ...selected.map((r) => Math.abs(r.changeEur)));
+  const heading = TREND_FIGURE_HEADINGS[measure];
+  const anyNa = selected.some((r) => r.change === null);
   return <Frame title={title ?? "Le dieci variazioni in euro più ampie"}>
     {selected.length === 0 ? <p className="text-sm text-muted-foreground">Nessun principio attivo osservato.</p> : <>
-    <div role="img" aria-label={`Variazioni della spesa 2025 rispetto al 2024: ${title ?? "le dieci variazioni in euro più ampie"}`} className="space-y-2">
-      {selected.map((r) => <div key={r.key} className="grid grid-cols-[minmax(0,9rem)_1fr_6rem] items-center gap-2 text-xs sm:grid-cols-[minmax(0,12rem)_1fr_7rem]">
-        <span title={r.label} className="truncate text-foreground">{r.label}</span>
-        <div className="grid h-5 grid-cols-2">
-          <div className="flex items-center justify-end border-r border-border">
-            {r.changeEur < 0 && <div className="h-3 rounded-sm bg-orange-500" style={{ width: `${Math.abs(r.changeEur) / max * 100}%` }} />}
-          </div>
-          <div className="flex items-center">
-            {r.changeEur >= 0 && <div className="h-3 rounded-sm bg-primary" style={{ width: `${Math.abs(r.changeEur) / max * 100}%` }} />}
-          </div>
-        </div>
-        <span className="text-right font-mono text-[11px] text-foreground">{formatEur(r.changeEur)}</span>
-      </div>)}
+    <div className="mb-1 grid grid-cols-[minmax(0,9rem)_1fr_7rem] items-end gap-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground sm:grid-cols-[minmax(0,12rem)_1fr_9rem]">
+      <span>Molecola</span>
+      <span>Barra: variazione € 2025 meno 2024 · zero al centro</span>
+      <span className="text-right">{heading}</span>
     </div>
-    <p className="mt-3 text-[11px] text-muted-foreground">Zero al centro; a destra aumenti, a sinistra diminuzioni. {orderNote ?? "Selezione per variazione assoluta, non per spesa 2025."}</p>
+    <div role="img" aria-label={`${title ?? "Le dieci variazioni in euro più ampie"}: barre della variazione della spesa 2025 rispetto al 2024, cifra a destra ${heading}`} className="space-y-2">
+      {selected.map((r) => {
+        const { primary, secondary } = trendFigures(r, measure);
+        return <div key={r.key} className="grid grid-cols-[minmax(0,9rem)_1fr_7rem] items-center gap-2 text-xs sm:grid-cols-[minmax(0,12rem)_1fr_9rem]">
+          {r.href
+            ? <KeepLink href={r.href} className="truncate text-foreground hover:text-primary hover:underline">{r.label}</KeepLink>
+            : <span title={r.label} className="truncate text-foreground">{r.label}</span>}
+          <div className="grid h-5 grid-cols-2">
+            <div className="flex items-center justify-end border-r border-border">
+              {r.changeEur < 0 && <div className="h-3 rounded-sm bg-orange-500" style={{ width: `${Math.abs(r.changeEur) / max * 100}%` }} />}
+            </div>
+            <div className="flex items-center">
+              {r.changeEur >= 0 && <div className="h-3 rounded-sm bg-primary" style={{ width: `${Math.abs(r.changeEur) / max * 100}%` }} />}
+            </div>
+          </div>
+          <span className="text-right font-mono text-[11px] leading-tight text-foreground">
+            {figureText(primary)}
+            {secondary && <span className="block text-[10px] text-muted-foreground">{secondary.kind === "pct" ? "" : secondary.kind === "eur" && measure === "spesa" ? "variazione " : ""}{figureText(secondary)}</span>}
+          </span>
+        </div>;
+      })}
+    </div>
+    <p className="mt-3 text-[11px] text-muted-foreground">
+      Zero al centro; a destra aumenti, a sinistra diminuzioni. {orderNote ?? "Selezione per variazione assoluta, non per spesa 2025."}
+      {anyNa && " «n/c»: variazione percentuale non calcolabile, perché la spesa 2024 della molecola è assente o nulla nella selezione."}
+      {" "}Il nome di una molecola apre la stessa pagina ristretta a quella molecola, dove la spesa per canale e per anno è letta sulle stesse righe.
+    </p>
     </>}
   </Frame>;
 }

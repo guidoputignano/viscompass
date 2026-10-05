@@ -162,8 +162,8 @@ export function AziendaBars({ rows, years, metric = "spesa" }: {
     return <Frame
       title={metric === "comparabile" ? "Quota con quantità confrontabile per Azienda" : "Record per Azienda"}
       lead={metric === "comparabile"
-        ? "Quanta parte della spesa di ciascuna Azienda, negli anni selezionati, raggiunge una quantità confrontabile: la base su cui ogni misura di volume riposa. Non è una misura di adozione."
-        : "Righe rendicontate per Azienda negli anni selezionati. Record, non pazienti né confezioni."}
+        ? `Unità: percentuale della spesa. Numeratore: spesa dell'Azienda con una quantità confrontabile; denominatore: spesa rendicontata dell'Azienda, ${years.length === 2 ? "2024 e 2025 insieme" : String(years[0])}, nei canali e nella molecola selezionati. È la copertura su cui ogni misura in volume riposa, non una misura di adozione né di qualità.`
+        : `Unità: righe rendicontate (record) per Azienda, ${years.length === 2 ? "2024 e 2025 insieme" : String(years[0])}, nei canali e nella molecola selezionati. Un record è una riga del flusso, non un paziente né una confezione; la barra è la lunghezza relativa alla massima.`}
     >
       {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna Azienda nel perimetro.</p> :
       <div role="img" aria-label={metric === "comparabile" ? "Quota confrontabile per Azienda" : "Record per Azienda"} className="space-y-2">
@@ -186,8 +186,8 @@ export function AziendaBars({ rows, years, metric = "spesa" }: {
   // Azienda is read by selecting the Azienda in the filter bar, where both
   // denominators appear together.
   return <Frame
-    title="Spesa per Azienda"
-    lead="Spesa rendicontata per Azienda negli anni selezionati, e quanta ne raggiunge una quantità confrontabile. Un confronto fra Aziende descrive cosa è stato comprato, non quanto bene: il case-mix non è controllabile su questo rilascio. Per l'adozione di un'Azienda selezionarla nei filtri."
+    title="Spesa rendicontata per Azienda e anno"
+    lead={`Unità: euro, IVA inclusa. Una barra per anno selezionato (${years.join(" e ")}): somma delle righe rendicontate dell'Azienda in quell'anno, nei canali e nella molecola selezionati; a destra il totale degli anni e la quota con quantità confrontabile. Non è una misura biosimilare: descrive cosa è stato comprato, non quanto bene (il case-mix non è controllabile su questo rilascio). Per l'adozione biosimilare di un'Azienda: selezionarla nei filtri e leggere le due quote in Adozione.`}
   >
     {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna Azienda nel perimetro.</p> : <>
     <div className="mb-2 flex gap-4 text-[11px] text-muted-foreground">
@@ -230,25 +230,23 @@ const CHANNEL_NAMES: Record<string, string> = {
 
 export function ChannelStack({ rows, years }: { rows: ChannelMixRow[]; years: ReadonlyArray<number> }) {
   const total = rows.reduce((s, r) => s + r.spend_eur, 0);
+  // ONE BAR PER YEAR, no pooled "Totale": the reviewers read the third bar as
+  // noise. A same-year regional comparator for an Azienda needs a separate
+  // disclosure contract (tracker PB-GA-08) and is not drawn here.
   return <Frame
     title="Composizione per canale"
-    lead="Quota di ciascun canale sulla spesa rendicontata degli anni selezionati, e per singolo anno."
+    lead="Quota di ciascun canale sulla spesa rendicontata, per singolo anno; le quote di ogni anno sommano a 100% sulla selezione (Azienda, molecola). Il confronto con la Regione per una singola Azienda è in attesa del contratto di divulgazione e non è mostrato."
   >
     {rows.length === 0 || total === 0 ? <p className="text-sm text-muted-foreground">Nessun canale osservato.</p> : <>
     <div className="mb-2 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
       {rows.map((r) => <span key={r.channel}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm" style={{ background: CHANNEL_COLORS[r.channel] ?? muted }} />{r.channel} · {CHANNEL_NAMES[r.channel] ?? ""}</span>)}
     </div>
     <div className="space-y-2">
-      {[...years.map((y) => ({
+      {years.map((y) => ({
           label: String(y),
           get: (r: ChannelMixRow) => r.byYear[y] ?? 0,
           observed: (r: ChannelMixRow) => r.byYear[y] !== undefined,
-        })),
-        ...(years.length > 1 ? [{
-          label: "Totale",
-          get: (r: ChannelMixRow) => r.spend_eur,
-          observed: () => true,
-        }] : [])].map((bar) => {
+        })).map((bar) => {
         const t = rows.reduce((s, r) => s + bar.get(r), 0);
         return <div key={bar.label} className="grid gap-1.5 sm:grid-cols-[5rem_1fr] sm:items-center sm:gap-3">
           <div className="text-xs font-medium text-foreground">{bar.label}</div>

@@ -64,6 +64,8 @@ export interface PillarBReviewProps {
   periodLabel: string;
   /** Same, for the fixed 2024 → 2025 comparison the Spesa section always makes. */
   comparisonLabel: string;
+  /** The page's scope line: Azienda, years, channels, molecule. */
+  scopeLine: string;
   panorama: {
     totals: FacetTotals | null;
     valueUptake: ValueUptakeView;
@@ -343,6 +345,8 @@ export function PillarBReview(props: PillarBReviewProps) {
           variants={spend.trendVariants}
           totals={spend.trendTotals}
           initial={{ order: viewOptions.trendOrder, limit: viewOptions.trendLimit, perimeter: viewOptions.perimeter }}
+          scopeLine={props.scopeLine}
+          comparisonLabel={props.comparisonLabel}
         />
       </Group>
 

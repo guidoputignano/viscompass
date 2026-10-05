@@ -90,7 +90,14 @@ export function AziendaPanel({ rows, years, initial, absent = [] }: {
   return (
     <div className="flex flex-col gap-3">
       <LocalToggle label="Misura" ariaLabel="Misura per Azienda" value={metric} onChange={setMetric}
-        options={AZIENDA_METRICS.map((m) => ({ value: m, label: AZIENDA_METRIC_LABELS[m] }))} />
+        options={AZIENDA_METRICS.map((m) => ({
+          value: m, label: AZIENDA_METRIC_LABELS[m],
+          title: m === "spesa"
+            ? "Euro rendicontati per Azienda, una barra per anno selezionato; nei canali e nella molecola selezionati. Non è una misura biosimilare."
+            : m === "comparabile"
+              ? "Percentuale: spesa con quantità confrontabile ÷ spesa rendicontata dell'Azienda, negli anni selezionati. Copertura della misura in volume, non adozione."
+              : "Numero di righe rendicontate per Azienda negli anni selezionati. Record, non pazienti né confezioni.",
+        }))} />
       <AziendaBars rows={rows} years={years} metric={metric} />
       {absent.length > 0 && (
         <p className="text-[11px] text-muted-foreground">
@@ -105,12 +112,16 @@ export function AziendaPanel({ rows, years, initial, absent = [] }: {
 
 export type TrendVariants = Record<PerimeterMode, Record<TrendOrder, TrendRow[]>>;
 
-export function TrendPanel({ variants, totals, initial }: {
+export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLabel }: {
   /** Top rows per (perimeter, order), already sorted and sliced to the largest limit. */
   variants: TrendVariants;
   /** How many substances each perimeter mode holds under the active filters. */
   totals: Record<PerimeterMode, number>;
   initial: { order: TrendOrder; limit: TrendLimit; perimeter: PerimeterMode };
+  /** The page's scope line: Azienda, years, channels, molecule. */
+  scopeLine: string;
+  /** "2024 e 2025 · 12 e 12 mesi osservati": the fixed year pair every change is read on. */
+  comparisonLabel: string;
 }) {
   const [order, setOrder] = useUrlOption<TrendOrder>(VIEW_OPTION_KEYS.trendOrder, initial.order, VIEW_OPTION_DEFAULTS.trendOrder);
   const [limit, setLimit] = useUrlOption<TrendLimit>(VIEW_OPTION_KEYS.trendLimit, initial.limit, VIEW_OPTION_DEFAULTS.trendLimit);
@@ -135,12 +146,37 @@ export function TrendPanel({ variants, totals, initial }: {
               : `Tutte le molecole del libro mastro in questa selezione (${count(totals.tutto, "molecola", "molecole")}).`,
           }))} />
         <LocalToggle label="Ordina per" ariaLabel="Ordinamento delle variazioni" value={order} onChange={setOrder}
-          options={TREND_ORDERS.map((o) => ({ value: o, label: TREND_ORDER_LABELS[o] }))} />
+          options={TREND_ORDERS.map((o) => ({
+            value: o, label: TREND_ORDER_LABELS[o],
+            title: o === "spesa"
+              ? "Spesa 2025 della molecola nella selezione (non il totale del libro mastro): le barre restano la variazione 2025 meno 2024."
+              : o === "pct" ? "Variazione 2025 meno 2024 divisa per il valore assoluto della spesa 2024 della molecola; non calcolabile se la spesa 2024 è assente o nulla."
+              : "Variazione in euro: spesa 2025 meno spesa 2024 della molecola, nella selezione.",
+          }))} />
         <LocalToggle label="Mostra" ariaLabel="Numero di molecole mostrate" value={limit} onChange={setLimit}
           options={TREND_LIMITS.map((n) => ({ value: n, label: String(n) }))} />
       </div>
+      {/* WHAT EACH FIGURE IS, beside the plot, not in a collapsed table: the
+          reviewers could not tell whether "spesa 2025" was the ledger total or
+          the molecule's, nor which channels the change was read on. */}
+      <Note>
+        <p>
+          <strong>Che cosa è calcolato.</strong> Per ogni molecola, nella selezione <em>{scopeLine}</em>: spesa 2024 e spesa 2025
+          della molecola (somma delle righe rendicontate con quei filtri, IVA inclusa); <strong>variazione €</strong> = spesa 2025 − spesa 2024;
+          <strong> variazione %</strong> = variazione € ÷ |spesa 2024|. Il confronto è sempre {comparisonLabel}; il filtro anno non si applica.
+          {perimeter === "biosimilare"
+            ? " Perimetro: solo le molecole del perimetro biosimilare, con tutte le loro presentazioni."
+            : " Perimetro: tutto il libro mastro, non solo i biosimilari."}
+        </p>
+        <p className="mt-1">
+          <strong>Che cosa è disegnato.</strong> La barra è sempre la variazione in euro (zero al centro); la cifra a destra segue
+          l&apos;ordinamento scelto ({orderWord}) e la seconda riga riporta l&apos;altra lettura. Un canale filtrato è la spesa di
+          quel canale, non il totale della molecola: per vedere la molecola per canale e per anno, aprire la molecola.
+        </p>
+      </Note>
       <MoleculeChangeChart rows={rows}
         title={title}
+        measure={order}
         orderNote={`Selezione per ${orderWord}${perimeter === "biosimilare" ? ", fra le molecole del perimetro biosimilare (tutte le presentazioni, a livello di molecola)" : ""}; ${count(total, "voce", "voci")} nell'insieme (principi attivi; le righe senza principio attivo risolto formano una voce a parte).`} />
       <details className="group">
         <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la serie numerica per principio attivo</summary>

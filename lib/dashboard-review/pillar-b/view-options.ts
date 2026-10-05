@@ -176,6 +176,33 @@ export const TREND_ORDER_LABELS: Record<TrendOrder, string> = {
   spesa: "spesa 2025",
 };
 
+/** A figure the chart prints beside a row: euros, a rate, or "not calculable". */
+export type TrendFigure = { kind: "eur"; value: number } | { kind: "pct"; value: number } | { kind: "na" };
+
+/**
+ * What the molecule-change chart prints beside each row, following the
+ * measure the reader sorted by — never a euro label under a percentage sort.
+ * `primary` is the sort measure; `secondary` is the other reading, kept so
+ * the euro change is never hidden. A rate over an absent or zero 2024 base
+ * is "na": not calculable, not an invented percentage.
+ */
+export function trendFigures(row: Pick<TrendRow, "changeEur" | "change" | "spend2025">, order: TrendOrder): { primary: TrendFigure; secondary: TrendFigure | null } {
+  const eur: TrendFigure = { kind: "eur", value: row.changeEur };
+  const pct: TrendFigure = row.change === null ? { kind: "na" } : { kind: "pct", value: row.change };
+  switch (order) {
+    case "delta": return { primary: eur, secondary: pct };
+    case "pct": return { primary: pct, secondary: eur };
+    case "spesa": return { primary: { kind: "eur", value: row.spend2025 }, secondary: eur };
+  }
+}
+
+/** The column heading for the primary figure under each sort. */
+export const TREND_FIGURE_HEADINGS: Record<TrendOrder, string> = {
+  delta: "variazione € · 2025 meno 2024",
+  pct: "variazione % · su |spesa 2024|",
+  spesa: "spesa 2025 della molecola",
+};
+
 /**
  * Keep only the substances of the biosimilar perimeter.
  *
