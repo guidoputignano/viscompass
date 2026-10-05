@@ -136,3 +136,19 @@ evidence repository.
 
 Not verified: the other two reviewer accounts' own sessions (the code path
 and the configured count are; each also needs an approved membership).
+
+## Reviewer feedback of 5 October 2026 (Guido and Alberto)
+
+Eighteen items, tracked in `PILLAR_B_GUIDO_ALBERTO_FEEDBACK_TRACKER_20261005.md`.
+The eleven presentation items landed in four commits (`57de8d6`, `c358acb`,
+`6f29713`, `2570ad7`): executive opening without the release id and the raw
+record KPI; trajectory before the monthly profile; «gen–mag 2026 · dati
+osservati»; what each spend panel measures, with the figure following the sort
+and «n/c» for a rate over no base; the two adoption shares with formula,
+months counted and a worked example; a timeline key with exact values; every
+molecule drawn; the bridge led by the perimeter with the whole-ledger
+reconciliation as a collapsed audit view; two review queues per molecule that
+add up to the bridge gates (harness b46 §D, 65/65). The seven evidence-gated
+items have written contracts in `PILLAR_B_FEEDBACK_CONTRACTS_20261005.md`;
+none is implemented. Checks: TypeScript, ESLint, 378 tests, webpack build. Not
+yet verified live: the owner pushes first.
