@@ -13,7 +13,7 @@
 
 import Link from "next/link";
 import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
-import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
+import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 import type { DumbbellRow, TimelineModel } from "@/lib/dashboard-review/pillar-b/adoption";
 import { DumbbellUptakeChart, FirstUseTimeline } from "@/components/dashboard-review/pillar-b-adoption-visuals";
@@ -44,7 +44,7 @@ function MeasureCard({
           months counted differ, and the card says which. */}
       <p className="mt-2 font-mono text-[11px] leading-relaxed text-foreground">
         = biosimilare ÷ (biosimilare + riferimento)
-        <span className="block text-muted-foreground">= {formatEur(measure.biosimilar)} ÷ ({formatEur(measure.biosimilar)} + {formatEur(measure.reference)})</span>
+        <span className="block text-muted-foreground">= {formatEurPrecise(measure.biosimilar)} ÷ ({formatEurPrecise(measure.biosimilar)} + {formatEurPrecise(measure.reference)})</span>
       </p>
       <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><strong className="text-foreground">Mesi contati:</strong> {months}</p>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
@@ -73,7 +73,7 @@ function WorkedExample({ view }: { view: ValueUptakeView }) {
     .sort((a, b) => b.dateValid.reference - a.dateValid.reference)[0];
   if (!r) return null;
   const refBefore = r.dateValid.reference - r.locallyObserved.reference;
-  const sameNumerator = Math.abs(r.dateValid.biosimilar - r.locallyObserved.biosimilar) < 0.5;
+  const bioBefore = r.dateValid.biosimilar - r.locallyObserved.biosimilar;
   return (
     <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-xs leading-relaxed text-foreground">
       <p className="font-semibold">Esempio nella selezione · {r.substance}</p>
@@ -84,17 +84,16 @@ function WorkedExample({ view }: { view: ValueUptakeView }) {
           quota <span className="font-mono text-foreground">{formatPercent(r.dateValid.share!)}</span>.
         </li>
         <li>
-          Contando solo i mesi dal primo biosimilare dispensato qui ({r.firstLocalLabel}): il riferimento contato scende a{" "}
+          Contando solo i mesi dal primo biosimilare dispensato qui ({r.firstLocalLabel}): il riferimento contato è{" "}
           <span className="font-mono text-foreground">{formatEur(r.locallyObserved.reference)}</span>
-          {sameNumerator
-            ? <>, il biosimilare resta <span className="font-mono text-foreground">{formatEur(r.locallyObserved.biosimilar)}</span></>
-            : <>, il biosimilare è <span className="font-mono text-foreground">{formatEur(r.locallyObserved.biosimilar)}</span></>}
+          , il biosimilare è <span className="font-mono text-foreground">{formatEur(r.locallyObserved.biosimilar)}</span>
           {" "}→ quota <span className="font-mono text-foreground">{formatPercent(r.locallyObserved.share!)}</span>.
         </li>
         <li>
-          La differenza fra le due quote sta nel denominatore: <span className="font-mono text-foreground">{formatEur(refBefore)}</span> di
-          riferimento spesi nei mesi validi <em>prima</em> che un biosimilare fosse dispensato qui{refBefore === 0 ? " (qui nessuno: le due quote coincidono)" : ""}.
-          {sameNumerator ? " Il numeratore è lo stesso." : ""}
+          Nei mesi validi <em>prima</em> del primo uso locale sono registrati{" "}
+          <span className="font-mono text-foreground">{formatEurPrecise(refBefore)}</span> di riferimento e{" "}
+          <span className="font-mono text-foreground">{formatEurPrecise(bioBefore)}</span> di biosimilare (importi netti, anche rettificabili).
+          La quota 2 esclude entrambi: numeratore e denominatore possono cambiare.
         </li>
       </ol>
     </div>
@@ -166,7 +165,7 @@ export function PillarBValueUptake({
         <MeasureCard
           accent
           title="Quota 2 · su mesi con biosimilare osservato qui"
-          months="solo i mesi dal primo biosimilare della sostanza dispensato nell'ambito visibile (l'Azienda selezionata, o la Regione) in poi; i mesi validi precedenti escono dal denominatore. Non misura la possibilità clinica di sostituzione."
+          months="solo i mesi dal primo biosimilare della sostanza dispensato nell'ambito visibile (l'Azienda selezionata, o la Regione) in poi; i mesi validi precedenti escono da entrambi gli importi della formula. Non misura la possibilità clinica di sostituzione."
           measure={view.locallyObserved}
         />
       </div> : <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
@@ -179,9 +178,9 @@ export function PillarBValueUptake({
       {gap !== null && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           Le due quote differiscono di{" "}
-          <strong className="text-foreground">{formatPercent(Math.abs(gap))}</strong> punti.
-          Stessa formula, stesso numeratore{Math.abs(view.dateValid.biosimilar - view.locallyObserved.biosimilar) < 0.5 ? "" : " (quasi)"}: cambia solo
-          quanto riferimento entra nel denominatore. La quota 1 chiede «da quando un
+          <strong className="text-foreground">{formatNumber(Math.abs(gap) * 100, 1)}</strong> punti percentuali.
+          La formula è la stessa, ma cambiano i mesi inclusi: può variare sia la spesa biosimilare al numeratore sia quella
+          di riferimento nel denominatore. La quota 1 chiede «da quando un
           biosimilare esisteva, quanta spesa è andata al biosimilare?»; la quota 2 chiede
           «da quando un biosimilare è stato usato qui, quanta?». Nessuna delle due è
           «quella giusta»: pubblicarne una sola descriverebbe male l&apos;adozione. La

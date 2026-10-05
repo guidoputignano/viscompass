@@ -94,8 +94,9 @@ export interface PillarBReviewProps {
     bridge: { model: BridgeB; check: BridgeBPerimeterCheck | null; scopeLabel: string; monthsLabel: string } | null;
     /** Why the bridge is withheld, when it is; null when it is shown or when the set is empty. */
     bridgeWithheld: string | null;
-    /** The two actionable gates per molecule, each row with the URL that narrows the page to it. */
+    /** One organisational review cohort and one EU-status evidence cohort. */
     reviewQueue: (ReviewQueue & { hrefs: Record<string, string> }) | null;
+    reviewQueueWithheld: string | null;
   };
   /** The panel-local options as read from the URL on this request. */
   viewOptions: ViewOptions;
@@ -332,7 +333,7 @@ export function PillarBReview(props: PillarBReviewProps) {
         {has2024 && has2025 && yoy !== null && <Stat label="Variazione · 2024 → 2025"
               value={formatPercent(yoy)}
               detail={`${formatEur(spend.totals.spend2025 - spend.totals.spend2024)} · confronto fisso fra i due anni, il filtro anno non si applica · ${props.comparisonLabel}`} />}
-        {adoption.bridge && adoption.bridge.model.total > 0 && <Stat label={`Perimetro biosimilare · ${years.length === 2 ? "2024 e 2025" : headlineYear}`}
+        {adoption.bridge && adoption.bridge.check?.consistent === true && adoption.bridge.model.residual === 0 && adoption.bridge.model.gates.every((g) => g.eur >= 0) && adoption.bridge.model.total > 0 && <Stat label={`Perimetro biosimilare · ${years.length === 2 ? "2024 e 2025" : headlineYear}`}
               value={formatEur(adoption.bridge.model.perimeter)}
               detail={`${formatPercent(adoption.bridge.model.perimeter / adoption.bridge.model.total)} della spesa riportata nella selezione: biosimilari e medicinali di riferimento, in ogni mese. È il denaro su cui le misure di adozione si fondano.`} />}
       </div>}
@@ -459,28 +460,30 @@ export function PillarBReview(props: PillarBReviewProps) {
         {adoption.reviewQueue && (adoption.reviewQueue.afterLocalSwitch.length > 0 || adoption.reviewQueue.notObservedHere.length > 0) && (
           <Sub title="Domande di revisione, molecola per molecola">
             <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Le due soglie del ponte su cui si può agire, lette per molecola. Ogni riga è una domanda per la revisione
-              organizzativa (continuità terapeutica, gara, indicazione, presentazione), con la spesa che la motiva e il
-              collegamento all&apos;evidenza della molecola. <strong>Nessuna riga è un risparmio</strong>, una previsione o
-              un&apos;indicazione prescrittiva; le somme coincidono con le soglie del ponte qui sopra.
+              Due liste con scopi diversi: la prima individua spesa di riferimento dopo il primo uso locale e coincide
+              con B_ADDRESSABLE_REFERENCE; la seconda segnala sostanze con biosimilare autorizzato in EU ma non osservato
+              qui, per cui occorre verificare lo stato italiano. La seconda è <strong>solo una parte di B4</strong>: B4
+              comprende anche la spesa prima del primo uso delle sostanze poi passate al biosimilare. Ogni riga collega
+              alla sua evidenza. <strong>Nessuna riga è un risparmio</strong>, una previsione o un&apos;indicazione prescrittiva.
             </p>
             <div className="grid gap-4 lg:grid-cols-2">
               <ReviewQueueList
                 title="Biosimilare già in uso qui, riferimento ancora dispensato dopo il primo uso"
                 lead="Spesa di riferimento nei mesi successivi al primo biosimilare della sostanza dispensato nell'ambito visibile. Coincide con la soglia «Riferimento sostituibile localmente»."
                 rows={adoption.reviewQueue.afterLocalSwitch} total={adoption.reviewQueue.afterLocalSwitchTotal} hrefs={adoption.reviewQueue.hrefs}
-                firstColumn="Primo uso qui" shareColumn="Quota 2" shareOf="locallyObservedShare" />
+                firstColumn="Primo uso qui" shareColumn="Quota 2 · uso locale" shareOf="locallyObservedShare" />
               <ReviewQueueList
                 title="Biosimilare autorizzato in EU, non osservato in questo rilascio nell'ambito visibile"
                 lead="Spesa di riferimento nei mesi validi per sostanze di cui nessun biosimilare risulta dispensato nelle Aziende selezionate nei 29 mesi del rilascio. «Non osservato nel rilascio» non è «mai acquistato», e l'autorizzazione EU non dice lo stato in Italia (AIC, classificazione, commercializzazione): da verificare prima di leggerla come alternativa disponibile."
                 rows={adoption.reviewQueue.notObservedHere} total={adoption.reviewQueue.notObservedHereTotal} hrefs={adoption.reviewQueue.hrefs}
-                firstColumn={null} shareColumn="Quota 1" shareOf="dateValidShare"
+                firstColumn={null} shareColumn="Quota 1 · mesi validi" shareOf="dateValidShare"
                 footnote={adoption.reviewQueue.beforeLocalSwitchTotal > 0
                   ? `Con i ${formatEur(adoption.reviewQueue.beforeLocalSwitchTotal)} di riferimento spesi dalle molecole già passate nei mesi validi prima del loro primo uso, questa lista coincide con la soglia «EU-autorizzato, non ancora acquistato qui».`
                   : "Questa lista coincide con la soglia «EU-autorizzato, non ancora acquistato qui»."} />
             </div>
           </Sub>
         )}
+        {adoption.reviewQueueWithheld && <Notice tone="info">{adoption.reviewQueueWithheld}</Notice>}
 
         {(adoption.volume.length > 0 || adoption.uptake.withheldRows > 0) && <Sub title="In volume · dove la quantità ha un'unità">
           <div className="rounded-xl border border-border bg-card p-4">

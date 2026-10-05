@@ -1,9 +1,9 @@
 // The review queue: bridge B read per molecule, as questions.
 //
 // Bridge B (sheet 09) partitions the ledger into gates; a decision-maker
-// needs the gates that can be acted on listed by molecule, with the euros
-// and the evidence each one rests on. Two of the gates are per-molecule
-// populations of the value-uptake view and are listed here:
+// needs one organisational review cohort and one evidence-verification
+// cohort listed by molecule, with the euros each one rests on. They are
+// populations of the value-uptake view:
 //
 //   after the local switch — reference spend in the months after the first
 //     biosimilar of the substance was dispensed in the visible Aziende
@@ -65,4 +65,9 @@ export function reviewQueue(view: ValueUptakeView): ReviewQueue {
     notObservedHereTotal: notObservedHere.reduce((s, r) => s + r.eur, 0),
     beforeLocalSwitchTotal: switched.reduce((s, r) => s + (r.dateValid.reference - r.locallyObserved.reference), 0),
   };
+}
+
+/** A net credit-note adjustment cannot be presented as a positive review case. */
+export function reviewQueuePublishable(queue: ReviewQueue): boolean {
+  return [...queue.afterLocalSwitch, ...queue.notObservedHere].every((row) => Number.isFinite(row.eur) && row.eur > 0);
 }

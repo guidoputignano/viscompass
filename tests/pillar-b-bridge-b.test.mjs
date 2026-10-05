@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { BRIDGE_B_GATE_IDS, BRIDGE_B_GATES, bridgeB, bridgeBPerimeterCheck } from "../lib/dashboard-review/pillar-b/bridge-b.ts";
+import { BRIDGE_B_GATE_IDS, BRIDGE_B_GATES, bridgeB, bridgeBPerimeterCheck, bridgeBPublishable } from "../lib/dashboard-review/pillar-b/bridge-b.ts";
 import { buildValueUptake } from "../lib/dashboard-review/pillar-b/value-uptake.ts";
 
 // Synthetic rows, in the RPC's shape. Two substances: one with a local
@@ -20,6 +20,20 @@ const ROWS = [ALFA, BETA];
 const view = buildValueUptake(ROWS);
 const SIX = BRIDGE_B_GATE_IDS.filter((id) => id !== "B3_date_unknown");
 const byId = (b) => Object.fromEntries(b.gates.map((g) => [g.id, g.eur]));
+
+test("decision views fail closed without an independent cent-exact check or with a negative gate", () => {
+  const b = bridgeB(view, 10000);
+  const good = bridgeBPerimeterCheck(b, [
+    { perimeter_status: "biosimilar", spend_eur: b.biosimilar },
+    { perimeter_status: "reference_medicine", spend_eur: b.reference },
+  ]);
+  assert.equal(bridgeBPublishable(b, good), true);
+  assert.equal(bridgeBPublishable(b, null), false);
+  assert.equal(bridgeBPublishable(b, { ...good, consistent: false, difference: 1 }), false);
+  assert.equal(bridgeBPublishable({ ...b, residual: 0.01 }, good), false);
+  assert.equal(bridgeBPublishable({ ...b, gates: b.gates.map((g) => g.id === "B1_before_status_valid" ? { ...g, eur: -1 } : g) }, good), false);
+  assert.equal(bridgeBPublishable(bridgeB(buildValueUptake([]), 0), good), false);
+});
 
 test("the gates partition the total exactly, every euro through one gate", () => {
   const b = bridgeB(view, 10000);

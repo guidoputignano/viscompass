@@ -183,14 +183,15 @@ in three session types.
 
 ## PB-GA-15 · Management review queues
 
-**What landed now, as presentation of validated measures (`<commit of batch 4>`).**
+**What landed now, as presentation of validated measures (`2570ad7`).**
 Two lists under the bridge, per molecule, each row linking to the molecule's
 evidence: (1) biosimilar already in use here with reference spend after its
 first local use (sums to B_ADDRESSABLE_REFERENCE); (2) biosimilar EU-authorised,
 not observed in this release in the visible Aziende, with date-valid reference
 spend (with the pre-switch months of the switched molecules, sums to B4).
-Both labelled as organisational review questions, never a saving or a
-prescribing instruction; both reconciled to the bridge gates in the unit test
+The first is an organisational review question; the second is an EU-status
+evidence question, not an Italy-ready alternative. Neither is a saving or a
+prescribing instruction. They are reconciled to the bridge gates in the unit test
 and in harness b46 section D on the real release, in every page scope.
 
 **What stays gated.** A third queue, "evidence and coverage questions"

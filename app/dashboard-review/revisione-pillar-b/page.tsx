@@ -44,8 +44,8 @@ import {
   type ConcentrationYear, type PerimeterMode, type TrendOrder,
 } from "@/lib/dashboard-review/pillar-b/view-options";
 import { resolvePillarBScope } from "@/lib/dashboard-review/pillar-b/scope";
-import { bridgeB, bridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
-import { reviewQueue } from "@/lib/dashboard-review/pillar-b/review-queue";
+import { bridgeB, bridgeBPerimeterCheck, bridgeBPublishable } from "@/lib/dashboard-review/pillar-b/bridge-b";
+import { reviewQueue, reviewQueuePublishable } from "@/lib/dashboard-review/pillar-b/review-queue";
 
 const BASE = "/dashboard-review/revisione-pillar-b";
 
@@ -482,6 +482,23 @@ export default async function RevisionePillarBPage({
   // translated page is re-rendered whole and re-translated.
   const filterKey = pillarBHref(BASE, filters, {});
 
+  const bridgeOutcome = !fallback && data.facets?.totals?.spend_eur != null && view.perimeterRows > 0
+    ? (() => {
+        const model = bridgeB(view, data.facets!.totals!.spend_eur!);
+        return {
+          model,
+          check: data.facets?.perimeter ? bridgeBPerimeterCheck(model, data.facets.perimeter) : null,
+          scopeLabel: scopeLine,
+          monthsLabel: monthsPhrase(filters.years),
+        };
+      })()
+    : null;
+  const bridgeReady = bridgeOutcome !== null && bridgeBPublishable(bridgeOutcome.model, bridgeOutcome.check);
+  const queueOutcome = bridgeReady ? reviewQueue(view) : null;
+  // Net credit-note adjustments are audit data, not positive review cases.
+  // Preserve the bridge arithmetic and withhold the decision lists as a whole.
+  const queueReady = queueOutcome !== null && reviewQueuePublishable(queueOutcome);
+
   return <PillarBReview
     key={filterKey}
     releaseId={releaseId}
@@ -541,27 +558,21 @@ export default async function RevisionePillarBPage({
       // years, or B0 would be a difference between two populations. Under the
       // fallback (scoped function missing) the view is wider than the totals,
       // so the bridge is withheld and says why.
-      bridge: !fallback && data.facets?.totals?.spend_eur != null && view.perimeterRows > 0
-        ? (() => {
-            const model = bridgeB(view, data.facets!.totals!.spend_eur!);
-            return {
-              model, check: data.facets?.perimeter ? bridgeBPerimeterCheck(model, data.facets.perimeter) : null,
-              scopeLabel: scopeLine, monthsLabel: monthsPhrase(filters.years),
-            };
-          })()
-        : null,
+      bridge: bridgeOutcome,
       bridgeWithheld: fallback && view.perimeterRows > 0
         ? "Il ponte non è calcolato finché la funzione scoped di uptake non è pubblicata: senza di essa il totale e l'uptake non sono letti con certezza sullo stesso ambito."
         : null,
       // THE REVIEW QUEUE follows the bridge: same view, same scope, and only
       // when the bridge itself is shown, so its sums are the bridge's gates.
-      reviewQueue: !fallback && view.perimeterRows > 0
+      reviewQueue: queueReady && queueOutcome
         ? (() => {
-            const queue = reviewQueue(view);
-            const hrefs = Object.fromEntries([...queue.afterLocalSwitch, ...queue.notObservedHere]
+            const hrefs = Object.fromEntries([...queueOutcome.afterLocalSwitch, ...queueOutcome.notObservedHere]
               .map((r) => [r.substance, pillarBHref(BASE, filters, { substance: r.substance })]));
-            return { ...queue, hrefs };
+            return { ...queueOutcome, hrefs };
           })()
+        : null,
+      reviewQueueWithheld: bridgeReady && !queueReady
+        ? "Le liste di revisione non sono mostrate: almeno una molecola ha una spesa netta di riferimento negativa per rettifiche. Gli importi restano nel ponte di riconciliazione, ma non rappresentano una domanda di revisione positiva."
         : null,
       uptake: uptakeForView,
       groupCount: distinctUptakeGroups(uptakeRows),

@@ -147,8 +147,28 @@ osservati»; what each spend panel measures, with the figure following the sort
 and «n/c» for a rate over no base; the two adoption shares with formula,
 months counted and a worked example; a timeline key with exact values; every
 molecule drawn; the bridge led by the perimeter with the whole-ledger
-reconciliation as a collapsed audit view; two review queues per molecule that
-add up to the bridge gates (harness b46 §D, 65/65). The seven evidence-gated
+reconciliation as a collapsed audit view; one organisational review queue
+equal to B_ADDRESSABLE and one EU-status evidence queue that forms only part
+of B4 (harness b46 §D, 65/65). The seven evidence-gated
 items have written contracts in `PILLAR_B_FEEDBACK_CONTRACTS_20261005.md`;
-none is implemented. Checks: TypeScript, ESLint, 378 tests, webpack build. Not
+none is implemented. Checks: TypeScript, changed-file ESLint, 378 passing tests
+(8 skipped), webpack build. Repository-wide lint still reports six errors in
+untouched Pillar A/shared files; it is not a clean global lint result. Not
 yet verified live: the owner pushes first.
+
+## Independent completion pass · 5 October 2026
+
+The feedback commits were audited before deployment. The final correction
+separates the B_ADDRESSABLE organisational list from the EU-status evidence
+list (a subset of B4), withholds both lists when the independent perimeter
+check fails or net credit notes would create a negative review case, and
+replaces the within-perimeter stacked shape with separate absolute-euro bars.
+The two uptake cards now allow both numerator and denominator to vary across
+their different month windows; their displayed arithmetic uses cents.
+
+Verification on the completed tree: 388 tests (380 passing, 8 skipped),
+TypeScript clean, changed-file ESLint clean, webpack production build clean,
+and independent b46 frozen-release reconciliation 65/65. This does not assert
+that every evidence-gated feedback item is implemented or that a production
+session has been visually checked. Global lint remains separately open in
+untouched Pillar A/shared files.

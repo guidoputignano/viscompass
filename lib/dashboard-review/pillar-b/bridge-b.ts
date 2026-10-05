@@ -175,3 +175,10 @@ export function bridgeBPerimeterCheck(bridge: BridgeB, perimeter: ReadonlyArray<
   const difference = round2(bridge.perimeter - facetsPerimeter);
   return { facetsPerimeter, difference, consistent: difference === 0 };
 }
+
+/** Decision views need an independent perimeter reading and nonnegative gates.
+ * The audit table may still show a failed check or net credit adjustment. */
+export function bridgeBPublishable(bridge: BridgeB, check: BridgeBPerimeterCheck | null): boolean {
+  return check?.consistent === true && bridge.residual === 0 && bridge.total > 0 && bridge.perimeter > 0
+    && bridge.gates.every((gate) => gate.eur >= 0);
+}

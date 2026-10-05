@@ -14,7 +14,7 @@
 // a narrow scope below zero), where only the table is honest.
 
 import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
-import type { BridgeB, BridgeBGate, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
+import { bridgeBPublishable, type BridgeB, type BridgeBGate, type BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
 
 const ink = "hsl(var(--foreground))";
 const muted = "hsl(var(--muted-foreground))";
@@ -27,6 +27,15 @@ const COLOR: Record<BridgeBGate["id"], string> = {
   B3_date_unknown: "hsl(204 10% 60%)",
   B4_eu_authorised_never_bought_here: "#8b7fc0",
   B_ADDRESSABLE_REFERENCE: "#e87955",
+};
+const SHORT_LABEL: Record<BridgeBGate["id"], string> = {
+  B0_outside_perimeter: "Fuori perimetro",
+  B_BIOSIMILAR_SPEND: "Già biosimilare",
+  B1_before_status_valid: "Prima della validità",
+  B2_boundary_month_unsplittable: "Mese di confine",
+  B3_date_unknown: "Data non disponibile",
+  B4_eu_authorised_never_bought_here: "EU, non osservato qui",
+  B_ADDRESSABLE_REFERENCE: "Riferimento dopo primo uso",
 };
 
 /** One sentence per gate on what a reader can do with it; none is a saving. */
@@ -57,16 +66,10 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
   const perimeterShare = bridge.total === 0 ? null : bridge.perimeter / bridge.total;
   const b0W = Math.max(0, Math.min(1, b0?.shareOfTotal ?? 0)) * span;
   const perW = Math.max(0, Math.min(1, perimeterShare ?? 0)) * span;
-  // The perimeter enlarged to the full width, each gate in proportion to its
-  // euros. Widths are geometry only; no ratio is printed.
-  const segs = perimeterGates.reduce<Array<{ g: BridgeBGate; x: number; w: number }>>((acc, g) => {
-    const x = acc.length ? acc[acc.length - 1].x + acc[acc.length - 1].w : left;
-    const w = bridge.perimeter > 0 ? Math.max(0, g.eur) / bridge.perimeter * span : 0;
-    return [...acc, { g, x, w }];
-  }, []);
-  const consistent = check === null || check.consistent;
+  const maxGate = Math.max(1, ...perimeterGates.map((g) => g.eur));
+  const consistent = check?.consistent === true;
   const negative = bridge.gates.filter((g) => g.eur < 0);
-  const drawable = consistent && negative.length === 0 && bridge.total > 0 && bridge.perimeter > 0;
+  const drawable = bridgeBPublishable(bridge, check);
   const totalHeading = `Del totale rendicontato (${formatEur(bridge.total)})`;
 
   return (
@@ -80,12 +83,12 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
           selezionato, mai il 2026 incompleto. L&apos;ultima soglia è una popolazione di spesa, <strong>non un risparmio</strong>.
         </p>
       </figcaption>
-      {!consistent && check ? (
+      {!consistent ? (
         <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed">
-          <strong className="text-foreground">Ponte non disegnato.</strong> Il perimetro letto dalla funzione di uptake
-          ({formatEurPrecise(bridge.perimeter)}) non coincide con la spesa degli stati «biosimilare» e «medicinale di riferimento»
-          della classificazione ({formatEurPrecise(check.facetsPerimeter)}): differenza {formatEurPrecise(check.difference)}. Le due
-          letture devono coincidere al centesimo prima che il ponte sia pubblicabile.
+          <strong className="text-foreground">Ponte non disegnato.</strong> {check
+            ? <>Il perimetro letto dalla funzione di uptake ({formatEurPrecise(bridge.perimeter)}) non coincide con la spesa degli stati «biosimilare» e «medicinale di riferimento» della classificazione ({formatEurPrecise(check.facetsPerimeter)}): differenza {formatEurPrecise(check.difference)}.</>
+            : <>La lettura indipendente del perimetro non è disponibile in questa selezione.</>}
+          {" "}Le due letture devono coincidere al centesimo prima che il ponte sia pubblicabile.
         </div>
       ) : negative.length > 0 ? (
         <p className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -95,12 +98,17 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
       ) : !drawable ? null : (
         <>
           <div className="overflow-x-auto">
-            <svg role="img" viewBox={`0 0 ${width} 72`} className="w-full min-w-[34rem]" xmlns="http://www.w3.org/2000/svg"
-              aria-label={`Perimetro biosimilare ${formatEur(bridge.perimeter)}, ripartito in ${perimeterGates.map((g) => `${g.label} ${formatEur(g.eur)}`).join(", ")}`}>
-              <text x={left} y={14} fontSize="11" fill={muted}>Il perimetro ingrandito a tutta larghezza; gli importi sono nella tabella</text>
-              {segs.map(({ g, x, w }) => (
-                <rect key={g.id} x={x} y={22} width={Math.max(0, w - 1)} height={barH} fill={COLOR[g.id]} stroke={cardBg} strokeWidth="1" />
-              ))}
+            <svg role="img" viewBox={`0 0 ${width} ${perimeterGates.length * 35 + 28}`} className="w-full min-w-[46rem]" xmlns="http://www.w3.org/2000/svg"
+              aria-label={`Spesa assoluta per soglia, in euro: ${perimeterGates.map((g) => `${g.label} ${formatEur(g.eur)}`).join(", ")}`}>
+              <text x={left} y={13} fontSize="11" fill={muted}>Spesa per soglia · barre indipendenti sulla stessa scala in euro; non una quota di adozione</text>
+              {perimeterGates.map((g, index) => {
+                const y = 23 + index * 35;
+                return <g key={g.id}>
+                  <text x={left} y={y + 15} fontSize="10" fill={ink}>{SHORT_LABEL[g.id]}</text>
+                  <rect x={280} y={y} width={360 * g.eur / maxGate} height={18} rx="3" fill={COLOR[g.id]} stroke={cardBg} strokeWidth="1" />
+                  <text x={right} y={y + 15} textAnchor="end" fontSize="11" fill={ink}>{formatEur(g.eur)}</text>
+                </g>;
+              })}
             </svg>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">

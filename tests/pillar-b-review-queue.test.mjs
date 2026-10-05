@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { reviewQueue } from "../lib/dashboard-review/pillar-b/review-queue.ts";
+import { reviewQueue, reviewQueuePublishable } from "../lib/dashboard-review/pillar-b/review-queue.ts";
 import { bridgeB } from "../lib/dashboard-review/pillar-b/bridge-b.ts";
 import { buildValueUptake } from "../lib/dashboard-review/pillar-b/value-uptake.ts";
 
@@ -19,7 +19,7 @@ const ROWS = [
 ];
 const view = buildValueUptake(ROWS);
 
-test("the two lists are the two actionable gates, read per molecule, and add up to them exactly", () => {
+test("the organisational list matches B_ADDRESSABLE; evidence list plus pre-switch reference matches B4", () => {
   const q = reviewQueue(view);
   const b = bridgeB(view, 10000);
   const gate = (id) => b.gates.find((g) => g.id === id).eur;
@@ -28,6 +28,17 @@ test("the two lists are the two actionable gates, read per molecule, and add up 
   assert.deepEqual(q.notObservedHere.map((r) => [r.substance, r.eur, r.firstLocalLabel]), [["beta", 200, null]]);
   assert.equal(q.beforeLocalSwitchTotal, 315 - 120);
   assert.equal(q.notObservedHereTotal + q.beforeLocalSwitchTotal, gate("B4_eu_authorised_never_bought_here"));
+  assert.equal(reviewQueuePublishable(q), true);
+});
+
+test("negative net adjustments stay in the audit arithmetic but withhold decision queues", () => {
+  const q = reviewQueue(buildValueUptake([
+    row("positive", { ir: 100, wr: 100, first: 2024 * 12 + 1 }),
+    row("adjustment", { ir: -5, wr: -5, first: 2024 * 12 + 1 }),
+  ]));
+  assert.equal(q.afterLocalSwitchTotal, 95);
+  assert.equal(q.afterLocalSwitch.some((r) => r.eur === -5), true);
+  assert.equal(reviewQueuePublishable(q), false);
 });
 
 test("a switched substance with no reference left and a never-observed one with no valid month ask no question", () => {

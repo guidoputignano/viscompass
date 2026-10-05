@@ -53,7 +53,7 @@ export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limi
   const exact = (r: DumbbellRow) => `${r.substance} · quota 1 (mesi validi) ${r.dateValid === null ? "n/d" : formatPercent(r.dateValid)} · quota 2 (dal primo uso qui) ${r.locallyObserved === null ? "n/d" : formatPercent(r.locallyObserved)} · riferimento nei mesi validi ${formatEur(r.referenceEur)}`;
   return <Frame
     title="Quota biosimilare per molecola, sui due denominatori"
-    lead={`Tutte le ${formatNumber(shown.length, 0)} molecole con almeno una misura, ordinate per spesa di riferimento ancora sull'originatore. Grigio: quota 1, su mesi a validità riconosciuta. Verde: quota 2, su mesi con biosimilare già osservato qui. Il valore esatto di ogni punto è nel suo titolo (passaggio con il mouse o con il tasto Tab) e nella tabella numerica.`}
+    lead={`Tutte le ${formatNumber(shown.length, 0)} molecole con almeno una misura, ordinate per spesa di riferimento ancora sull'originatore. Grigio: quota 1, su mesi a validità riconosciuta. Verde: quota 2, su mesi con biosimilare già osservato qui. I valori esatti sono nella tabella numerica; i punti hanno un'etichetta per lettori di schermo.`}
   >
     {shown.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
     <div className="mb-2 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
@@ -61,7 +61,7 @@ export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limi
       <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: teal }} />quota 2 · osservato qui</span>
       <span>a destra: spesa di riferimento nei mesi validi (euro esatti nel titolo)</span>
     </div>
-    <svg role="img" aria-label="Quota biosimilare per molecola su due denominatori" viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
+    <div className="overflow-x-auto"><svg role="img" aria-label="Quota biosimilare per molecola su due denominatori" viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[47.5rem]" xmlns="http://www.w3.org/2000/svg">
       {[0, .25, .5, .75, 1].map((t) => <g key={t}>
         <line x1={x(t)} y1={top - 10} x2={x(t)} y2={height - 24} stroke={grid} strokeDasharray="3 4" />
         <text x={x(t)} y={height - 8} textAnchor="middle" fontSize="11" fill={muted}>{formatPercent(t)}</text>
@@ -83,14 +83,14 @@ export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limi
           {b !== null
             ? <circle cx={x(b)} cy={y} r="6" fill={teal} stroke="white" strokeWidth="1.5" tabIndex={0} aria-label={exact(r)}><title>{exact(r)}</title></circle>
             : r.denominatorEur === 0
-              ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>nessun mese valido nel periodo</text>
+              ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>nessun mese valido</text>
               : r.firstLocalLabel !== null
-                ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>primo uso {r.firstLocalLabel}, fuori periodo</text>
+                ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>uso fuori periodo</text>
                 : <text x={right + 8} y={y + 4} fontSize="10" fill={coral}>mai dispensato qui</text>}
           <text x={width - 4} y={y + 4} textAnchor="end" fontSize="11" fill={muted}><title>{`${r.substance}: riferimento nei mesi validi ${formatEur(r.referenceEur)}`}</title>{compact(r.referenceEur)}</text>
         </g>;
       })}
-    </svg>
+    </svg></div>
     {rows.length > shown.length && <p className="mt-1 text-[11px] text-muted-foreground">Mostrate {formatNumber(shown.length, 0)} di {formatNumber(rows.length, 0)} molecole; le altre sono nella tabella sotto e in tutti i totali.</p>}
     </>}
   </Frame>;
@@ -128,7 +128,7 @@ export function FirstUseTimeline({ model, followsAzienda = true }: {
       <li><i className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: teal }} /><i className="mr-1.5 inline-block h-3.5 w-3.5 rounded-full align-middle" style={{ background: teal }} />Area del punto: spesa di riferimento nei mesi validi{largest ? ` (la più grande: ${largest.substance}, ${formatEur(largest.referenceEur)})` : ""}.</li>
       <li><i className="mr-1.5 inline-block h-0.5 w-6 align-middle" style={{ background: teal, opacity: 0.35 }} />Linea sottile: l&apos;osservazione prosegue fino a {monthKeyLabel(toKey)}; non indica una dispensazione continua.</li>
     </ul>
-    {rows.length > 0 && <svg role="img" aria-label="Mese della prima dispensazione locale di un biosimilare, per molecola" viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
+    {rows.length > 0 && <div className="overflow-x-auto"><svg role="img" aria-label="Mese della prima dispensazione locale di un biosimilare, per molecola" viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[47.5rem]" xmlns="http://www.w3.org/2000/svg">
       {years.map((yr) => { const k = yr * 12 + 1; return <g key={yr}>
         <line x1={x(k)} y1={top - 14} x2={x(k)} y2={height - 20} stroke={grid} />
         <text x={x(k) + 4} y={top - 18} fontSize="11" fill={muted}>{yr}</text>
@@ -146,7 +146,7 @@ export function FirstUseTimeline({ model, followsAzienda = true }: {
           <text x={x(k) + r(row.referenceEur) + 4} y={y + 4} fontSize="10" fill={muted}>{row.firstLabel}</text>
         </g>;
       })}
-    </svg>}
+    </svg></div>}
     {rows.length > 0 && <details className="mt-2">
       <summary className="cursor-pointer text-xs font-semibold text-primary">Valori esatti per molecola ({formatNumber(rows.length, 0)})</summary>
       <div className="mt-2 overflow-x-auto rounded-lg border border-border">
