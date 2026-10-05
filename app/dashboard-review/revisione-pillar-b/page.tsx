@@ -45,6 +45,7 @@ import {
 } from "@/lib/dashboard-review/pillar-b/view-options";
 import { resolvePillarBScope } from "@/lib/dashboard-review/pillar-b/scope";
 import { bridgeB, bridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
+import { reviewQueue } from "@/lib/dashboard-review/pillar-b/review-queue";
 
 const BASE = "/dashboard-review/revisione-pillar-b";
 
@@ -551,6 +552,16 @@ export default async function RevisionePillarBPage({
         : null,
       bridgeWithheld: fallback && view.perimeterRows > 0
         ? "Il ponte non è calcolato finché la funzione scoped di uptake non è pubblicata: senza di essa il totale e l'uptake non sono letti con certezza sullo stesso ambito."
+        : null,
+      // THE REVIEW QUEUE follows the bridge: same view, same scope, and only
+      // when the bridge itself is shown, so its sums are the bridge's gates.
+      reviewQueue: !fallback && view.perimeterRows > 0
+        ? (() => {
+            const queue = reviewQueue(view);
+            const hrefs = Object.fromEntries([...queue.afterLocalSwitch, ...queue.notObservedHere]
+              .map((r) => [r.substance, pillarBHref(BASE, filters, { substance: r.substance })]));
+            return { ...queue, hrefs };
+          })()
         : null,
       uptake: uptakeForView,
       groupCount: distinctUptakeGroups(uptakeRows),

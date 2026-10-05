@@ -40,6 +40,8 @@ import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { BridgeB, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
 import { partialPeriodLabel } from "@/lib/dashboard-review/pillar-b/view-options";
 import { BridgeBChart } from "@/components/dashboard-review/pillar-b-bridge-b";
+import type { ReviewQueue, ReviewQueueRow } from "@/lib/dashboard-review/pillar-b/review-queue";
+import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
 import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 
 export interface PillarBReviewProps {
@@ -92,6 +94,8 @@ export interface PillarBReviewProps {
     bridge: { model: BridgeB; check: BridgeBPerimeterCheck | null; scopeLabel: string; monthsLabel: string } | null;
     /** Why the bridge is withheld, when it is; null when it is shown or when the set is empty. */
     bridgeWithheld: string | null;
+    /** The two actionable gates per molecule, each row with the URL that narrows the page to it. */
+    reviewQueue: (ReviewQueue & { hrefs: Record<string, string> }) | null;
   };
   /** The panel-local options as read from the URL on this request. */
   viewOptions: ViewOptions;
@@ -203,6 +207,55 @@ const WITHHELD_REASON_IT: Record<string, string> = {
   "no normalized quantity for this presentation": "nessuna quantità normalizzata per questa presentazione",
   "substance/route group not usable: mixed units, or only one side present": "gruppo sostanza/via non utilizzabile: unità miste, o un solo lato presente",
 };
+
+function ReviewQueueList({ title, lead, rows, total, hrefs, firstColumn, shareColumn, shareOf, footnote }: {
+  title: string; lead: string; rows: ReviewQueueRow[]; total: number; hrefs: Record<string, string>;
+  firstColumn: string | null; shareColumn: string; shareOf: "dateValidShare" | "locallyObservedShare"; footnote?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{lead}</p>
+      {rows.length === 0 ? <p className="mt-3 text-xs text-muted-foreground">Nessuna molecola in questa selezione.</p> : (
+        <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[26rem] text-sm" translate="no">
+            <caption className="sr-only">{title}: molecole, spesa di riferimento e quota</caption>
+            <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              <tr>
+                <th scope="col" className="px-3 py-2 text-left font-semibold">Molecola</th>
+                {firstColumn && <th scope="col" className="px-3 py-2 text-right font-semibold">{firstColumn}</th>}
+                <th scope="col" className="px-3 py-2 text-right font-semibold">Riferimento</th>
+                <th scope="col" className="px-3 py-2 text-right font-semibold">{shareColumn}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => (
+                <tr key={r.substance}>
+                  <td className="px-3 py-2 text-xs text-foreground">
+                    {hrefs[r.substance]
+                      ? <KeepLink href={hrefs[r.substance]} className="hover:text-primary hover:underline">{r.substance}</KeepLink>
+                      : r.substance}
+                  </td>
+                  {firstColumn && <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">{r.firstLocalLabel ?? "—"}</td>}
+                  <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-xs">{formatEur(r.eur)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">{r[shareOf] === null ? "—" : formatPercent(r[shareOf]!)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-muted/30">
+              <tr>
+                <td className="px-3 py-2 text-xs font-semibold text-foreground" colSpan={firstColumn ? 2 : 1}>{formatNumber(rows.length, 0)} {rows.length === 1 ? "molecola" : "molecole"}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-xs font-semibold">{formatEur(total)}</td>
+                <td className="px-3 py-2" />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+      {footnote && <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{footnote}</p>}
+    </div>
+  );
+}
 
 function Notice({ tone, children }: { tone: "warning" | "info"; children: React.ReactNode }) {
   const Icon = tone === "warning" ? AlertTriangle : Info;
@@ -403,6 +456,32 @@ export function PillarBReview(props: PillarBReviewProps) {
             : <Notice tone="info">{adoption.bridgeWithheld}</Notice>}
         </Sub>}
 
+        {adoption.reviewQueue && (adoption.reviewQueue.afterLocalSwitch.length > 0 || adoption.reviewQueue.notObservedHere.length > 0) && (
+          <Sub title="Domande di revisione, molecola per molecola">
+            <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              Le due soglie del ponte su cui si può agire, lette per molecola. Ogni riga è una domanda per la revisione
+              organizzativa (continuità terapeutica, gara, indicazione, presentazione), con la spesa che la motiva e il
+              collegamento all&apos;evidenza della molecola. <strong>Nessuna riga è un risparmio</strong>, una previsione o
+              un&apos;indicazione prescrittiva; le somme coincidono con le soglie del ponte qui sopra.
+            </p>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <ReviewQueueList
+                title="Biosimilare già in uso qui, riferimento ancora dispensato dopo il primo uso"
+                lead="Spesa di riferimento nei mesi successivi al primo biosimilare della sostanza dispensato nell'ambito visibile. Coincide con la soglia «Riferimento sostituibile localmente»."
+                rows={adoption.reviewQueue.afterLocalSwitch} total={adoption.reviewQueue.afterLocalSwitchTotal} hrefs={adoption.reviewQueue.hrefs}
+                firstColumn="Primo uso qui" shareColumn="Quota 2" shareOf="locallyObservedShare" />
+              <ReviewQueueList
+                title="Biosimilare autorizzato in EU, non osservato in questo rilascio nell'ambito visibile"
+                lead="Spesa di riferimento nei mesi validi per sostanze di cui nessun biosimilare risulta dispensato nelle Aziende selezionate nei 29 mesi del rilascio. «Non osservato nel rilascio» non è «mai acquistato», e l'autorizzazione EU non dice lo stato in Italia (AIC, classificazione, commercializzazione): da verificare prima di leggerla come alternativa disponibile."
+                rows={adoption.reviewQueue.notObservedHere} total={adoption.reviewQueue.notObservedHereTotal} hrefs={adoption.reviewQueue.hrefs}
+                firstColumn={null} shareColumn="Quota 1" shareOf="dateValidShare"
+                footnote={adoption.reviewQueue.beforeLocalSwitchTotal > 0
+                  ? `Con i ${formatEur(adoption.reviewQueue.beforeLocalSwitchTotal)} di riferimento spesi dalle molecole già passate nei mesi validi prima del loro primo uso, questa lista coincide con la soglia «EU-autorizzato, non ancora acquistato qui».`
+                  : "Questa lista coincide con la soglia «EU-autorizzato, non ancora acquistato qui»."} />
+            </div>
+          </Sub>
+        )}
+
         {(adoption.volume.length > 0 || adoption.uptake.withheldRows > 0) && <Sub title="In volume · dove la quantità ha un'unità">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
@@ -506,7 +585,7 @@ export function PillarBReview(props: PillarBReviewProps) {
               valgono per le altre sezioni.
             </Notice>
           )}
-          <EvidenceFunnelChart rows={evidence.funnel} />
+          <EvidenceFunnelChart rows={evidence.funnel} year={evidence.funnelYear} />
           <details className="group">
             <summary className="cursor-pointer text-xs font-semibold text-primary">Apri il dettaglio dei passaggi, della spesa e dei motivi</summary>
             <div className="mt-3 overflow-x-auto rounded-xl border border-border">

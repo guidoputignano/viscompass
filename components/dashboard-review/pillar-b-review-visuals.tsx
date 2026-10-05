@@ -22,9 +22,12 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
   </figure>;
 }
 
-export function EvidenceFunnelChart({ rows }: { rows: FunnelRow[] }) {
+export function EvidenceFunnelChart({ rows, year }: { rows: FunnelRow[]; year?: number }) {
   const max = Math.max(0, rows[0]?.rows_n ?? 0);
   return <Frame title="Quanti record restano a ogni passaggio">
+    {rows.length > 0 && <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+      Ogni percentuale è <strong className="text-foreground">record del passaggio ÷ record osservati{year ? ` nel ${year}` : ""}</strong> (passaggio 1 = {formatNumber(max, 0)} = 100%): quote di righe, non di euro né di pazienti. La spesa di ogni passaggio è nel dettaglio sotto.
+    </p>}
     {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nessun record osservato.</p> :
     <div role="img" aria-label="Imbuto dei record osservati, classificabili, nel perimetro e con quantità confrontabile" className="space-y-3">
       {rows.map((row) => {

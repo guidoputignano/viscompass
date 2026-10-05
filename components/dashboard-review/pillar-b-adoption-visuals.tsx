@@ -315,7 +315,7 @@ export function PerimeterBars({ rows }: { rows: PerimeterRow[] }) {
   const max = Math.max(1, ...observed.map((r) => r.spend_eur ?? 0));
   return <Frame
     title="Dove sta il denaro rispetto al perimetro biosimilare"
-    lead="Stato di ogni prodotto nella tassonomia riconciliata (B03), sotto i filtri attivi di anno, Azienda e canale — a differenza dell'imbuto qui sopra, che copre l'intero perimetro visibile. Solo biosimilari e medicinali di riferimento entrano nelle misure di adozione; tutto il resto è mostrato perché il perimetro sia visibile, non nascosto. Con un filtro per molecola questa vista non viene mostrata: la quota per stato di una sola molecola coinciderebbe con una misura di adozione senza regola di validità."
+    lead="Stato di ogni prodotto nella tassonomia riconciliata (B03), sotto i filtri attivi di anno, Azienda e canale — a differenza dell'imbuto qui sopra, che copre l'intero perimetro visibile. Le percentuali sono spesa dello stato ÷ spesa rendicontata della selezione. Solo biosimilari e medicinali di riferimento entrano nelle misure di adozione; la riga «Fuori dal perimetro biosimilare» non serve a nessuna decisione sui biosimilari: è lì perché la proporzione del perimetro sia visibile e nulla resti nascosto. Con un filtro per molecola questa vista non viene mostrata: la quota per stato di una sola molecola coinciderebbe con una misura di adozione senza regola di validità."
   >
     {observed.length === 0 ? <p className="text-sm text-muted-foreground">Nessun prodotto classificato nella selezione.</p> :
     <div role="img" aria-label="Spesa per stato di perimetro" className="space-y-2">
