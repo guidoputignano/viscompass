@@ -287,6 +287,26 @@ export function monthlyChartSeries(rows: ReadonlyArray<CalendarRow>, view: Month
     }));
 }
 
+const MONTH_ABBR = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+
+/**
+ * The partial year named by the months it actually holds under the active
+ * filters — "gen–mag 2026 · dati osservati" — never "parziale" alone, never
+ * "primo semestre" (six months), never a year to compare against 2024/2025.
+ * The span runs from the first to the last observed month; a gap inside it
+ * is a month without record, which the chart shows as a missing bar.
+ */
+export function partialPeriodLabel(
+  rows: ReadonlyArray<Pick<CalendarRow, "year" | "cells">>, year = 2026,
+): string {
+  const row = rows.find((r) => r.year === year);
+  const months = row ? row.cells.filter((c) => c.spend_eur !== null).map((c) => c.month) : [];
+  if (months.length === 0) return `${year} · nessun mese osservato`;
+  const first = Math.min(...months), last = Math.max(...months);
+  const span = first === last ? MONTH_ABBR[first - 1] : `${MONTH_ABBR[first - 1]}–${MONTH_ABBR[last - 1]}`;
+  return `${span} ${year} · dati osservati`;
+}
+
 // ----------------------------------------------------------------- Azienda
 
 export const AZIENDA_METRIC_LABELS: Record<AziendaMetric, string> = {

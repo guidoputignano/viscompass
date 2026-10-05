@@ -38,6 +38,7 @@ import type { UptakeWithWithheld } from "@/lib/dashboard-review/pillar-b/rpc";
 import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
 import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { BridgeB, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
+import { partialPeriodLabel } from "@/lib/dashboard-review/pillar-b/view-options";
 import { BridgeBChart } from "@/components/dashboard-review/pillar-b-bridge-b";
 import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 
@@ -221,12 +222,13 @@ export function PillarBReview(props: PillarBReviewProps) {
     : (spend.totals.spend2025 - spend.totals.spend2024) / Math.abs(spend.totals.spend2024);
   const periodLabel = props.periodLabel;
   const headlineYear = years.length === 1 ? years[0] : 2025;
-  const headlineRows = headlineYear === 2024 ? spend.totals.rows2024 : spend.totals.rows2025;
   const has2024 = spend.totals.rows2024 > 0;
   const has2025 = spend.totals.rows2025 > 0;
-  const shownRows = years.length === 2 ? spend.totals.rows2024 + spend.totals.rows2025 : headlineRows;
   const hasDistribution = Boolean(panorama.calendar?.some((r) => r.monthsObserved > 0)
     || (panorama.azienda && panorama.azienda.length > 1) || panorama.channels?.length);
+  // "gen–mag 2026 · dati osservati" under the active filters; the release-wide
+  // five months only when the calendar facet is unavailable.
+  const partialLabel = panorama.calendar ? partialPeriodLabel(panorama.calendar) : "gen–mag 2026 · dati osservati";
 
   return (
     <div className="flex flex-col gap-7 pb-10 sm:gap-8">
@@ -243,7 +245,7 @@ export function PillarBReview(props: PillarBReviewProps) {
         </div>
         <div className="self-end rounded-xl border bg-card p-4 text-sm">
           <p className="font-semibold">Flussi regionali · {periodLabel}</p>
-          <p className="mt-2 text-muted-foreground">{props.releaseId}</p>
+          <p className="mt-2 text-muted-foreground">Spesa lorda, IVA inclusa · {partialLabel} fuori dai confronti annuali</p>
         </div>
       </header>
 
@@ -275,9 +277,29 @@ export function PillarBReview(props: PillarBReviewProps) {
         {has2024 && has2025 && yoy !== null && <Stat label="Variazione · 2024 → 2025"
               value={formatPercent(yoy)}
               detail={`${formatEur(spend.totals.spend2025 - spend.totals.spend2024)} · confronto fisso fra i due anni, il filtro anno non si applica · ${props.comparisonLabel}`} />}
-        {shownRows > 0 && <Stat label={`Record · ${years.length === 2 ? "2024 e 2025" : headlineYear}`}
-              value={formatNumber(shownRows, 0)} detail="Righe rendicontate, non pazienti" />}
+        {adoption.bridge && adoption.bridge.model.total > 0 && <Stat label={`Perimetro biosimilare · ${years.length === 2 ? "2024 e 2025" : headlineYear}`}
+              value={formatEur(adoption.bridge.model.perimeter)}
+              detail={`${formatPercent(adoption.bridge.model.perimeter / adoption.bridge.model.total)} della spesa riportata nella selezione: biosimilari e medicinali di riferimento, in ogni mese. È il denaro su cui le misure di adozione si fondano.`} />}
       </div>}
+      {/* THE TWO ADOPTION SHARES, together or not at all, as the page's opening
+          answer to "how far has the switch gone". Formula, month rules and a
+          worked example are in the Adozione section this card links to. */}
+      {panorama.valueUptake.dateValid.share !== null && panorama.valueUptake.locallyObserved.share !== null && (
+        <a href="#adozione" className="block rounded-2xl border bg-card p-5 text-foreground hover:border-primary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+          <p className="text-xs text-muted-foreground">Adozione in valore · {years.length === 2 ? "2024 e 2025" : headlineYear} · due quote, mai una sola{panorama.valueUptakeScope ? ` · ambito: ${panorama.valueUptakeScope}` : ""}</p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="font-display text-3xl font-semibold tabular-nums leading-tight">{formatPercent(panorama.valueUptake.dateValid.share)}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">spesa biosimilare ÷ (biosimilare + riferimento) nei mesi in cui un biosimilare era già autorizzato</p>
+            </div>
+            <div>
+              <p className="font-display text-3xl font-semibold tabular-nums leading-tight">{formatPercent(panorama.valueUptake.locallyObserved.share)}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">la stessa quota, contando solo i mesi dal primo biosimilare dispensato nell&apos;ambito visibile</p>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">Quote di spesa, non di pazienti né di trattamenti. Formula, mesi contati ed esempio nella sezione Adozione ↓</p>
+        </a>
+      )}
       {/* A year with no record under these filters is not drawn as a card, and
           it is not a zero either: it is said in one line, so the absence of
           the comparison card reads as "not calculable", not as "nothing to see". */}
@@ -307,8 +329,25 @@ export function PillarBReview(props: PillarBReviewProps) {
         </Notice>
       )}
 
+      {/* =============================================================== SPESA */}
+      <Group id="spesa" title="La traiettoria nel tempo"
+             lead={`Il confronto 2024 → 2025 usa sempre entrambi gli anni (${props.comparisonLabel}); i filtri di Azienda, canale e molecola si applicano. Il perimetro, l'ordinamento e il numero di molecole mostrate si scelgono qui sotto.`}>
+        <ChannelSlopeChart rows={spend.channelTrend} />
+        <details className="group">
+          <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la serie numerica per canale</summary>
+          <div className="mt-3">
+            <TrendTable caption="Per canale di erogazione" rows={spend.channelTrend} firstColumn="Canale" />
+          </div>
+        </details>
+        <TrendPanel
+          variants={spend.trendVariants}
+          totals={spend.trendTotals}
+          initial={{ order: viewOptions.trendOrder, limit: viewOptions.trendLimit, perimeter: viewOptions.perimeter }}
+        />
+      </Group>
+
       {hasDistribution && <Group id="distribuzione" title="Profilo mensile e distribuzione"
-             lead="Dove e quando si registra la spesa nel perimetro selezionato. Il 2026 parziale è mostrato solo nel calendario, mai nel confronto annuale.">
+             lead={`Dove e quando si registra la spesa nel perimetro selezionato. I mesi osservati del 2026 (${partialLabel}) compaiono solo nel calendario, mai nel confronto annuale.`}>
         {panorama.totals && panorama.totals.spend_eur !== null && (
           <p className="text-sm text-muted-foreground">
             Negli anni selezionati: <span className="font-mono text-foreground">{formatEur(panorama.totals.spend_eur)}</span>
@@ -442,22 +481,6 @@ export function PillarBReview(props: PillarBReviewProps) {
         </Sub>}
       </Group>
 
-      {/* =============================================================== SPESA */}
-      <Group id="spesa" title="La traiettoria nel tempo"
-             lead={`Il confronto 2024 → 2025 usa sempre entrambi gli anni (${props.comparisonLabel}); i filtri di Azienda, canale e molecola si applicano. Il perimetro, l'ordinamento e il numero di molecole mostrate si scelgono qui sotto.`}>
-        <ChannelSlopeChart rows={spend.channelTrend} />
-        <details className="group">
-          <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la serie numerica per canale</summary>
-          <div className="mt-3">
-            <TrendTable caption="Per canale di erogazione" rows={spend.channelTrend} firstColumn="Canale" />
-          </div>
-        </details>
-        <TrendPanel
-          variants={spend.trendVariants}
-          totals={spend.trendTotals}
-          initial={{ order: viewOptions.trendOrder, limit: viewOptions.trendLimit, perimeter: viewOptions.perimeter }}
-        />
-      </Group>
 
       <Group id="concentrazione" title="Concentrazione della spesa"
              lead="Quanto della spesa di un anno completo si concentra nei principi attivi più rilevanti, sotto i filtri di Azienda, canale e molecola. L'anno e il perimetro si scelgono qui sotto, indipendentemente dal periodo selezionato in alto e dal perimetro scelto per le variazioni.">
@@ -531,7 +554,7 @@ export function PillarBReview(props: PillarBReviewProps) {
           <div><dt className="font-semibold">Risparmio (B14)</dt><dd className="mt-2 text-muted-foreground">Ogni «opportunità» è un limite superiore sotto quattro assunzioni non verificate. La dispersione di prezzo (B07) non è denaro recuperabile.</dd></div>
           <div><dt className="font-semibold">Classifiche fra Aziende (B09)</dt><dd className="mt-2 text-muted-foreground">La graduatoria grezza misura cosa è stato comprato; standardizzata, le differenze non sono stabili. Il case-mix non è controllabile: ATC assente sul rilascio.</dd></div>
           <div><dt className="font-semibold">Confezioni</dt><dd className="mt-2 text-muted-foreground">La base della quantità è confezioni, unità, mista e ignota nello stesso rilascio. Una somma fra basi non ha unità.</dd></div>
-          <div><dt className="font-semibold">2026 parziale</dt><dd className="mt-2 text-muted-foreground">Cinque mesi osservati, zero record con quantità confrontabile. Compare nel calendario, segnalato; non entra nei confronti annuali.</dd></div>
+          <div><dt className="font-semibold">2026 incompleto</dt><dd className="mt-2 text-muted-foreground">{partialLabel}: zero record con quantità confrontabile. Compare nel calendario, segnalato; non entra nei confronti annuali e non è un «primo semestre».</dd></div>
           <div><dt className="font-semibold">Spesa lorda</dt><dd className="mt-2 text-muted-foreground">IVA inclusa, al lordo di payback e note di credito di registro. Non è un prezzo netto, né un prezzo di riferimento AIFA.</dd></div>
           <div><dt className="font-semibold">Esclusività legale</dt><dd className="mt-2 text-muted-foreground">Gli «anni senza concorrenza» (B15) sono un limite superiore fra autorizzazione EU del riferimento e del primo biosimilare; non sono scadenze brevettuali o SPC.</dd></div>
         </dl>

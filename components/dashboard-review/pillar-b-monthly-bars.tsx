@@ -4,7 +4,7 @@
 import { Frame } from "@/components/dashboard-review/pillar-b-adoption-visuals";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { CalendarRow } from "@/lib/dashboard-review/pillar-b/facets";
-import { monthSlots, monthlyChartSeries, type CalendarMetric, type MonthView } from "@/lib/dashboard-review/pillar-b/view-options";
+import { monthSlots, monthlyChartSeries, partialPeriodLabel, type CalendarMetric, type MonthView } from "@/lib/dashboard-review/pillar-b/view-options";
 
 const MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 const COLORS: Record<number, string> = { 2024: "#647c90", 2025: "#169d94", 2026: "#d99335" };
@@ -42,7 +42,7 @@ export function MonthlyBars({ rows, metric, view, title }: {
   const partial = view === "2026";
   const scope = " Mostra i mesi del rilascio sotto i filtri di Azienda, canale e molecola; non segue il selettore del periodo in alto, che vale per le altre viste.";
   const lead = (partial
-    ? "Gennaio–maggio 2026, l'unico tratto osservato. Anno parziale: non confrontato con gli anni completi."
+    ? `${partialPeriodLabel(rows)}: l'unico tratto osservato dell'anno. Anno incompleto: non confrontato con gli anni completi.`
     : view === "confronto"
       ? "Gli stessi mesi del 2024 e del 2025, su un asse comune. Un mese senza barra non ha record."
       : `I dodici mesi del ${view}; un mese senza barra non ha record.`) + scope;
@@ -53,7 +53,7 @@ export function MonthlyBars({ rows, metric, view, title }: {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex gap-4 text-muted-foreground">
           {shownYears.map((year) => <span key={year} className="inline-flex items-center gap-1.5">
-            <i className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS[year] }} />{year}{year === 2026 ? " · parziale" : ""}
+            <i className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS[year] }} />{year === 2026 ? partialPeriodLabel(rows) : year}
           </span>)}
         </div>
         <span className="font-medium text-foreground">{plural(shownCount, "barra", "barre")} su {plural(slots, "mese", "mesi-anno")}</span>

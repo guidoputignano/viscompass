@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  partialPeriodLabel,
   calendarCellValue, effectiveCalendarState, localOptionParams, monthSlots, monthlyChartSeries, parseViewOptions, perimeterOnly, routeOptions,
   slimConcentration, sortTrend, volumeByRoute, withViewOption,
 } from "../lib/dashboard-review/pillar-b/view-options.ts";
@@ -133,4 +134,17 @@ test("month slots: twelve for a complete year, the observed span for 2026, so a 
   assert.deepEqual(monthSlots(rows, "confronto").length, 12);
   assert.deepEqual(monthSlots(rows, "2026"), [1, 2, 3, 4, 5]);
   assert.deepEqual(monthSlots([], "2026"), []);
+});
+
+test("the partial year is named by its observed months, never 'parziale' alone or a semester", () => {
+  const cells = (year, months) => Array.from({ length: 12 }, (_, i) => ({ year, month: i + 1, spend_eur: months.includes(i + 1) ? 1 : null }));
+  assert.equal(partialPeriodLabel([{ year: 2026, cells: cells(2026, [1, 2, 3, 4, 5]) }]), "gen–mag 2026 · dati osservati");
+  assert.equal(partialPeriodLabel([{ year: 2026, cells: cells(2026, [3]) }]), "mar 2026 · dati osservati");
+  // a gap inside the span stays a gap on the chart; the label names the span
+  assert.equal(partialPeriodLabel([{ year: 2026, cells: cells(2026, [1, 3]) }]), "gen–mar 2026 · dati osservati");
+  assert.equal(partialPeriodLabel([{ year: 2024, cells: cells(2024, [1, 2]) }]), "2026 · nessun mese osservato");
+  assert.equal(partialPeriodLabel([]), "2026 · nessun mese osservato");
+  for (const label of [partialPeriodLabel([{ year: 2026, cells: cells(2026, [1, 2, 3, 4, 5, 6]) }])]) {
+    assert.doesNotMatch(label, /semestre|parziale/i);
+  }
 });

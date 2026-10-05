@@ -15,7 +15,7 @@ import type { AziendaPanelRow, CalendarRow } from "@/lib/dashboard-review/pillar
 import type { TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
 import {
   AZIENDA_METRICS, AZIENDA_METRIC_LABELS, CALENDAR_METRICS, CALENDAR_METRIC_LABELS,
-  CONCENTRATION_YEARS, PERIMETER_MODES, effectiveCalendarState, PERIMETER_MODE_LABELS, TREND_LIMITS, TREND_ORDERS,
+  CONCENTRATION_YEARS, PERIMETER_MODES, effectiveCalendarState, partialPeriodLabel, PERIMETER_MODE_LABELS, TREND_LIMITS, TREND_ORDERS,
   TREND_ORDER_LABELS, VIEW_OPTION_DEFAULTS, VIEW_OPTION_KEYS, volumeByRoute,
   type AziendaMetric, type CalendarMetric, type ConcentrationSlim, type ConcentrationYear, type MonthView,
   type PerimeterMode, type TrendLimit, type TrendOrder,
@@ -70,7 +70,7 @@ export function CalendarPanel({ rows, initial, initialView, title }: {
           if (next === "2026" && metric === "comparabile") setMetric("spesa");
           setView(next);
         }}
-          options={available.map((v) => ({ value: v, label: v === "confronto" ? "2024 / 2025" : v === "2026" ? "2026 · parziale" : v }))} />}
+          options={available.map((v) => ({ value: v, label: v === "confronto" ? "2024 / 2025" : v === "2026" ? partialPeriodLabel(rows) : v }))} />}
         <LocalToggle label="Misura" ariaLabel="Misura del profilo mensile" value={metric} onChange={setMetric}
           options={CALENDAR_METRICS.filter((m) => selected !== "2026" || m !== "comparabile").map((m) => ({ value: m, label: CALENDAR_METRIC_LABELS[m] }))} />
       </div>
