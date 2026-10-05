@@ -75,7 +75,7 @@ export const BRIDGE_B_GATES: Record<BridgeBGateId, { label: string; meaning: str
     kind: "reference",
   },
   B_ADDRESSABLE_REFERENCE: {
-    label: "Riferimento sostituibile localmente",
+    label: "Riferimento dopo primo uso locale",
     meaning: "Riferimento nei mesi in cui un biosimilare della sostanza era già stato dispensato nelle Aziende visibili, in qualunque canale. NON è un risparmio.",
     kind: "reference",
   },

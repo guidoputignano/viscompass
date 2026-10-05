@@ -135,6 +135,7 @@ test("every gate has a label and a meaning; no gate is worded as a saving except
     }
   }
   assert.match(BRIDGE_B_GATES.B_ADDRESSABLE_REFERENCE.meaning, /NON è un risparmio/);
+  assert.doesNotMatch(BRIDGE_B_GATES.B_ADDRESSABLE_REFERENCE.label, /sostituibil/i);
   // B4 holds the pre-switch months of substances that did switch later: "not yet", never "never"
   assert.match(BRIDGE_B_GATES.B4_eu_authorised_never_bought_here.label, /non ancora/);
   assert.doesNotMatch(BRIDGE_B_GATES.B4_eu_authorised_never_bought_here.meaning, /\bmai dispensato\b/);

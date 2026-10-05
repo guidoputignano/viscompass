@@ -442,7 +442,7 @@ export function PillarBReview(props: PillarBReviewProps) {
           {adoption.valueUptakeSection}
         </Sub>
 
-        {(adoption.bridge || adoption.bridgeWithheld) && <Sub title="Il ponte dell'opportunità (B) · dal totale alla spesa di riferimento sostituibile">
+        {(adoption.bridge || adoption.bridgeWithheld) && <Sub title="Il ponte dell'opportunità (B) · dal totale al riferimento dopo il primo uso locale">
           <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
             Il foglio 09 del workbook fa uscire ogni euro del libro mastro da una sola soglia, fino alla spesa di
             riferimento nei mesi in cui un biosimilare era già stato dispensato localmente. È una popolazione di
@@ -469,7 +469,7 @@ export function PillarBReview(props: PillarBReviewProps) {
             <div className="grid gap-4 lg:grid-cols-2">
               <ReviewQueueList
                 title="Biosimilare già in uso qui, riferimento ancora dispensato dopo il primo uso"
-                lead="Spesa di riferimento nei mesi successivi al primo biosimilare della sostanza dispensato nell'ambito visibile. Coincide con la soglia «Riferimento sostituibile localmente»."
+                lead="Spesa di riferimento nei mesi successivi al primo biosimilare della sostanza dispensato nell'ambito visibile. Coincide con la soglia «Riferimento dopo primo uso locale»; non dimostra che le dispensazioni fossero clinicamente sostituibili."
                 rows={adoption.reviewQueue.afterLocalSwitch} total={adoption.reviewQueue.afterLocalSwitchTotal} hrefs={adoption.reviewQueue.hrefs}
                 firstColumn="Primo uso qui" shareColumn="Quota 2 · uso locale" shareOf="locallyObservedShare" />
               <ReviewQueueList
