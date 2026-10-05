@@ -8,7 +8,7 @@
 // panel-local controls live in pillar-b-panels.tsx.
 
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
-import type { DumbbellRow, TimelineModel } from "@/lib/dashboard-review/pillar-b/adoption";
+import type { DumbbellRow, TimelineModel, TimelineRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import { monthKeyLabel } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { AziendaPanelRow, ChannelMixRow, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
 import { aziendaMetricValue, type AziendaMetric } from "@/lib/dashboard-review/pillar-b/view-options";
@@ -42,20 +42,24 @@ export function Frame({ title, lead, children }: { title: string; lead?: string;
  * is the difference the two questions make; a missing teal dot means no
  * biosimilar of that substance was ever dispensed in the visible scope.
  */
-export function DumbbellUptakeChart({ rows, limit = 16 }: { rows: DumbbellRow[]; limit?: number }) {
-  const shown = rows.slice(0, limit);
+export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limit?: number }) {
+  // EVERY MOLECULE BY DEFAULT: the Region reads the whole list, and a cut at
+  // sixteen hid the tail the table carried. A caller may still pass a limit;
+  // the footnote then says how many are not drawn.
+  const shown = limit === undefined ? rows : rows.slice(0, limit);
   const width = 760, left = 190, right = 610, top = 30, rowGap = 26;
   const height = top + Math.max(shown.length, 1) * rowGap + 30;
   const x = (s: number) => left + Math.max(0, Math.min(1, s)) * (right - left);
+  const exact = (r: DumbbellRow) => `${r.substance} · quota 1 (mesi validi) ${r.dateValid === null ? "n/d" : formatPercent(r.dateValid)} · quota 2 (dal primo uso qui) ${r.locallyObserved === null ? "n/d" : formatPercent(r.locallyObserved)} · riferimento nei mesi validi ${formatEur(r.referenceEur)}`;
   return <Frame
     title="Quota biosimilare per molecola, sui due denominatori"
-    lead="Grigio: su mesi a validità riconosciuta. Verde: su mesi con biosimilare già osservato qui. Ordinate per spesa di riferimento ancora sull'originatore."
+    lead={`Tutte le ${formatNumber(shown.length, 0)} molecole con almeno una misura, ordinate per spesa di riferimento ancora sull'originatore. Grigio: quota 1, su mesi a validità riconosciuta. Verde: quota 2, su mesi con biosimilare già osservato qui. Il valore esatto di ogni punto è nel suo titolo (passaggio con il mouse o con il tasto Tab) e nella tabella numerica.`}
   >
     {shown.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
     <div className="mb-2 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
-      <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: slate }} />validità riconosciuta</span>
-      <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: teal }} />osservato qui</span>
-      <span>a destra: spesa di riferimento nei mesi validi</span>
+      <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: slate }} />quota 1 · validità riconosciuta</span>
+      <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: teal }} />quota 2 · osservato qui</span>
+      <span>a destra: spesa di riferimento nei mesi validi (euro esatti nel titolo)</span>
     </div>
     <svg role="img" aria-label="Quota biosimilare per molecola su due denominatori" viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
       {[0, .25, .5, .75, 1].map((t) => <g key={t}>
@@ -68,7 +72,8 @@ export function DumbbellUptakeChart({ rows, limit = 16 }: { rows: DumbbellRow[];
         return <g key={r.substance}>
           <text x={left - 10} y={y + 4} textAnchor="end" fontSize="12" fill={ink}>{r.substance}</text>
           {a !== null && b !== null && <line x1={x(a)} y1={y} x2={x(b)} y2={y} stroke={teal} strokeWidth="4" strokeOpacity="0.45" strokeLinecap="round" />}
-          {a !== null && <circle cx={x(a)} cy={y} r="5.5" fill={slate} />}
+          {/* ONE text child per <title> (React 19 hydration #418). */}
+          {a !== null && <circle cx={x(a)} cy={y} r="5.5" fill={slate} tabIndex={0} aria-label={exact(r)}><title>{exact(r)}</title></circle>}
           {/* THREE different absences, three different words. A missing teal
               dot means no biosimilar month fell inside BOTH the selected
               period and the local window — which happens when the first local
@@ -76,17 +81,17 @@ export function DumbbellUptakeChart({ rows, limit = 16 }: { rows: DumbbellRow[];
               only when it never happened. And a row with no date-valid month
               at all (pertuzumab in 2024–2025) had no alternative to use. */}
           {b !== null
-            ? <circle cx={x(b)} cy={y} r="6" fill={teal} stroke="white" strokeWidth="1.5" />
+            ? <circle cx={x(b)} cy={y} r="6" fill={teal} stroke="white" strokeWidth="1.5" tabIndex={0} aria-label={exact(r)}><title>{exact(r)}</title></circle>
             : r.denominatorEur === 0
               ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>nessun mese valido nel periodo</text>
               : r.firstLocalLabel !== null
                 ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>primo uso {r.firstLocalLabel}, fuori periodo</text>
                 : <text x={right + 8} y={y + 4} fontSize="10" fill={coral}>mai dispensato qui</text>}
-          <text x={width - 4} y={y + 4} textAnchor="end" fontSize="11" fill={muted}>{compact(r.referenceEur)}</text>
+          <text x={width - 4} y={y + 4} textAnchor="end" fontSize="11" fill={muted}><title>{`${r.substance}: riferimento nei mesi validi ${formatEur(r.referenceEur)}`}</title>{compact(r.referenceEur)}</text>
         </g>;
       })}
     </svg>
-    {rows.length > shown.length && <p className="mt-1 text-[11px] text-muted-foreground">Mostrate {shown.length} di {rows.length} molecole; le altre sono nella tabella sotto e in tutti i totali.</p>}
+    {rows.length > shown.length && <p className="mt-1 text-[11px] text-muted-foreground">Mostrate {formatNumber(shown.length, 0)} di {formatNumber(rows.length, 0)} molecole; le altre sono nella tabella sotto e in tutti i totali.</p>}
     </>}
   </Frame>;
 }
@@ -107,13 +112,22 @@ export function FirstUseTimeline({ model, followsAzienda = true }: {
   const r = (eur: number) => 3 + Math.sqrt(Math.max(0, eur) / maxRef) * 7;
   const years: number[] = [];
   for (let k = fromKey; k <= toKey; k++) if ((k - 1) % 12 === 0) years.push(Math.floor((k - 1) / 12));
+  const largest = rows.reduce<TimelineRow | null>((m, r) => (m === null || r.referenceEur > m.referenceEur ? r : m), null);
+  const exact = (row: TimelineRow) => `${row.substance} · primo biosimilare dispensato qui ${row.firstLabel} · riferimento nei mesi validi ${formatEur(row.referenceEur)} · spesa valida ${formatEur(row.validEur)} · osservazione fino a ${monthKeyLabel(toKey)}`;
   return <Frame
     title="Quando il primo biosimilare è comparso qui"
-    lead={"Un punto per molecola, nel mese della prima dispensazione osservata nell'ambito visibile. L'area del punto cresce con la spesa di riferimento. La finestra «osservato qui» parte da lì" + (followsAzienda
+    lead={"Un punto per molecola, nel mese della prima dispensazione di un biosimilare osservata nel rilascio, nell'ambito visibile. La finestra della quota 2 parte da lì" + (followsAzienda
       ? ": segue l'Azienda selezionata, non i filtri di anno e canale."
-      : ", calcolata sull'intero perimetro visibile: il filtro per Azienda non è applicato in questa vista.")}
+      : ", calcolata sull'intero perimetro visibile: il filtro per Azienda non è applicato in questa vista.") + " Il rilascio inizia a gennaio 2024: un primo uso in quel mese può essere precedente (storia troncata a sinistra)."}
   >
     {rows.length === 0 && neverObserved.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
+    {/* THE KEY, VISIBLE: what a dot, its size and the faint line mean. The
+        reviewers asked why some rows "have a bar". */}
+    <ul className="mb-2 grid gap-x-6 gap-y-1 text-[11px] text-muted-foreground sm:grid-cols-3">
+      <li><i className="mr-1.5 inline-block h-3 w-3 rounded-full align-middle" style={{ background: teal }} />Punto: mese del primo biosimilare dispensato qui (etichetta accanto).</li>
+      <li><i className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: teal }} /><i className="mr-1.5 inline-block h-3.5 w-3.5 rounded-full align-middle" style={{ background: teal }} />Area del punto: spesa di riferimento nei mesi validi{largest ? ` (la più grande: ${largest.substance}, ${formatEur(largest.referenceEur)})` : ""}.</li>
+      <li><i className="mr-1.5 inline-block h-0.5 w-6 align-middle" style={{ background: teal, opacity: 0.35 }} />Linea sottile: l&apos;osservazione prosegue fino a {monthKeyLabel(toKey)}; non indica una dispensazione continua.</li>
+    </ul>
     {rows.length > 0 && <svg role="img" aria-label="Mese della prima dispensazione locale di un biosimilare, per molecola" viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
       {years.map((yr) => { const k = yr * 12 + 1; return <g key={yr}>
         <line x1={x(k)} y1={top - 14} x2={x(k)} y2={height - 20} stroke={grid} />
@@ -127,11 +141,40 @@ export function FirstUseTimeline({ model, followsAzienda = true }: {
         return <g key={row.substance}>
           <text x={left - 8} y={y + 4} textAnchor="end" fontSize="11" fill={ink}>{row.substance}</text>
           <line x1={x(k)} y1={y} x2={x(toKey)} y2={y} stroke={teal} strokeWidth="2" strokeOpacity="0.18" />
-          <circle cx={x(k)} cy={y} r={r(row.referenceEur)} fill={teal} fillOpacity="0.85" stroke="white" strokeWidth="1" />
+          {/* ONE text child per <title> (React 19 hydration #418). */}
+          <circle cx={x(k)} cy={y} r={r(row.referenceEur)} fill={teal} fillOpacity="0.85" stroke="white" strokeWidth="1" tabIndex={0} aria-label={exact(row)}><title>{exact(row)}</title></circle>
           <text x={x(k) + r(row.referenceEur) + 4} y={y + 4} fontSize="10" fill={muted}>{row.firstLabel}</text>
         </g>;
       })}
     </svg>}
+    {rows.length > 0 && <details className="mt-2">
+      <summary className="cursor-pointer text-xs font-semibold text-primary">Valori esatti per molecola ({formatNumber(rows.length, 0)})</summary>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[40rem] text-sm" translate="no">
+          <caption className="sr-only">Primo biosimilare dispensato qui, spesa di riferimento e spesa valida per molecola; osservazione fino a {monthKeyLabel(toKey)}</caption>
+          <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            <tr>
+              <th scope="col" className="px-4 py-2 text-left font-semibold">Molecola</th>
+              <th scope="col" className="px-4 py-2 text-right font-semibold">Primo biosimilare qui</th>
+              <th scope="col" className="px-4 py-2 text-right font-semibold">Riferimento nei mesi validi</th>
+              <th scope="col" className="px-4 py-2 text-right font-semibold">Spesa valida (bio + rif)</th>
+              <th scope="col" className="px-4 py-2 text-right font-semibold">Quota 1</th>
+              <th scope="col" className="px-4 py-2 text-right font-semibold">Fine osservazione</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((row) => <tr key={row.substance}>
+              <td className="px-4 py-2 text-xs text-foreground">{row.substance}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{row.firstLabel}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{formatEur(row.referenceEur)}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{formatEur(row.validEur)}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{row.share === null ? "—" : formatPercent(row.share)}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs text-muted-foreground">{monthKeyLabel(toKey)}</td>
+            </tr>)}
+          </tbody>
+        </table>
+      </div>
+    </details>}
     {neverObserved.length > 0 && <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
       <p className="font-semibold text-foreground">Mai dispensato qui, pur avendo un biosimilare autorizzato nel periodo selezionato:</p>
       <p className="mt-1 text-muted-foreground">

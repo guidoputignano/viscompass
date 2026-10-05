@@ -20,9 +20,12 @@ import { DumbbellUptakeChart, FirstUseTimeline } from "@/components/dashboard-re
 
 /** Both denominators, side by side. Neither is shown without the other. */
 function MeasureCard({
-  title, lead, measure, accent,
+  title, months, measure, accent,
 }: {
-  title: string; lead: string; accent?: boolean;
+  title: string;
+  /** Which months the two sums count: the one thing that differs between the cards. */
+  months: string;
+  accent?: boolean;
   measure: ValueUptakeView["dateValid"];
 }) {
   return (
@@ -36,17 +39,64 @@ function MeasureCard({
       <p className="font-display mt-1 text-2xl text-foreground">
         {measure.share === null ? "n/d" : formatPercent(measure.share)}
       </p>
-      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{lead}</p>
+      {/* THE FORMULA, WITH ITS NUMBERS: the reviewers could not tell what the
+          percentage was a share of. Same arithmetic on both cards; only the
+          months counted differ, and the card says which. */}
+      <p className="mt-2 font-mono text-[11px] leading-relaxed text-foreground">
+        = biosimilare ÷ (biosimilare + riferimento)
+        <span className="block text-muted-foreground">= {formatEur(measure.biosimilar)} ÷ ({formatEur(measure.biosimilar)} + {formatEur(measure.reference)})</span>
+      </p>
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><strong className="text-foreground">Mesi contati:</strong> {months}</p>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
         <div>
-          <dt className="text-muted-foreground">Biosimilare</dt>
+          <dt className="text-muted-foreground">Biosimilare (numeratore)</dt>
           <dd className="font-mono text-foreground">{formatEur(measure.biosimilar)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Riferimento</dt>
+          <dt className="text-muted-foreground">Riferimento (nel denominatore)</dt>
           <dd className="font-mono text-foreground">{formatEur(measure.reference)}</dd>
         </div>
       </dl>
+    </div>
+  );
+}
+
+/**
+ * One substance of the current selection, read through both measures, so the
+ * two percentages are explained on a case the reader can check in the table
+ * below: the one with the most reference spend still on the originator among
+ * those that carry both measures.
+ */
+function WorkedExample({ view }: { view: ValueUptakeView }) {
+  const r = view.rows
+    .filter((x) => x.dateValid.share !== null && x.locallyObserved.share !== null && x.firstLocalLabel !== null)
+    .sort((a, b) => b.dateValid.reference - a.dateValid.reference)[0];
+  if (!r) return null;
+  const refBefore = r.dateValid.reference - r.locallyObserved.reference;
+  const sameNumerator = Math.abs(r.dateValid.biosimilar - r.locallyObserved.biosimilar) < 0.5;
+  return (
+    <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-xs leading-relaxed text-foreground">
+      <p className="font-semibold">Esempio nella selezione · {r.substance}</p>
+      <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-muted-foreground">
+        <li>
+          Nei mesi a validità riconosciuta: biosimilare <span className="font-mono text-foreground">{formatEur(r.dateValid.biosimilar)}</span>,
+          riferimento <span className="font-mono text-foreground">{formatEur(r.dateValid.reference)}</span> →
+          quota <span className="font-mono text-foreground">{formatPercent(r.dateValid.share!)}</span>.
+        </li>
+        <li>
+          Contando solo i mesi dal primo biosimilare dispensato qui ({r.firstLocalLabel}): il riferimento contato scende a{" "}
+          <span className="font-mono text-foreground">{formatEur(r.locallyObserved.reference)}</span>
+          {sameNumerator
+            ? <>, il biosimilare resta <span className="font-mono text-foreground">{formatEur(r.locallyObserved.biosimilar)}</span></>
+            : <>, il biosimilare è <span className="font-mono text-foreground">{formatEur(r.locallyObserved.biosimilar)}</span></>}
+          {" "}→ quota <span className="font-mono text-foreground">{formatPercent(r.locallyObserved.share!)}</span>.
+        </li>
+        <li>
+          La differenza fra le due quote sta nel denominatore: <span className="font-mono text-foreground">{formatEur(refBefore)}</span> di
+          riferimento spesi nei mesi validi <em>prima</em> che un biosimilare fosse dispensato qui{refBefore === 0 ? " (qui nessuno: le due quote coincidono)" : ""}.
+          {sameNumerator ? " Il numeratore è lo stesso." : ""}
+        </li>
+      </ol>
     </div>
   );
 }
@@ -109,14 +159,14 @@ export function PillarBValueUptake({
       {/* ------------------------------------------------- the two denominators */}
       {bothMeasuresAvailable ? <div className="grid gap-3 sm:grid-cols-2">
         <MeasureCard
-          title="Su mesi a validità riconosciuta"
-          lead="Mesi in cui il riferimento era già un riferimento, cioè dopo l'autorizzazione del biosimilare."
+          title="Quota 1 · su mesi a validità riconosciuta"
+          months="ogni mese in cui un biosimilare della sostanza era già autorizzato in EU (il riferimento era già «un riferimento»), nel periodo e nei canali selezionati."
           measure={view.dateValid}
         />
         <MeasureCard
           accent
-          title="Su mesi con biosimilare osservato qui"
-          lead="Mesi successivi al primo uso del biosimilare registrato nell'ambito visibile; non misura la possibilità clinica di sostituzione."
+          title="Quota 2 · su mesi con biosimilare osservato qui"
+          months="solo i mesi dal primo biosimilare della sostanza dispensato nell'ambito visibile (l'Azienda selezionata, o la Regione) in poi; i mesi validi precedenti escono dal denominatore. Non misura la possibilità clinica di sostituzione."
           measure={view.locallyObserved}
         />
       </div> : <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
@@ -128,14 +178,18 @@ export function PillarBValueUptake({
       </p>}
       {gap !== null && (
         <p className="text-xs leading-relaxed text-muted-foreground">
-          I due denominatori differiscono di{" "}
-          <strong className="text-foreground">{formatPercent(Math.abs(gap))}</strong>.
-          Rispondono a domande diverse e nessuno dei due è «quello giusto»:
-          pubblicarne uno solo descriverebbe male l&apos;adozione. Il secondo è
-          calcolato sull&apos;ambito visibile a chi guarda, quindi per
+          Le due quote differiscono di{" "}
+          <strong className="text-foreground">{formatPercent(Math.abs(gap))}</strong> punti.
+          Stessa formula, stesso numeratore{Math.abs(view.dateValid.biosimilar - view.locallyObserved.biosimilar) < 0.5 ? "" : " (quasi)"}: cambia solo
+          quanto riferimento entra nel denominatore. La quota 1 chiede «da quando un
+          biosimilare esisteva, quanta spesa è andata al biosimilare?»; la quota 2 chiede
+          «da quando un biosimilare è stato usato qui, quanta?». Nessuna delle due è
+          «quella giusta»: pubblicarne una sola descriverebbe male l&apos;adozione. La
+          seconda è calcolata sull&apos;ambito visibile a chi guarda, quindi per
           un&apos;Azienda è il suo primo passaggio, non quello della Regione.
         </p>
       )}
+      {bothMeasuresAvailable && <WorkedExample view={view} />}
 
       {/* ------------------------------------------- what is held out, and why */}
       {held > 0 && (
@@ -183,7 +237,7 @@ export function PillarBValueUptake({
         </details>
       )}
 
-      <DumbbellUptakeChart rows={dumbbell} />
+      <DumbbellUptakeChart rows={dumbbell} limit={dumbbell.length} />
       <FirstUseTimeline model={timeline} followsAzienda={timelineFollowsAzienda} />
 
       {/* --------------------------------------------------- the numeric table */}
