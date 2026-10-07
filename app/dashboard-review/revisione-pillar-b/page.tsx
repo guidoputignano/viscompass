@@ -44,6 +44,7 @@ import {
   type ConcentrationYear, type PerimeterMode, type TrendOrder,
 } from "@/lib/dashboard-review/pillar-b/view-options";
 import { resolvePillarBScope } from "@/lib/dashboard-review/pillar-b/scope";
+import { pillarBCacheKey, pillarBServerCache } from "@/lib/dashboard-review/pillar-b/server-cache";
 import { bridgeB, bridgeBPerimeterCheck, bridgeBPublishable } from "@/lib/dashboard-review/pillar-b/bridge-b";
 import { reviewQueue, reviewQueuePublishable } from "@/lib/dashboard-review/pillar-b/review-queue";
 
@@ -185,6 +186,15 @@ export default async function RevisionePillarBPage({
     facets: Facets | null;
     calendarFacets: Facets | null;
   };
+  // FILTER-INDEPENDENT READS ARE SHARED across requests of the same scope and
+  // release (server-cache.ts): they were ~5.4 s of the ~6.6 s of statements a
+  // render ran, recomputed on every click. A scope the cache cannot identify
+  // reads fresh every time.
+  const shared = <T,>(load: () => Promise<T>, ...parts: Array<string | number | null>): Promise<T> =>
+    scope.cacheScope === null
+      ? load()
+      : pillarBServerCache.get(pillarBCacheKey(scope.cacheScope, releaseId, ...parts), load);
+
   try {
     const funnelYear = filters.years.includes(2025) ? 2025 : 2024;
 
@@ -198,8 +208,8 @@ export default async function RevisionePillarBPage({
     // light (spend, funnel, uptake, scoped uptake, facets — each well under
     // 2 s) runs concurrently in the second wave.
     const [molecules2024, molecules2025] = await Promise.all([
-      identified("MOLECULE24", getMoleculeSpend(db, 2024)),
-      identified("MOLECULE25", getMoleculeSpend(db, 2025)),
+      identified("MOLECULE24", shared(() => getMoleculeSpend(db, 2024), "molecules", 2024)),
+      identified("MOLECULE25", shared(() => getMoleculeSpend(db, 2025), "molecules", 2025)),
     ]);
 
     // The scoped function honours every filter in one call. Until migration
@@ -218,7 +228,8 @@ export default async function RevisionePillarBPage({
         // and that Azienda's "most to decide", not the Region's.
         const [rows, substances] = await Promise.all([
           getValueUptakeScoped(db, { years, channels, substance: filters.substance, aslCode }),
-          getValueUptakeScoped(db, { years: [2024, 2025], channels: null, substance: null, aslCode }),
+          // The substance list follows the Azienda only: shared per Azienda.
+          shared(() => getValueUptakeScoped(db, { years: [2024, 2025], channels: null, substance: null, aslCode }), "substances", aslCode),
         ]);
         return { rows, substances, fallback: false, notice: null };
       } catch (error) {
@@ -280,10 +291,10 @@ export default async function RevisionePillarBPage({
 
     const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome, coverage] =
       await Promise.all([
-        identified("SPEND24", getSpend(db, 2024)),
-        identified("SPEND25", getSpend(db, 2025)),
-        identified("FUNNEL", getEvidenceFunnel(db, funnelYear)),
-        Promise.all(filters.years.map((y) => identified(`UPTAKE${y}`, getUptake(db, y)))),
+        identified("SPEND24", shared(() => getSpend(db, 2024), "spend", 2024)),
+        identified("SPEND25", shared(() => getSpend(db, 2025), "spend", 2025)),
+        identified("FUNNEL", shared(() => getEvidenceFunnel(db, funnelYear), "funnel", funnelYear)),
+        Promise.all(filters.years.map((y) => identified(`UPTAKE${y}`, shared(() => getUptake(db, y), "uptake", y)))),
         valueUptakeWork,
         facetsWork,
         coverageWork,

@@ -35,8 +35,9 @@ import { getReviewerEmail } from "@/lib/auth/reviewer";
 import { labelScopedOrgs } from "./scope-labels";
 import { decidePrivateScope, type ScopeDecision } from "@/lib/analytics/private-scope-rules";
 import { aslCodeFor, orgCodeFromAsl } from "./filters";
-import { getFacets, type PillarBDb } from "./rpc";
+import { getFacets, pillarBReleaseId, type PillarBDb } from "./rpc";
 import { releaseAslCodes } from "./release-asl-codes";
+import { pillarBCacheKey, pillarBCacheScope, pillarBServerCache } from "./server-cache";
 
 export interface ScopedOrg {
   /** Membership / pseudonym key, e.g. "201". */
@@ -59,6 +60,12 @@ export type PillarBScope = ScopeDecision & {
   narrowable: ScopedOrg[];
   /** One sentence naming the perimeter, for the page header. */
   perimeterLabel: string;
+  /**
+   * SERVER ONLY. Which rows `db` can read, as a cache identity (server-cache.ts):
+   * the service-role reviewer scope, or this user's own RLS scope. null = the
+   * page must not cache anything for this request.
+   */
+  cacheScope: string | null;
 };
 
 type OrgRow = { org_code: string; org_name: string | null; org_type: string; region_code: string };
@@ -73,6 +80,28 @@ type OrgRow = { org_code: string; org_name: string | null; org_type: string; reg
  * silently loses an Azienda.
  */
 async function organizationsInRelease(admin: PillarBDb): Promise<ScopedOrg[] | null> {
+  // The directory is the same for every reviewer and every filter of one
+  // release: it is read once per release and server process (0.7 s measured
+  // per request before), and a failure is never kept.
+  let releaseId: string | null = null;
+  try {
+    releaseId = await pillarBReleaseId(admin);
+  } catch {
+    releaseId = null;
+  }
+  const load = () => loadReleaseDirectory(admin);
+  try {
+    return releaseId === null
+      ? await load()
+      : await pillarBServerCache.get(pillarBCacheKey("reviewer:service-role", releaseId, "directory"), load);
+  } catch (cause) {
+    console.error(cause instanceof Error ? cause.message : cause);
+    return null;
+  }
+}
+
+/** Throws a PBR-WIDEN-* coded error on any failure, so that nothing failed is cached. */
+async function loadReleaseDirectory(admin: PillarBDb): Promise<ScopedOrg[]> {
   let aslCodes: string[];
   try {
     // This query is only for the reviewer directory. It does not make 2026 a
@@ -85,12 +114,10 @@ async function organizationsInRelease(admin: PillarBDb): Promise<ScopedOrg[] | n
     if (listing.asl === null) throw new Error("Azienda facet missing from release listing");
     aslCodes = releaseAslCodes(listing.asl);
   } catch (cause) {
-    console.error("PBR-WIDEN-FACETS reviewer release listing failed", cause instanceof Error ? cause.message : cause);
-    return null;
+    throw new Error(`PBR-WIDEN-FACETS reviewer release listing failed: ${cause instanceof Error ? cause.message : String(cause)}`);
   }
   if (aslCodes.length === 0) {
-    console.error("PBR-WIDEN-EMPTY reviewer release listing returned no Azienda");
-    return null;
+    throw new Error("PBR-WIDEN-EMPTY reviewer release listing returned no Azienda");
   }
 
   const { data, error } = await admin
@@ -98,8 +125,7 @@ async function organizationsInRelease(admin: PillarBDb): Promise<ScopedOrg[] | n
     .select("org_code, org_name, org_type, region_code")
     .eq("org_type", "asl");
   if (error) {
-    console.error("PBR-WIDEN-ORGS reviewer organization directory read failed", error.message);
-    return null;
+    throw new Error(`PBR-WIDEN-ORGS reviewer organization directory read failed: ${error.message}`);
   }
   const orgs = (data ?? []) as OrgRow[];
 
@@ -184,6 +210,19 @@ export async function resolvePillarBScope(): Promise<PillarBScope | null> {
       ? `il perimetro autorizzato (${labelled.length} Aziende)`
       : "la tua Azienda";
 
+  const serviceRole = Boolean(decision.allOrganizations && admin);
+  // The session subject identifies an RLS reader for the cache; it is read
+  // only when the reads run under that session.
+  let subject: string | null = null;
+  if (!serviceRole) {
+    try {
+      const { data } = await session.auth.getClaims();
+      subject = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
+    } catch {
+      subject = null;
+    }
+  }
+
   return {
     ...decision,
     db: decision.allOrganizations && admin ? admin : session,
@@ -191,5 +230,6 @@ export async function resolvePillarBScope(): Promise<PillarBScope | null> {
     aslLabels,
     narrowable: labelled.length > 1 ? labelled : [],
     perimeterLabel,
+    cacheScope: pillarBCacheScope({ serviceRole, subject, org }),
   };
 }
