@@ -27,7 +27,7 @@ import {
 } from "@/lib/dashboard-review/pillar-b/review-data";
 import {
   getEvidenceFunnel, getFacets, getMoleculeSpend, getSpend, getUptake, getUptakeCoverage,
-  getValueUptake, getValueUptakeScoped, isMissingFunction, pillarBReleaseId,
+  getValueUptake, getValueUptakeScoped, isMissingFunction, pillarBActiveRelease, pillarBReleaseId, readActiveRelease,
   type MoleculeSpendRow, type SpendRow, type UptakeCoverageRow, type UptakeRow, type UptakeScope,
   type UptakeWithWithheld, type ValueUptakeRow, type WithheldRow,
 } from "@/lib/dashboard-review/pillar-b/rpc";
@@ -189,11 +189,18 @@ export default async function RevisionePillarBPage({
   // FILTER-INDEPENDENT READS ARE SHARED across requests of the same scope and
   // release (server-cache.ts): they were ~5.4 s of the ~6.6 s of statements a
   // render ran, recomputed on every click. A scope the cache cannot identify
-  // reads fresh every time.
+  // reads fresh every time. A loaded value is kept only if the active release
+  // is still the one in its key: the RPCs resolve the release themselves, so
+  // rows read during a switch could otherwise sit under the old id.
+  // The key carries the release's activation stamp, not only its id: a
+  // release taken down and put back under the same id is a new release here.
+  const releaseStamp = (await pillarBActiveRelease(db))?.stamp ?? null;
   const shared = <T,>(load: () => Promise<T>, ...parts: Array<string | number | null>): Promise<T> =>
-    scope.cacheScope === null
+    scope.cacheScope === null || releaseStamp === null
       ? load()
-      : pillarBServerCache.get(pillarBCacheKey(scope.cacheScope, releaseId, ...parts), load);
+      : pillarBServerCache.get(pillarBCacheKey(scope.cacheScope, releaseStamp, ...parts), load, {
+          keep: async () => (await readActiveRelease(db))?.stamp === releaseStamp,
+        });
 
   try {
     const funnelYear = filters.years.includes(2025) ? 2025 : 2024;

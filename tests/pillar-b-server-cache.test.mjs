@@ -79,3 +79,41 @@ test("keys carry the scope and the release, so a new release never reads an old 
   assert.notEqual(k1, k3);
   assert.equal(pillarBCacheKey("s", "r", "substances", null), "s|r|substances|-");
 });
+
+test("a load that hangs is not joined forever: after the in-flight bound the next request starts its own", async () => {
+  const c = clock();
+  const cache = createServerCache({ ttlMs: 600_000, max: 10, inflightMs: 1000, now: c.now });
+  let calls = 0;
+  const hang = () => { calls++; return new Promise(() => {}); };
+  cache.get("k", hang);
+  c.advance(999);
+  cache.get("k", hang);
+  assert.equal(calls, 1, "inside the bound the pending load is shared");
+  c.advance(1);
+  assert.equal(await cache.get("k", async () => { calls++; return "fresh"; }), "fresh");
+  assert.equal(calls, 2);
+});
+
+test("a resolved value the caller refuses is served once and not kept", async () => {
+  const cache = createServerCache({ ttlMs: 600_000, max: 10 });
+  const settle = () => new Promise((r) => setImmediate(r));
+  assert.equal(await cache.get("refused", async () => "rows of release B", { keep: async () => false }), "rows of release B");
+  await settle();
+  assert.equal(cache.size(), 0, "a release switched during the load: not kept");
+  await cache.get("throws", async () => "rows", { keep: async () => { throw new Error("release lookup failed"); } });
+  await settle();
+  assert.equal(cache.size(), 0, "a failed check is a refusal");
+  let calls = 0;
+  await cache.get("kept", async () => ++calls, { keep: async () => true });
+  await settle();
+  assert.equal(await cache.get("kept", async () => ++calls, { keep: async () => true }), 1);
+  assert.equal(calls, 1);
+});
+
+test("the RLS key carries the region code the policy selects rows by", () => {
+  const base = { org_type: "regione", org_code: "130" };
+  const a = pillarBCacheScope({ serviceRole: false, subject: "u1", org: { ...base, region_code: "130" } });
+  const b = pillarBCacheScope({ serviceRole: false, subject: "u1", org: { ...base, region_code: "140" } });
+  assert.notEqual(a, b, "a corrected region code is a new key");
+  assert.match(pillarBCacheScope({ serviceRole: false, subject: "u1", org: { ...base, region_code: null } }), /:-$/);
+});

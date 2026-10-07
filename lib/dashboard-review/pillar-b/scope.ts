@@ -35,7 +35,7 @@ import { getReviewerEmail } from "@/lib/auth/reviewer";
 import { labelScopedOrgs } from "./scope-labels";
 import { decidePrivateScope, type ScopeDecision } from "@/lib/analytics/private-scope-rules";
 import { aslCodeFor, orgCodeFromAsl } from "./filters";
-import { getFacets, pillarBReleaseId, type PillarBDb } from "./rpc";
+import { getFacets, pillarBActiveRelease, readActiveRelease, type PillarBDb } from "./rpc";
 import { releaseAslCodes } from "./release-asl-codes";
 import { pillarBCacheKey, pillarBCacheScope, pillarBServerCache } from "./server-cache";
 
@@ -83,17 +83,19 @@ async function organizationsInRelease(admin: PillarBDb): Promise<ScopedOrg[] | n
   // The directory is the same for every reviewer and every filter of one
   // release: it is read once per release and server process (0.7 s measured
   // per request before), and a failure is never kept.
-  let releaseId: string | null = null;
+  let stamp: string | null = null;
   try {
-    releaseId = await pillarBReleaseId(admin);
+    stamp = (await pillarBActiveRelease(admin))?.stamp ?? null;
   } catch {
-    releaseId = null;
+    stamp = null;
   }
   const load = () => loadReleaseDirectory(admin);
   try {
-    return releaseId === null
+    return stamp === null
       ? await load()
-      : await pillarBServerCache.get(pillarBCacheKey("reviewer:service-role", releaseId, "directory"), load);
+      : await pillarBServerCache.get(pillarBCacheKey("reviewer:service-role", stamp, "directory"), load, {
+          keep: async () => (await readActiveRelease(admin))?.stamp === stamp,
+        });
   } catch (cause) {
     console.error(cause instanceof Error ? cause.message : cause);
     return null;

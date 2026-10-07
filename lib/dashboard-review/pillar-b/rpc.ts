@@ -144,20 +144,33 @@ async function callRpc<T>(db: PillarBDb, name: string, args: Record<string, unkn
   return (data ?? []) as T[];
 }
 
-/** Is a Pillar B release active? Null means nothing is published, not zero spend. */
-export const pillarBReleaseId = cache(async (db: PillarBDb): Promise<string | null> => {
+/**
+ * The active release and WHEN it was activated, without the per-request memo.
+ * The activation time makes a release that is taken down and put back under
+ * the same id a different release for the server cache (server-cache.ts), and
+ * the cache re-reads it after a load so rows read while the release was being
+ * switched are not kept.
+ */
+export async function readActiveRelease(db: PillarBDb): Promise<{ id: string; stamp: string } | null> {
   const { data, error } = await db
     .from("pillar_b_active_release")
-    .select("release_id")
+    .select("release_id, activated_at")
     .limit(2);
   if (error) throw new Error(`active release lookup failed: ${error.message}`);
-  const rows = (data ?? []) as Array<{ release_id: string }>;
+  const rows = (data ?? []) as Array<{ release_id: string; activated_at: string | null }>;
   if (rows.length === 0) return null;
   if (rows.length > 1) {
     throw new Error(`${rows.length} active releases are declared; refusing to aggregate`);
   }
-  return rows[0].release_id;
-});
+  return { id: rows[0].release_id, stamp: `${rows[0].release_id}@${rows[0].activated_at ?? "-"}` };
+}
+
+/** Once per request. */
+export const pillarBActiveRelease = cache((db: PillarBDb) => readActiveRelease(db));
+
+/** Is a Pillar B release active? Null means nothing is published, not zero spend. */
+export const pillarBReleaseId = cache(async (db: PillarBDb): Promise<string | null> =>
+  (await pillarBActiveRelease(db))?.id ?? null);
 
 export const getSpend = cache(async (db: PillarBDb, year: PillarBYear): Promise<SpendRow[]> => {
   const rows = await callRpc<Record<string, unknown>>(db, "pillar_b_spend", { p_year: year });
