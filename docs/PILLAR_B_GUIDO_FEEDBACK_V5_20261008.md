@@ -193,7 +193,19 @@ Older charts and tables still scroll sideways on a phone. They predate v5, are m
 - the tables of the spend trend, the concentration and the record funnel;
 - the reconciliation chart and table.
 
-**Status after the live check.** PB-V5-01 to 07: done, and live-checked as reviewer at desktop width. Not yet `Verified`, because three things remain:
-- the phone-layout push and its live re-check;
+**Re-check of deployment 7830205 (phone layout), 8 October 2026, as the platform reviewer.**
+- The same eight states still match the independent computation string for string, with no copy hits.
+- At 375 px:
+  - the phone dumbbell is shown and the desktop drawing hidden;
+  - its text renders at 11.8–12.8 px, with no overlapping and no clipped labels;
+  - its gap and reason labels are identical to the desktop drawing's;
+  - the reason coral renders at the text colour that passes contrast;
+  - the composition shows as the stacked list, with nothing split or overflowing;
+  - every section lead is full width;
+  - there is no page-level horizontal scroll;
+  - the only open sideways scrollers left are the two older charts on the follow-up list.
+- At 1280 px the desktop layouts are back, in full, and the console is clean.
+
+**Status.** PB-V5-01 to 07: done, and live-checked as reviewer at desktop and phone width. Not yet `Verified`, because two things remain:
 - the live passes as Azienda and as Regione;
 - Guido/Alberto's interpretation checks (PB-V5-04, PB-V5-05).
