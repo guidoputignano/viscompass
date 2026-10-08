@@ -337,8 +337,8 @@ export default async function RevisionePillarBPage({
   const calendar = data.calendarFacets?.months ? calendarRows(data.calendarFacets.months) : null;
   const partialRow = calendar?.find((r) => r.year === PARTIAL_YEAR.year) ?? null;
   const partialYear = calendar === null
-    ? PARTIAL_YEAR
-    : partialRow === null ? null : { year: PARTIAL_YEAR.year, months: partialRow.monthsObserved };
+    ? { ...PARTIAL_YEAR, inCalendar: false }
+    : partialRow === null || partialRow.monthsObserved === 0 ? null : { year: PARTIAL_YEAR.year, months: partialRow.monthsObserved, inCalendar: true };
 
   // "12 mesi osservati" is a fact about the RELEASE, not about every filter
   // state: a molecule or channel can leave months with no record. The labels

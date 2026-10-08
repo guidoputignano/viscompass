@@ -38,7 +38,8 @@ import type { UptakeWithWithheld } from "@/lib/dashboard-review/pillar-b/rpc";
 import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
 import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { BridgeB, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
-import { partialPeriodLabel } from "@/lib/dashboard-review/pillar-b/view-options";
+import { partialYearCopy } from "@/lib/dashboard-review/pillar-b/view-options";
+import { notObservedFootnote, notObservedIntro } from "@/lib/dashboard-review/pillar-b/review-queue";
 import { BridgeBChart } from "@/components/dashboard-review/pillar-b-bridge-b";
 import type { ReviewQueue, ReviewQueueRow } from "@/lib/dashboard-review/pillar-b/review-queue";
 import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
@@ -282,9 +283,10 @@ export function PillarBReview(props: PillarBReviewProps) {
   const has2025 = spend.totals.rows2025 > 0;
   const hasDistribution = Boolean(panorama.calendar?.some((r) => r.monthsObserved > 0)
     || (panorama.azienda && panorama.azienda.length > 1) || panorama.channels?.length);
-  // "gen–mag 2026 · dati osservati" under the active filters; the release-wide
-  // five months only when the calendar facet is unavailable.
-  const partialLabel = panorama.calendar ? partialPeriodLabel(panorama.calendar) : "gen–mag 2026 · dati osservati";
+  // "gen–mag 2026 · dati osservati" under the active filters, or the wording
+  // for a selection with no 2026 record; the release-wide five months only
+  // when the calendar facet is unavailable.
+  const partial = partialYearCopy(panorama.calendar);
 
   return (
     <div className="flex flex-col gap-7 pb-10 sm:gap-8">
@@ -301,7 +303,7 @@ export function PillarBReview(props: PillarBReviewProps) {
         </div>
         <div className="self-end rounded-xl border bg-card p-4 text-sm">
           <p className="font-semibold">Flussi regionali · {periodLabel}</p>
-          <p className="mt-2 text-muted-foreground">Spesa lorda, IVA inclusa · {partialLabel} fuori dai confronti annuali</p>
+          <p className="mt-2 text-muted-foreground">Spesa lorda, IVA inclusa · {partial.header}</p>
         </div>
       </header>
 
@@ -405,7 +407,7 @@ export function PillarBReview(props: PillarBReviewProps) {
       </Group>
 
       {hasDistribution && <Group id="distribuzione" title="Profilo mensile e distribuzione"
-             lead={`Dove e quando si registra la spesa nel perimetro selezionato. I mesi osservati del 2026 (${partialLabel}) compaiono solo nel calendario, mai nel confronto annuale.`}>
+             lead={`Dove e quando si registra la spesa nel perimetro selezionato. ${partial.distributionLead}`}>
         {panorama.totals && panorama.totals.spend_eur !== null && (
           <p className="text-sm text-muted-foreground">
             Negli anni selezionati: <span className="font-mono text-foreground">{formatEur(panorama.totals.spend_eur)}</span>
@@ -462,8 +464,7 @@ export function PillarBReview(props: PillarBReviewProps) {
             <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
               Due liste con scopi diversi: la prima individua spesa di riferimento dopo il primo uso locale e coincide
               con B_ADDRESSABLE_REFERENCE; la seconda segnala sostanze con biosimilare autorizzato in EU ma non osservato
-              qui, per cui occorre verificare lo stato italiano. La seconda è <strong>solo una parte di B4</strong>: B4
-              comprende anche la spesa prima del primo uso delle sostanze poi passate al biosimilare. Ogni riga collega
+              qui, per cui occorre verificare lo stato italiano. {notObservedIntro(adoption.reviewQueue.beforeLocalSwitchTotal)} Ogni riga collega
               alla sua evidenza. <strong>Nessuna riga è un risparmio</strong>, una previsione o un&apos;indicazione prescrittiva.
             </p>
             <div className="grid gap-4 lg:grid-cols-2">
@@ -477,9 +478,7 @@ export function PillarBReview(props: PillarBReviewProps) {
                 lead="Spesa di riferimento nei mesi validi per sostanze di cui nessun biosimilare risulta dispensato nelle Aziende selezionate nei 29 mesi del rilascio. «Non osservato nel rilascio» non è «mai acquistato», e l'autorizzazione EU non dice lo stato in Italia (AIC, classificazione, commercializzazione): da verificare prima di leggerla come alternativa disponibile."
                 rows={adoption.reviewQueue.notObservedHere} total={adoption.reviewQueue.notObservedHereTotal} hrefs={adoption.reviewQueue.hrefs}
                 firstColumn={null} shareColumn="Quota 1 · mesi validi" shareOf="dateValidShare"
-                footnote={adoption.reviewQueue.beforeLocalSwitchTotal > 0
-                  ? `Con i ${formatEur(adoption.reviewQueue.beforeLocalSwitchTotal)} di riferimento spesi dalle molecole già passate nei mesi validi prima del loro primo uso, questa lista coincide con la soglia «EU-autorizzato, non ancora acquistato qui».`
-                  : "Questa lista coincide con la soglia «EU-autorizzato, non ancora acquistato qui»."} />
+                footnote={notObservedFootnote(adoption.reviewQueue.beforeLocalSwitchTotal)} />
             </div>
           </Sub>
         )}
@@ -640,7 +639,7 @@ export function PillarBReview(props: PillarBReviewProps) {
           <div><dt className="font-semibold">Risparmio (B14)</dt><dd className="mt-2 text-muted-foreground">Ogni «opportunità» è un limite superiore sotto quattro assunzioni non verificate. La dispersione di prezzo (B07) non è denaro recuperabile.</dd></div>
           <div><dt className="font-semibold">Classifiche fra Aziende (B09)</dt><dd className="mt-2 text-muted-foreground">La graduatoria grezza misura cosa è stato comprato; standardizzata, le differenze non sono stabili. Il case-mix non è controllabile: ATC assente sul rilascio.</dd></div>
           <div><dt className="font-semibold">Confezioni</dt><dd className="mt-2 text-muted-foreground">La base della quantità è confezioni, unità, mista e ignota nello stesso rilascio. Una somma fra basi non ha unità.</dd></div>
-          <div><dt className="font-semibold">2026 incompleto</dt><dd className="mt-2 text-muted-foreground">{partialLabel}: zero record con quantità confrontabile. Compare nel calendario, segnalato; non entra nei confronti annuali e non è un «primo semestre».</dd></div>
+          <div><dt className="font-semibold">2026 incompleto</dt><dd className="mt-2 text-muted-foreground">{partial.limitsNote}</dd></div>
           <div><dt className="font-semibold">Spesa lorda</dt><dd className="mt-2 text-muted-foreground">IVA inclusa, al lordo di payback e note di credito di registro. Non è un prezzo netto, né un prezzo di riferimento AIFA.</dd></div>
           <div><dt className="font-semibold">Esclusività legale</dt><dd className="mt-2 text-muted-foreground">Gli «anni senza concorrenza» (B15) sono un limite superiore fra autorizzazione EU del riferimento e del primo biosimilare; non sono scadenze brevettuali o SPC.</dd></div>
         </dl>

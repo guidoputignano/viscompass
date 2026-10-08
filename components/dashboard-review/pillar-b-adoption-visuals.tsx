@@ -9,7 +9,7 @@
 
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { DumbbellRow, TimelineModel, TimelineRow } from "@/lib/dashboard-review/pillar-b/adoption";
-import { monthKeyLabel } from "@/lib/dashboard-review/pillar-b/adoption";
+import { dumbbellLead, monthKeyLabel, timelineLead } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { AziendaPanelRow, ChannelMixRow, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
 import { aziendaMetricValue, type AziendaMetric } from "@/lib/dashboard-review/pillar-b/view-options";
 
@@ -53,7 +53,7 @@ export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limi
   const exact = (r: DumbbellRow) => `${r.substance} · quota 1 (mesi validi) ${r.dateValid === null ? "n/d" : formatPercent(r.dateValid)} · quota 2 (dal primo uso qui) ${r.locallyObserved === null ? "n/d" : formatPercent(r.locallyObserved)} · riferimento nei mesi validi ${formatEur(r.referenceEur)}`;
   return <Frame
     title="Quota biosimilare per molecola, sui due denominatori"
-    lead={`Tutte le ${formatNumber(shown.length, 0)} molecole con almeno una misura, ordinate per spesa di riferimento ancora sull'originatore. Grigio: quota 1, su mesi a validità riconosciuta. Verde: quota 2, su mesi con biosimilare già osservato qui. I valori esatti sono nella tabella numerica; i punti hanno un'etichetta per lettori di schermo.`}
+    lead={dumbbellLead(shown)}
   >
     {shown.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
     <div className="mb-2 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
@@ -116,18 +116,17 @@ export function FirstUseTimeline({ model, followsAzienda = true }: {
   const exact = (row: TimelineRow) => `${row.substance} · primo biosimilare dispensato qui ${row.firstLabel} · riferimento nei mesi validi ${formatEur(row.referenceEur)} · spesa valida ${formatEur(row.validEur)} · osservazione fino a ${monthKeyLabel(toKey)}`;
   return <Frame
     title="Quando il primo biosimilare è comparso qui"
-    lead={"Un punto per molecola, nel mese della prima dispensazione di un biosimilare osservata nel rilascio, nell'ambito visibile. La finestra della quota 2 parte da lì" + (followsAzienda
-      ? ": segue l'Azienda selezionata, non i filtri di anno e canale."
-      : ", calcolata sull'intero perimetro visibile: il filtro per Azienda non è applicato in questa vista.") + " Il rilascio inizia a gennaio 2024: un primo uso in quel mese può essere precedente (storia troncata a sinistra)."}
+    lead={timelineLead(model, followsAzienda)}
   >
-    {rows.length === 0 && neverObserved.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
+    {rows.length === 0 && neverObserved.length === 0 && model.notYetValid.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
     {/* THE KEY, VISIBLE: what a dot, its size and the faint line mean. The
-        reviewers asked why some rows "have a bar". */}
-    <ul className="mb-2 grid gap-x-6 gap-y-1 text-[11px] text-muted-foreground sm:grid-cols-3">
+        reviewers asked why some rows "have a bar". Only when dots are drawn. */}
+    {rows.length === 0 && <p className="mb-2 text-xs text-muted-foreground">Nessuna molecola con un primo uso di biosimilare osservato qui nel rilascio: non c&apos;è una linea del tempo da disegnare.</p>}
+    {rows.length > 0 && <ul className="mb-2 grid gap-x-6 gap-y-1 text-[11px] text-muted-foreground sm:grid-cols-3">
       <li><i className="mr-1.5 inline-block h-3 w-3 rounded-full align-middle" style={{ background: teal }} />Punto: mese del primo biosimilare dispensato qui (etichetta accanto).</li>
       <li><i className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: teal }} /><i className="mr-1.5 inline-block h-3.5 w-3.5 rounded-full align-middle" style={{ background: teal }} />Area del punto: spesa di riferimento nei mesi validi{largest ? ` (la più grande: ${largest.substance}, ${formatEur(largest.referenceEur)})` : ""}.</li>
       <li><i className="mr-1.5 inline-block h-0.5 w-6 align-middle" style={{ background: teal, opacity: 0.35 }} />Linea sottile: l&apos;osservazione prosegue fino a {monthKeyLabel(toKey)}; non indica una dispensazione continua.</li>
-    </ul>
+    </ul>}
     {rows.length > 0 && <div className="overflow-x-auto"><svg role="img" aria-label="Mese della prima dispensazione locale di un biosimilare, per molecola" viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[47.5rem]" xmlns="http://www.w3.org/2000/svg">
       {years.map((yr) => { const k = yr * 12 + 1; return <g key={yr}>
         <line x1={x(k)} y1={top - 14} x2={x(k)} y2={height - 20} stroke={grid} />

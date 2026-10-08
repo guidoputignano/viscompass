@@ -11,6 +11,7 @@
 
 import type { UptakeRow } from "./rpc";
 import type { SubstanceRow, ValueUptakeView } from "./value-uptake";
+import { formatNumber } from "@/lib/dashboard-review/format";
 
 // ---------------------------------------------------------------- dumbbell
 
@@ -41,6 +42,52 @@ export function dumbbellRows(view: ValueUptakeView): DumbbellRow[] {
       firstLocalLabel: r.firstLocalLabel,
     }))
     .sort((a, b) => b.referenceEur - a.referenceEur);
+}
+
+/**
+ * The opening phrase of the dumbbell's lead, counting by the SAME rule as the
+ * numeric table below it (a molecule "has a measure" when either share is
+ * defined), so the chart never calls all its rows measured while the table
+ * lists fewer. Rows without a valid month are drawn too, and named as such.
+ */
+export function dumbbellCountPhrase(rows: ReadonlyArray<Pick<DumbbellRow, "dateValid" | "locallyObserved">>): string {
+  const measured = rows.filter((r) => r.dateValid !== null || r.locallyObserved !== null).length;
+  const without = rows.length - measured;
+  const f = (k: number) => formatNumber(k, 0);
+  const n = (k: number, one: string, many: string) => `${f(k)} ${k === 1 ? one : many}`;
+  if (rows.length === 0) return "Nessuna molecola";
+  if (measured === 0) return `${n(without, "molecola", "molecole")} senza mesi validi nel periodo`;
+  if (without === 0) return measured === 1 ? "La molecola con almeno una misura" : `Tutte le ${f(measured)} molecole con almeno una misura`;
+  return `${n(rows.length, "molecola", "molecole")}: ${f(measured)} con almeno una misura e ${f(without)} senza mesi validi nel periodo (indicat${without === 1 ? "a" : "e"} a destra, fuori dalla tabella delle quote)`;
+}
+
+/**
+ * The dumbbell's whole lead for the rows it draws, or undefined when it draws
+ * none (the chart then says so in its own empty state). It never points to a
+ * table or to dots that the state does not render.
+ */
+export function dumbbellLead(rows: ReadonlyArray<Pick<DumbbellRow, "dateValid" | "locallyObserved">>): string | undefined {
+  if (rows.length === 0) return undefined;
+  const measured = rows.some((r) => r.dateValid !== null || r.locallyObserved !== null);
+  if (!measured) {
+    return `${dumbbellCountPhrase(rows)}: nessuna quota da disegnare. La spesa di riferimento a destra è quella dei mesi validi, qui nulla.`;
+  }
+  // The ordering clause agrees in number with what precedes it, and a single
+  // row has no order to state.
+  const order = rows.length > 1 ? ", ordinate per spesa di riferimento ancora sull'originatore" : "";
+  return `${dumbbellCountPhrase(rows)}${order}. Grigio: quota 1, su mesi a validità riconosciuta. Verde: quota 2, su mesi con biosimilare già osservato qui. I valori esatti sono nella tabella numerica; i punti hanno un'etichetta per lettori di schermo.`;
+}
+
+/**
+ * The first-use timeline's lead, or undefined when it draws no dot: the
+ * lead describes dots and the window that starts at them, and the panel's
+ * own sentences explain an empty timeline.
+ */
+export function timelineLead(model: Pick<TimelineModel, "rows">, followsAzienda: boolean): string | undefined {
+  if (model.rows.length === 0) return undefined;
+  return "Un punto per molecola, nel mese della prima dispensazione di un biosimilare osservata nel rilascio, nell'ambito visibile. La finestra della quota 2 parte da lì" + (followsAzienda
+    ? ": segue l'Azienda selezionata, non i filtri di anno e canale."
+    : ", calcolata sull'intero perimetro visibile: il filtro per Azienda non è applicato in questa vista.") + " Il rilascio inizia a gennaio 2024: un primo uso in quel mese può essere precedente (storia troncata a sinistra).";
 }
 
 // ---------------------------------------------------------------- timeline
@@ -98,7 +145,10 @@ export function timelineModel(
     fromKey: window.fromKey,
     toKey: window.toKey,
     rows: rows.filter((r) => r.firstKey !== null).sort((a, b) => a.firstKey! - b.firstKey!),
-    neverObserved: never.filter((r) => r.validEur > 0).sort((a, b) => b.referenceEur - a.referenceEur),
+    // EXHAUSTIVE: a never-switched molecule whose valid-month spend nets below
+    // zero (credit notes) still had valid months and no local biosimilar, so
+    // it is listed here with its signed amount, not dropped from every list.
+    neverObserved: never.filter((r) => r.validEur !== 0).sort((a, b) => b.referenceEur - a.referenceEur),
     notYetValid: never.filter((r) => r.validEur === 0).sort((a, b) => a.substance.localeCompare(b.substance)),
   };
 }

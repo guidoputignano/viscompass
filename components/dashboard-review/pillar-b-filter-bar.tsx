@@ -61,8 +61,11 @@ export interface FilterBarProps {
    * is not. Computed on the server from the same ledger; never a guess.
    */
   emptyHint?: string | null;
-  /** 2026's observed months, for the fragment pill. */
-  partialYear: { year: number; months: number } | null;
+  /**
+   * 2026's observed months, for the fragment pill; `inCalendar` is false when
+   * the calendar facet is unavailable and no calendar is on the page.
+   */
+  partialYear: { year: number; months: number; inCalendar: boolean } | null;
 }
 
 const CHANNEL_NAMES: Record<PillarBChannel, string> = {
@@ -167,7 +170,7 @@ export function PillarBFilterBar({
             <Segment active={!bothYears && filters.years[0] === 2025} onClick={() => go({ years: [2025] })}>2025</Segment>
           </div>
           {partialYear && <span className="text-[11px] text-muted-foreground">
-            {partialYear.year}: {partialYear.months} mesi; visibile solo nel calendario, non nei confronti.
+            {partialYear.year}: {partialYear.months} {partialYear.months === 1 ? "mese" : "mesi"}{partialYear.inCalendar ? "; visibile solo nel calendario, non nei confronti." : `${partialYear.months === 1 ? " osservato" : " osservati"}; fuori dai confronti annuali.`}
           </span>}
         </div>
 

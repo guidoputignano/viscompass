@@ -20,6 +20,8 @@
 // forecast or a prescribing instruction, and the labels say so.
 
 import type { ValueUptakeView } from "./value-uptake";
+import { BRIDGE_B_GATES } from "@/lib/dashboard-review/pillar-b/bridge-b";
+import { formatEur } from "@/lib/dashboard-review/format";
 
 export interface ReviewQueueRow {
   substance: string;
@@ -65,6 +67,43 @@ export function reviewQueue(view: ValueUptakeView): ReviewQueue {
     notObservedHereTotal: notObservedHere.reduce((s, r) => s + r.eur, 0),
     beforeLocalSwitchTotal: switched.reduce((s, r) => s + (r.dateValid.reference - r.locallyObserved.reference), 0),
   };
+}
+
+/**
+ * The footnote under the "not observed here" list, true for every sign of the
+ * pre-switch reference total: the list equals the B4 gate only when that total
+ * is zero to the cent; otherwise the total is added (or, when credit notes net
+ * it below zero, subtracted) and named. The gate label comes from the bridge,
+ * so the two cannot drift apart.
+ */
+const toCent = (v: number): number => {
+  const r = Math.round(v * 100) / 100;
+  return r === 0 ? 0 : r;
+};
+
+export function notObservedFootnote(beforeLocalSwitchTotal: number): string {
+  const label = BRIDGE_B_GATES.B4_eu_authorised_never_bought_here.label;
+  const before = toCent(beforeLocalSwitchTotal);
+  if (before === 0) return `Questa lista coincide con la soglia «${label}».`;
+  if (before > 0) {
+    return `Sommata ai ${formatEur(before)} di riferimento spesi dalle molecole già passate al biosimilare nei mesi validi prima del loro primo uso, questa lista coincide con la soglia «${label}».`;
+  }
+  // B4 = list + before, and before < 0: the gate is the list MINUS the
+  // unsigned amount. The amount is named, so the sentence cannot be read as
+  // subtracting a negative.
+  return `Le molecole già passate al biosimilare hanno, nei mesi validi prima del loro primo uso, un saldo di riferimento negativo (rettifiche superiori alle dispensazioni): questa lista, meno ${formatEur(Math.abs(before))}, coincide con la soglia «${label}».`;
+}
+
+/**
+ * The intro's sentence on how the second list relates to B4, on the SAME
+ * rounding as the footnote, so the panel never calls the list "only part of
+ * B4" where the footnote says it equals or exceeds it.
+ */
+export function notObservedIntro(beforeLocalSwitchTotal: number): string {
+  const before = toCent(beforeLocalSwitchTotal);
+  if (before > 0) return "La seconda è solo una parte di B4: B4 comprende anche la spesa prima del primo uso delle sostanze poi passate al biosimilare.";
+  if (before === 0) return "In questa selezione la seconda coincide con B4: nessuna sostanza poi passata al biosimilare ha spesa di riferimento nei mesi validi prima del primo uso.";
+  return "In questa selezione la seconda supera B4: le sostanze poi passate al biosimilare hanno, prima del primo uso, un saldo di riferimento negativo (vedi la nota sotto la lista).";
 }
 
 /** A net credit-note adjustment cannot be presented as a positive review case. */

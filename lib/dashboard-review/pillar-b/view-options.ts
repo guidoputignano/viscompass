@@ -334,6 +334,45 @@ export function partialPeriodLabel(
   return `${span} ${year} · dati osservati`;
 }
 
+/**
+ * The three sentences that speak about the partial year, for the state the
+ * calendar actually shows. Under a filter with no 2026 record the span label
+ * would read "2026 · nessun mese osservato", and sentences built around it
+ * ("compaiono solo nel calendario") would be false: that state gets its own
+ * wording. Without the calendar facet the release-wide five months stand.
+ */
+export function partialYearCopy(
+  rows: ReadonlyArray<Pick<CalendarRow, "year" | "cells">> | null, year = 2026,
+): { observed: boolean; label: string; header: string; distributionLead: string; limitsNote: string } {
+  if (rows === null) {
+    // The facet is unavailable, so there is no calendar on the page: the
+    // release-wide five months, and no sentence that points to a calendar.
+    const label = `gen–mag ${year} · dati osservati`;
+    return {
+      observed: true, label,
+      header: `${label} fuori dai confronti annuali`,
+      distributionLead: `Il calendario mensile non è disponibile in questa versione; il ${year} (${label}) non entra nel confronto annuale.`,
+      limitsNote: `${label}: zero record con quantità confrontabile. Il calendario mensile non è disponibile in questa versione; il ${year} non entra nei confronti annuali e non è un «primo semestre».`,
+    };
+  }
+  const label = partialPeriodLabel(rows, year);
+  const observed = rows.find((r) => r.year === year)?.cells.some((c) => c.spend_eur !== null) ?? false;
+  if (observed) {
+    return {
+      observed, label,
+      header: `${label} fuori dai confronti annuali`,
+      distributionLead: `I mesi osservati del ${year} (${label}) compaiono solo nel calendario, mai nel confronto annuale.`,
+      limitsNote: `${label}: zero record con quantità confrontabile. Compare nel calendario, segnalato; non entra nei confronti annuali e non è un «primo semestre».`,
+    };
+  }
+  return {
+    observed, label,
+    header: `${year}: nessun record in questa selezione`,
+    distributionLead: `Nel ${year} nessun mese ha record in questa selezione: il calendario mostra solo gli anni completi, e il ${year} non entra comunque nel confronto annuale.`,
+    limitsNote: `Il rilascio osserva gennaio–maggio ${year}, ma in questa selezione nessun mese del ${year} ha record. Quando ne ha, compare solo nel calendario: zero record con quantità confrontabile, mai nei confronti annuali, mai un «primo semestre».`,
+  };
+}
+
 // ----------------------------------------------------------------- Azienda
 
 export const AZIENDA_METRIC_LABELS: Record<AziendaMetric, string> = {
