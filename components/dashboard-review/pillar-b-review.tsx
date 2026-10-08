@@ -25,7 +25,7 @@ import { AlertTriangle, Info } from "lucide-react";
 import {
   ChannelSlopeChart, EvidenceFunnelChart, UptakeCoverageChart,
 } from "@/components/dashboard-review/pillar-b-review-visuals";
-import { ChannelStack, PerimeterBars } from "@/components/dashboard-review/pillar-b-adoption-visuals";
+import { ChannelStack, PerimeterComposition } from "@/components/dashboard-review/pillar-b-adoption-visuals";
 import {
   AziendaPanel, CalendarPanel, ConcentrationPanel, TrendPanel, TrendTable, VolumePanel,
   type ConcentrationVariants, type TrendVariants,
@@ -39,7 +39,7 @@ import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, Perimete
 import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { BridgeB, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
 import { partialYearCopy } from "@/lib/dashboard-review/pillar-b/view-options";
-import { notObservedFootnote, notObservedIntro } from "@/lib/dashboard-review/pillar-b/review-queue";
+import { notObservedFootnote, notObservedFootnoteAdds, notObservedIntro } from "@/lib/dashboard-review/pillar-b/review-queue";
 import { BridgeBChart } from "@/components/dashboard-review/pillar-b-bridge-b";
 import type { ReviewQueue, ReviewQueueRow } from "@/lib/dashboard-review/pillar-b/review-queue";
 import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
@@ -79,6 +79,12 @@ export interface PillarBReviewProps {
     /** Aziende in scope with no record under the filters, named so absence is not read as non-existence. */
     aziendaAbsent: string[];
     channels: ChannelMixRow[] | null;
+    /** The Region's channel mix under the same filters, for a selected Azienda (reviewer / Regione only). */
+    channelsComparator: { label: string; aziende: number; rows: ChannelMixRow[] } | null;
+    /** The selected Azienda's label as this viewer may see it. */
+    channelsSelectedLabel: string | null;
+    /** One sentence when the comparator is unavailable to this viewer. */
+    channelsComparatorNote: string | null;
   };
   adoption: {
     valueUptakeSection: React.ReactNode;
@@ -98,6 +104,8 @@ export interface PillarBReviewProps {
     /** One organisational review cohort and one EU-status evidence cohort. */
     reviewQueue: (ReviewQueue & { hrefs: Record<string, string> }) | null;
     reviewQueueWithheld: string | null;
+    /** The bridge reconciles to the cent: when false its panel opens and says so. */
+    bridgeReady: boolean;
   };
   /** The panel-local options as read from the URL on this request. */
   viewOptions: ViewOptions;
@@ -177,7 +185,7 @@ function WorkbookMap() {
         Il workbook, foglio per foglio · {formatNumber(tally.implemented, 0)} {tally.implemented === 1 ? "implementato" : "implementati"} · {formatNumber(tally.implementable, 0)} {tally.implementable === 1 ? "implementabile" : "implementabili"} · {formatNumber(tally.blocked, 0)} {tally.blocked === 1 ? "bloccato" : "bloccati"} · {formatNumber(tally.evidence, 0)} di evidenza
       </summary>
       <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-        Venticinque fogli: non tutti sono analisi, e non tutte le analisi possono vivere sul libro mastro.
+        Venticinque fogli: non tutti sono analisi, e non tutte le analisi possono essere calcolate sui dati del rilascio.
         Lo stato è quello del contenuto intero del foglio; dove il titolo è vivo e il dettaglio no, la nota lo dice.
         Niente è promosso in silenzio: un risultato statistico congelato non diventa una cifra viva finché non è importato con la sua provenienza.
       </p>
@@ -210,23 +218,35 @@ const WITHHELD_REASON_IT: Record<string, string> = {
   "substance/route group not usable: mixed units, or only one side present": "gruppo sostanza/via non utilizzabile: unità miste, o un solo lato presente",
 };
 
-function ReviewQueueList({ title, lead, rows, total, hrefs, firstColumn, shareColumn, shareOf, footnote }: {
-  title: string; lead: string; rows: ReviewQueueRow[]; total: number; hrefs: Record<string, string>;
-  firstColumn: string | null; shareColumn: string; shareOf: "dateValidShare" | "locallyObservedShare"; footnote?: string;
+function ReviewQuestion({ title, headline, question, check, who, next, rows, total, hrefs, firstColumn, amountColumn, shareColumn, shareOf, method }: {
+  title: string;
+  /** One line: the euros and the count the question rests on. */
+  headline: string;
+  question: string; check: string; who: string; next: string;
+  rows: ReviewQueueRow[]; total: number; hrefs: Record<string, string>;
+  firstColumn: string | null; amountColumn: string; shareColumn: string; shareOf: "dateValidShare" | "locallyObservedShare";
+  /** How the list is built: one click away, not in front of the question. */
+  method: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="flex flex-col rounded-xl border border-border bg-card p-4">
       <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{lead}</p>
+      <p className="mt-1 font-display text-lg font-semibold text-foreground">{headline}</p>
+      <dl className="mt-2 grid gap-x-3 gap-y-1 text-xs sm:grid-cols-[7.5rem_1fr]">
+        <dt className="text-muted-foreground">Domanda</dt><dd className="text-foreground">{question}</dd>
+        <dt className="text-muted-foreground">Da verificare</dt><dd className="text-foreground">{check}</dd>
+        <dt className="text-muted-foreground">Chi</dt><dd className="text-foreground">{who}</dd>
+        <dt className="text-muted-foreground">Passo successivo</dt><dd className="text-foreground">{next}</dd>
+      </dl>
       {rows.length === 0 ? <p className="mt-3 text-xs text-muted-foreground">Nessuna molecola in questa selezione.</p> : (
         <div className="mt-3 overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[26rem] text-sm" translate="no">
-            <caption className="sr-only">{title}: molecole, spesa di riferimento e quota</caption>
+            <caption className="sr-only">{title}: molecole, {amountColumn.toLowerCase()} e quota; il nome apre l&apos;evidenza della molecola</caption>
             <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
-                <th scope="col" className="px-3 py-2 text-left font-semibold">Molecola</th>
+                <th scope="col" className="px-3 py-2 text-left font-semibold">Molecola · evidenza</th>
                 {firstColumn && <th scope="col" className="px-3 py-2 text-right font-semibold">{firstColumn}</th>}
-                <th scope="col" className="px-3 py-2 text-right font-semibold">Riferimento</th>
+                <th scope="col" className="px-3 py-2 text-right font-semibold">{amountColumn}</th>
                 <th scope="col" className="px-3 py-2 text-right font-semibold">{shareColumn}</th>
               </tr>
             </thead>
@@ -235,7 +255,7 @@ function ReviewQueueList({ title, lead, rows, total, hrefs, firstColumn, shareCo
                 <tr key={r.substance}>
                   <td className="px-3 py-2 text-xs text-foreground">
                     {hrefs[r.substance]
-                      ? <KeepLink href={hrefs[r.substance]} className="hover:text-primary hover:underline">{r.substance}</KeepLink>
+                      ? <KeepLink href={hrefs[r.substance]} className="hover:text-primary hover:underline">{r.substance} <span aria-hidden="true">→</span></KeepLink>
                       : r.substance}
                   </td>
                   {firstColumn && <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">{r.firstLocalLabel ?? "—"}</td>}
@@ -254,7 +274,10 @@ function ReviewQueueList({ title, lead, rows, total, hrefs, firstColumn, shareCo
           </table>
         </div>
       )}
-      {footnote && <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{footnote}</p>}
+      <details className="mt-2">
+        <summary className="cursor-pointer text-[11px] font-semibold text-primary">Come è costruita la lista<span className="sr-only">: {title}</span></summary>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{method}</p>
+      </details>
     </div>
   );
 }
@@ -429,7 +452,8 @@ export function PillarBReview(props: PillarBReviewProps) {
           <AziendaPanel rows={panorama.azienda} years={years} initial={viewOptions.azienda} absent={panorama.aziendaAbsent} />
         )}
 
-        {panorama.channels && <ChannelStack rows={panorama.channels} years={years} />}
+        {panorama.channels && <ChannelStack rows={panorama.channels} years={years}
+          selectedLabel={panorama.channelsSelectedLabel} comparator={panorama.channelsComparator} comparatorNote={panorama.channelsComparatorNote} />}
       </Group>}
 
       {/* ============================================================ ADOZIONE */}
@@ -444,45 +468,61 @@ export function PillarBReview(props: PillarBReviewProps) {
           {adoption.valueUptakeSection}
         </Sub>
 
-        {(adoption.bridge || adoption.bridgeWithheld) && <Sub title="Il ponte dell'opportunità (B) · dal totale al riferimento dopo il primo uso locale">
-          <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
-            Il foglio 09 del workbook fa uscire ogni euro del libro mastro da una sola soglia, fino alla spesa di
-            riferimento nei mesi in cui un biosimilare era già stato dispensato localmente. È una popolazione di
-            spesa, <strong>non un risparmio</strong>: nessuna assunzione di prezzo è applicata, e la dispersione di
-            prezzo non è denaro recuperabile (B14 nei Limiti). Le ultime due soglie dipendono dalla prima dispensazione
-            locale di un biosimilare <em>nelle Aziende selezionate</em>, letta su tutta la storia visibile (ogni canale,
-            ogni anno): per la Regione la finestra si apre con la prima Azienda che ha cambiato, quindi queste due soglie
-            non si sommano tra Aziende; tutte le altre sì.
-          </p>
-          {adoption.bridge
-            ? <BridgeBChart bridge={adoption.bridge.model} check={adoption.bridge.check} monthsLabel={adoption.bridge.monthsLabel} scopeLabel={adoption.bridge.scopeLabel} />
-            : <Notice tone="info">{adoption.bridgeWithheld}</Notice>}
-        </Sub>}
-
         {adoption.reviewQueue && (adoption.reviewQueue.afterLocalSwitch.length > 0 || adoption.reviewQueue.notObservedHere.length > 0) && (
           <Sub title="Domande di revisione, molecola per molecola">
             <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Due liste con scopi diversi: la prima individua spesa di riferimento dopo il primo uso locale e coincide
-              con B_ADDRESSABLE_REFERENCE; la seconda segnala sostanze con biosimilare autorizzato in EU ma non osservato
-              qui, per cui occorre verificare lo stato italiano. {notObservedIntro(adoption.reviewQueue.beforeLocalSwitchTotal)} Ogni riga collega
-              alla sua evidenza. <strong>Nessuna riga è un risparmio</strong>, una previsione o un&apos;indicazione prescrittiva.
+              Due domande per la revisione organizzativa, ciascuna con le molecole e la spesa che la motivano. Indicano dove
+              guardare: <strong>non sono risparmi</strong> né indicazioni di sostituzione o di prescrizione.
             </p>
             <div className="grid gap-4 lg:grid-cols-2">
-              <ReviewQueueList
-                title="Biosimilare già in uso qui, riferimento ancora dispensato dopo il primo uso"
-                lead="Spesa di riferimento nei mesi successivi al primo biosimilare della sostanza dispensato nell'ambito visibile. Coincide con la soglia «Riferimento dopo primo uso locale»; non dimostra che le dispensazioni fossero clinicamente sostituibili."
+              <ReviewQuestion
+                title="Riferimento ancora dispensato dopo il primo uso del biosimilare"
+                headline={`${formatEur(adoption.reviewQueue.afterLocalSwitchTotal)} · ${formatNumber(adoption.reviewQueue.afterLocalSwitch.length, 0)} ${adoption.reviewQueue.afterLocalSwitch.length === 1 ? "molecola" : "molecole"}`}
+                question="Perché, dopo che il biosimilare è entrato in uso qui, una parte della spesa resta sul medicinale di riferimento?"
+                check="pazienti già in terapia, indicazioni o presentazioni non coperte dal biosimilare, esiti di gara, canale (CO, DD, DPC) e mese."
+                who="farmacia ospedaliera, con i clinici prescrittori e il servizio acquisti."
+                next="aprire la molecola, leggerla per canale e per mese, e portare i casi alla commissione terapeutica aziendale."
                 rows={adoption.reviewQueue.afterLocalSwitch} total={adoption.reviewQueue.afterLocalSwitchTotal} hrefs={adoption.reviewQueue.hrefs}
-                firstColumn="Primo uso qui" shareColumn="Quota 2 · uso locale" shareOf="locallyObservedShare" />
-              <ReviewQueueList
-                title="Biosimilare autorizzato in EU, non osservato in questo rilascio nell'ambito visibile"
-                lead="Spesa di riferimento nei mesi validi per sostanze di cui nessun biosimilare risulta dispensato nelle Aziende selezionate nei 29 mesi del rilascio. «Non osservato nel rilascio» non è «mai acquistato», e l'autorizzazione EU non dice lo stato in Italia (AIC, classificazione, commercializzazione): da verificare prima di leggerla come alternativa disponibile."
+                firstColumn="Primo uso qui" amountColumn="Riferimento dopo il primo uso" shareColumn="Quota 2" shareOf="locallyObservedShare"
+                method="Spesa del medicinale di riferimento nei mesi successivi al primo biosimilare della stessa sostanza dispensato nelle Aziende selezionate, letto su tutta la storia del rilascio (ogni canale, ogni anno). Per la Regione il primo uso è quello della prima Azienda che ha cambiato. Non dimostra che le dispensazioni fossero clinicamente sostituibili. La quota 2 è la quota biosimilare sugli stessi mesi." />
+              <ReviewQuestion
+                title="Biosimilare autorizzato in EU, non ancora osservato qui"
+                headline={`${formatEur(adoption.reviewQueue.notObservedHereTotal)} · ${formatNumber(adoption.reviewQueue.notObservedHere.length, 0)} ${adoption.reviewQueue.notObservedHere.length === 1 ? "molecola" : "molecole"}`}
+                question="Esiste un biosimilare disponibile in Italia per queste sostanze, e perché non risulta dispensato in questo rilascio?"
+                check="AIC e classificazione AIFA del biosimilare, presenza nelle gare regionali, disponibilità commerciale."
+                who="farmacia ospedaliera e servizio acquisti."
+                next="verificare lo stato italiano prima di considerarlo un'alternativa disponibile."
                 rows={adoption.reviewQueue.notObservedHere} total={adoption.reviewQueue.notObservedHereTotal} hrefs={adoption.reviewQueue.hrefs}
-                firstColumn={null} shareColumn="Quota 1 · mesi validi" shareOf="dateValidShare"
-                footnote={notObservedFootnote(adoption.reviewQueue.beforeLocalSwitchTotal)} />
+                firstColumn={null} amountColumn="Riferimento nei mesi validi" shareColumn="Quota 1" shareOf="dateValidShare"
+                method={`Spesa del medicinale di riferimento nei mesi validi per le sostanze di cui nessun biosimilare risulta dispensato nelle Aziende selezionate nei 29 mesi del rilascio. «Non osservato nel rilascio» non è «mai acquistato», e l'autorizzazione EU non dice lo stato in Italia. ${notObservedIntro(adoption.reviewQueue.beforeLocalSwitchTotal)}${notObservedFootnoteAdds(adoption.reviewQueue.beforeLocalSwitchTotal) ? ` ${notObservedFootnote(adoption.reviewQueue.beforeLocalSwitchTotal)}` : ""}`} />
             </div>
           </Sub>
         )}
         {adoption.reviewQueueWithheld && <Notice tone="info">{adoption.reviewQueueWithheld}</Notice>}
+
+        {/* THE RECONCILIATION (PB-V5-03): every euro of the perimeter, gate by
+            gate, kept but collapsed: the decision view above leads. */}
+        {(adoption.bridge || adoption.bridgeWithheld) && (
+          // A reconciliation that does not tie OPENS and says so in its
+          // summary: a failure must not hide behind a closed panel.
+          <details className="rounded-xl border border-border bg-card p-4" open={adoption.bridge !== null && !adoption.bridgeReady}>
+            <summary className="cursor-pointer text-sm font-semibold text-foreground">
+              Riconciliazione della spesa del perimetro, soglia per soglia{adoption.bridge ? (adoption.bridgeReady ? ` · ${formatEur(adoption.bridge.model.perimeter)}` : " · non riconciliata in questa selezione") : ""}
+            </summary>
+            <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              Ogni euro del perimetro biosimilare esce da una sola soglia: già biosimilare, mesi prima della validità, mese di
+              confine, data di validità non disponibile (quando c&apos;è), «EU-autorizzato, non ancora osservato qui» e riferimento
+              dopo il primo uso locale{adoption.reviewQueue ? ", che è la base della prima domanda qui sopra" : ""}. È una ripartizione
+              della spesa, non un risparmio. Le ultime due soglie dipendono dal primo uso nelle Aziende selezionate e quindi non si
+              sommano tra Aziende; le altre sì.
+            </p>
+            <div className="mt-3">
+              {adoption.bridge
+                ? <BridgeBChart bridge={adoption.bridge.model} check={adoption.bridge.check} monthsLabel={adoption.bridge.monthsLabel} scopeLabel={adoption.bridge.scopeLabel} />
+                : <Notice tone="info">{adoption.bridgeWithheld}</Notice>}
+            </div>
+          </details>
+        )}
 
         {(adoption.volume.length > 0 || adoption.uptake.withheldRows > 0) && <Sub title="In volume · dove la quantità ha un'unità">
           <div className="rounded-xl border border-border bg-card p-4">
@@ -618,38 +658,36 @@ export function PillarBReview(props: PillarBReviewProps) {
             </div>
           </details>
         </Sub>
-        {evidence.perimeter && <PerimeterBars rows={evidence.perimeter} />}
+        {evidence.perimeter && <PerimeterComposition rows={evidence.perimeter} />}
         {evidence.perimeterWithheld && (
           <Notice tone="info">
-            <strong className="text-foreground">Perimetro per stato non mostrato con un filtro per molecola.</strong>{" "}
-            Per una sola molecola la quota di ogni stato (biosimilare, riferimento) coinciderebbe
-            con una misura di adozione senza regola di validità mensile — un terzo denominatore
-            che non corrisponde a nessuna delle due quote pubblicate. Le due quote sono nella
-            sezione Adozione; il perimetro per stato torna togliendo il filtro per molecola.
+            <strong className="text-foreground">Composizione del perimetro non mostrata con un filtro per molecola.</strong>{" "}
+            Per una sola molecola la composizione per stato coinciderebbe con una quota di adozione
+            senza regola sui mesi, diversa dalle due quote della sezione Adozione. Torna togliendo
+            il filtro per molecola.
           </Notice>
         )}
       </Group>
 
       {/* ============================================================== LIMITI */}
       <Group id="limiti" title="Come leggere gli indicatori"
-             lead="Le condizioni di lettura del workbook congelato (fogli 22 e 24). Sono parte dell'analisi, non avvisi di errore.">
+             lead="Che cosa questi indicatori permettono di dire, e che cosa no. Sono parte dell'analisi, non avvisi di errore.">
         <dl className="grid gap-5 text-sm md:grid-cols-2">
-          <div><dt className="font-semibold">Previsione (B10)</dt><dd className="mt-2 text-muted-foreground">Il backtest a origine mobile su 11 orizzonti non ha battuto il livello costante. Il livello portato avanti non è una previsione.</dd></div>
-          <div><dt className="font-semibold">Causalità (B12)</dt><dd className="mt-2 text-muted-foreground">Nessun intervento datato è registrato nei dati; senza un disegno non c&apos;è effetto da stimare.</dd></div>
-          <div><dt className="font-semibold">Risparmio (B14)</dt><dd className="mt-2 text-muted-foreground">Ogni «opportunità» è un limite superiore sotto quattro assunzioni non verificate. La dispersione di prezzo (B07) non è denaro recuperabile.</dd></div>
-          <div><dt className="font-semibold">Classifiche fra Aziende (B09)</dt><dd className="mt-2 text-muted-foreground">La graduatoria grezza misura cosa è stato comprato; standardizzata, le differenze non sono stabili. Il case-mix non è controllabile: ATC assente sul rilascio.</dd></div>
-          <div><dt className="font-semibold">Confezioni</dt><dd className="mt-2 text-muted-foreground">La base della quantità è confezioni, unità, mista e ignota nello stesso rilascio. Una somma fra basi non ha unità.</dd></div>
+          <div><dt className="font-semibold">Previsioni</dt><dd className="mt-2 text-muted-foreground">Un modello di previsione verificato su undici orizzonti non ha fatto meglio del semplice livello costante: per questo la pagina non mostra previsioni.</dd></div>
+          <div><dt className="font-semibold">Effetti causali</dt><dd className="mt-2 text-muted-foreground">Nei dati non è registrato alcun intervento datato; senza un disegno di valutazione non c&apos;è un effetto da stimare.</dd></div>
+          <div><dt className="font-semibold">Risparmi</dt><dd className="mt-2 text-muted-foreground">Nessuna cifra di risparmio è mostrata: ogni «opportunità» calcolabile dipende da ipotesi non verificate, e la variabilità del costo fra Aziende non è denaro recuperabile.</dd></div>
+          <div><dt className="font-semibold">Confronti fra Aziende</dt><dd className="mt-2 text-muted-foreground">Una graduatoria grezza misura che cosa è stato comprato; standardizzata per molecola, le differenze non sono stabili. Il case-mix non è controllabile su questi dati.</dd></div>
+          <div><dt className="font-semibold">Quantità</dt><dd className="mt-2 text-muted-foreground">La quantità è registrata in confezioni, unità, base mista o ignota nello stesso flusso. Una somma fra basi diverse non ha unità.</dd></div>
           <div><dt className="font-semibold">2026 incompleto</dt><dd className="mt-2 text-muted-foreground">{partial.limitsNote}</dd></div>
           <div><dt className="font-semibold">Spesa lorda</dt><dd className="mt-2 text-muted-foreground">IVA inclusa, al lordo di payback e note di credito di registro. Non è un prezzo netto, né un prezzo di riferimento AIFA.</dd></div>
-          <div><dt className="font-semibold">Esclusività legale</dt><dd className="mt-2 text-muted-foreground">Gli «anni senza concorrenza» (B15) sono un limite superiore fra autorizzazione EU del riferimento e del primo biosimilare; non sono scadenze brevettuali o SPC.</dd></div>
+          <div><dt className="font-semibold">Esclusività legale</dt><dd className="mt-2 text-muted-foreground">Gli «anni senza concorrenza» sono un limite superiore fra l&apos;autorizzazione EU del riferimento e quella del primo biosimilare; non sono scadenze brevettuali o certificati complementari.</dd></div>
         </dl>
       </Group>
 
-      <Group id="fonte" title="Dalla visualizzazione alla fonte"
-             lead="Periodo, flusso e copertura restano distinguibili anche quando una misura non è pubblicabile.">
-        <WorkbookMap />
+      <Group id="fonte" title="Fonte, periodo e metodo"
+             lead="Da dove vengono le cifre, quale periodo coprono e come sono calcolate.">
         <div className="text-xs text-muted-foreground">
-          <span>DIR_OSP_TRA_003AS · {props.releaseId} · 2026 escluso dai confronti</span>
+          <span>Fonte: flusso regionale dei consumi ospedalieri e della distribuzione diretta e per conto (DIR_OSP_TRA_003AS) · 2024 e 2025 confrontati · 2026 osservato da gennaio a maggio, escluso dai confronti</span>
           <details className="mt-2 max-w-4xl">
             <summary className="cursor-pointer font-medium text-foreground">Metodo, copertura e rettifiche</summary>
             <div className="mt-2 space-y-2 leading-relaxed">
@@ -659,6 +697,15 @@ export function PillarBReview(props: PillarBReviewProps) {
             </div>
           </details>
         </div>
+        {/* INTERNAL (PB-V5-07): the analysis inventory and the release id stay
+            with the platform reviewers; an Azienda or Regione page never shows
+            them. */}
+        {props.scope.allOrganizations && (
+          <div className="rounded-xl border border-dashed border-border p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Interno · visibile solo ai revisori della piattaforma · rilascio {props.releaseId}</p>
+            <div className="mt-2"><WorkbookMap /></div>
+          </div>
+        )}
       </Group>
     </div>
   );

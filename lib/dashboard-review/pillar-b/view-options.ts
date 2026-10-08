@@ -220,7 +220,7 @@ export function perimeterOnly<T extends { key: string }>(
 }
 
 export const PERIMETER_MODE_LABELS: Record<PerimeterMode, string> = {
-  tutto: "tutto il libro mastro",
+  tutto: "tutta la spesa",
   biosimilare: "molecole del perimetro biosimilare",
 };
 

@@ -11,7 +11,7 @@
 
 import type { UptakeRow } from "./rpc";
 import type { SubstanceRow, ValueUptakeView } from "./value-uptake";
-import { formatNumber } from "@/lib/dashboard-review/format";
+import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 
 // ---------------------------------------------------------------- dumbbell
 
@@ -25,6 +25,11 @@ export interface DumbbellRow {
   referenceEur: number;
   denominatorEur: number;
   firstLocalLabel: string | null;
+  /** Quota 1's numerator: biosimilar spend in date-valid months. */
+  dateValidBiosimilarEur: number;
+  /** Quota 2's numerator and denominator: months from the first local use. */
+  localBiosimilarEur: number;
+  localDenominatorEur: number;
 }
 
 /**
@@ -40,8 +45,66 @@ export function dumbbellRows(view: ValueUptakeView): DumbbellRow[] {
       referenceEur: r.dateValid.reference,
       denominatorEur: r.dateValid.denominator,
       firstLocalLabel: r.firstLocalLabel,
+      dateValidBiosimilarEur: r.dateValid.biosimilar,
+      localBiosimilarEur: r.locallyObserved.biosimilar,
+      localDenominatorEur: r.locallyObserved.denominator,
     }))
     .sort((a, b) => b.referenceEur - a.referenceEur);
+}
+
+/**
+ * The exact-value label of one dumbbell mark (title, aria-label): which
+ * measure, its value, its numerator over its denominator, the period and the
+ * scope. A missing measure says why it is missing, never "0%".
+ */
+export function dumbbellMarkLabel(
+  r: Pick<DumbbellRow, "substance" | "dateValid" | "locallyObserved" | "dateValidBiosimilarEur" | "denominatorEur" | "localBiosimilarEur" | "localDenominatorEur" | "firstLocalLabel">,
+  which: "quota1" | "quota2",
+  periodScope: string,
+): string {
+  const share = which === "quota1" ? r.dateValid : r.locallyObserved;
+  const name = which === "quota1" ? "quota 1, mesi a validità riconosciuta" : "quota 2, mesi dal primo uso qui";
+  if (share === null) {
+    // The first-use clock reads the whole release, so a missing quota 2 with a
+    // first use means no spend from that month on IN THIS SELECTION, which may
+    // well fall inside the period (a channel filter, say).
+    const why = which === "quota1"
+      ? "nessun mese a validità riconosciuta nel periodo"
+      : r.firstLocalLabel === null ? "nessun biosimilare dispensato qui nel rilascio" : `nessuna spesa in questa selezione dal primo uso qui (${r.firstLocalLabel})`;
+    return `${r.substance} · ${name} (${periodScope}): non calcolabile, ${why}`;
+  }
+  const num = which === "quota1" ? r.dateValidBiosimilarEur : r.localBiosimilarEur;
+  const den = which === "quota1" ? r.denominatorEur : r.localDenominatorEur;
+  if (!dumbbellPlottable(r, which)) {
+    return `${r.substance} · ${name} (${periodScope}): non calcolabile, rettifiche nette: ${formatEur(num)} biosimilare ÷ ${formatEur(den)} biosimilare + riferimento`;
+  }
+  return `${r.substance} · ${name} (${periodScope}): ${formatPercent(share)} = ${formatEur(num)} biosimilare ÷ ${formatEur(den)} biosimilare + riferimento`;
+}
+
+/**
+ * Whether a share can sit on the 0–100% track. Credit notes can make the
+ * denominator zero or negative, or push the share outside 0–100%: such a
+ * share is a printed number, never a mark clamped to an edge.
+ */
+export function dumbbellPlottable(
+  r: Pick<DumbbellRow, "dateValid" | "locallyObserved"> & Partial<Pick<DumbbellRow, "denominatorEur" | "localDenominatorEur">>,
+  which: "quota1" | "quota2",
+): boolean {
+  const share = which === "quota1" ? r.dateValid : r.locallyObserved;
+  const den = which === "quota1" ? r.denominatorEur : r.localDenominatorEur;
+  return share !== null && Number.isFinite(share) && share >= 0 && share <= 1 && (den === undefined || den > 0);
+}
+
+/**
+ * The gap between the two shares in percentage points, or null when either
+ * cannot be drawn. Computed from the shares AS DISPLAYED (one decimal of a
+ * percentage point) and rounded before its sign is taken, so the label never
+ * reads "-0,0" or disagrees with the two printed values.
+ */
+export function dumbbellGapPoints(r: Pick<DumbbellRow, "dateValid" | "locallyObserved"> & Partial<Pick<DumbbellRow, "denominatorEur" | "localDenominatorEur">>): number | null {
+  if (!dumbbellPlottable(r, "quota1") || !dumbbellPlottable(r, "quota2")) return null;
+  const shown = (s: number) => Math.round(s * 1000) / 10;
+  return Math.round((shown(r.locallyObserved!) - shown(r.dateValid!)) * 10) / 10 || 0;
 }
 
 /**
@@ -75,7 +138,10 @@ export function dumbbellLead(rows: ReadonlyArray<Pick<DumbbellRow, "dateValid" |
   // The ordering clause agrees in number with what precedes it, and a single
   // row has no order to state.
   const order = rows.length > 1 ? ", ordinate per spesa di riferimento ancora sull'originatore" : "";
-  return `${dumbbellCountPhrase(rows)}${order}. Grigio: quota 1, su mesi a validità riconosciuta. Verde: quota 2, su mesi con biosimilare già osservato qui. I valori esatti sono nella tabella numerica; i punti hanno un'etichetta per lettori di schermo.`;
+  // WHAT THE MARKS ARE (PB-V5-02): a reader took the grey mark for the start
+  // of a bar. Each mark is a position on the 0–100% axis; the connector is the
+  // gap between the two measures, not a movement in time.
+  return `${dumbbellCountPhrase(rows)}${order}. Ogni simbolo è una percentuale sull'asse da 0% a 100%: la sua posizione è la quota misurata, non l'inizio di una barra. Cerchio vuoto: quota 1, sui mesi a validità riconosciuta. Punto pieno: quota 2, sui mesi dal primo biosimilare dispensato qui. La linea fra i due è la differenza fra le due quote, in punti percentuali, non un andamento nel tempo; quando le quote coincidono il cerchio circonda il punto. ${rows.some((r) => [r.dateValid, r.locallyObserved].some((s) => s !== null && (s < 0 || s > 1))) ? " Una quota fuori da 0–100% per rettifiche nette non è disegnata: è scritta come non calcolabile." : ""} I valori esatti sono nel titolo di ogni simbolo e nella tabella numerica.`;
 }
 
 /**

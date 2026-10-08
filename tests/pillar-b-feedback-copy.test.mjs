@@ -96,7 +96,7 @@ test("the dumbbell lead never points to dots or a table the state does not draw"
   assert.match(lead, /^1 molecola senza mesi validi nel periodo: nessuna quota da disegnare/);
   assert.doesNotMatch(lead, /I valori esatti sono nella tabella|Tutte le|0 con almeno una misura|tabella numerica/,
     "with nothing measured the table is not rendered, so the lead does not name it");
-  assert.match(dumbbellLead([{ dateValid: 0.25, locallyObserved: null }]), /I valori esatti sono nella tabella numerica/);
+  assert.match(dumbbellLead([{ dateValid: 0.25, locallyObserved: null }]), /I valori esatti sono nel titolo di ogni simbolo e nella tabella numerica/);
 });
 
 test("without the calendar facet no sentence points to a calendar", () => {
@@ -114,14 +114,15 @@ test("the queue intro and its footnote agree on how the second list relates to B
     const foot = notObservedFootnote(before);
     const cent = Math.round(before * 100) / 100;
     if (cent > 0) {
-      assert.match(intro, /solo una parte di B4/);
+      assert.match(intro, /è solo una parte della soglia «EU-autorizzato/);
+      assert.doesNotMatch(intro, /di la/, "Italian: 'della', never 'di la'");
       assert.match(foot, /^Sommata ai/);
     } else if (cent === 0) {
-      assert.match(intro, /coincide con B4/);
+      assert.match(intro, /la lista coincide con la soglia «EU-autorizzato/);
       assert.match(foot, /^Questa lista coincide/);
       assert.doesNotMatch(intro, /solo una parte/, `before=${before}`);
     } else {
-      assert.match(intro, /supera B4/);
+      assert.match(intro, /la lista supera la soglia «EU-autorizzato/);
       assert.match(foot, /meno /);
       assert.doesNotMatch(intro, /solo una parte/, `before=${before}`);
     }
@@ -151,7 +152,7 @@ test("the timeline lead describes dots only when there are dots", () => {
 
 test("a single-molecule dumbbell lead is grammatical: no plural ordering clause", () => {
   const one = dumbbellLead([{ dateValid: 0.3, locallyObserved: 0.5 }]);
-  assert.match(one, /^La molecola con almeno una misura\. Grigio/);
+  assert.match(one, /^La molecola con almeno una misura\. Ogni simbolo è una percentuale/);
   assert.doesNotMatch(one, /ordinate/);
   assert.match(dumbbellLead([{ dateValid: 0.3, locallyObserved: null }, { dateValid: 0.1, locallyObserved: 0.2 }]),
     /^Tutte le 2 molecole con almeno una misura, ordinate per spesa/);

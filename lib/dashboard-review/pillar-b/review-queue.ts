@@ -94,6 +94,11 @@ export function notObservedFootnote(beforeLocalSwitchTotal: number): string {
   return `Le molecole già passate al biosimilare hanno, nei mesi validi prima del loro primo uso, un saldo di riferimento negativo (rettifiche superiori alle dispensazioni): questa lista, meno ${formatEur(Math.abs(before))}, coincide con la soglia «${label}».`;
 }
 
+/** Whether the footnote says more than the intro: at zero both say "coincide". */
+export function notObservedFootnoteAdds(beforeLocalSwitchTotal: number): boolean {
+  return toCent(beforeLocalSwitchTotal) !== 0;
+}
+
 /**
  * The intro's sentence on how the second list relates to B4, on the SAME
  * rounding as the footnote, so the panel never calls the list "only part of
@@ -101,9 +106,10 @@ export function notObservedFootnote(beforeLocalSwitchTotal: number): string {
  */
 export function notObservedIntro(beforeLocalSwitchTotal: number): string {
   const before = toCent(beforeLocalSwitchTotal);
-  if (before > 0) return "La seconda è solo una parte di B4: B4 comprende anche la spesa prima del primo uso delle sostanze poi passate al biosimilare.";
-  if (before === 0) return "In questa selezione la seconda coincide con B4: nessuna sostanza poi passata al biosimilare ha spesa di riferimento nei mesi validi prima del primo uso.";
-  return "In questa selezione la seconda supera B4: le sostanze poi passate al biosimilare hanno, prima del primo uso, un saldo di riferimento negativo (vedi la nota sotto la lista).";
+  const label = `«${BRIDGE_B_GATES.B4_eu_authorised_never_bought_here.label}»`;
+  if (before > 0) return `Questa lista è solo una parte della soglia ${label}: la soglia comprende anche la spesa prima del primo uso delle sostanze poi passate al biosimilare.`;
+  if (before === 0) return `In questa selezione la lista coincide con la soglia ${label}: nessuna sostanza poi passata al biosimilare ha spesa di riferimento nei mesi validi prima del primo uso.`;
+  return `In questa selezione la lista supera la soglia ${label}: le sostanze poi passate al biosimilare hanno, prima del primo uso, un saldo di riferimento negativo.`;
 }
 
 /** A net credit-note adjustment cannot be presented as a positive review case. */

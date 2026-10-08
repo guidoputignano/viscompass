@@ -70,7 +70,7 @@ export const BRIDGE_B_GATES: Record<BridgeBGateId, { label: string; meaning: str
     kind: "reference",
   },
   B4_eu_authorised_never_bought_here: {
-    label: "EU-autorizzato, non ancora acquistato qui",
+    label: "EU-autorizzato, non ancora osservato qui",
     meaning: "Riferimento nei mesi validi prima della prima dispensazione locale di un biosimilare della sostanza nelle Aziende visibili, o in tutti i mesi validi se non è mai avvenuta.",
     kind: "reference",
   },

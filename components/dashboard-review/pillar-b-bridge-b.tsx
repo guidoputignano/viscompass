@@ -40,7 +40,7 @@ const SHORT_LABEL: Record<BridgeBGate["id"], string> = {
 
 /** One sentence per gate on what a reader can do with it; none is a saving. */
 const ACTION: Record<BridgeBGate["id"], string> = {
-  B0_outside_perimeter: "Nessuna decisione sui biosimilari: è il resto del libro mastro, mostrato perché nulla sia nascosto.",
+  B0_outside_perimeter: "Nessuna decisione sui biosimilari: è il resto della spesa rendicontata, mostrato perché nulla sia nascosto.",
   B_BIOSIMILAR_SPEND: "Già biosimilare: nessuna domanda di sostituzione.",
   B1_before_status_valid: "Nessuna alternativa esisteva: non è una domanda.",
   B2_boundary_month_unsplittable: "Non assegnabile: il mese non si divide.",
@@ -70,23 +70,22 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
   const consistent = check?.consistent === true;
   const negative = bridge.gates.filter((g) => g.eur < 0);
   const drawable = bridgeBPublishable(bridge, check);
-  const totalHeading = `Del totale rendicontato (${formatEur(bridge.total)})`;
+  const totalHeading = `Della spesa rendicontata (${formatEur(bridge.total)})`;
 
   return (
     <figure className="overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5">
       <figcaption className="mb-3">
-        <p className="text-sm font-semibold text-foreground">Il perimetro biosimilare, soglia per soglia · {formatEur(bridge.perimeter)}{perimeterShare === null ? "" : ` · ${formatPercent(perimeterShare)} del totale rendicontato`}</p>
+        <p className="text-sm font-semibold text-foreground">Il perimetro biosimilare, soglia per soglia · {formatEur(bridge.perimeter)}{perimeterShare === null ? "" : ` · ${formatPercent(perimeterShare)} della spesa rendicontata`}</p>
         <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
           {scopeLabel} · {monthsLabel}. Biosimilari e medicinali di riferimento, in ogni mese; ogni euro del perimetro esce da una
-          sola soglia. Le percentuali sono tutte <strong>spesa della soglia ÷ totale rendicontato della selezione</strong> ({formatEur(bridge.total)}),
-          mai quote del perimetro. Il foglio 09 del workbook ripartisce i 29 mesi del rilascio; qui il periodo è quello
-          selezionato, mai il 2026 incompleto. L&apos;ultima soglia è una popolazione di spesa, <strong>non un risparmio</strong>.
+          sola soglia. Le percentuali sono tutte <strong>spesa della soglia ÷ spesa rendicontata della selezione</strong> ({formatEur(bridge.total)}).
+          Il periodo è quello selezionato, mai il 2026 incompleto. L&apos;ultima soglia è una popolazione di spesa, <strong>non un risparmio</strong>.
         </p>
       </figcaption>
       {!consistent ? (
         <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed">
           <strong className="text-foreground">Ponte non disegnato.</strong> {check
-            ? <>Il perimetro letto dalla funzione di uptake ({formatEurPrecise(bridge.perimeter)}) non coincide con la spesa degli stati «biosimilare» e «medicinale di riferimento» della classificazione ({formatEurPrecise(check.facetsPerimeter)}): differenza {formatEurPrecise(check.difference)}.</>
+            ? <>Il perimetro ricostruito mese per mese ({formatEurPrecise(bridge.perimeter)}) non coincide con la spesa dei prodotti con stato «biosimilare» e «medicinale di riferimento» ({formatEurPrecise(check.facetsPerimeter)}): differenza {formatEurPrecise(check.difference)}.</>
             : <>La lettura indipendente del perimetro non è disponibile in questa selezione.</>}
           {" "}Le due letture devono coincidere al centesimo prima che il ponte sia pubblicabile.
         </div>
@@ -132,7 +131,6 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
               <tr key={g.id}>
                 <th scope="row" className="px-4 py-2.5 text-left text-xs font-medium text-foreground">
                   <Swatch id={g.id} />{g.label}
-                  <span className="block font-mono text-[10px] font-normal text-muted-foreground">{g.id}</span>
                 </th>
                 <td className="px-4 py-2.5 text-xs text-muted-foreground">{g.meaning}<span className="mt-0.5 block text-foreground">{ACTION[g.id]}</span></td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono text-xs">{formatEur(g.eur)}</td>
@@ -154,7 +152,7 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
           the residual and the two-way check. Collapsed, never removed. */}
       <details className="mt-3 rounded-xl border border-border bg-muted/20 px-4 py-3">
         <summary className="cursor-pointer text-xs font-semibold text-primary">
-          Riconciliazione con il totale del libro mastro · {formatEur(bridge.total)} · fuori dal perimetro {formatEur(b0?.eur ?? 0)}{b0?.shareOfTotal == null ? "" : ` (${formatPercent(b0.shareOfTotal)})`}
+          Riconciliazione con la spesa rendicontata · {formatEur(bridge.total)} · fuori dal perimetro {formatEur(b0?.eur ?? 0)}{b0?.shareOfTotal == null ? "" : ` (${formatPercent(b0.shareOfTotal)})`}
         </summary>
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
           Il totale rendicontato della selezione esce da una sola soglia in più: «fuori dal perimetro», né biosimilare né
@@ -174,9 +172,9 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
         )}
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
           {check && check.consistent
-            ? `Perimetro verificato due volte: la funzione di uptake (${formatEurPrecise(bridge.perimeter)}) e la classificazione per stato (${formatEurPrecise(check.facetsPerimeter)}) coincidono al centesimo.`
-            : check === null ? "Perimetro letto dalla sola funzione di uptake: la classificazione per stato non è disponibile in questa selezione." : null}
-          {" "}Nessuna quota del perimetro è stampata: la quota biosimilare per stato non è una delle due quote pubblicate (vedi Evidenza).
+            ? `Perimetro verificato due volte: la ricostruzione mese per mese (${formatEurPrecise(bridge.perimeter)}) e la spesa per stato del prodotto (${formatEurPrecise(check.facetsPerimeter)}) coincidono al centesimo.`
+            : check === null ? "Perimetro ricostruito solo mese per mese: la spesa per stato del prodotto non è disponibile in questa selezione." : null}
+          {" "}La composizione del perimetro per stato del prodotto è in Evidenza, senza filtro di molecola; non è una quota di adozione.
           {" "}Spesa lorda, IVA inclusa. {formatNumber(bridge.gates.length, 0)} soglie in tutto, «fuori dal perimetro» inclusa.
         </p>
       </details>

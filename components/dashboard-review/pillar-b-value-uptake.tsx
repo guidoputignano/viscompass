@@ -117,8 +117,10 @@ function ShareBar({ share }: { share: number | null }) {
 }
 
 export function PillarBValueUptake({
-  view, dumbbell, timeline, timelineFollowsAzienda = true, scopeNote = null, substanceHref, resetHref,
+  view, dumbbell, timeline, timelineFollowsAzienda = true, scopeNote = null, substanceHref, resetHref, periodScope,
 }: {
+  /** The scope and period these figures cover, for every exact-value label. */
+  periodScope: string;
   view: ValueUptakeView;
   dumbbell: DumbbellRow[];
   timeline: TimelineModel;
@@ -236,7 +238,7 @@ export function PillarBValueUptake({
         </details>
       )}
 
-      <DumbbellUptakeChart rows={dumbbell} limit={dumbbell.length} />
+      <DumbbellUptakeChart rows={dumbbell} limit={dumbbell.length} periodScope={periodScope} />
       <FirstUseTimeline model={timeline} followsAzienda={timelineFollowsAzienda} />
 
       {/* --------------------------------------------------- the numeric table */}

@@ -339,6 +339,93 @@ export function perimeterRows(rows: ReadonlyArray<FacetPerimeter>): PerimeterRow
   }));
 }
 
+// ------------------------------------------- perimeter composition (V5-04)
+
+/**
+ * The spend of the biosimilar perimeter, as a COMPOSITION by product status:
+ * 100% = biosimilar + reference-medicine spend in the selection. Everything
+ * else — products outside the perimeter, same-substance non-biosimilars,
+ * unresolved statuses, non-AIC keys — is context outside the 100%, as a share
+ * of all reported spend. This is a composition of spend by product status,
+ * never an adoption share: the two adoption shares carry a monthly validity
+ * rule this view does not have, and the page says so beside it.
+ */
+export interface PerimeterComposition {
+  /** biosimilar + reference_medicine spend: the 100%. */
+  base: number;
+  parts: Array<{ status: "biosimilar" | "reference_medicine"; label: string; eur: number; share: number | null; observed: boolean; aic_count: number }>;
+  context: Array<{ status: string; label: string; eur: number; shareOfReported: number | null; aic_count: number }>;
+  /** Every status's spend: the denominator of the context shares. */
+  reported: number;
+  /** False when the base is not positive or a part is negative (credit notes): table only, no bar. */
+  drawable: boolean;
+}
+
+const COMPOSITION_STATUSES = ["biosimilar", "reference_medicine"] as const;
+
+export function perimeterComposition(rows: ReadonlyArray<FacetPerimeter>): PerimeterComposition {
+  const observed = rows.filter((r) => r.spend_eur !== null);
+  const reported = observed.reduce((s, r) => s + (r.spend_eur ?? 0), 0);
+  const parts = COMPOSITION_STATUSES.map((status) => {
+    const row = observed.find((r) => r.perimeter_status === status);
+    return { status, label: PERIMETER_LABELS[status], eur: row?.spend_eur ?? 0, share: null as number | null, observed: row !== undefined, aic_count: row?.aic_count ?? 0 };
+  });
+  const base = parts.reduce((s, p) => s + p.eur, 0);
+  // A status with no record has no share: "nessun record", never 0%.
+  for (const p of parts) p.share = base > 0 && p.observed ? p.eur / base : null;
+  const context = observed
+    .filter((r) => !(COMPOSITION_STATUSES as ReadonlyArray<string>).includes(r.perimeter_status))
+    .map((r) => ({
+      status: r.perimeter_status, label: PERIMETER_LABELS[r.perimeter_status] ?? r.perimeter_status,
+      eur: r.spend_eur ?? 0, shareOfReported: reported === 0 ? null : (r.spend_eur ?? 0) / reported, aic_count: r.aic_count,
+    }))
+    .sort((a, b) => b.eur - a.eur);
+  return { base, parts, context, reported, drawable: base > 0 && parts.every((p) => p.eur >= 0) };
+}
+
+// --------------------------------------------- channel mix by year (V5-01)
+
+export interface ChannelYearMix {
+  year: number;
+  /** Reported spend of the population in that year, all channels shown. */
+  total: number;
+  /** One per channel present in either population; eur null = no record in that year. */
+  parts: Array<{ channel: string; eur: number | null; share: number | null }>;
+  /** False when the year's total is not positive: no 100% can be formed. */
+  drawable: boolean;
+}
+
+/**
+ * The channel composition of ONE population for each year, each year summing
+ * to 100% on its own total. Used for the selected Azienda and for the Region
+ * with the same years, channels and molecule, so the two are comparable.
+ */
+export function channelYearMix(rows: ReadonlyArray<ChannelMixRow>, years: ReadonlyArray<number>, channels: ReadonlyArray<string>): ChannelYearMix[] {
+  return years.map((year) => {
+    const parts = channels.map((channel) => {
+      const row = rows.find((r) => r.channel === channel);
+      const eur = row && row.byYear[year] !== undefined ? row.byYear[year] : null;
+      return { channel, eur, share: null as number | null };
+    });
+    const total = parts.reduce((s, p) => s + (p.eur ?? 0), 0);
+    const drawable = total > 0 && parts.every((p) => (p.eur ?? 0) >= 0);
+    for (const p of parts) p.share = drawable && p.eur !== null ? p.eur / total : null;
+    return { year, total, parts, drawable };
+  });
+}
+
+/**
+ * Whether the page may show a regional channel comparator beside the
+ * selected Azienda. Only a viewer whose authorised scope holds more than one
+ * Azienda (a Regione account under RLS, or a reviewer through the widened
+ * scope) and who has selected one. An Azienda account never gets it: the
+ * regional aggregate is computed from peers' rows, and its disclosure to an
+ * Azienda is an open owner decision (PB-V5-01).
+ */
+export function regionalComparatorAllowed(input: { scopeAziende: number; aziendaSelected: boolean }): boolean {
+  return input.scopeAziende > 1 && input.aziendaSelected;
+}
+
 // ------------------------------------------------------------- empty set
 
 /**

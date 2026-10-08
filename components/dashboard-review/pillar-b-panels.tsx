@@ -143,13 +143,13 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
             value: m, label: PERIMETER_MODE_LABELS[m],
             title: m === "biosimilare"
               ? `Solo le molecole del perimetro biosimilare (l'elenco segue l'Azienda selezionata, su 2024–2025 e tutti i canali), con tutte le loro presentazioni: a livello di molecola, non di AIC. In questa selezione: ${count(totals.biosimilare, "molecola", "molecole")}.`
-              : `Tutte le molecole del libro mastro in questa selezione (${count(totals.tutto, "molecola", "molecole")}).`,
+              : `Tutte le molecole della spesa rendicontata in questa selezione (${count(totals.tutto, "molecola", "molecole")}).`,
           }))} />
         <LocalToggle label="Ordina per" ariaLabel="Ordinamento delle variazioni" value={order} onChange={setOrder}
           options={TREND_ORDERS.map((o) => ({
             value: o, label: TREND_ORDER_LABELS[o],
             title: o === "spesa"
-              ? "Spesa 2025 della molecola nella selezione (non il totale del libro mastro): le barre restano la variazione 2025 meno 2024."
+              ? "Spesa 2025 della molecola nella selezione (non il totale della spesa rendicontata): le barre restano la variazione 2025 meno 2024."
               : o === "pct" ? "Variazione 2025 meno 2024 divisa per il valore assoluto della spesa 2024 della molecola; non calcolabile se la spesa 2024 è assente o nulla."
               : "Variazione in euro: spesa 2025 meno spesa 2024 della molecola, nella selezione.",
           }))} />
@@ -166,7 +166,7 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
           <strong> variazione %</strong> = variazione € ÷ |spesa 2024|. Il confronto è sempre {comparisonLabel}; il filtro anno non si applica.
           {perimeter === "biosimilare"
             ? " Perimetro: solo le molecole del perimetro biosimilare, con tutte le loro presentazioni."
-            : " Perimetro: tutto il libro mastro, non solo i biosimilari."}
+            : " Perimetro: tutta la spesa rendicontata, non solo i biosimilari."}
         </p>
         <p className="mt-1">
           <strong>Che cosa è disegnato.</strong> La barra è sempre la variazione in euro (zero al centro); la cifra a destra segue
@@ -257,8 +257,8 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
   const perimeterSize = variants.biosimilare[year].moleculeCount;
   const scopeNote = perimeter === "biosimilare"
     ? `delle ${count(perimeterSize, "molecola", "molecole")} del perimetro biosimilare presenti in questa selezione nel ${year} (tutte le presentazioni: a livello di molecola, non di AIC)`
-    : `di tutto il libro mastro in questa selezione nel ${year}`;
-  const scopeShort = perimeter === "biosimilare" ? "nel perimetro biosimilare" : "in tutto il libro mastro";
+    : `di tutta la spesa rendicontata in questa selezione nel ${year}`;
+  const scopeShort = perimeter === "biosimilare" ? "nel perimetro biosimilare" : "in tutta la spesa rendicontata";
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -269,7 +269,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
             value: m, label: PERIMETER_MODE_LABELS[m],
             title: m === "biosimilare"
               ? `Solo le molecole del perimetro biosimilare presenti in questa selezione nel ${year} (${count(perimeterSize, "molecola", "molecole")}), con tutte le loro presentazioni: a livello di molecola, non di AIC.`
-              : `Tutte le molecole del libro mastro in questa selezione nel ${year} (${count(variants.tutto[year].moleculeCount, "molecola", "molecole")}).`,
+              : `Tutte le molecole della spesa rendicontata in questa selezione nel ${year} (${count(variants.tutto[year].moleculeCount, "molecola", "molecole")}).`,
           }))} />
       </div>
       {conc.moleculeCount > 1 && conc.totalEur === 0 ? (

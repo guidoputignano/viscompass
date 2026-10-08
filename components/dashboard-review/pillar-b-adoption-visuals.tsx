@@ -9,8 +9,8 @@
 
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { DumbbellRow, TimelineModel, TimelineRow } from "@/lib/dashboard-review/pillar-b/adoption";
-import { dumbbellLead, monthKeyLabel, timelineLead } from "@/lib/dashboard-review/pillar-b/adoption";
-import type { AziendaPanelRow, ChannelMixRow, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
+import { dumbbellGapPoints, dumbbellLead, dumbbellMarkLabel, dumbbellPlottable, monthKeyLabel, timelineLead } from "@/lib/dashboard-review/pillar-b/adoption";
+import { channelYearMix, perimeterComposition, type AziendaPanelRow, type ChannelMixRow, type FacetPerimeter } from "@/lib/dashboard-review/pillar-b/facets";
 import { aziendaMetricValue, type AziendaMetric } from "@/lib/dashboard-review/pillar-b/view-options";
 
 const ink = "hsl(var(--foreground))";
@@ -42,7 +42,12 @@ export function Frame({ title, lead, children }: { title: string; lead?: string;
  * is the difference the two questions make; a missing teal dot means no
  * biosimilar of that substance was ever dispensed in the visible scope.
  */
-export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limit?: number }) {
+export function DumbbellUptakeChart({ rows, limit, periodScope }: {
+  rows: DumbbellRow[];
+  limit?: number;
+  /** "intero perimetro visibile · 2024 e 2025 · tutti i canali": in every exact-value label. */
+  periodScope: string;
+}) {
   // EVERY MOLECULE BY DEFAULT: the Region reads the whole list, and a cut at
   // sixteen hid the tail the table carried. A caller may still pass a limit;
   // the footnote then says how many are not drawn.
@@ -50,18 +55,19 @@ export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limi
   const width = 760, left = 190, right = 610, top = 30, rowGap = 26;
   const height = top + Math.max(shown.length, 1) * rowGap + 30;
   const x = (s: number) => left + Math.max(0, Math.min(1, s)) * (right - left);
-  const exact = (r: DumbbellRow) => `${r.substance} · quota 1 (mesi validi) ${r.dateValid === null ? "n/d" : formatPercent(r.dateValid)} · quota 2 (dal primo uso qui) ${r.locallyObserved === null ? "n/d" : formatPercent(r.locallyObserved)} · riferimento nei mesi validi ${formatEur(r.referenceEur)}`;
   return <Frame
     title="Quota biosimilare per molecola, sui due denominatori"
     lead={dumbbellLead(shown)}
   >
     {shown.length === 0 ? <p className="text-sm text-muted-foreground">Nessuna molecola nel perimetro con questi filtri.</p> : <>
-    <div className="mb-2 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
-      <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: slate }} />quota 1 · validità riconosciuta</span>
-      <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: teal }} />quota 2 · osservato qui</span>
-      <span>a destra: spesa di riferimento nei mesi validi (euro esatti nel titolo)</span>
+    {/* THE KEY, drawn with the same marks as the chart (PB-V5-02). */}
+    <div className="mb-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke={slate} strokeWidth="2.5" /></svg>quota 1 · mesi a validità riconosciuta</span>
+      <span className="inline-flex items-center gap-1.5"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill={teal} /></svg>quota 2 · mesi dal primo uso qui</span>
+      <span className="inline-flex items-center gap-1.5"><svg aria-hidden="true" width="22" height="16" viewBox="0 0 22 16"><line x1="2" y1="8" x2="20" y2="8" stroke={teal} strokeWidth="3" strokeOpacity="0.45" strokeLinecap="round" /></svg>differenza fra le due quote, in punti percentuali</span>
+      <span>a destra: spesa di riferimento nei mesi validi</span>
     </div>
-    <div className="overflow-x-auto"><svg role="img" aria-label="Quota biosimilare per molecola su due denominatori" viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[47.5rem]" xmlns="http://www.w3.org/2000/svg">
+    <div className="overflow-x-auto"><svg role="img" aria-label={`Quota biosimilare per molecola su due denominatori, ${periodScope}`} viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[47.5rem]" xmlns="http://www.w3.org/2000/svg">
       {[0, .25, .5, .75, 1].map((t) => <g key={t}>
         <line x1={x(t)} y1={top - 10} x2={x(t)} y2={height - 24} stroke={grid} strokeDasharray="3 4" />
         <text x={x(t)} y={height - 8} textAnchor="middle" fontSize="11" fill={muted}>{formatPercent(t)}</text>
@@ -69,24 +75,30 @@ export function DumbbellUptakeChart({ rows, limit }: { rows: DumbbellRow[]; limi
       {shown.map((r, i) => {
         const y = top + i * rowGap + 8;
         const a = r.dateValid, b = r.locallyObserved;
+        // Only a share inside 0–100% on a positive denominator is a position.
+        const pa = dumbbellPlottable(r, "quota1"), pb = dumbbellPlottable(r, "quota2");
+        const gap = dumbbellGapPoints(r);
+        const gx = right + 14;
+        const label1 = dumbbellMarkLabel(r, "quota1", periodScope);
+        const label2 = dumbbellMarkLabel(r, "quota2", periodScope);
         return <g key={r.substance}>
           <text x={left - 10} y={y + 4} textAnchor="end" fontSize="12" fill={ink}>{r.substance}</text>
-          {a !== null && b !== null && <line x1={x(a)} y1={y} x2={x(b)} y2={y} stroke={teal} strokeWidth="4" strokeOpacity="0.45" strokeLinecap="round" />}
-          {/* ONE text child per <title> (React 19 hydration #418). */}
-          {a !== null && <circle cx={x(a)} cy={y} r="5.5" fill={slate} tabIndex={0} aria-label={exact(r)}><title>{exact(r)}</title></circle>}
-          {/* THREE different absences, three different words. A missing teal
-              dot means no biosimilar month fell inside BOTH the selected
-              period and the local window — which happens when the first local
-              use lies outside the selected years (aflibercept: 2026-03), not
-              only when it never happened. And a row with no date-valid month
-              at all (pertuzumab in 2024–2025) had no alternative to use. */}
-          {b !== null
-            ? <circle cx={x(b)} cy={y} r="6" fill={teal} stroke="white" strokeWidth="1.5" tabIndex={0} aria-label={exact(r)}><title>{exact(r)}</title></circle>
-            : r.denominatorEur === 0
-              ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>nessun mese valido</text>
-              : r.firstLocalLabel !== null
-                ? <text x={right + 8} y={y + 4} fontSize="10" fill={muted}>uso fuori periodo</text>
-                : <text x={right + 8} y={y + 4} fontSize="10" fill={coral}>mai dispensato qui</text>}
+          {/* The 0–100% track: a mark is a position on it, not the end of a bar. */}
+          <line x1={x(0)} y1={y} x2={x(1)} y2={y} stroke={grid} strokeWidth="1" />
+          {pa && pb && <line x1={x(a!)} y1={y} x2={x(b!)} y2={y} stroke={teal} strokeWidth="3" strokeOpacity="0.45" strokeLinecap="round" />}
+          {/* Quota 1 is a ring, quota 2 a filled dot: equal values stay visible
+              as a dot inside a ring. ONE text child per <title> (hydration #418). */}
+          {pa && <circle cx={x(a!)} cy={y} r="6.5" fill="none" stroke={slate} strokeWidth="2.5" tabIndex={0} aria-label={label1}><title>{label1}</title></circle>}
+          {pb && <circle cx={x(b!)} cy={y} r="4.5" fill={teal} tabIndex={0} aria-label={label2}><title>{label2}</title></circle>}
+          {gap !== null
+            ? <text x={gx} y={y + 4} fontSize="10" fill={muted}><title>{`${r.substance}: quota 2 meno quota 1 = ${formatNumber(gap, 1)} punti percentuali`}</title>{`${gap > 0 ? "+" : ""}${formatNumber(gap, 1)} p.p.`}</text>
+            : (a !== null && !pa) || (b !== null && !pb)
+              ? <text x={gx} y={y + 4} fontSize="10" fill={muted}><title>{`${r.substance}: una quota è fuori da 0–100% o ha denominatore non positivo per rettifiche nette; non è disegnata`}</title>non calcolabile: rettifiche</text>
+              : a === null && b === null
+                ? <text x={gx} y={y + 4} fontSize="10" fill={muted}>nessun mese valido</text>
+                : r.firstLocalLabel !== null
+                  ? <text x={gx} y={y + 4} fontSize="10" fill={muted}>nessuna spesa dal primo uso</text>
+                  : <text x={gx} y={y + 4} fontSize="10" fill={coral}>mai dispensato qui</text>}
           <text x={width - 4} y={y + 4} textAnchor="end" fontSize="11" fill={muted}><title>{`${r.substance}: riferimento nei mesi validi ${formatEur(r.referenceEur)}`}</title>{compact(r.referenceEur)}</text>
         </g>;
       })}
@@ -270,65 +282,152 @@ const CHANNEL_NAMES: Record<string, string> = {
   CO: "Consumi ospedalieri", DD: "Distribuzione diretta", DPC: "Distribuzione per conto",
 };
 
-export function ChannelStack({ rows, years }: { rows: ChannelMixRow[]; years: ReadonlyArray<number> }) {
+function MixBar({ label, mix, sub }: { label: string; mix: ReturnType<typeof channelYearMix>[number]; sub?: boolean }) {
+  // Without a comparator the row label IS the year: name it once.
+  const who = label === String(mix.year) ? label : `${label}, ${mix.year}`;
+  return <div className="grid gap-1.5 sm:grid-cols-[13rem_1fr] sm:items-center sm:gap-3">
+    <div className={"text-xs " + (sub ? "text-muted-foreground" : "font-medium text-foreground")}>{label}</div>
+    {!mix.drawable
+      ? <div className="text-[11px] text-muted-foreground">non calcolabile: spesa dell&apos;anno assente, nulla o negativa</div>
+      : <div role="img" aria-label={`Composizione per canale, ${who}: ${mix.parts.map((p) => `${p.channel} ${p.share === null ? "nessun record" : formatPercent(p.share)}`).join(", ")}`} className={"flex overflow-hidden rounded-lg bg-muted/40 " + (sub ? "h-5" : "h-7")}>
+          {mix.parts.map((p) => {
+            const w = p.share === null ? 0 : Math.max(0, p.share) * 100;
+            return <div key={p.channel} title={`${who} · ${p.channel}: ${p.eur === null ? "nessun record" : `${formatEur(p.eur)} · ${formatPercent(p.share ?? 0)}`}`} className="flex items-center justify-center overflow-hidden whitespace-nowrap text-[10px] font-semibold text-white" style={{ width: `${w}%`, background: CHANNEL_COLORS[p.channel] ?? muted }}>
+              {w > 16 ? `${p.channel} ${formatPercent(w / 100)}` : w > 8 ? formatPercent(w / 100) : ""}
+            </div>;
+          })}
+        </div>}
+  </div>;
+}
+
+export function ChannelStack({ rows, years, selectedLabel = null, comparator = null, comparatorNote = null }: {
+  rows: ChannelMixRow[];
+  years: ReadonlyArray<number>;
+  /** The selected Azienda's name as this viewer may see it; null when none is selected. */
+  selectedLabel?: string | null;
+  /** The Region under the same years, channels and molecule (reviewer / Regione only). */
+  comparator?: { label: string; aziende: number; rows: ChannelMixRow[] } | null;
+  /** Why no comparator is drawn, when that needs saying (an Azienda account). */
+  comparatorNote?: string | null;
+}) {
   const total = rows.reduce((s, r) => s + r.spend_eur, 0);
-  // ONE BAR PER YEAR, no pooled "Totale": the reviewers read the third bar as
-  // noise. A same-year regional comparator for an Azienda needs a separate
-  // disclosure contract (tracker PB-GA-08) and is not drawn here.
+  // ONE BAR PER YEAR, no pooled "Totale". With an Azienda selected and an
+  // authorised regional scope, the Region's bar for the same year follows the
+  // Azienda's, each on its own 100% (PB-V5-01).
+  const channels = ["CO", "DD", "DPC"].filter((c) => rows.some((r) => r.channel === c) || comparator?.rows.some((r) => r.channel === c));
+  const own = channelYearMix(rows, years, channels);
+  const region = comparator ? channelYearMix(comparator.rows, years, channels) : null;
   return <Frame
-    title="Composizione per canale"
-    lead="Quota di ciascun canale sulla spesa rendicontata, per singolo anno; le quote di ogni anno sommano a 100% sulla selezione (Azienda, molecola). Il confronto con la Regione per una singola Azienda è in attesa del contratto di divulgazione e non è mostrato."
+    title={comparator ? "Composizione per canale · Azienda e Regione" : "Composizione per canale"}
+    lead={`Quota di ciascun canale sulla spesa rendicontata, per anno: ogni barra somma a 100% sul proprio totale, con i filtri di canale e molecola attivi.${comparator ? ` Sotto la barra ${selectedLabel ? `di ${selectedLabel}` : "dell'Azienda selezionata"}, quella della Regione (${formatNumber(comparator.aziende, 0)} Aziende, ${selectedLabel ?? "quella selezionata"} compresa), con gli stessi anni, canali e molecola.` : ""}${comparatorNote ? ` ${comparatorNote}` : ""}`}
   >
     {rows.length === 0 || total === 0 ? <p className="text-sm text-muted-foreground">Nessun canale osservato.</p> : <>
     <div className="mb-2 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
-      {rows.map((r) => <span key={r.channel}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm" style={{ background: CHANNEL_COLORS[r.channel] ?? muted }} />{r.channel} · {CHANNEL_NAMES[r.channel] ?? ""}</span>)}
+      {channels.map((c) => <span key={c}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm" style={{ background: CHANNEL_COLORS[c] ?? muted }} />{c} · {CHANNEL_NAMES[c] ?? ""}</span>)}
     </div>
-    <div className="space-y-2">
-      {years.map((y) => ({
-          label: String(y),
-          get: (r: ChannelMixRow) => r.byYear[y] ?? 0,
-          observed: (r: ChannelMixRow) => r.byYear[y] !== undefined,
-        })).map((bar) => {
-        const t = rows.reduce((s, r) => s + bar.get(r), 0);
-        return <div key={bar.label} className="grid gap-1.5 sm:grid-cols-[5rem_1fr] sm:items-center sm:gap-3">
-          <div className="text-xs font-medium text-foreground">{bar.label}</div>
-          <div role="img" aria-label={`Composizione per canale, ${bar.label}`} className="flex h-7 overflow-hidden rounded-lg bg-muted/40">
-            {rows.map((r) => {
-              const w = t === 0 ? 0 : Math.max(0, bar.get(r)) / t * 100;
-              return <div key={r.channel} title={`${r.channel}: ${bar.observed(r) ? formatEur(bar.get(r)) : "non osservato"}`} className="flex items-center justify-center text-[10px] font-semibold text-white" style={{ width: `${w}%`, background: CHANNEL_COLORS[r.channel] ?? muted }}>
-                {w > 9 ? `${r.channel} ${formatPercent(w / 100)}` : ""}
-              </div>;
-            })}
-          </div>
-        </div>;
-      })}
+    <div className="space-y-3">
+      {own.map((mix, k) => <div key={mix.year} className="space-y-1">
+        {region && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{mix.year}</p>}
+        <MixBar label={region ? (selectedLabel ?? "Azienda selezionata") : String(mix.year)} mix={mix} />
+        {region && <MixBar label={comparator!.label} mix={region[k]} sub />}
+      </div>)}
     </div>
+    <details className="mt-3">
+      <summary className="cursor-pointer text-xs font-semibold text-primary">Valori esatti per anno e canale</summary>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+        <table className={"w-full text-sm " + (region ? "min-w-[34rem]" : "min-w-[20rem]")} translate="no">
+          <caption className="sr-only">{region ? "Spesa e quota per canale, Azienda selezionata e Regione, per anno" : "Spesa e quota per canale, per anno"}</caption>
+          <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            <tr>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">Anno · canale</th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">{selectedLabel ?? (region ? "Azienda" : "Spesa")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">{region ? "Quota Azienda" : "Quota"}</th>
+              {region && <th scope="col" className="px-3 py-2 text-right font-semibold">Regione</th>}
+              {region && <th scope="col" className="px-3 py-2 text-right font-semibold">Quota Regione</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {own.flatMap((mix, k) => mix.parts.map((p, c) => {
+              const q = region ? region[k].parts[c] : null;
+              return <tr key={`${mix.year}-${p.channel}`}>
+                <th scope="row" className="px-3 py-2 text-left text-xs font-normal">{mix.year} · {p.channel}</th>
+                <td className="px-3 py-2 text-right font-mono text-xs">{p.eur === null ? "nessun record" : formatEur(p.eur)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{p.share === null ? "—" : formatPercent(p.share)}</td>
+                {q && <td className="px-3 py-2 text-right font-mono text-xs">{q.eur === null ? "nessun record" : formatEur(q.eur)}</td>}
+                {q && <td className="px-3 py-2 text-right font-mono text-xs">{q.share === null ? "—" : formatPercent(q.share)}</td>}
+              </tr>;
+            }))}
+          </tbody>
+        </table>
+      </div>
+    </details>
     </>}
   </Frame>;
 }
 
 // ------------------------------------------------------------- perimeter
 
-export function PerimeterBars({ rows }: { rows: PerimeterRow[] }) {
-  const observed = rows.filter((r) => r.spend_eur !== null);
-  const max = Math.max(1, ...observed.map((r) => r.spend_eur ?? 0));
+export function PerimeterComposition({ rows }: { rows: FacetPerimeter[] }) {
+  const c = perimeterComposition(rows);
+  const reportedOf = (v: number | null) => (v === null ? "—" : formatPercent(v));
   return <Frame
-    title="Dove sta il denaro rispetto al perimetro biosimilare"
-    lead="Stato di ogni prodotto nella tassonomia riconciliata (B03), sotto i filtri attivi di anno, Azienda e canale — a differenza dell'imbuto qui sopra, che copre l'intero perimetro visibile. Le percentuali sono spesa dello stato ÷ spesa rendicontata della selezione. Solo biosimilari e medicinali di riferimento entrano nelle misure di adozione; la riga «Fuori dal perimetro biosimilare» non serve a nessuna decisione sui biosimilari: è lì perché la proporzione del perimetro sia visibile e nulla resti nascosto. Con un filtro per molecola questa vista non viene mostrata: la quota per stato di una sola molecola coinciderebbe con una misura di adozione senza regola di validità."
+    title="Composizione della spesa nel perimetro biosimilare"
+    lead={`100% = spesa per biosimilari e medicinali di riferimento nella selezione (${formatEur(c.base)}), sotto i filtri di anno, Azienda e canale. È una composizione per stato del prodotto, non una quota di adozione: le due quote di adozione, con la loro regola sui mesi, sono nella sezione Adozione. La spesa fuori dal perimetro è riportata a parte, come contesto, e non entra nel 100%.`}
   >
-    {observed.length === 0 ? <p className="text-sm text-muted-foreground">Nessun prodotto classificato nella selezione.</p> :
-    <div role="img" aria-label="Spesa per stato di perimetro" className="space-y-2">
-      {observed.map((r) => <div key={r.perimeter_status} className="grid gap-1 sm:grid-cols-[15rem_1fr_13rem] sm:items-center sm:gap-3">
-        <div className="text-xs text-foreground">{r.label}</div>
-        <div className="h-4 overflow-hidden rounded bg-muted/60">
-          <div className="h-full rounded" style={{ width: `${Math.max(0, r.spend_eur ?? 0) / max * 100}%`, background: r.perimeter_status === "biosimilar" ? teal : r.perimeter_status === "reference_medicine" ? coral : slate }} />
+    {c.parts.every((p) => !p.observed) ? <p className="text-sm text-muted-foreground">Nessun biosimilare né medicinale di riferimento nella selezione.</p> : <>
+    {c.drawable
+      ? <div role="img" aria-label={`Perimetro biosimilare ${formatEur(c.base)}: ${c.parts.map((p) => p.observed ? `${p.label} ${formatEur(p.eur)}, ${p.share === null ? "n/d" : formatPercent(p.share)}` : `${p.label} nessun record`).join("; ")}`} className="flex h-8 overflow-hidden rounded-lg bg-muted/40">
+          {c.parts.map((p) => {
+            const w = (p.share ?? 0) * 100;
+            // The names live in the table's swatches and in the title: inside the
+            // segment only the percentage, on one line, so a narrow screen never
+            // wraps "Medicinale di riferimento" into a clipped stack.
+            return <div key={p.status} title={p.observed ? `${p.label}: ${formatEur(p.eur)} · ${p.share === null ? "n/d" : formatPercent(p.share)} del perimetro` : `${p.label}: nessun record`} className="flex items-center justify-center overflow-hidden whitespace-nowrap text-[11px] font-semibold text-white" style={{ width: `${w}%`, background: p.status === "biosimilar" ? teal : coral }}>
+              {w > 8 ? formatPercent(w / 100) : ""}
+            </div>;
+          })}
         </div>
-        <div className="font-mono text-[11px] text-muted-foreground">
-          <span className="text-foreground">{formatEur(r.spend_eur!)}</span>
-          {r.share !== null && <> · {formatPercent(r.share)}</>}{" · "}
-          {r.perimeter_status === "unclassified" ? "nessun AIC" : `${formatNumber(r.aic_count, 0)} AIC`}
-        </div>
-      </div>)}
+      : <p className="text-xs text-muted-foreground">Barra non disegnata: la spesa del perimetro è nulla o una componente è negativa per rettifiche; gli importi esatti sono qui sotto.</p>}
+    <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+      <table className="w-full min-w-[34rem] text-sm" translate="no">
+        <caption className="sr-only">Composizione del perimetro biosimilare e spesa fuori dal perimetro</caption>
+        <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          <tr>
+            <th scope="col" className="px-3 py-2 text-left font-semibold">Stato del prodotto</th>
+            <th scope="col" className="px-3 py-2 text-right font-semibold">Spesa</th>
+            <th scope="col" className="px-3 py-2 text-right font-semibold">% del perimetro</th>
+            <th scope="col" className="px-3 py-2 text-right font-semibold">AIC</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {c.parts.map((p) => <tr key={p.status}>
+            <th scope="row" className="px-3 py-2 text-left text-xs font-medium"><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: p.status === "biosimilar" ? teal : coral }} />{p.label}</th>
+            <td className="px-3 py-2 text-right font-mono text-xs">{p.observed ? formatEur(p.eur) : "nessun record"}</td>
+            <td className="px-3 py-2 text-right font-mono text-xs">{p.share === null ? "—" : formatPercent(p.share)}</td>
+            <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">{p.observed ? formatNumber(p.aic_count, 0) : "—"}</td>
+          </tr>)}
+        </tbody>
+        <tfoot className="bg-muted/30">
+          <tr>
+            <td className="px-3 py-2 text-xs font-semibold">Perimetro biosimilare</td>
+            <td className="px-3 py-2 text-right font-mono text-xs font-semibold">{formatEur(c.base)}</td>
+            <td className="px-3 py-2 text-right font-mono text-xs font-semibold">{c.base > 0 ? formatPercent(1) : "—"}</td>
+            <td className="px-3 py-2" />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    </>}
+    {c.context.length > 0 && <div className="mt-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Contesto, fuori dal 100% · quota della spesa rendicontata ({formatEur(c.reported)})</p>
+      <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border text-xs">
+        {c.context.map((r) => <li key={r.status} className="grid gap-x-4 px-3 py-2 sm:grid-cols-[1fr_9rem_6rem_6rem]">
+          <span className="text-foreground">{r.label}</span>
+          <span className="font-mono sm:text-right">{formatEur(r.eur)}</span>
+          <span className="font-mono text-muted-foreground sm:text-right">{reportedOf(r.shareOfReported)}</span>
+          <span className="font-mono text-muted-foreground sm:text-right">{r.status === "unclassified" ? "nessun AIC" : `${formatNumber(r.aic_count, 0)} AIC`}</span>
+        </li>)}
+      </ul>
     </div>}
   </Frame>;
 }

@@ -35,7 +35,7 @@ import { buildValueUptake, mergeValueUptakeRows } from "@/lib/dashboard-review/p
 import {
   aziendaKeys, channelsArg, describePillarBFilters, parsePillarBFilters, pillarBHref, yearsArg, type PillarBFilters,
 } from "@/lib/dashboard-review/pillar-b/filters";
-import { aslBreakdown, aziendaPanelRows, calendarRows, channelMix, emptySelectionHint, perimeterRows, type Facets } from "@/lib/dashboard-review/pillar-b/facets";
+import { aslBreakdown, aziendaPanelRows, calendarRows, channelMix, emptySelectionHint, perimeterRows, regionalComparatorAllowed, type Facets } from "@/lib/dashboard-review/pillar-b/facets";
 import {
   distinctUptakeGroups, distinctWithheldGroups, dumbbellRows, timelineModel, volumeBreakdown, volumePanelRows,
 } from "@/lib/dashboard-review/pillar-b/adoption";
@@ -185,6 +185,7 @@ export default async function RevisionePillarBPage({
     allSubstances: ValueUptakeRow[];
     facets: Facets | null;
     calendarFacets: Facets | null;
+    regionalFacets: Facets | null;
   };
   // FILTER-INDEPENDENT READS ARE SHARED across requests of the same scope and
   // release (server-cache.ts): they were ~5.4 s of the ~6.6 s of statements a
@@ -257,26 +258,39 @@ export default async function RevisionePillarBPage({
           substances: mergeValueUptakeRows(...substanceYears),
           fallback: true,
           notice: notApplied.length > 0
-            ? `Adozione in valore: ${notApplied.join(" e ")} non ${notApplied.length > 1 ? "sono stati applicati" : "è stato applicato"} (funzione pillar_b_value_uptake_scoped assente).`
+            ? `Adozione in valore: ${notApplied.join(" e ")} non ${notApplied.length > 1 ? "sono stati applicati" : "è stato applicato"}: la funzione del database che li applica non è ancora pubblicata.`
             : null,
         };
       }
     })();
 
-    const facetsWork = (async (): Promise<{ facets: Facets | null; calendar: Facets | null; notice: string | null }> => {
+    // THE REGIONAL CHANNEL COMPARATOR (PB-V5-01): only for a viewer whose
+    // authorised scope holds several Aziende and who selected one. The same
+    // facets function without the Azienda predicate, under the SAME client:
+    // for a Regione that is RLS over its Aziende, for a reviewer the widened
+    // release. An Azienda account never makes this call.
+    const comparatorAllowed = regionalComparatorAllowed({ scopeAziende: scope.narrowable.length, aziendaSelected: aslCode !== null });
+    // OPTIONAL, so its own failure (a timeout, say) removes only the regional
+    // bar and says so; it never turns the whole page into an error.
+    const regionalWork: Promise<Facets | null> = comparatorAllowed
+      ? getFacets(db, { years, channels, substance: filters.substance, aslCode: null, facets: ["channels"] })
+          .catch((error) => { console.error("Pillar B regional comparator failed", error); return null; })
+      : Promise.resolve(null);
+    const facetsWork = (async (): Promise<{ facets: Facets | null; calendar: Facets | null; regional: Facets | null; notice: string | null }> => {
       try {
-        const [facets, calendar] = await Promise.all([
+        const [facets, calendar, regional] = await Promise.all([
           getFacets(db, { years, channels, substance: filters.substance, aslCode,
                           facets: ["asl", "channels", "perimeter"] }),
           getFacets(db, { years: [2024, 2025, 2026], channels, substance: filters.substance, aslCode,
                           facets: ["months"] }),
+          regionalWork,
         ]);
-        return { facets, calendar, notice: null };
+        return { facets, calendar, regional, notice: null };
       } catch (error) {
         if (!isMissingFunction(error)) throw phaseError("FACETS", error);
         return {
-          facets: null, calendar: null,
-          notice: "Panorama (calendario mensile, spesa per Azienda e per canale) ed Evidenza (perimetro): non disponibili finché pillar_b_facets non è pubblicata.",
+          facets: null, calendar: null, regional: null,
+          notice: "Panorama (calendario mensile, spesa per Azienda e per canale) ed Evidenza (perimetro): non disponibili finché la funzione del database che li calcola non è pubblicata.",
         };
       }
     })();
@@ -313,7 +327,7 @@ export default async function RevisionePillarBPage({
 
     data = { spend2024, spend2025, funnel, molecules2024, molecules2025, uptake, coverage,
              valueUptakeRows: valueOutcome.rows, allSubstances: valueOutcome.substances,
-             facets: facetsOutcome.facets, calendarFacets: facetsOutcome.calendar };
+             facets: facetsOutcome.facets, calendarFacets: facetsOutcome.calendar, regionalFacets: facetsOutcome.regional };
   } catch (error) {
     // The server log retains the full cause. The scoped browser gets only a
     // stable phase code, never a SQL message or a misleading zero-valued chart.
@@ -483,8 +497,8 @@ export default async function RevisionePillarBPage({
   if (uptakeNarrowed && data.coverage === null) {
     adoptionNotes.push(
       "Con un filtro per Azienda o molecola la copertura della misura (spesa utilizzata e quota trattenuta) " +
-      "non è disponibile finché la funzione pillar_b_uptake_coverage non è pubblicata: il database la " +
-      "calcola sull'intero perimetro visibile. I gruppi, la spesa trattenuta e i record qui sotto sono " +
+      "non è disponibile finché la funzione del database che la restringe non è pubblicata: oggi è " +
+      "calcolata sull'intero perimetro visibile. I gruppi, la spesa trattenuta e i record qui sotto sono " +
       "invece quelli del perimetro selezionato.");
   }
 
@@ -558,6 +572,19 @@ export default async function RevisionePillarBPage({
         ? scope.narrowable.filter((o) => !data.facets!.asl!.some((r) => r.asl_code === o.aslCode)).map((o) => o.label)
         : [],
       channels: data.facets?.channelsByYear ? channelMix(data.facets.channelsByYear) : null,
+      channelsComparator: data.regionalFacets?.channelsByYear
+        ? { label: `Regione · ${scope.narrowable.length} Aziende`, aziende: scope.narrowable.length, rows: channelMix(data.regionalFacets.channelsByYear) }
+        : null,
+      channelsSelectedLabel: narrowed?.label ?? null,
+      // An Azienda account sees its own mix only: the regional aggregate is
+      // made of peers' rows and its disclosure is an open owner decision.
+      // Keyed on the account, not on the number of Aziende: a Regione with
+      // one Azienda is not "un account aziendale".
+      channelsComparatorNote: !scope.regional && !scope.allOrganizations
+        ? "Il confronto con la Regione non è disponibile per un account aziendale."
+        : regionalComparatorAllowed({ scopeAziende: scope.narrowable.length, aziendaSelected: aslCode !== null }) && data.regionalFacets === null
+          ? "Il confronto con la Regione non è disponibile in questo momento: la lettura regionale non è riuscita."
+          : null,
     }}
     adoption={{
       valueUptakeSection: (
@@ -570,6 +597,7 @@ export default async function RevisionePillarBPage({
             : `Ambito effettivo di questa sezione: ${vuScopeLine}. La funzione attualmente disponibile non applica ${vuUnappliedFilters.join(" né ")}.`}
           substanceHref={(s) => pillarBHref(BASE, filters, { substance: s })}
           resetHref={BASE}
+          periodScope={vuScopeLine}
         />
       ),
       // BRIDGE B. The total and the view must come from the SAME filters and
@@ -578,7 +606,7 @@ export default async function RevisionePillarBPage({
       // so the bridge is withheld and says why.
       bridge: bridgeOutcome,
       bridgeWithheld: fallback && view.perimeterRows > 0
-        ? "Il ponte non è calcolato finché la funzione scoped di uptake non è pubblicata: senza di essa il totale e l'uptake non sono letti con certezza sullo stesso ambito."
+        ? "Il ponte non è calcolato finché la funzione del database che legge l'adozione sull'ambito selezionato non è pubblicata: senza di essa il totale e le quote non sono letti con certezza sullo stesso ambito."
         : null,
       // THE REVIEW QUEUE follows the bridge: same view, same scope, and only
       // when the bridge itself is shown, so its sums are the bridge's gates.
@@ -589,9 +617,12 @@ export default async function RevisionePillarBPage({
             return { ...queueOutcome, hrefs };
           })()
         : null,
+      bridgeReady,
       reviewQueueWithheld: bridgeReady && !queueReady
         ? "Le liste di revisione non sono mostrate: almeno una molecola ha una spesa netta di riferimento negativa per rettifiche. Gli importi restano nel ponte di riconciliazione, ma non rappresentano una domanda di revisione positiva."
-        : null,
+        : bridgeOutcome !== null && !bridgeReady
+          ? "Le domande di revisione non sono mostrate: in questa selezione la riconciliazione del perimetro qui sotto non torna al centesimo, quindi le loro somme non sarebbero verificate."
+          : null,
       uptake: uptakeForView,
       groupCount: distinctUptakeGroups(uptakeRows),
       withheldGroupCount: distinctWithheldGroups(uptakeWithheld),
@@ -618,11 +649,13 @@ export default async function RevisionePillarBPage({
       funnelYear: filters.years.includes(2025) ? 2025 : 2024,
       funnelIgnoresFilters: aslCode !== null || filters.channels.length > 0 || filters.substance !== null,
       perimeterWithheld: data.facets?.perimeter !== null && data.facets?.perimeter !== undefined && filters.substance !== null,
-      // NOT UNDER A MOLECULE FILTER. For one substance the perimeter rows are
-      // just that substance's statuses, and the per-status share becomes
-      // biosimilar / (biosimilar + reference) by status with no validity rule —
-      // a third adoption denominator, matching neither published measure.
-      // Withheld rather than shown; the two real measures are in Adozione.
+      // NOT UNDER A MOLECULE FILTER. The composition (PB-V5-04) is
+      // biosimilar / (biosimilar + reference) by product status with no
+      // validity rule. Across molecules it is shown, labelled as a spend
+      // composition and never as adoption; for ONE molecule it would sit
+      // beside that molecule's quota 1 and quota 2 and contradict both, a third
+      // adoption figure in all but name. Withheld there. Whether the
+      // composition stays at all is Guido's decision (tracker, PB-V5-04).
       perimeter: data.facets?.perimeter && filters.substance === null
         ? perimeterRows(data.facets.perimeter) : null,
     }}
