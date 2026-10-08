@@ -144,3 +144,56 @@ The defects found were fixed in this round, and each one is pinned by a test:
 | Labels inside narrow bar segments wrapped and were clipped; the Region bar's opacity faded its text below contrast. | Clipped stacks of text at 375 px; lower-contrast labels. | Labels stay on one line, the percentage only inside the perimeter bar, and no opacity on the Region bar. |
 | The second gate had three names, and its method text said "coincide" twice. | Contradictory names ("non ancora acquistato" beside "non è mai acquistato"). | One name, «EU-autorizzato, non ancora osservato qui», and the repeated sentence dropped. |
 | The copy-scan test failed on a Windows checkout. | A false failure: CRLF line endings defeated the cut. | Line endings are normalised, and the test asserts that the cut was found. |
+
+### Live check (8 October 2026, deployment 3070115)
+
+**As the platform reviewer.** The check covered eight filter states:
+- default;
+- 2024;
+- one Azienda;
+- one Azienda with CO + DD;
+- one molecule;
+- one Azienda with one molecule;
+- 2025 with DPC;
+- one Azienda in 2025.
+
+In every state, every v5 figure on the page matched an independent computation on the frozen release, string for string. The computation (evidence harness b48) used the shipping loader and the same SQL functions, formatted by the page's own formatter. The figures compared:
+- the composition: base, parts, shares, AIC counts and context rows; withheld under a molecule filter;
+- every channel cell, Azienda and Region; the Region columns appear only with an Azienda selected;
+- both review headlines;
+- the reconciliation summary, and whether it is open;
+- every dumbbell gap label.
+
+The visible copy, excluding the reviewer-only block, held no gate id, block code, sheet number, "workbook", "libro mastro", function name, "-0,0" or NaN. There were no console errors, the page hydrated, and a filter switch took 1.6–3.9 s.
+
+**Anonymous.** Both the page and its server-component request answer 307 to the login page, with no figures and no Azienda names.
+
+**Azienda and Regione accounts: not checked live.** No such session was available. Isolation is proven server-side (b47 §C), but a live pass as one Azienda and as the Regione is still owed.
+
+**Phone width (375 px).** No page-level horizontal scroll. Three defects were found and fixed in the next commit (pending push):
+
+| Defect | Fix |
+| --- | --- |
+| Every section's lead paragraph was squeezed to a narrow column beside "Cambia selezione". | The header now stacks on a phone. |
+| The new composition table was half hidden in a sideways scroller. | Below the `sm` breakpoint the same values are shown as a stacked list. |
+| Two-thirds of the dumbbell sat behind a sideways scroll, including the marks for high shares. | A phone layout. Each row has three lines: the name; the full-width 0–100% track; then the reference amount on the left and the gap or reason on the right. A thin rule separates rows. The text renders at about 11–13 px, and the labels match the desktop chart. |
+
+An independent two-lens review of the phone fix, with every finding verified adversarially, confirmed five defects in its first version. All five were fixed before commit:
+- the phone text was 7–9 px;
+- a reason dropped below its track read as the next row's label;
+- the composition list split a number from its unit;
+- the coral "mai dispensato qui" was 2.9:1 on the light card; it now uses a darker coral there and a lighter one in dark mode, both above 4.5:1;
+- the lead still said "a destra" for the phone.
+
+The same review also noted that tablets (640–1170 px) still show the desktop drawing behind a sideways scroll. That behaviour is unchanged by this fix and goes with the follow-up below.
+
+Older charts and tables still scroll sideways on a phone. They predate v5, are mostly collapsed by default, and are listed as follow-up:
+- the first-use timeline;
+- the volume table;
+- the tables of the spend trend, the concentration and the record funnel;
+- the reconciliation chart and table.
+
+**Status after the live check.** PB-V5-01 to 07: done, and live-checked as reviewer at desktop width. Not yet `Verified`, because three things remain:
+- the phone-layout push and its live re-check;
+- the live passes as Azienda and as Regione;
+- Guido/Alberto's interpretation checks (PB-V5-04, PB-V5-05).
