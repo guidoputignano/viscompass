@@ -10,7 +10,7 @@
 // reviewer-list.ts) sees EVERY Azienda in the release by real name. The Pillar B
 // RPCs are SECURITY INVOKER over RLS, so under the reviewer's own session they
 // return only the reviewer's approved organisation — which is how a REVISORE
-// account came to see Azienda 201's 23,545 rows where the Region holds 106,639.
+// account came to see one Azienda's rows where the Region holds several times as many.
 // For a reviewer the RPCs are therefore executed with the service-role client,
 // exactly as the private Pillar A workbook is read. Three properties hold:
 //   1. getReviewerEmail() re-derives the email from the live session on every

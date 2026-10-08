@@ -50,7 +50,7 @@ export interface FacetPerimeter {
 }
 
 export interface FacetMolecule {
-  /** null = rows whose substance is not recorded (EUR 2.9M on R2). Never relabelled. */
+  /** null = rows whose substance is not recorded. Never relabelled. */
   active_substance: string | null;
   spend_eur: number | null;
   rows_n: number;

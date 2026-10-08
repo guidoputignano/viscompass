@@ -234,7 +234,7 @@ export interface UptakeWithWithheld {
  *
  * They are returned together deliberately. An uptake percentage without its
  * withheld counterpart reads as a measurement of the whole population, and on
- * this release 7.88% of eligible spend is withheld for unresolved quantity
+ * this release part of the eligible spend is withheld for unresolved quantity
  * basis. A caller cannot obtain one without the other from this module.
  */
 export const getUptake = cache(async (db: PillarBDb, year: PillarBYear): Promise<UptakeWithWithheld> => {

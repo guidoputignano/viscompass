@@ -138,9 +138,8 @@ export function PillarBValueUptake({
   // tempting to name. `outside` -- months in which no biosimilar of the
   // substance existed anywhere yet -- is excluded from date-valid AND from the
   // locally-observed window, so omitting it made the banner's own claim false:
-  // it read EUR 1.109.465 held out for the Region while EUR 16.103.129,03
-  // actually was, hiding 93% of it, and EUR 332.923 for Azienda 201 against a
-  // true EUR 3.752.368,64.
+  // for the Region and for a single Azienda alike it named only a small
+  // fraction of the spend actually held out of both measures.
   const held = view.boundary.total + view.unknown.total + view.outside.total;
   const bothMeasuresAvailable = view.dateValid.share !== null && view.locallyObserved.share !== null;
   const visibleRows = view.rows.filter((r) => r.dateValid.share !== null || r.locallyObserved.share !== null);

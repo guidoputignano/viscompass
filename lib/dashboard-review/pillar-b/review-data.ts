@@ -201,15 +201,13 @@ export function concentration(rows: ReadonlyArray<MoleculeSpendRow>): Concentrat
  * The coverage of the volume-uptake measure from its two published sums.
  *
  * THE IDENTITY. `pillar_b_uptake_scope` is every analytical perimeter row for
- * the year — the rows the measure CONSUMED plus the rows it WITHHELD. On the
- * live 2025 ledger: used €7.469.067,17 + withheld €28.747.938,98 = scope
- * €36.217.006,15, to the cent. So the withheld share is withheld ÷ scope, and
- * the used spend is scope − withheld.
+ * the year — the rows the measure CONSUMED plus the rows it WITHHELD; on the
+ * live release used + withheld = scope to the cent. So the withheld share is
+ * withheld ÷ scope, and the used spend is scope − withheld.
  *
  * The first version of this computation divided by (scope + withheld) and
- * handed the whole scope to the chart as "used": the live card then read
- * "Utilizzata 54,8 % · €76.415.744" where the truth is 17,4 % · €13.267.183.
- * The measure's coverage was overstated three-fold. This helper is the single
+ * handed the whole scope to the chart as "used": the live card then
+ * overstated the measure's coverage about three-fold. This helper is the single
  * place the share is formed, so that cannot recur by composing the sums twice.
  */
 export function uptakeCoverage(
@@ -265,7 +263,8 @@ export function coverageNotices(
 
   if (uptake.withheldShare !== null && uptake.withheldShare > 0) {
     // NAME THE BASE. "della spesa ammissibile" read as the release's
-    // comparable-eligible spend, against which the withheld share is 7,88%.
+    // comparable-eligible spend, against which the withheld share is another
+    // figure altogether.
     // The figure here has a different and much smaller denominator — the uptake
     // measure's own perimeter, used + trattenuta, for the reporting year alone —
     // against which it is far larger. Both are true; only one qualifies the

@@ -5,9 +5,8 @@
 // these same functions on the same rows the page does.
 //
 // THE ONE THING THIS MODULE EXISTS TO PREVENT. There are two denominators and
-// they answer different questions. On this release they differ by 19.5 points
-// — date-valid 39.48%, locally observed 58.99% — so publishing either alone
-// would misstate adoption by a fifth of the measure. `uptakePair` therefore
+// they answer different questions. On this release they differ by many
+// percentage points, so publishing either alone would misstate adoption. `uptakePair` therefore
 // returns both or neither; there is no function here that yields one.
 
 import type { ValueUptakeRow } from "./rpc";
@@ -202,8 +201,8 @@ export function describeFilters(state: UptakeFilterState): string {
  * aggregates every year the release holds — which is 2024, 2025 **and
  * January–May 2026**. The default chip reads "2024 e 2025" and the scope pill
  * repeats it, so a null year published a 29-month figure under a 24-month
- * label: 39,48% where the labelled scope is 37,70%, a 1,79-point overstatement,
- * with 2026 contributing €6.112.176,41 biosimilar and €6.594.771,54 reference.
+ * label, overstating the labelled scope's share, with the partial 2026 months
+ * contributing to both sides.
  *
  * `parseFilters` already refuses a hand-edited `?anno=2026`; that guard was
  * bypassed by the state the page loads in by default, which is worse, because
