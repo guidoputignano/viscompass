@@ -244,21 +244,24 @@ test("PB-V5-02/04: the two v5 views and the section headers work at phone width 
   assert.match(review, /className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-8"/);
   assert.doesNotMatch(review, /flex flex-wrap items-start justify-between gap-x-8 gap-y-4/);
   const vis = read("components/dashboard-review/pillar-b-adoption-visuals.tsx");
-  // The dumbbell: a phone layout below sm, the 760-unit drawing from sm up,
+  // The dumbbell: a phone layout below a 47.5rem card, the 760-unit drawing
+  // from there up (a container query: the card's width, not the viewport's),
   // one helper for the gap column in both.
-  assert.match(vis, /<DumbbellPhone rows=\{shown\} periodScope=\{periodScope\} \/>\n\s*<div className="hidden overflow-x-auto sm:block">/);
-  assert.match(vis, /className="w-full max-w-\[24rem\] sm:hidden"/, "the phone chart is capped, so its text never balloons");
+  assert.match(vis, /<DumbbellPhone rows=\{shown\} periodScope=\{periodScope\} \/>\n\s*<div className="hidden overflow-x-auto \[@container\(min-width:47\.5rem\)\]:block">/);
+  assert.match(vis, /className="w-full max-w-\[20rem\] \[@container\(min-width:47\.5rem\)\]:hidden"/, "the phone chart is capped, so its text never balloons");
   // Review of the phone fix: three lines per row and a rule between rows (no
   // label can read as the neighbour's); text drawn at 12-13 units in a
   // 280-unit viewBox (about 11-13 px on a phone); the reason colour readable.
-  assert.match(vis, /const W = 280, l = 6, r = W - 6;/);
+  // 8-unit margins, so a ring at 0% or 100% keeps its stroke in the viewBox.
+  assert.match(vis, /const W = 280, l = 8, r = W - 8;/);
   assert.doesNotMatch(vis, /const fits = /, "no width estimate decides where a label goes");
   assert.match(vis, /i < rows\.length - 1 && <line x1=\{0\} y1=\{y0 \+ rowH - 2\}/);
   assert.match(vis, /cls: "fill-\[#b54d2b\] dark:fill-\[#f19a7a\]"/);
   assert.match(vis, /<span className="whitespace-nowrap">\{p\.observed \? `\$\{formatNumber\(p\.aic_count, 0\)\} AIC` : "—"\}<\/span>/);
   assert.doesNotMatch(read("lib/dashboard-review/pillar-b/adoption.ts"), /riferimento a destra/, "the lead names no position the phone contradicts");
   assert.equal([...vis.matchAll(/gapCell\(/g)].length, 3, "defined once, used by both layouts");
-  // The composition: a stacked list on a phone, the table from sm up.
-  assert.match(vis, /<ul className="mt-3 divide-y divide-border rounded-lg border border-border text-xs sm:hidden" translate="no">/);
-  assert.match(vis, /<div className="mt-3 hidden overflow-x-auto rounded-lg border border-border sm:block">\n\s*<table className="w-full min-w-\[34rem\] text-sm" translate="no">\n\s*<caption className="sr-only">Composizione del perimetro biosimilare/);
+  // The composition: a stacked list below a 34.125rem card (the table's 34rem
+  // plus its border), the table from there up.
+  assert.match(vis, /<ul aria-label="Composizione del perimetro biosimilare e spesa fuori dal perimetro" className="mt-3 divide-y divide-border rounded-lg border border-border text-xs \[@container\(min-width:34\.125rem\)\]:hidden" translate="no">/);
+  assert.match(vis, /<div className="mt-3 hidden overflow-x-auto rounded-lg border border-border \[@container\(min-width:34\.125rem\)\]:block">\n\s*<table className="w-full min-w-\[34rem\] text-sm" translate="no">\n\s*<caption className="sr-only">Composizione del perimetro biosimilare/);
 });

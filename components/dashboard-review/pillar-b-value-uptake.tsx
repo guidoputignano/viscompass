@@ -14,7 +14,7 @@
 import Link from "next/link";
 import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
 import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
-import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
+import type { SubstanceRow, ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 import type { DumbbellRow, TimelineModel } from "@/lib/dashboard-review/pillar-b/adoption";
 import { DumbbellUptakeChart, FirstUseTimeline } from "@/components/dashboard-review/pillar-b-adoption-visuals";
 
@@ -100,6 +100,21 @@ function WorkedExample({ view }: { view: ValueUptakeView }) {
   );
 }
 
+/**
+ * One substance row's formatted cells, computed once for the table and for
+ * the stacked list that replaces it in a narrow container, so the two layouts
+ * cannot drift apart. A net-zero held-out amount is "—", as it always was.
+ */
+function substanceCells(r: SubstanceRow) {
+  const held = r.boundary + r.unknown + r.outside;
+  return {
+    biosimilar: formatEur(r.dateValid.biosimilar),
+    reference: formatEur(r.dateValid.reference),
+    firstLocal: r.firstLocalLabel ?? "mai",
+    held: held === 0 ? "—" : formatEur(held),
+  };
+}
+
 /** A horizontal share bar. The number is always stated beside it. */
 function ShareBar({ share }: { share: number | null }) {
   if (share === null) {
@@ -147,17 +162,21 @@ export function PillarBValueUptake({
   // The table footer totals the rows the table lists; the banner above keeps
   // the whole scope's held-out amount.
   const heldVisible = visibleRows.reduce((s, r) => s + r.boundary + r.unknown + r.outside, 0);
+  const heldVisibleCell = heldVisible === 0 ? "—" : formatEur(heldVisible);
   const molecole = (n: number) => `${formatNumber(n, 0)} ${n === 1 ? "molecola" : "molecole"}`;
 
   return (
-    <div className="flex flex-col gap-4">
+    // A CONTAINER, so the two measure cards sit side by side only where each
+    // keeps room for its two amounts (30rem): on a tablet the sidebar leaves
+    // the section far narrower than the viewport's sm breakpoint suggests.
+    <div className="flex flex-col gap-4 [container-type:inline-size]">
       {scopeNote && (
         <div className="rounded-lg border-l-4 border-primary bg-secondary/50 px-4 py-3 text-sm leading-relaxed text-foreground">
           <p>{scopeNote}</p>
         </div>
       )}
       {/* ------------------------------------------------- the two denominators */}
-      {bothMeasuresAvailable ? <div className="grid gap-3 sm:grid-cols-2">
+      {bothMeasuresAvailable ? <div className="grid gap-3 [@container(min-width:30rem)]:grid-cols-2">
         <MeasureCard
           title="Quota 1 · su mesi a validità riconosciuta"
           months="ogni mese in cui un biosimilare della sostanza era già autorizzato in EU (il riferimento era già «un riferimento»), nel periodo e nei canali selezionati."
@@ -245,68 +264,122 @@ export function PillarBValueUptake({
         <summary className="cursor-pointer text-xs font-semibold text-primary">
           Apri la tabella numerica per principio attivo ({molecole(visibleRows.length)} con misura)
         </summary>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[52rem] text-sm" translate="no">
-            <caption className="sr-only">
-              Spesa biosimilare e di riferimento per principio attivo, sui due denominatori
-            </caption>
-            <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-              <tr>
-                <th scope="col" className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-semibold">Biosimilare</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-semibold">Riferimento</th>
-                <th scope="col" className="px-4 py-2.5 text-left font-semibold">Quota (validità)</th>
-                <th scope="col" className="px-4 py-2.5 text-left font-semibold">Quota (osservato qui)</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-semibold">Primo uso locale</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-semibold">Fuori misura</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {visibleRows.map((r) => (
-                <tr key={r.substance}>
-                  <td className="px-4 py-2.5 text-xs text-foreground">
+        {/* SWITCHED ON THIS SECTION'S OWN WIDTH, not the viewport's: the seven
+            columns need their 52rem plus the two 1px borders (52.125rem), and
+            below that a sideways scroll hid most of them on a phone and a
+            tablet. The same rows, cells and order as a stacked list. */}
+        <div className="mt-3 [container-type:inline-size]">
+          <ul aria-label="Spesa biosimilare e di riferimento per principio attivo, sui due denominatori" translate="no"
+            className="divide-y divide-border rounded-xl border border-border text-xs [@container(min-width:54rem)]:hidden">
+            {visibleRows.map((r) => {
+              const c = substanceCells(r);
+              return (
+                <li key={r.substance} className="px-3 py-2.5">
+                  <p className="font-medium text-foreground">
                     <KeepLink href={substanceHref(r.substance)} className="hover:text-primary hover:underline">
                       {r.substance}
                     </KeepLink>
+                  </p>
+                  <dl className="mt-1.5 grid max-w-sm grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                    <dt className="text-muted-foreground">Biosimilare</dt>
+                    <dd className="whitespace-nowrap text-right font-mono">{c.biosimilar}</dd>
+                    <dt className="text-muted-foreground">Riferimento</dt>
+                    <dd className="whitespace-nowrap text-right font-mono">{c.reference}</dd>
+                    <dt className="text-muted-foreground">Quota (validità)</dt>
+                    <dd className="flex justify-end"><ShareBar share={r.dateValid.share} /></dd>
+                    <dt className="text-muted-foreground">Quota (osservato qui)</dt>
+                    <dd className="flex justify-end"><ShareBar share={r.locallyObserved.share} /></dd>
+                    <dt className="text-muted-foreground">Primo uso locale</dt>
+                    <dd className="whitespace-nowrap text-right font-mono text-muted-foreground">{c.firstLocal}</dd>
+                    <dt className="text-muted-foreground">Fuori misura</dt>
+                    <dd className="whitespace-nowrap text-right font-mono text-muted-foreground">{c.held}</dd>
+                  </dl>
+                </li>
+              );
+            })}
+            <li className="bg-muted/30 px-3 py-2.5">
+              <p className="font-semibold text-foreground">
+                Totale {visibleRows.length === 1 ? "della" : "delle"} {molecole(visibleRows.length)} con misura
+              </p>
+              <dl className="mt-1.5 grid max-w-sm grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                <dt className="text-muted-foreground">Biosimilare</dt>
+                <dd className="whitespace-nowrap text-right font-mono font-semibold">{formatEur(view.dateValid.biosimilar)}</dd>
+                <dt className="text-muted-foreground">Riferimento</dt>
+                <dd className="whitespace-nowrap text-right font-mono font-semibold">{formatEur(view.dateValid.reference)}</dd>
+                <dt className="text-muted-foreground">Quota (validità)</dt>
+                <dd className="flex justify-end"><ShareBar share={view.dateValid.share} /></dd>
+                <dt className="text-muted-foreground">Quota (osservato qui)</dt>
+                <dd className="flex justify-end"><ShareBar share={view.locallyObserved.share} /></dd>
+                <dt className="text-muted-foreground">Fuori misura</dt>
+                <dd className="whitespace-nowrap text-right font-mono font-semibold">{heldVisibleCell}</dd>
+              </dl>
+            </li>
+          </ul>
+          <div className="hidden overflow-x-auto rounded-xl border border-border [@container(min-width:54rem)]:block">
+            <table className="w-full min-w-[52rem] text-sm" translate="no">
+              <caption className="sr-only">
+                Spesa biosimilare e di riferimento per principio attivo, sui due denominatori
+              </caption>
+              <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                <tr>
+                  <th scope="col" className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
+                  <th scope="col" className="px-4 py-2.5 text-right font-semibold">Biosimilare</th>
+                  <th scope="col" className="px-4 py-2.5 text-right font-semibold">Riferimento</th>
+                  <th scope="col" className="px-4 py-2.5 text-left font-semibold">Quota (validità)</th>
+                  <th scope="col" className="px-4 py-2.5 text-left font-semibold">Quota (osservato qui)</th>
+                  <th scope="col" className="px-4 py-2.5 text-right font-semibold">Primo uso locale</th>
+                  <th scope="col" className="px-4 py-2.5 text-right font-semibold">Fuori misura</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {visibleRows.map((r) => {
+                  const c = substanceCells(r);
+                  return (
+                    <tr key={r.substance}>
+                      <td className="px-4 py-2.5 text-xs text-foreground">
+                        <KeepLink href={substanceHref(r.substance)} className="hover:text-primary hover:underline">
+                          {r.substance}
+                        </KeepLink>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono text-xs">
+                        {c.biosimilar}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono text-xs">
+                        {c.reference}
+                      </td>
+                      <td className="px-4 py-2.5"><ShareBar share={r.dateValid.share} /></td>
+                      <td className="px-4 py-2.5"><ShareBar share={r.locallyObserved.share} /></td>
+                      <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
+                        {c.firstLocal}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
+                        {c.held}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-muted/30">
+                <tr>
+                  <td className="px-4 py-2.5 text-xs font-semibold text-foreground">
+                    Totale {visibleRows.length === 1 ? "della" : "delle"} {molecole(visibleRows.length)} con misura
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs">
-                    {formatEur(r.dateValid.biosimilar)}
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
+                    {formatEur(view.dateValid.biosimilar)}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs">
-                    {formatEur(r.dateValid.reference)}
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
+                    {formatEur(view.dateValid.reference)}
                   </td>
-                  <td className="px-4 py-2.5"><ShareBar share={r.dateValid.share} /></td>
-                  <td className="px-4 py-2.5"><ShareBar share={r.locallyObserved.share} /></td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
-                    {r.firstLocalLabel ?? "mai"}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
-                    {r.boundary + r.unknown + r.outside === 0
-                      ? "—" : formatEur(r.boundary + r.unknown + r.outside)}
+                  <td className="px-4 py-2.5"><ShareBar share={view.dateValid.share} /></td>
+                  <td className="px-4 py-2.5"><ShareBar share={view.locallyObserved.share} /></td>
+                  <td className="px-4 py-2.5" />
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
+                    {heldVisibleCell}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-muted/30">
-              <tr>
-                <td className="px-4 py-2.5 text-xs font-semibold text-foreground">
-                  Totale {visibleRows.length === 1 ? "della" : "delle"} {molecole(visibleRows.length)} con misura
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
-                  {formatEur(view.dateValid.biosimilar)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
-                  {formatEur(view.dateValid.reference)}
-                </td>
-                <td className="px-4 py-2.5"><ShareBar share={view.dateValid.share} /></td>
-                <td className="px-4 py-2.5"><ShareBar share={view.locallyObserved.share} /></td>
-                <td className="px-4 py-2.5" />
-                <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold">
-                  {heldVisible === 0 ? "—" : formatEur(heldVisible)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
+          </div>
         </div>
       </details>}
 

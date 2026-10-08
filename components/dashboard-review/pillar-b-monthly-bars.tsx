@@ -2,18 +2,94 @@
 // A missing source month produces no mark. It is not a zero-height bar.
 
 import { Frame } from "@/components/dashboard-review/pillar-b-adoption-visuals";
+import { NARROW_W, clearLabels, textWidth } from "@/components/dashboard-review/pillar-b-review-visuals";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { CalendarRow } from "@/lib/dashboard-review/pillar-b/facets";
 import { monthSlots, monthlyChartSeries, partialPeriodLabel, type CalendarMetric, type MonthView } from "@/lib/dashboard-review/pillar-b/view-options";
 
 const MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 const COLORS: Record<number, string> = { 2024: "#647c90", 2025: "#169d94", 2026: "#d99335" };
+const ink = "hsl(var(--foreground))";
+const muted = "hsl(var(--muted-foreground))";
+const border = "hsl(var(--border))";
 
 function shortValue(value: number, metric: CalendarMetric) {
   if (metric === "comparabile") return formatPercent(value);
   if (Math.abs(value) >= 1_000_000) return `${formatNumber(value / 1_000_000, 1)} M€`;
   if (Math.abs(value) >= 1_000) return `${formatNumber(value / 1_000, 0)} k€`;
   return formatEur(value);
+}
+
+/** The exact value of one bar, for its <title> and its accessible name in both layouts. */
+function exactLabel(month: number, year: number, value: number, metric: CalendarMetric) {
+  return `${MONTHS[month - 1]} ${year}: ${metric === "comparabile" ? formatPercent(value) : formatEur(value)}`;
+}
+
+type MonthPoint = { year: number; month: number; value: number };
+
+/**
+ * THE NARROW LAYOUT: a month list with horizontal bars, below a 52rem card.
+ *
+ * The 840-unit column chart scaled into a phone card printed its month names
+ * at under 4 px. Here every month is a line of its own (two in the 2024/2025
+ * view, one per year, the year written beside the bar, not left to colour):
+ * month, bar on the common scale, and the value in the compact form of the
+ * wide chart's axis, so no month needs a tooltip to be read. A month without
+ * a value has no bar and shows "—": a gap, never a zero. The scale (low,
+ * span) is the wide chart's; its three labels are kept where they do not
+ * collide.
+ */
+function MonthlyBarsNarrow({ points, months, shownYears, metric, low, span, label }: {
+  points: ReadonlyArray<MonthPoint>;
+  months: number[];
+  shownYears: number[];
+  metric: CalendarMetric;
+  low: number;
+  span: number;
+  label: string;
+}) {
+  const W = NARROW_W, both = shownYears.length > 1;
+  const widest = Math.max(textWidth("—", 12), ...points.map((p) => textWidth(shortValue(p.value, metric), 12)));
+  const L = both ? 66 : 36;
+  const R = Math.max(L + 120, W - 2 - widest - 8);
+  const sub = both ? 17 : 22, bar = both ? 11 : 13, gap = both ? 6 : 0;
+  const block = sub * shownYears.length + gap;
+  const top = 2;
+  const bx = (value: number) => L + ((value - low) / span) * (R - L);
+  const zero = bx(0);
+  const rowsEnd = top + months.length * block - gap;
+  const axisY = rowsEnd + 16;
+  const height = axisY + 4;
+  const ticks = [0, .5, 1].map((fraction) => {
+    const value = low + fraction * span, text = shortValue(value, metric), w = textWidth(text, 12), x = bx(value);
+    return { fraction, value, text, x, extent: fraction === 0 ? [x, x + w] as const : fraction === 1 ? [x - w, x] as const : [x - w / 2, x + w / 2] as const };
+  });
+  const labelled = clearLabels(ticks.map((t) => t.extent));
+  return <svg role="img" aria-label={label} viewBox={`0 0 ${W} ${height}`} className="w-full max-w-[20rem]" xmlns="http://www.w3.org/2000/svg">
+    {ticks.map((t) => <line key={t.fraction} x1={t.x} y1={top} x2={t.x} y2={rowsEnd} stroke={border} strokeDasharray={t.value === 0 ? undefined : "4 5"} />)}
+    {low < 0 && <line x1={zero} y1={top} x2={zero} y2={rowsEnd} stroke={border} />}
+    {months.map((month, i) => {
+      const y0 = top + i * block;
+      return <g key={month}>
+        <text x={2} y={y0 + (sub * shownYears.length) / 2 + 4} fontSize="12" fill={muted}>{MONTHS[month - 1]}</text>
+        {shownYears.map((year, j) => {
+          const yc = y0 + j * sub + sub / 2;
+          const point = points.find((p) => p.year === year && p.month === month);
+          return <g key={year}>
+            {both && <text x={32} y={yc + 4} fontSize="12" fill={muted}>{year}</text>}
+            {point && <rect x={Math.min(zero, bx(point.value))} y={yc - bar / 2} width={Math.max(1, Math.abs(bx(point.value) - zero))} height={bar} rx="2"
+              fill={COLORS[year]} tabIndex={0} aria-label={exactLabel(month, year, point.value, metric)}>
+              {/* ONE text child (hydration error #418). */}
+              <title>{exactLabel(month, year, point.value, metric)}</title>
+            </rect>}
+            <text x={W - 2} y={yc + 4} textAnchor="end" fontSize="12" fill={point ? ink : muted}>{point ? shortValue(point.value, metric) : "—"}</text>
+          </g>;
+        })}
+        {both && i < months.length - 1 && <line x1={0} y1={y0 + block - gap / 2} x2={W} y2={y0 + block - gap / 2} stroke={border} strokeOpacity="0.6" />}
+      </g>;
+    })}
+    {ticks.map((t, i) => labelled[i] && <text key={t.fraction} x={t.x} y={axisY} textAnchor={t.fraction === 0 ? "start" : t.fraction === 1 ? "end" : "middle"} fontSize="12" fill={muted}>{t.text}</text>)}
+  </svg>;
 }
 
 export function MonthlyBars({ rows, metric, view, title }: {
@@ -29,8 +105,10 @@ export function MonthlyBars({ rows, metric, view, title }: {
   const shownYears = view === "confronto" ? [2024, 2025] : [Number(view)];
   const width = 840, height = 326, left = 68, right = 812, top = 26, bottom = 268;
   const values = points.map((p) => p.value);
-  const low = metric === "comparabile" ? 0 : Math.min(0, ...values);
-  const high = metric === "comparabile" ? 1 : Math.max(1, ...values);
+  // From the data for every metric: a comparable share can leave 0..1 when
+  // credit notes net a month's spend negative; in range this is exactly 0..1.
+  const low = Math.min(0, ...values);
+  const high = Math.max(1, ...values);
   const span = high - low || 1;
   const y = (value: number) => bottom - ((value - low) / span) * (bottom - top);
   const zero = y(0);
@@ -58,6 +136,14 @@ export function MonthlyBars({ rows, metric, view, title }: {
         </div>
         <span className="font-medium text-foreground">{plural(shownCount, "barra", "barre")} su {plural(slots, "mese", "mesi-anno")}</span>
       </div>
+      {/* The 840-unit column chart from a 52rem card up: at 1280 px the card
+          is about 837 px wide, where its text is at 99.6% of its design size.
+          Below, the month list. The switch follows the CARD, not the screen. */}
+      <div className="[container-type:inline-size]">
+      <div className="[@container(min-width:52rem)]:hidden">
+        <MonthlyBarsNarrow points={points} months={months} shownYears={shownYears} metric={metric} low={low} span={span} label={`${title}: ${lead}`} />
+      </div>
+      <div className="hidden [@container(min-width:52rem)]:block">
       <svg role="img" aria-label={`${title}: ${lead}`} viewBox={`0 0 ${width} ${height}`} className="w-full" xmlns="http://www.w3.org/2000/svg">
         {[0, .5, 1].map((fraction) => {
           const value = low + fraction * span;
@@ -78,15 +164,17 @@ export function MonthlyBars({ rows, metric, view, title }: {
               const barHeight = Math.max(1, Math.abs(y(point.value) - zero));
               const x = center - (shownYears.length * barWidth) / 2 + j * barWidth;
               return <rect key={year} x={x} y={topY} width={barWidth - 2} height={barHeight} rx="3"
-                fill={COLORS[year]} tabIndex={0} aria-label={`${MONTHS[month - 1]} ${year}: ${metric === "comparabile" ? formatPercent(point.value) : formatEur(point.value)}`}>
+                fill={COLORS[year]} tabIndex={0} aria-label={exactLabel(month, year, point.value, metric)}>
                 {/* ONE text child: React 19 renders a multi-part <title> differently on the
                     server and in the browser (hydration error #418). */}
-                <title>{`${MONTHS[month - 1]} ${year}: ${metric === "comparabile" ? formatPercent(point.value) : formatEur(point.value)}`}</title>
+                <title>{exactLabel(month, year, point.value, metric)}</title>
               </rect>;
             })}
           </g>;
         })}
       </svg>
+      </div>
+      </div>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
         {metric === "comparabile"
           ? "Quota di spesa con quantità confrontabile nel mese, non adozione biosimilare."

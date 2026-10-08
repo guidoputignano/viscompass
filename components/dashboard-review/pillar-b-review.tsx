@@ -34,7 +34,7 @@ import type { ConcentrationYear, PerimeterMode, ViewOptions } from "@/lib/dashbo
 import { WORKBOOK_STATUS_LABELS, workbookByStatus, workbookTally } from "@/lib/dashboard-review/pillar-b/workbook-map";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { CoverageNotice, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
-import type { UptakeWithWithheld } from "@/lib/dashboard-review/pillar-b/rpc";
+import type { UptakeWithWithheld, WithheldRow } from "@/lib/dashboard-review/pillar-b/rpc";
 import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
 import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { BridgeB, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
@@ -195,10 +195,13 @@ function WorkbookMap() {
         {workbookByStatus().map(({ status, sheets }) => sheets.length === 0 ? null : (
           <div key={status}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{WORKBOOK_STATUS_LABELS[status]} · {formatNumber(sheets.length, 0)}</p>
-            <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border">
+            {/* Three columns only where each text column keeps about 10rem:
+                the list's own width decides, since on a tablet the sidebar and
+                the panel's padding leave far less than the viewport suggests. */}
+            <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border [container-type:inline-size]">
               {sheets.map((s) => (
-                <li key={s.id} className="grid gap-x-4 gap-y-0.5 px-3 py-2 text-xs sm:grid-cols-[7rem_1fr_1fr]">
-                  <span className="font-mono text-muted-foreground">{s.id} · {s.sheet}</span>
+                <li key={s.id} className="grid gap-x-4 gap-y-0.5 px-3 py-2 text-xs [@container(min-width:30rem)]:grid-cols-[7rem_1fr_1fr]">
+                  <span className="font-mono text-muted-foreground [overflow-wrap:anywhere]">{s.id} · {s.sheet}</span>
                   <span className="text-foreground">{s.holds}</span>
                   <span className="text-muted-foreground">{s.where}{s.note ? <> · <em>{s.note}</em></> : null}</span>
                 </li>
@@ -220,6 +223,40 @@ const WITHHELD_REASON_IT: Record<string, string> = {
   "substance/route group not usable: mixed units, or only one side present": "gruppo sostanza/via non utilizzabile: unità miste, o un solo lato presente",
 };
 
+// THE CELLS OF EACH TABLE BELOW, formatted once: a table and the stacked list
+// that replaces it in a narrow container render the same strings, so the two
+// layouts cannot drift apart. Missing values stay "—", never 0.
+
+/** A review-question row: first local use, the question's euros, its share. */
+function queueCells(r: ReviewQueueRow, shareOf: "dateValidShare" | "locallyObservedShare") {
+  const share = r[shareOf];
+  return {
+    firstLocal: r.firstLocalLabel ?? "—",
+    eur: formatEur(r.eur),
+    share: share === null ? "—" : formatPercent(share),
+  };
+}
+
+/** A withheld volume group. The Azienda is named only by the label this viewer may see. */
+function withheldCells(w: WithheldRow, aslLabels: Record<string, string>) {
+  return {
+    azienda: aslLabels[w.asl_code] ?? "Azienda non mappata",
+    reason: WITHHELD_REASON_IT[w.withheld_reason] ?? w.withheld_reason,
+    rows: formatNumber(w.rows_n, 0),
+    spend: w.spend_eur === null ? "—" : formatEur(w.spend_eur),
+  };
+}
+
+/** A stage of the record funnel. */
+function funnelCells(stage: FunnelRow) {
+  return {
+    rows: formatNumber(stage.rows_n, 0),
+    share: stage.shareOfObserved === null ? "—" : formatPercent(stage.shareOfObserved),
+    dropped: stage.droppedRows === 0 ? "—" : `−${formatNumber(stage.droppedRows, 0)}`,
+    spend: stage.spend_eur === null ? "—" : formatEur(stage.spend_eur),
+  };
+}
+
 function ReviewQuestion({ title, headline, question, check, who, next, rows, total, hrefs, firstColumn, amountColumn, shareColumn, shareOf, method }: {
   title: string;
   /** One line: the euros and the count the question rests on. */
@@ -230,18 +267,57 @@ function ReviewQuestion({ title, headline, question, check, who, next, rows, tot
   /** How the list is built: one click away, not in front of the question. */
   method: string;
 }) {
+  const link = (r: ReviewQueueRow) => hrefs[r.substance]
+    ? <KeepLink href={hrefs[r.substance]} className="hover:text-primary hover:underline">{r.substance} <span aria-hidden="true">→</span></KeepLink>
+    : r.substance;
+  const count = `${formatNumber(rows.length, 0)} ${rows.length === 1 ? "molecola" : "molecole"}`;
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-card p-4">
+    // THE CARD IS THE CONTAINER: from lg the two questions sit side by side,
+    // so a viewport breakpoint cannot tell how wide one card is (about 276 px
+    // at 1024 and 396 px at 1280, where the table's 26rem was clipped).
+    <div className="flex flex-col rounded-xl border border-border bg-card p-4 [container-type:inline-size]">
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-1 font-display text-lg font-semibold text-foreground">{headline}</p>
-      <dl className="mt-2 grid gap-x-3 gap-y-1 text-xs sm:grid-cols-[7.5rem_1fr]">
+      {/* Labels beside the text only where the text keeps a readable column
+          beside the 7.5rem labels; stacked in a narrower card. */}
+      <dl className="mt-2 grid gap-x-3 gap-y-1 text-xs [@container(min-width:20rem)]:grid-cols-[7.5rem_1fr]">
         <dt className="text-muted-foreground">Domanda</dt><dd className="text-foreground">{question}</dd>
         <dt className="text-muted-foreground">Da verificare</dt><dd className="text-foreground">{check}</dd>
         <dt className="text-muted-foreground">Chi</dt><dd className="text-foreground">{who}</dd>
         <dt className="text-muted-foreground">Passo successivo</dt><dd className="text-foreground">{next}</dd>
       </dl>
-      {rows.length === 0 ? <p className="mt-3 text-xs text-muted-foreground">Nessuna molecola in questa selezione.</p> : (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+      {rows.length === 0 ? <p className="mt-3 text-xs text-muted-foreground">Nessuna molecola in questa selezione.</p> : <>
+        {/* Below the table's 26rem plus its two 1px borders (26.125rem): the
+            same rows, in the same order, as a stacked list. */}
+        <ul aria-label={`${title}: molecole, ${amountColumn.toLowerCase()} e quota; il nome apre l'evidenza della molecola`} translate="no"
+          className="mt-3 divide-y divide-border rounded-lg border border-border text-xs [@container(min-width:26.125rem)]:hidden">
+          {rows.map((r) => {
+            const c = queueCells(r, shareOf);
+            return (
+              <li key={r.substance} className="px-3 py-2">
+                <p className="font-medium text-foreground">{link(r)}</p>
+                <dl className="mt-1 grid max-w-sm grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5">
+                  {firstColumn && <>
+                    <dt className="text-muted-foreground">{firstColumn}</dt>
+                    <dd className="whitespace-nowrap text-right font-mono text-muted-foreground">{c.firstLocal}</dd>
+                  </>}
+                  <dt className="text-muted-foreground">{amountColumn}</dt>
+                  <dd className="whitespace-nowrap text-right font-mono">{c.eur}</dd>
+                  <dt className="text-muted-foreground">{shareColumn}</dt>
+                  <dd className="whitespace-nowrap text-right font-mono">{c.share}</dd>
+                </dl>
+              </li>
+            );
+          })}
+          <li className="bg-muted/30 px-3 py-2">
+            <p className="font-semibold text-foreground">{count}</p>
+            <dl className="mt-1 grid max-w-sm grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5">
+              <dt className="text-muted-foreground">{amountColumn}</dt>
+              <dd className="whitespace-nowrap text-right font-mono font-semibold">{formatEur(total)}</dd>
+            </dl>
+          </li>
+        </ul>
+        <div className="mt-3 hidden overflow-x-auto rounded-lg border border-border [@container(min-width:26.125rem)]:block">
           <table className="w-full min-w-[26rem] text-sm" translate="no">
             <caption className="sr-only">{title}: molecole, {amountColumn.toLowerCase()} e quota; il nome apre l&apos;evidenza della molecola</caption>
             <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -253,29 +329,28 @@ function ReviewQuestion({ title, headline, question, check, who, next, rows, tot
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {rows.map((r) => (
-                <tr key={r.substance}>
-                  <td className="px-3 py-2 text-xs text-foreground">
-                    {hrefs[r.substance]
-                      ? <KeepLink href={hrefs[r.substance]} className="hover:text-primary hover:underline">{r.substance} <span aria-hidden="true">→</span></KeepLink>
-                      : r.substance}
-                  </td>
-                  {firstColumn && <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">{r.firstLocalLabel ?? "—"}</td>}
-                  <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-xs">{formatEur(r.eur)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{r[shareOf] === null ? "—" : formatPercent(r[shareOf]!)}</td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const c = queueCells(r, shareOf);
+                return (
+                  <tr key={r.substance}>
+                    <td className="px-3 py-2 text-xs text-foreground">{link(r)}</td>
+                    {firstColumn && <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">{c.firstLocal}</td>}
+                    <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-xs">{c.eur}</td>
+                    <td className="px-3 py-2 text-right font-mono text-xs">{c.share}</td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot className="bg-muted/30">
               <tr>
-                <td className="px-3 py-2 text-xs font-semibold text-foreground" colSpan={firstColumn ? 2 : 1}>{formatNumber(rows.length, 0)} {rows.length === 1 ? "molecola" : "molecole"}</td>
+                <td className="px-3 py-2 text-xs font-semibold text-foreground" colSpan={firstColumn ? 2 : 1}>{count}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-xs font-semibold">{formatEur(total)}</td>
                 <td className="px-3 py-2" />
               </tr>
             </tfoot>
           </table>
         </div>
-      )}
+      </>}
       <details className="mt-2">
         <summary className="cursor-pointer text-[11px] font-semibold text-primary">Come è costruita la lista<span className="sr-only">: {title}</span></summary>
         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{method}</p>
@@ -576,31 +651,60 @@ export function PillarBReview(props: PillarBReviewProps) {
                 <summary className="cursor-pointer text-xs font-semibold text-primary">
                   Apri i {formatNumber(adoption.withheldGroupCount, 0)} gruppi trattenuti e i motivi
                 </summary>
-                <div className="mt-3 overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full min-w-[34rem] text-sm" translate="no">
-                    <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left font-semibold">Azienda</th>
-                        <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
-                        <th className="px-4 py-2.5 text-left font-semibold">Motivo</th>
-                        <th className="px-4 py-2.5 text-right font-semibold">Record</th>
-                        <th className="px-4 py-2.5 text-right font-semibold">Spesa</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {adoption.uptake.withheld.map((w, i) => (
-                        /* The key carries no asl_code: React keys reach the page payload,
-                           and a code beside a pseudonym would undo the pseudonym. */
-                        <tr key={`${i}-${w.active_substance}-${w.withheld_reason}`}>
-                          <td className="px-4 py-2.5 text-xs">{props.scope.aslLabels[w.asl_code] ?? "Azienda non mappata"}</td>
-                          <td className="px-4 py-2.5 text-xs">{w.active_substance}</td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{WITHHELD_REASON_IT[w.withheld_reason] ?? w.withheld_reason}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-xs">{formatNumber(w.rows_n, 0)}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-xs">{w.spend_eur === null ? "—" : formatEur(w.spend_eur)}</td>
+                {/* SWITCHED ON THIS PANEL'S OWN WIDTH: below the table's 34rem
+                    plus its two 1px borders (34.125rem), the same groups in the
+                    same order as a stacked list. */}
+                <div className="mt-3 [container-type:inline-size]">
+                  <ul translate="no" className="divide-y divide-border rounded-lg border border-border text-xs [@container(min-width:34.125rem)]:hidden">
+                    {adoption.uptake.withheld.map((w, i) => {
+                      const c = withheldCells(w, props.scope.aslLabels);
+                      return (
+                        /* The key carries no asl_code, as in the table below. */
+                        <li key={`${i}-${w.active_substance}-${w.withheld_reason}`} className="px-3 py-2">
+                          <p className="font-medium text-foreground">{c.azienda}</p>
+                          <dl className="mt-1 grid max-w-sm grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
+                            <dt className="text-muted-foreground">Principio attivo</dt>
+                            <dd className="break-words text-right text-foreground">{w.active_substance}</dd>
+                            <dt className="col-span-2 text-muted-foreground">Motivo</dt>
+                            <dd className="col-span-2 text-muted-foreground">{c.reason}</dd>
+                            <dt className="text-muted-foreground">Record</dt>
+                            <dd className="whitespace-nowrap text-right font-mono">{c.rows}</dd>
+                            <dt className="text-muted-foreground">Spesa</dt>
+                            <dd className="whitespace-nowrap text-right font-mono">{c.spend}</dd>
+                          </dl>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="hidden overflow-x-auto rounded-lg border border-border [@container(min-width:34.125rem)]:block">
+                    <table className="w-full min-w-[34rem] text-sm" translate="no">
+                      <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left font-semibold">Azienda</th>
+                          <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
+                          <th className="px-4 py-2.5 text-left font-semibold">Motivo</th>
+                          <th className="px-4 py-2.5 text-right font-semibold">Record</th>
+                          <th className="px-4 py-2.5 text-right font-semibold">Spesa</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {adoption.uptake.withheld.map((w, i) => {
+                          const c = withheldCells(w, props.scope.aslLabels);
+                          return (
+                            /* The key carries no asl_code: React keys reach the page payload,
+                               and a code beside a pseudonym would undo the pseudonym. */
+                            <tr key={`${i}-${w.active_substance}-${w.withheld_reason}`}>
+                              <td className="px-4 py-2.5 text-xs">{c.azienda}</td>
+                              <td className="px-4 py-2.5 text-xs">{w.active_substance}</td>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.reason}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-xs">{c.rows}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-xs">{c.spend}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </details>
             )}
@@ -632,31 +736,63 @@ export function PillarBReview(props: PillarBReviewProps) {
           <EvidenceFunnelChart rows={evidence.funnel} year={evidence.funnelYear} />
           <details className="group">
             <summary className="cursor-pointer text-xs font-semibold text-primary">Apri il dettaglio dei passaggi, della spesa e dei motivi</summary>
-            <div className="mt-3 overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[46rem] text-sm" translate="no">
-                <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2.5 text-left font-semibold">Passaggio</th>
-                    <th className="px-4 py-2.5 text-right font-semibold">Record</th>
-                    <th className="px-4 py-2.5 text-right font-semibold">% sugli osservati</th>
-                    <th className="px-4 py-2.5 text-right font-semibold">Persi dal passaggio prec.</th>
-                    <th className="px-4 py-2.5 text-right font-semibold">Spesa</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Nota</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {evidence.funnel.map((stage) => (
-                    <tr key={stage.step}>
-                      <td className="px-4 py-3 font-medium text-foreground">{stage.step}. {stage.stage}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs">{formatNumber(stage.rows_n, 0)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs">{stage.shareOfObserved === null ? "—" : formatPercent(stage.shareOfObserved)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">{stage.droppedRows === 0 ? "—" : `−${formatNumber(stage.droppedRows, 0)}`}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs">{stage.spend_eur === null ? "—" : formatEur(stage.spend_eur)}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{stage.note}</td>
+            {/* SWITCHED ON THIS SECTION'S OWN WIDTH: below the table's 46rem
+                plus its two 1px borders (46.125rem), the same stages in the
+                same order as a stacked list. */}
+            <div className="mt-3 [container-type:inline-size]">
+              <ul translate="no" className="divide-y divide-border rounded-xl border border-border text-xs [@container(min-width:46.125rem)]:hidden">
+                {evidence.funnel.map((stage) => {
+                  const c = funnelCells(stage);
+                  return (
+                    <li key={stage.step} className="px-3 py-2.5">
+                      <p className="text-sm font-medium text-foreground">{stage.step}. {stage.stage}</p>
+                      <dl className="mt-1 grid max-w-sm grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5">
+                        <dt className="text-muted-foreground">Record</dt>
+                        <dd className="whitespace-nowrap text-right font-mono">{c.rows}</dd>
+                        <dt className="text-muted-foreground">% sugli osservati</dt>
+                        <dd className="whitespace-nowrap text-right font-mono">{c.share}</dd>
+                        <dt className="text-muted-foreground">Persi dal passaggio prec.</dt>
+                        <dd className="whitespace-nowrap text-right font-mono text-muted-foreground">{c.dropped}</dd>
+                        <dt className="text-muted-foreground">Spesa</dt>
+                        <dd className="whitespace-nowrap text-right font-mono">{c.spend}</dd>
+                        {stage.note && <>
+                          <dt className="col-span-2 mt-0.5 text-muted-foreground">Nota</dt>
+                          <dd className="col-span-2 text-muted-foreground">{stage.note}</dd>
+                        </>}
+                      </dl>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="hidden overflow-x-auto rounded-xl border border-border [@container(min-width:46.125rem)]:block">
+                <table className="w-full min-w-[46rem] text-sm" translate="no">
+                  <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left font-semibold">Passaggio</th>
+                      <th className="px-4 py-2.5 text-right font-semibold">Record</th>
+                      <th className="px-4 py-2.5 text-right font-semibold">% sugli osservati</th>
+                      <th className="px-4 py-2.5 text-right font-semibold">Persi dal passaggio prec.</th>
+                      <th className="px-4 py-2.5 text-right font-semibold">Spesa</th>
+                      <th className="px-4 py-2.5 text-left font-semibold">Nota</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {evidence.funnel.map((stage) => {
+                      const c = funnelCells(stage);
+                      return (
+                        <tr key={stage.step}>
+                          <td className="px-4 py-3 font-medium text-foreground">{stage.step}. {stage.stage}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs">{c.rows}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs">{c.share}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">{c.dropped}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs">{c.spend}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">{stage.note}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </details>
         </Sub>

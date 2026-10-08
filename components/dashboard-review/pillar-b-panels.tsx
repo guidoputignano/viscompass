@@ -45,6 +45,27 @@ function Bar({ share }: { share: number }) {
   );
 }
 
+// A TABLE IN A NARROW CARD. Each table below switches on the width of its OWN
+// wrapper (a CSS container), not the viewport: at 768 px the sidebar leaves a
+// card a phone's width, and the min-width tables hid most of their columns
+// behind a sideways scroll. Under the width at which the table fits, each row
+// becomes a list item: the first column as its heading, every other column as
+// a "label value" pair with the table's own label. Same values, through the
+// same formatter calls; the inactive layout is display:none, so it leaves the
+// accessibility tree and the tab order.
+
+/** One "label value" pair of a narrow row. A figure never wraps away from its unit; a word value (a route) may wrap. */
+function Pair({ label, children, muted = false, text = false }: {
+  label: string; children: React.ReactNode; muted?: boolean; text?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="min-w-0 text-[11px] text-muted-foreground">{label}</dt>
+      <dd className={"text-right text-xs " + (text ? "min-w-0 break-words" : "whitespace-nowrap font-mono") + (muted ? " text-muted-foreground" : "")}>{children}</dd>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- calendar
 
 /** The chart title follows the metric, so it is never "spesa" over a share. */
@@ -193,24 +214,50 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
   );
 }
 
+/**
+ * The six value columns of a trend table, in table order: ONE definition for
+ * the header, the wide row and the narrow item, so the two layouts cannot
+ * disagree on a label or a value. A year with no record is not a zero: it
+ * says so. The change is then a movement from nothing, and its rate is
+ * undefined.
+ */
+const TREND_VALUES: ReadonlyArray<{ label: string; muted?: boolean; value: (row: TrendRow) => React.ReactNode }> = [
+  { label: "Spesa 2024", value: (row) => row.rows2024 === 0 ? <span className="text-muted-foreground">nessun record</span> : formatEur(row.spend2024) },
+  { label: "Spesa 2025", value: (row) => row.rows2025 === 0 ? <span className="text-muted-foreground">nessun record</span> : formatEur(row.spend2025) },
+  { label: "Variazione €", value: (row) => formatEur(row.changeEur) },
+  { label: "Variazione %", value: (row) => row.change === null ? "—" : formatPercent(row.change) },
+  { label: "Record 2024", value: (row) => formatNumber(row.rows2024, 0), muted: true },
+  { label: "Record 2025", value: (row) => formatNumber(row.rows2025, 0), muted: true },
+];
+
 export function TrendTable({
   caption, rows, firstColumn, footnote,
 }: { caption: string; rows: TrendRow[]; firstColumn: string; footnote?: string }) {
   const max = rows.reduce((m, r) => Math.max(m, Math.abs(r.spend2025)), 0);
+  const barShare = (row: TrendRow) => (max === 0 ? 0 : Math.abs(row.spend2025) / max);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 [container-type:inline-size]">
       <p className="text-xs font-semibold text-foreground">{caption}</p>
-      <div className="overflow-x-auto rounded-xl border border-border">
+      {/* NARROW (under 53rem): one item per row, and no empty frame when there is none.
+          The table's min-width is 44rem, but with eight-digit euro figures in four
+          columns it needs ~46rem, plus its border. */}
+      <ul aria-label={caption} className="divide-y divide-border rounded-xl border border-border text-xs empty:hidden [@container(min-width:53rem)]:hidden" translate="no">
+        {rows.map((row) => (
+          <li key={row.key} className="px-3 py-2.5">
+            <p className="font-medium text-foreground">{row.label}</p>
+            <dl className="mt-1.5 grid gap-x-6 gap-y-1 [@container(min-width:28rem)]:grid-cols-2">
+              {TREND_VALUES.map((c) => <Pair key={c.label} label={c.label} muted={c.muted}>{c.value(row)}</Pair>)}
+            </dl>
+            <div className="mt-2 max-w-[16rem]"><Bar share={barShare(row)} /></div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-xl border border-border [@container(min-width:53rem)]:block">
         <table className="w-full min-w-[44rem] text-sm" translate="no">
           <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">{firstColumn}</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Spesa 2024</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Spesa 2025</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Variazione €</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Variazione %</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Record 2024</th>
-              <th className="px-4 py-2.5 text-right font-semibold">Record 2025</th>
+              {TREND_VALUES.map((c) => <th key={c.label} className="px-4 py-2.5 text-right font-semibold">{c.label}</th>)}
               <th className="w-32 px-4 py-2.5 text-left font-semibold">&nbsp;</th>
             </tr>
           </thead>
@@ -218,15 +265,8 @@ export function TrendTable({
             {rows.map((row) => (
               <tr key={row.key}>
                 <td className="px-4 py-2.5 text-xs text-foreground">{row.label}</td>
-                {/* A year with no record is not a zero: it says so. The change
-                    is then a movement from nothing, and its rate is undefined. */}
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{row.rows2024 === 0 ? <span className="text-muted-foreground">nessun record</span> : formatEur(row.spend2024)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{row.rows2025 === 0 ? <span className="text-muted-foreground">nessun record</span> : formatEur(row.spend2025)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{formatEur(row.changeEur)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs">{row.change === null ? "—" : formatPercent(row.change)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">{formatNumber(row.rows2024, 0)}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">{formatNumber(row.rows2025, 0)}</td>
-                <td className="px-4 py-2.5"><Bar share={max === 0 ? 0 : Math.abs(row.spend2025) / max} /></td>
+                {TREND_VALUES.map((c) => <td key={c.label} className={"px-4 py-2.5 text-right font-mono text-xs" + (c.muted ? " text-muted-foreground" : "")}>{c.value(row)}</td>)}
+                <td className="px-4 py-2.5"><Bar share={barShare(row)} /></td>
               </tr>
             ))}
           </tbody>
@@ -285,14 +325,43 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
         </Note>
       ) : (<>
       <ConcentrationCurve data={conc} year={year} scopeNote={scopeNote} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      {/* The figures and the ranking switch on THIS block's width: three
+          figure cards side by side only where each keeps its text-3xl value
+          on one line (32rem), the table only where its 40rem and its border fit (41rem). */}
+      <div className="flex flex-col gap-3 [container-type:inline-size]">
+      <div className="grid gap-3 [@container(min-width:32rem)]:grid-cols-3">
         {conc.topFiveShare !== null && <Stat label={`Quota delle prime 5 · ${year}`} value={formatPercent(conc.topFiveShare)} detail={scopeShort} />}
         <Stat label={`Voci osservate · ${year}`} value={formatNumber(conc.moleculeCount, 0)} detail={`${scopeShort}; principi attivi, più l'eventuale voce «Principio attivo non risolto»`} />
         <Stat label={`Molecole a saldo negativo · ${year}`} value={formatNumber(conc.negativeMolecules, 0)} detail={`${scopeShort}; resi e note di credito superiori agli acquisti`} />
       </div>
       <details className="group">
         <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la classifica numerica {conc.rows.length === 1 ? "della prima molecola" : `delle prime ${formatNumber(conc.rows.length, 0)} molecole`} · {year} · {scopeShort}</summary>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-border">
+        {/* NARROW (under 41rem): one item per molecola, rank and name as its heading; the total last. */}
+        <ul aria-label={`Classifica numerica ${conc.rows.length === 1 ? "della prima molecola" : `delle prime ${formatNumber(conc.rows.length, 0)} molecole`} · ${year} · ${scopeShort}`}
+          className="mt-3 divide-y divide-border rounded-xl border border-border text-xs [@container(min-width:41rem)]:hidden" translate="no">
+          {conc.rows.map((row) => (
+            <li key={row.label} className="px-3 py-2.5">
+              <p className="flex items-baseline gap-2 text-foreground">
+                <span className="font-mono text-muted-foreground">{row.rank}</span>
+                <span className="min-w-0 break-words font-medium">{row.label}</span>
+              </p>
+              <dl className="mt-1.5 grid gap-x-6 gap-y-1 [@container(min-width:28rem)]:grid-cols-2">
+                <Pair label={`Spesa ${year}`}>{formatEur(row.spend_eur)}</Pair>
+                <Pair label="Quota">{formatPercent(row.share)}</Pair>
+                <Pair label="Quota cumulata">{formatPercent(row.cumulativeShare)}</Pair>
+              </dl>
+              <div className="mt-2 max-w-[16rem]"><Bar share={row.cumulativeShare} /></div>
+            </li>
+          ))}
+          <li className="bg-muted/30 px-3 py-2.5">
+            <p className="font-semibold text-foreground">Totale {count(conc.moleculeCount, "molecola", "molecole")} {scopeShort}</p>
+            <dl className="mt-1.5 grid gap-x-6 gap-y-1 font-semibold [@container(min-width:28rem)]:grid-cols-2">
+              <Pair label={`Spesa ${year}`}>{formatEur(conc.totalEur)}</Pair>
+              <Pair label="Quota">{formatPercent(1)}</Pair>
+            </dl>
+          </li>
+        </ul>
+        <div className="mt-3 hidden overflow-x-auto rounded-xl border border-border [@container(min-width:41rem)]:block">
           <table className="w-full min-w-[40rem] text-sm" translate="no">
             <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
@@ -328,6 +397,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
           </table>
         </div>
       </details>
+      </div>
       </>)}
     </div>
   );
@@ -359,7 +429,7 @@ export function VolumePanel({ rows, routes, initial }: {
     .slice(0, 14);
   if (rows.length === 0) return null;
   return (
-    <div className="mt-4 flex flex-col gap-3">
+    <div className="mt-4 flex flex-col gap-3 [container-type:inline-size]">
       {routes.length > 1 && (
         <LocalToggle label="Via di somministrazione" ariaLabel="Via di somministrazione" value={route} onChange={setRoute}
           options={[{ value: "", label: "Tutte" }, ...routes.map((r) => ({ value: r, label: r.toLowerCase() }))]} />
@@ -382,11 +452,16 @@ export function VolumePanel({ rows, routes, initial }: {
             <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-primary" />dal primo uso</span>
           </div>
         </div>
-        <div className="space-y-3" role="img" aria-label="Confronto delle quote biosimilari in volume, per principio attivo, via e unità">
-          {chartRows.map((row) => <div key={`${row.substance}/${row.route}/${row.unit}`} className="grid gap-1 sm:grid-cols-[11rem_1fr_4rem] sm:items-center sm:gap-3">
+        {/* Name, bars and figure side by side only where the bars keep ~11rem
+            beside the 11rem name and the 4rem figure: on the chart's own
+            width (28rem), not the viewport's — at 768 px the sidebar leaves
+            this card a phone's width and the bars a few pixels. */}
+        <div className="space-y-3 [container-type:inline-size]" role="img" aria-label="Confronto delle quote biosimilari in volume, per principio attivo, via e unità">
+          {chartRows.map((row) => <div key={`${row.substance}/${row.route}/${row.unit}`} className="grid gap-1 [@container(min-width:28rem)]:grid-cols-[11rem_1fr_4rem] [@container(min-width:28rem)]:items-center [@container(min-width:28rem)]:gap-3">
             <div className="min-w-0 text-xs text-foreground" title={`${row.substance} · ${row.route} · ${row.unit}`}>
-              <span className="block truncate font-medium">{row.substance}</span>
-              <span className="block truncate text-[10px] text-muted-foreground">{row.route.toLowerCase()} · {row.unit}</span>
+              {/* On its own line under 28rem, a long name wraps instead of losing its end. */}
+              <span className="block break-words font-medium [@container(min-width:28rem)]:truncate">{row.substance}</span>
+              <span className="block break-words text-[10px] text-muted-foreground [@container(min-width:28rem)]:truncate">{row.route.toLowerCase()} · {row.unit}</span>
             </div>
             <div className="space-y-1">
               {([{ key: "whole", share: row.wholePeriodShare, color: "#647c90" },
@@ -403,7 +478,36 @@ export function VolumePanel({ rows, routes, initial }: {
         </div>
         {shown.length > chartRows.length && <p className="mt-3 text-[11px] text-muted-foreground">Mostrati {count(chartRows.length, "gruppo", "gruppi")} di {formatNumber(shown.length, 0)}; la tabella include tutti quelli osservati.</p>}
       </div>}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      {/* NARROW (under 49rem: the table's 48rem min-width and its border): one
+          item per (principio attivo, via, unità), in the table's order. */}
+      <ul aria-label="Uptake in volume per molecola e via di somministrazione" className="divide-y divide-border rounded-lg border border-border text-xs empty:hidden [@container(min-width:49rem)]:hidden" translate="no">
+        {shown.map((v) => (
+          <li key={`${v.substance}/${v.route}/${v.unit}`} className="px-3 py-2.5">
+            <p className="break-words font-medium text-foreground">{v.substance}</p>
+            {/* Two columns from 36rem, filled DOWN: the group (via, unità, Aziende) on
+                the left, its measures (the two shares, the first use) on the right. */}
+            <dl className="mt-1.5 grid gap-x-6 gap-y-1 [@container(min-width:36rem)]:grid-flow-col [@container(min-width:36rem)]:grid-cols-2 [@container(min-width:36rem)]:grid-rows-3">
+              <Pair label="Via" muted text>{v.route}</Pair>
+              <Pair label="Unità" muted>{v.unit}</Pair>
+              <Pair label="Aziende">{formatNumber(v.aslCount, 0)}</Pair>
+              <Pair label="Quota (intero periodo)">
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-12"><Bar share={v.wholePeriodShare ?? 0} /></span>
+                  <span className="inline-block min-w-[2.75rem]">{v.wholePeriodShare === null ? "—" : formatPercent(v.wholePeriodShare)}</span>
+                </span>
+              </Pair>
+              <Pair label="Quota (dal primo uso)">
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-12"><Bar share={v.windowShare ?? 0} /></span>
+                  <span className="inline-block min-w-[2.75rem]">{v.windowShare === null ? "—" : formatPercent(v.windowShare)}</span>
+                </span>
+              </Pair>
+              <Pair label="Primo uso" muted>{v.firstKey === null ? "mai" : monthKeyLabel(v.firstKey)}</Pair>
+            </dl>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-lg border border-border [@container(min-width:49rem)]:block">
         <table className="w-full min-w-[48rem] text-sm" translate="no">
           <caption className="sr-only">Uptake in volume per molecola e via di somministrazione</caption>
           <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
