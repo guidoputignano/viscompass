@@ -133,7 +133,7 @@ export function dumbbellLead(rows: ReadonlyArray<Pick<DumbbellRow, "dateValid" |
   if (rows.length === 0) return undefined;
   const measured = rows.some((r) => r.dateValid !== null || r.locallyObserved !== null);
   if (!measured) {
-    return `${dumbbellCountPhrase(rows)}: nessuna quota da disegnare. La spesa di riferimento a destra è quella dei mesi validi, qui nulla.`;
+    return `${dumbbellCountPhrase(rows)}: nessuna quota da disegnare. La spesa di riferimento indicata per ogni molecola è quella dei mesi validi, qui nulla.`;
   }
   // The ordering clause agrees in number with what precedes it, and a single
   // row has no order to state.

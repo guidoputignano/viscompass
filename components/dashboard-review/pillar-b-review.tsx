@@ -139,9 +139,11 @@ function Group({
   id, title, lead, children,
 }: { id: string; title: string; lead: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="flex scroll-mt-8 flex-col gap-6 rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-        <div className="min-w-0 flex-1">
+    <section id={id} className="flex scroll-mt-8 flex-col gap-6 rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
+      {/* STACKED ON A PHONE: as a wrapping row, the flex-1 text block shrank
+          beside the link to a column a few words wide instead of wrapping. */}
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-8">
+        <div className="min-w-0 sm:flex-1">
           <h2 className="font-display text-xl font-semibold leading-tight text-foreground">{title}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">{lead}</p>
         </div>

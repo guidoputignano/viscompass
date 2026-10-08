@@ -26,7 +26,7 @@ const compact = (v: number): string =>
   : formatEur(v);
 
 export function Frame({ title, lead, children }: { title: string; lead?: string; children: React.ReactNode }) {
-  return <figure className="overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5">
+  return <figure className="overflow-hidden rounded-xl border border-border bg-card p-3 sm:p-5">
     <figcaption className="mb-3">
       <p className="text-sm font-semibold text-foreground">{title}</p>
       {lead && <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{lead}</p>}
@@ -42,6 +42,63 @@ export function Frame({ title, lead, children }: { title: string; lead?: string;
  * is the difference the two questions make; a missing teal dot means no
  * biosimilar of that substance was ever dispensed in the visible scope.
  */
+/** What the gap column says for one row: the gap in p.p., or why there is none. */
+function gapCell(r: DumbbellRow, pa: boolean, pb: boolean, gap: number | null): { text: string; title: string | null; tone: string; cls?: string } {
+  if (gap !== null) return { text: `${gap > 0 ? "+" : ""}${formatNumber(gap, 1)} p.p.`, title: `${r.substance}: quota 2 meno quota 1 = ${formatNumber(gap, 1)} punti percentuali`, tone: muted };
+  if ((r.dateValid !== null && !pa) || (r.locallyObserved !== null && !pb)) {
+    return { text: "non calcolabile: rettifiche", title: `${r.substance}: una quota è fuori da 0–100% o ha denominatore non positivo per rettifiche nette; non è disegnata`, tone: muted };
+  }
+  if (r.dateValid === null && r.locallyObserved === null) return { text: "nessun mese valido", title: null, tone: muted };
+  if (r.firstLocalLabel !== null) return { text: "nessuna spesa dal primo uso", title: null, tone: muted };
+  // Coral as TEXT: #b54d2b on the light card (5.2:1), #f19a7a on the dark one
+  // (6.0:1); the series coral itself is 2.9:1 on white.
+  return { text: "mai dispensato qui", title: null, tone: coral, cls: "fill-[#b54d2b] dark:fill-[#f19a7a]" };
+}
+
+/**
+ * THE PHONE LAYOUT (below the sm breakpoint). The desktop chart keeps a
+ * 760-unit drawing with a 190-unit name column; inside a phone's card it was
+ * two-thirds hidden behind a sideways scroll, high shares included.
+ *
+ * Every row has the same three lines: the name; the full-width 0–100% track;
+ * then the reference amount (left) and the gap or the reason (right). A thin
+ * rule separates rows, so no label can be read as its neighbour's. The
+ * viewBox is close to a phone card's width (about 275 px at 375) and the width
+ * is capped, so 12-unit text renders at about 11-13 px, never at 7.
+ */
+function DumbbellPhone({ rows, periodScope }: { rows: DumbbellRow[]; periodScope: string }) {
+  const W = 280, l = 6, r = W - 6;
+  const mx = (s: number) => l + Math.max(0, Math.min(1, s)) * (r - l);
+  const rowH = 62, top = 2;
+  // A longer name is shortened; its title keeps it whole.
+  const nameMax = 38;
+  const height = top + Math.max(rows.length, 1) * rowH + 18;
+  return <svg role="img" aria-label={`Quota biosimilare per molecola su due denominatori, ${periodScope}`} viewBox={`0 0 ${W} ${height}`} className="w-full max-w-[24rem] sm:hidden" xmlns="http://www.w3.org/2000/svg">
+    {[0, .5, 1].map((t) => <text key={t} x={mx(t)} y={height - 4} textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"} fontSize="12" fill={muted}>{formatPercent(t)}</text>)}
+    {rows.map((row, i) => {
+      const y0 = top + i * rowH;
+      const y = y0 + 30;
+      const pa = dumbbellPlottable(row, "quota1"), pb = dumbbellPlottable(row, "quota2");
+      const gap = dumbbellGapPoints(row);
+      const cell = gapCell(row, pa, pb, gap);
+      const label1 = dumbbellMarkLabel(row, "quota1", periodScope);
+      const label2 = dumbbellMarkLabel(row, "quota2", periodScope);
+      const name = row.substance.length > nameMax ? `${row.substance.slice(0, nameMax - 1)}…` : row.substance;
+      return <g key={row.substance}>
+        <text x={l} y={y0 + 14} fontSize="13" fill={ink}>{name !== row.substance ? <title>{row.substance}</title> : null}{name}</text>
+        <line x1={mx(0)} y1={y} x2={mx(1)} y2={y} stroke={grid} strokeWidth="1" />
+        {[0.25, 0.5, 0.75].map((t) => <line key={t} x1={mx(t)} y1={y - 3} x2={mx(t)} y2={y + 3} stroke={grid} strokeWidth="1" />)}
+        {pa && pb && <line x1={mx(row.dateValid!)} y1={y} x2={mx(row.locallyObserved!)} y2={y} stroke={teal} strokeWidth="3" strokeOpacity="0.45" strokeLinecap="round" />}
+        {pa && <circle cx={mx(row.dateValid!)} cy={y} r="6.5" fill="none" stroke={slate} strokeWidth="2.5" tabIndex={0} aria-label={label1}><title>{label1}</title></circle>}
+        {pb && <circle cx={mx(row.locallyObserved!)} cy={y} r="4.5" fill={teal} tabIndex={0} aria-label={label2}><title>{label2}</title></circle>}
+        <text x={l} y={y0 + 51} fontSize="12" fill={muted}><title>{`${row.substance}: riferimento nei mesi validi ${formatEur(row.referenceEur)}`}</title>{`rif. ${compact(row.referenceEur)}`}</text>
+        <text x={r} y={y0 + 51} textAnchor="end" fontSize="12" fill={cell.tone} className={cell.cls}>{cell.title ? <title>{cell.title}</title> : null}{cell.text}</text>
+        {i < rows.length - 1 && <line x1={0} y1={y0 + rowH - 2} x2={W} y2={y0 + rowH - 2} stroke={grid} strokeWidth="1" strokeOpacity="0.6" />}
+      </g>;
+    })}
+  </svg>;
+}
+
 export function DumbbellUptakeChart({ rows, limit, periodScope }: {
   rows: DumbbellRow[];
   limit?: number;
@@ -65,9 +122,10 @@ export function DumbbellUptakeChart({ rows, limit, periodScope }: {
       <span className="inline-flex items-center gap-1.5"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke={slate} strokeWidth="2.5" /></svg>quota 1 · mesi a validità riconosciuta</span>
       <span className="inline-flex items-center gap-1.5"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill={teal} /></svg>quota 2 · mesi dal primo uso qui</span>
       <span className="inline-flex items-center gap-1.5"><svg aria-hidden="true" width="22" height="16" viewBox="0 0 22 16"><line x1="2" y1="8" x2="20" y2="8" stroke={teal} strokeWidth="3" strokeOpacity="0.45" strokeLinecap="round" /></svg>differenza fra le due quote, in punti percentuali</span>
-      <span>a destra: spesa di riferimento nei mesi validi</span>
+      <span><span className="hidden sm:inline">a destra: spesa di riferimento nei mesi validi</span><span className="sm:hidden">«rif.» sotto ogni riga: spesa di riferimento nei mesi validi</span></span>
     </div>
-    <div className="overflow-x-auto"><svg role="img" aria-label={`Quota biosimilare per molecola su due denominatori, ${periodScope}`} viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[47.5rem]" xmlns="http://www.w3.org/2000/svg">
+    <DumbbellPhone rows={shown} periodScope={periodScope} />
+    <div className="hidden overflow-x-auto sm:block"><svg role="img" aria-label={`Quota biosimilare per molecola su due denominatori, ${periodScope}`} viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[47.5rem]" xmlns="http://www.w3.org/2000/svg">
       {[0, .25, .5, .75, 1].map((t) => <g key={t}>
         <line x1={x(t)} y1={top - 10} x2={x(t)} y2={height - 24} stroke={grid} strokeDasharray="3 4" />
         <text x={x(t)} y={height - 8} textAnchor="middle" fontSize="11" fill={muted}>{formatPercent(t)}</text>
@@ -90,15 +148,7 @@ export function DumbbellUptakeChart({ rows, limit, periodScope }: {
               as a dot inside a ring. ONE text child per <title> (hydration #418). */}
           {pa && <circle cx={x(a!)} cy={y} r="6.5" fill="none" stroke={slate} strokeWidth="2.5" tabIndex={0} aria-label={label1}><title>{label1}</title></circle>}
           {pb && <circle cx={x(b!)} cy={y} r="4.5" fill={teal} tabIndex={0} aria-label={label2}><title>{label2}</title></circle>}
-          {gap !== null
-            ? <text x={gx} y={y + 4} fontSize="10" fill={muted}><title>{`${r.substance}: quota 2 meno quota 1 = ${formatNumber(gap, 1)} punti percentuali`}</title>{`${gap > 0 ? "+" : ""}${formatNumber(gap, 1)} p.p.`}</text>
-            : (a !== null && !pa) || (b !== null && !pb)
-              ? <text x={gx} y={y + 4} fontSize="10" fill={muted}><title>{`${r.substance}: una quota è fuori da 0–100% o ha denominatore non positivo per rettifiche nette; non è disegnata`}</title>non calcolabile: rettifiche</text>
-              : a === null && b === null
-                ? <text x={gx} y={y + 4} fontSize="10" fill={muted}>nessun mese valido</text>
-                : r.firstLocalLabel !== null
-                  ? <text x={gx} y={y + 4} fontSize="10" fill={muted}>nessuna spesa dal primo uso</text>
-                  : <text x={gx} y={y + 4} fontSize="10" fill={coral}>mai dispensato qui</text>}
+          {(() => { const cell = gapCell(r, pa, pb, gap); return <text x={gx} y={y + 4} fontSize="10" fill={cell.tone} className={cell.cls}>{cell.title ? <title>{cell.title}</title> : null}{cell.text}</text>; })()}
           <text x={width - 4} y={y + 4} textAnchor="end" fontSize="11" fill={muted}><title>{`${r.substance}: riferimento nei mesi validi ${formatEur(r.referenceEur)}`}</title>{compact(r.referenceEur)}</text>
         </g>;
       })}
@@ -388,7 +438,23 @@ export function PerimeterComposition({ rows }: { rows: FacetPerimeter[] }) {
           })}
         </div>
       : <p className="text-xs text-muted-foreground">Barra non disegnata: la spesa del perimetro è nulla o una componente è negativa per rettifiche; gli importi esatti sono qui sotto.</p>}
-    <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+    {/* ON A PHONE the four columns do not fit a card a few hundred pixels
+        wide: the same values as a stacked list, the table from sm up. */}
+    <ul className="mt-3 divide-y divide-border rounded-lg border border-border text-xs sm:hidden" translate="no">
+      {c.parts.map((p) => <li key={p.status} className="px-3 py-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="inline-flex items-center gap-1.5 text-foreground"><i className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: p.status === "biosimilar" ? teal : coral }} />{p.label}</span>
+          <span className="whitespace-nowrap font-mono">{p.observed ? formatEur(p.eur) : "nessun record"}</span>
+        </div>
+        <div className="mt-0.5 text-right font-mono text-muted-foreground">
+          <span className="whitespace-nowrap">{p.share === null ? "—" : formatPercent(p.share)} del perimetro</span>{" · "}<span className="whitespace-nowrap">{p.observed ? `${formatNumber(p.aic_count, 0)} AIC` : "—"}</span>
+        </div>
+      </li>)}
+      <li className="flex items-baseline justify-between gap-3 bg-muted/30 px-3 py-2 font-semibold">
+        <span>Perimetro biosimilare</span><span className="whitespace-nowrap text-right font-mono">{formatEur(c.base)} · {c.base > 0 ? formatPercent(1) : "—"}</span>
+      </li>
+    </ul>
+    <div className="mt-3 hidden overflow-x-auto rounded-lg border border-border sm:block">
       <table className="w-full min-w-[34rem] text-sm" translate="no">
         <caption className="sr-only">Composizione del perimetro biosimilare e spesa fuori dal perimetro</caption>
         <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">

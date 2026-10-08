@@ -234,3 +234,31 @@ test("PB-V5-01/03: what the review of the v5 diff found stays fixed", () => {
   assert.doesNotMatch(vis, /uso fuori periodo/);
   assert.doesNotMatch(vis, /a !== null && <circle/, "a mark is drawn only when plottable");
 });
+
+test("PB-V5-02/04: the two v5 views and the section headers work at phone width (live check, 375 px)", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const read = (f) => fs.readFileSync(`${root}${f}`, "utf8").replace(/\r\n/g, "\n");
+  const review = read("components/dashboard-review/pillar-b-review.tsx");
+  // A wrapping row with a flex-1 text block squeezed every section lead to a
+  // column a few words wide beside "Cambia selezione".
+  assert.match(review, /className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-8"/);
+  assert.doesNotMatch(review, /flex flex-wrap items-start justify-between gap-x-8 gap-y-4/);
+  const vis = read("components/dashboard-review/pillar-b-adoption-visuals.tsx");
+  // The dumbbell: a phone layout below sm, the 760-unit drawing from sm up,
+  // one helper for the gap column in both.
+  assert.match(vis, /<DumbbellPhone rows=\{shown\} periodScope=\{periodScope\} \/>\n\s*<div className="hidden overflow-x-auto sm:block">/);
+  assert.match(vis, /className="w-full max-w-\[24rem\] sm:hidden"/, "the phone chart is capped, so its text never balloons");
+  // Review of the phone fix: three lines per row and a rule between rows (no
+  // label can read as the neighbour's); text drawn at 12-13 units in a
+  // 280-unit viewBox (about 11-13 px on a phone); the reason colour readable.
+  assert.match(vis, /const W = 280, l = 6, r = W - 6;/);
+  assert.doesNotMatch(vis, /const fits = /, "no width estimate decides where a label goes");
+  assert.match(vis, /i < rows\.length - 1 && <line x1=\{0\} y1=\{y0 \+ rowH - 2\}/);
+  assert.match(vis, /cls: "fill-\[#b54d2b\] dark:fill-\[#f19a7a\]"/);
+  assert.match(vis, /<span className="whitespace-nowrap">\{p\.observed \? `\$\{formatNumber\(p\.aic_count, 0\)\} AIC` : "—"\}<\/span>/);
+  assert.doesNotMatch(read("lib/dashboard-review/pillar-b/adoption.ts"), /riferimento a destra/, "the lead names no position the phone contradicts");
+  assert.equal([...vis.matchAll(/gapCell\(/g)].length, 3, "defined once, used by both layouts");
+  // The composition: a stacked list on a phone, the table from sm up.
+  assert.match(vis, /<ul className="mt-3 divide-y divide-border rounded-lg border border-border text-xs sm:hidden" translate="no">/);
+  assert.match(vis, /<div className="mt-3 hidden overflow-x-auto rounded-lg border border-border sm:block">\n\s*<table className="w-full min-w-\[34rem\] text-sm" translate="no">\n\s*<caption className="sr-only">Composizione del perimetro biosimilare/);
+});
