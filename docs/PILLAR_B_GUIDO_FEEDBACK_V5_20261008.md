@@ -209,3 +209,18 @@ Older charts and tables still scroll sideways on a phone. They predate v5, are m
 **Status.** PB-V5-01 to 07: done, and live-checked as reviewer at desktop and phone width. Not yet `Verified`, because two things remain:
 - the live passes as Azienda and as Regione;
 - Guido/Alberto's interpretation checks (PB-V5-04, PB-V5-05).
+
+### Phone and tablet layouts for the whole page (deployment 65dbecb, 8 October 2026)
+
+The older charts and tables now switch layout on the width of their own card (CSS container queries), not the viewport, so tablets beside the sidebar get the right layout too. Tables become stacked lists below their threshold; wide drawings get a narrow drawing; the wide layouts are unchanged from their thresholds up.
+
+**Live check as the platform reviewer:**
+- The eight-state comparison still matches the independent computation string for string, with no copy hits.
+- At 375, 768, 1024, 1280 and 1440 px, both on the default view and with one Azienda in 2025:
+  - no sideways scroller and no page-level horizontal scroll;
+  - no chart text under 10.5 px (smallest 11 px at 375);
+  - no text outside its drawing and no overlapping labels;
+  - each of the 22 layout pairs shows exactly one variant;
+  - every cell of all 13 tables is present in its stacked list;
+  - no console errors.
+- At 360 px the narrow charts render at 10.4–11.1 px. At 320 px they are about 9 px: legible, but below the 11 px target.
