@@ -581,7 +581,7 @@ export function PerimeterComposition({ rows }: { rows: FacetPerimeter[] }) {
   return <Frame
     container
     title="Composizione della spesa nel perimetro biosimilare"
-    lead={`100% = spesa per biosimilari e medicinali di riferimento nella selezione (${formatEur(c.base)}), sotto i filtri di anno, Azienda e canale. È una composizione per stato del prodotto, non una quota di adozione: le due quote di adozione, con la loro regola sui mesi, sono nella sezione Adozione. La spesa fuori dal perimetro è riportata a parte, come contesto, e non entra nel 100%.`}
+    lead={`100% = spesa per biosimilari e medicinali di riferimento nella selezione (${formatEur(c.base)}), sotto i filtri di anno, Azienda e canale. È una composizione per stato del prodotto su tutti i mesi selezionati, non una quota di adozione: non applica né la validità mensile né la data del primo uso locale richieste dalle due quote nella sezione Adozione. La spesa fuori dal perimetro è riportata a parte, come contesto, e non entra nel 100%.`}
   >
     {c.parts.every((p) => !p.observed) ? <p className="text-sm text-muted-foreground">Nessun biosimilare né medicinale di riferimento nella selezione.</p> : <>
     {c.drawable

@@ -267,9 +267,28 @@ const calendar = [
   yearRow(2026, 5, (m) => (m === 2 ? null : 700_000 + m * 10_000)),
 ];
 
+test("monthly exact values distinguish an observed zero, an undefined ratio, and an absent month", () => {
+  const rows = [yearRow(2025, 12, (m) => m === 1 ? 0 : m === 2 ? null : 100)];
+  rows[0].cells[0].comparable_share = null;
+  rows[0].cells[2].comparable_share = 0;
+  rows[0].cells[2].perimeter_eur = 0;
+  const coverage = html(h(M.MonthlyBars, { rows, metric: "comparabile", view: "2025", title: "Copertura" }));
+  const perimeter = html(h(M.MonthlyBars, { rows, metric: "perimetro", view: "2025", title: "Perimetro" }));
+  assert.match(coverage, /2025 · gen<\/th><td[^>]*>non calcolabile<\/td>/);
+  assert.match(coverage, /2025 · feb<\/th><td[^>]*>nessun record<\/td>/);
+  assert.match(coverage, /2025 · mar<\/th><td[^>]*>0\s*%<\/td>/);
+  assert.match(perimeter, /2025 · mar<\/th><td[^>]*>0\s*€<\/td>/, "an observed month with no product in the perimeter is a genuine zero");
+});
+
 for (const [view, metric, bars, gaps] of [["confronto", "spesa", 22, 2], ["2025", "comparabile", 11, 1], ["2026", "spesa", 4, 1]]) {
   test(`MonthlyBars render (${view}, ${metric}): every month a line, the same bars and exact titles as the wide chart, gaps never zero`, () => {
     const out = html(h(M.MonthlyBars, { rows: calendar, metric, view, title: "Spesa mese per mese" }));
+    assert.ok(out.includes("Valori esatti, mese per mese"), "every chart exposes the complete numerical series");
+    assert.ok(out.includes("nessun record"), "an absent month is named in the exact-value table, never printed as zero");
+    if (view === "confronto") {
+      assert.match(out, /2025 · nov<\/th><td[^>]*>-120\.000\s*€<\/td>/, "negative adjustments keep their sign in the table");
+      assert.match(out, /2024 · mar<\/th><td[^>]*>nessun record<\/td>/);
+    }
     assert.ok(out.includes('<div class="[container-type:inline-size]"><div class="[@container(min-width:52rem)]:hidden"><svg role="img"'));
     const narrow = svgParts(svgsIn(divInner(out, "[@container(min-width:52rem)]:hidden"))[0]);
     const wide = svgParts(svgsIn(divInner(out, "hidden [@container(min-width:52rem)]:block"))[0]);

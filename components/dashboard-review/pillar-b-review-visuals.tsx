@@ -104,7 +104,7 @@ export function UptakeCoverageChart({ withheldShare, usedSpend, withheldSpend }:
   withheldSpend: number;
 }) {
   const share = withheldShare === null ? null : Math.max(0, Math.min(1, withheldShare));
-  return <Frame title="Copertura della misura di uptake">
+  return <Frame title="Copertura della quota in volume">
     {share === null ? <p className="text-sm text-muted-foreground">Quota non calcolabile nel perimetro della misura.</p> : <>
       <div role="img" aria-label={`Spesa utilizzata ${formatPercent(1 - withheldShare!)}, spesa trattenuta ${formatPercent(withheldShare!)}, sul perimetro della misura`} className="flex h-9 overflow-hidden rounded-lg">
         <div className="bg-primary" style={{ width: `${(1 - share) * 100}%` }} />
@@ -118,7 +118,7 @@ export function UptakeCoverageChart({ withheldShare, usedSpend, withheldSpend }:
         <div><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-amber-500" /><span className="font-semibold">Trattenuta {formatPercent(withheldShare!)}</span><span className="ml-2 whitespace-nowrap text-muted-foreground">{formatEur(withheldSpend)}</span></div>
       </div>
       </div>
-      <p className="mt-3 text-[11px] text-muted-foreground">Base: spesa utilizzata + trattenuta nel perimetro della misura, non tutta la spesa della release.</p>
+      <p className="mt-3 text-[11px] text-muted-foreground">Base: spesa utilizzata + trattenuta nel perimetro della misura, non tutta la spesa rendicontata.</p>
     </>}
   </Frame>;
 }

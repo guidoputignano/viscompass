@@ -175,6 +175,30 @@ export function MonthlyBars({ rows, metric, view, title }: {
       </svg>
       </div>
       </div>
+      <details className="mt-3 rounded-lg border border-border p-3">
+        <summary className="cursor-pointer text-xs font-semibold text-primary">Valori esatti, mese per mese</summary>
+        <div className="mt-2 max-h-72 overflow-y-auto">
+          <table className="w-full text-xs" translate="no">
+            <caption className="sr-only">{title}: valori esatti per anno e mese nella selezione</caption>
+            <thead className="sticky top-0 bg-card text-left text-muted-foreground">
+              <tr><th scope="col" className="py-1.5 pr-3">Anno · mese</th><th scope="col" className="py-1.5 text-right">{metric === "comparabile" ? "Quota di spesa con quantità confrontabile" : "Spesa"}</th></tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {months.flatMap((month) => shownYears.map((year) => {
+                const point = points.find((p) => p.year === year && p.month === month);
+                const source = rows.find((r) => r.year === year)?.cells.find((c) => c.month === month);
+                const value = point
+                  ? metric === "comparabile" ? formatPercent(point.value) : formatEur(point.value)
+                  : source?.spend_eur === null || source === undefined ? "nessun record" : "non calcolabile";
+                return <tr key={`${year}-${month}`}>
+                  <th scope="row" className="py-1.5 pr-3 font-normal">{year} · {MONTHS[month - 1]}</th>
+                  <td className="py-1.5 text-right font-mono">{value}</td>
+                </tr>;
+              }))}
+            </tbody>
+          </table>
+        </div>
+      </details>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
         {metric === "comparabile"
           ? "Quota di spesa con quantità confrontabile nel mese, non adozione biosimilare."

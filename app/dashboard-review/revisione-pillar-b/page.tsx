@@ -149,10 +149,10 @@ export default async function RevisionePillarBPage({
           description="Spesa e adozione osservate sul perimetro autorizzato. Le date di esclusività legale non sono ancora certificate."
         />
         <EmptyState
-          title="Nessuna release attiva"
+          title="Analisi non ancora pubblicata"
           detail={
             "I dati Pillar B non sono ancora pubblicati per la revisione. La pagina " +
-            "non mostra cifre finché una release non viene attivata: un totale pari a " +
+            "non mostra cifre finché i dati verificati non vengono resi disponibili: un totale pari a " +
             "zero non è la stessa cosa di un dato non disponibile."
           }
         />
@@ -337,7 +337,7 @@ export default async function RevisionePillarBPage({
       : "PBR-SHAPE";
     return <EmptyState
       title="Analisi non disponibile"
-      detail={`La release è attiva, ma una verifica è fallita (${code}). Nessuna cifra viene mostrata finché il problema non è risolto.`}
+      detail={`I dati sono disponibili, ma una verifica è fallita (${code}). Nessuna cifra viene mostrata finché il problema non è risolto.`}
     />;
   }
 
@@ -533,7 +533,6 @@ export default async function RevisionePillarBPage({
 
   return <PillarBReview
     key={filterKey}
-    releaseId={releaseId}
     scope={{
       perimeterLabel: scope.perimeterLabel,
       reviewerScopeUnavailable: scope.reviewerScopeUnavailable,

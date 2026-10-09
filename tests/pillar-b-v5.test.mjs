@@ -149,30 +149,32 @@ test("PB-V5-06/07: customer-facing copy carries no gate code, workbook block cod
     "lib/dashboard-review/pillar-b/bridge-b.ts", "lib/dashboard-review/pillar-b/facets.ts", "lib/dashboard-review/pillar-b/adoption.ts",
   ];
   for (const f of files) {
-    let src = stripComments(fs.readFileSync(`${root}${f}`, "utf8"));
-    if (f.endsWith("pillar-b-review.tsx")) {
-      // The internal inventory is allowed inside its own component, which the
-      // page renders only for the platform reviewers (checked below).
-      const i = src.indexOf("function WorkbookMap()");
-      const j = src.indexOf("\n}\n", i);
-      assert.ok(i >= 0 && j > i, "the reviewer-only block was found and cut, not duplicated");
-      src = src.slice(0, i) + src.slice(j + 3);
-    }
+    const src = stripComments(fs.readFileSync(`${root}${f}`, "utf8"));
+    assert.doesNotMatch(src, /WorkbookMap|workbookByStatus|workbookTally/, `${f} must not render the internal inventory`);
     for (const bad of [/libro mastro/i, /\bworkbook\b/i, /fogli? (0?\d|\d{2})\b/i, /\(B(0[3-9]|1[0-6])\)/, /\bB1[0-6] nei Limiti/, /con B_ADDRESSABLE_REFERENCE/, /\{g\.id\}<\/span>/, /coincide con B4|parte di B4|supera B4/]) {
       assert.doesNotMatch(src, bad, `${f} still shows ${bad}`);
     }
   }
 });
 
-test("PB-V5-07: the workbook inventory and the release id render only for the platform reviewers", () => {
+test("PB-V5-11: the monthly spend and quantity-coverage panels share months and filters, never a 2026 coverage figure", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const panels = fs.readFileSync(`${root}components/dashboard-review/pillar-b-panels.tsx`, "utf8");
+  const section = panels.slice(panels.indexOf("export function CalendarPanel("), panels.indexOf("// ----------------------------------------------------------------- Azienda"));
+  assert.match(section, /selected !== "2026" && metric !== "perimetro"/, "linked comparison is unavailable in partial 2026 or on the different perimeter base");
+  assert.match(section, /<MonthlyBars rows=\{rows\} title=\{metric === "spesa" \? title : MONTH_TITLES\[metric\]\} metric=\{metric\} view=\{selected\} \/>/);
+  assert.match(section, /<MonthlyBars rows=\{rows\} title=\{metric === "spesa" \? MONTH_TITLES\.comparabile : MONTH_TITLES\.spesa\}/);
+  assert.match(section, /metric=\{metric === "spesa" \? "comparabile" : "spesa"\} view=\{selected\}/, "companion chart uses the same period and rows, not a new denominator");
+  assert.match(section, /la copertura è la quota[\s\S]*spesa rendicontata con quantità confrontabile, non la quota di adozione/);
+});
+
+test("PB-V5-07: the workbook inventory and release id never render on the customer dashboard", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const review = fs.readFileSync(`${root}components/dashboard-review/pillar-b-review.tsx`, "utf8");
-  const uses = [...review.matchAll(/<WorkbookMap \/>/g)];
-  assert.equal(uses.length, 1, "rendered in one place only");
-  const before = review.slice(Math.max(0, uses[0].index - 700), uses[0].index);
-  assert.match(before, /\{props\.scope\.allOrganizations && \(/, "behind the reviewer-widening flag");
-  assert.match(before, /Interno · visibile solo ai revisori della piattaforma · rilascio \{props\.releaseId\}/);
-  assert.equal([...review.matchAll(/\{props\.releaseId\}/g)].length, 1, "the release id appears only in the internal panel");
+  const page = fs.readFileSync(`${root}app/dashboard-review/revisione-pillar-b/page.tsx`, "utf8");
+  assert.doesNotMatch(review, /WorkbookMap|workbookByStatus|workbookTally|props\.releaseId/);
+  assert.doesNotMatch(page, /releaseId=\{releaseId\}/, "the release id is used server-side, not passed to a UI component");
+  assert.doesNotMatch(page, /Nessuna release attiva|La release è attiva/, "error states use hospital-facing language");
 });
 
 test("PB-V5-04: a status with no record has no share in the composition", () => {
@@ -180,6 +182,9 @@ test("PB-V5-04: a status with no record has no share in the composition", () => 
   assert.equal(onlyRef.parts[0].observed, false);
   assert.equal(onlyRef.parts[0].share, null, "'nessun record', never 0%");
   assert.equal(onlyRef.parts[1].share, 1);
+  const source = fs.readFileSync(`${fileURLToPath(new URL("..", import.meta.url))}components/dashboard-review/pillar-b-adoption-visuals.tsx`, "utf8");
+  assert.match(source, /composizione per stato del prodotto su tutti i mesi selezionati, non una quota di adozione/);
+  assert.match(source, /non applica né la validità mensile né la data del primo uso locale/);
 });
 
 test("PB-V5-02: a share outside 0–100% or on a non-positive denominator is never drawn or clamped", () => {

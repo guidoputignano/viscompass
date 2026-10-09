@@ -155,8 +155,8 @@ test("ConcentrationPanel: figures and ranking switch on their own block; the cur
 test("VolumePanel: the table becomes a list under 49rem; the chart rows switch on the chart's own width", () => {
   const v = fn("VolumePanel");
   assert.match(v, /<div className="mt-4 flex flex-col gap-3 \[container-type:inline-size\]">/);
-  assert.match(v, /<ul aria-label="Uptake in volume per molecola e via di somministrazione" className="[^"]*empty:hidden \[@container\(min-width:49rem\)\]:hidden" translate="no">/);
-  assert.match(v, /<caption className="sr-only">Uptake in volume per molecola e via di somministrazione<\/caption>/, "the list's name is the table's caption");
+  assert.match(v, /<ul aria-label="Quota in volume per molecola e via di somministrazione" className="[^"]*empty:hidden \[@container\(min-width:49rem\)\]:hidden" translate="no">/);
+  assert.match(v, /<caption className="sr-only">Quota in volume per molecola e via di somministrazione<\/caption>/, "the list's name is the table's caption");
   assert.match(v, /<div className="hidden overflow-x-auto rounded-lg border border-border \[@container\(min-width:49rem\)\]:block">\n\s*<table className="w-full min-w-\[48rem\] text-sm" translate="no">/);
   const list = v.slice(v.indexOf("<ul aria-label="), v.indexOf("</ul>"));
   assert.match(list, /\{shown\.map\(\(v\) => \(\n\s*<li key=\{`\$\{v\.substance\}\/\$\{v\.route\}\/\$\{v\.unit\}`\}/, "every observed group, in the table's order");

@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 import { formatEur, formatNumber, formatPercent } from "../lib/dashboard-review/format.ts";
 
 // Narrow layouts, group g5 (8 October 2026): the value-uptake numeric table,
-// the two review-question tables, the withheld-groups and record-funnel tables
-// and the internal sheet inventory switch on the width of their OWN wrapper
+// the two review-question tables, and the withheld-groups and record-funnel
+// tables switch on the width of their OWN wrapper
 // (a CSS container), not on the viewport. On a phone, on a tablet beside the
 // sidebar, and in the two review cards that sit side by side from lg, the
 // tables hid most of their columns behind a sideways scroll.
@@ -182,14 +182,8 @@ test("withheld groups and record funnel: the shared cells keep a missing value a
   assert.ok(h.funnelCells(s).dropped.startsWith("−"), "the minus sign is U+2212, as before");
 });
 
-test("the internal sheet inventory takes three columns by its own width, behind the same reviewer gate", () => {
-  const map = declaration(review, "function WorkbookMap()");
-  assert.match(map, /<ul className="mt-1\.5 divide-y divide-border rounded-lg border border-border \[container-type:inline-size\]">/);
-  assert.match(map, /<li key=\{s\.id\} className="grid gap-x-4 gap-y-0\.5 px-3 py-2 text-xs \[@container\(min-width:30rem\)\]:grid-cols-\[7rem_1fr_1fr\]">/);
-  assert.doesNotMatch(map, /sm:grid-cols-\[7rem_1fr_1fr\]/);
-  const uses = [...review.matchAll(/<WorkbookMap \/>/g)];
-  assert.equal(uses.length, 1);
-  assert.match(review.slice(Math.max(0, uses[0].index - 700), uses[0].index), /\{props\.scope\.allOrganizations && \(/);
+test("the internal sheet inventory does not render on the hospital-facing review page", () => {
+  assert.doesNotMatch(review, /WorkbookMap|workbookByStatus|workbookTally/);
 });
 
 test("every narrow list in the two files has its wide twin at the same threshold", () => {
@@ -206,8 +200,4 @@ test("every narrow list in the two files has its wide twin at the same threshold
     }
     assert.equal(pairs.length, narrow.length, `${name}: every switch is checked`);
   }
-});
-
-test("the reviewer inventory: long sheet ids wrap inside their column instead of printing over the next one", () => {
-  assert.match(review, /<span className="font-mono text-muted-foreground \[overflow-wrap:anywhere\]">\{s\.id\} · \{s\.sheet\}<\/span>/);
 });

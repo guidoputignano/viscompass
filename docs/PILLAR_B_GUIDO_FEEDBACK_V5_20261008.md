@@ -210,6 +210,21 @@ Older charts and tables still scroll sideways on a phone. They predate v5, are m
 - the live passes as Azienda and as Regione;
 - Guido/Alberto's interpretation checks (PB-V5-04, PB-V5-05).
 
+### Continuation, 9 October 2026 (local changes; supersedes the older descriptions above)
+
+This section records subsequent changes without rewriting the 8 October evidence. These changes are **not yet deployed or visually checked live**.
+
+| ID | What changed | Status / remaining proof |
+| --- | --- | --- |
+| **PB-V5-04** | The product owner chose to **keep** the 100% chart as a clearly labelled **spending composition**. It is distinct from both uptake measures: it does not apply the validity or first-local-use month rules. No formula or denominator was changed. | Product decision resolved. Guido/Alberto's interpretation check still required. |
+| **PB-V5-06** | Replaced additional visible technical terms: the empty/error state no longer says `release`; the volume panel says `quota in volume` rather than `uptake`; its coverage chart now distinguishes the measure's scope from all reported spend. | Local code/test pass; live copy check pending. Other domain-specific uses of `Pillar B` and `uptake` still need a final editorial pass. |
+| **PB-V5-07** | Removed the 25-sheet inventory and release identifier from the **entire hospital-facing page**, including platform reviewer sessions. The internal workbook map remains in code and documentation for the delivery team, not rendered to any account. | Local tests pin absence; live per-role check pending. This replaces the earlier reviewer-only treatment. |
+| **PB-V5-11** | The monthly view now offers a paired spend/comparable-quantity-coverage chart on the same months and filters, with independent scales explicitly disclosed; 2026 has no coverage chart. Each monthly chart also has an on-demand exact-value table, keeping no-record, non-calculable and genuine zero distinct. It does **not** label coverage as biosimilar uptake. | Local tests pass; visual/interaction check at desktop and phone width pending. Other prototype ideas retain the triage gates above. |
+
+**Still open:** PB-V5-01 ordinary Azienda access to a Region aggregate needs an explicit disclosure decision and, if approved, an aggregate-only access contract. PB-V5-05 needs Guido/Alberto to explain an example review row. PB-V5-08 and 09 still require their evidence, methodology decisions and migration review; PB-V5-10 still needs a decision on whether a non-ranking sensitivity view is useful. Nothing in this continuation promotes their frozen or partial figures to live clinical/financial claims.
+
+**Local verification:** 475 tests passed, 8 intentionally skipped, 0 failed; TypeScript, changed-file lint, production build and `git diff --check` passed. This is code/build evidence, **not** an authenticated live visual or per-role data reconciliation of the new view.
+
 ### Phone and tablet layouts for the whole page (deployment 65dbecb, 8 October 2026)
 
 The older charts and tables now switch layout on the width of their own card (CSS container queries), not the viewport, so tablets beside the sidebar get the right layout too. Tables become stacked lists below their threshold; wide drawings get a narrow drawing; the wide layouts are unchanged from their thresholds up.

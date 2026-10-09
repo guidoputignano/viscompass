@@ -96,6 +96,22 @@ export function CalendarPanel({ rows, initial, initialView, title }: {
           options={CALENDAR_METRICS.filter((m) => selected !== "2026" || m !== "comparabile").map((m) => ({ value: m, label: CALENDAR_METRIC_LABELS[m] }))} />
       </div>
       <MonthlyBars rows={rows} title={metric === "spesa" ? title : MONTH_TITLES[metric]} metric={metric} view={selected} />
+      {selected !== "2026" && metric !== "perimetro" && (
+        <details className="rounded-xl border border-border bg-card p-4" open={selected === "confronto" && metric === "spesa"}>
+          <summary className="cursor-pointer text-sm font-semibold text-primary">
+            Leggi insieme spesa e copertura, negli stessi mesi
+          </summary>
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            I due grafici seguono gli stessi mesi e filtri. Hanno scale diverse: la copertura è la quota
+            di spesa rendicontata con quantità confrontabile, non la quota di adozione dei biosimilari.
+            Un mese senza record resta vuoto; il 2026, privo di quantità confrontabile, non entra in questa lettura.
+          </p>
+          <div className="mt-3">
+            <MonthlyBars rows={rows} title={metric === "spesa" ? MONTH_TITLES.comparabile : MONTH_TITLES.spesa}
+              metric={metric === "spesa" ? "comparabile" : "spesa"} view={selected} />
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -480,7 +496,7 @@ export function VolumePanel({ rows, routes, initial }: {
       </div>}
       {/* NARROW (under 49rem: the table's 48rem min-width and its border): one
           item per (principio attivo, via, unità), in the table's order. */}
-      <ul aria-label="Uptake in volume per molecola e via di somministrazione" className="divide-y divide-border rounded-lg border border-border text-xs empty:hidden [@container(min-width:49rem)]:hidden" translate="no">
+      <ul aria-label="Quota in volume per molecola e via di somministrazione" className="divide-y divide-border rounded-lg border border-border text-xs empty:hidden [@container(min-width:49rem)]:hidden" translate="no">
         {shown.map((v) => (
           <li key={`${v.substance}/${v.route}/${v.unit}`} className="px-3 py-2.5">
             <p className="break-words font-medium text-foreground">{v.substance}</p>
@@ -509,7 +525,7 @@ export function VolumePanel({ rows, routes, initial }: {
       </ul>
       <div className="hidden overflow-x-auto rounded-lg border border-border [@container(min-width:49rem)]:block">
         <table className="w-full min-w-[48rem] text-sm" translate="no">
-          <caption className="sr-only">Uptake in volume per molecola e via di somministrazione</caption>
+          <caption className="sr-only">Quota in volume per molecola e via di somministrazione</caption>
           <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>

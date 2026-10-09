@@ -31,7 +31,6 @@ import {
   type ConcentrationVariants, type TrendVariants,
 } from "@/components/dashboard-review/pillar-b-panels";
 import type { ConcentrationYear, PerimeterMode, ViewOptions } from "@/lib/dashboard-review/pillar-b/view-options";
-import { WORKBOOK_STATUS_LABELS, workbookByStatus, workbookTally } from "@/lib/dashboard-review/pillar-b/workbook-map";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import type { CoverageNotice, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
 import type { UptakeWithWithheld, WithheldRow } from "@/lib/dashboard-review/pillar-b/rpc";
@@ -46,7 +45,6 @@ import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
 import type { ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 
 export interface PillarBReviewProps {
-  releaseId: string;
   scope: {
     perimeterLabel: string;
     reviewerScopeUnavailable: boolean;
@@ -172,45 +170,6 @@ function Stat({ label, value, detail, accent }: { label: string; value: string; 
       <p className="font-display my-4 break-words text-3xl font-semibold tabular-nums leading-tight">{value}</p>
       {detail && <p className={"text-xs leading-relaxed " + (accent ? "text-teal-100" : "text-muted-foreground")}>{detail}</p>}
     </div>
-  );
-}
-
-/**
- * The 25 workbook sheets and where each one stands. Shown closed; a reader
- * who asks "is all of the workbook here?" gets the answer sheet by sheet.
- */
-function WorkbookMap() {
-  const tally = workbookTally();
-  return (
-    <details className="rounded-xl border border-border bg-card p-4">
-      <summary className="cursor-pointer text-sm font-semibold text-foreground">
-        Il workbook, foglio per foglio · {formatNumber(tally.implemented, 0)} {tally.implemented === 1 ? "implementato" : "implementati"} · {formatNumber(tally.implementable, 0)} {tally.implementable === 1 ? "implementabile" : "implementabili"} · {formatNumber(tally.blocked, 0)} {tally.blocked === 1 ? "bloccato" : "bloccati"} · {formatNumber(tally.evidence, 0)} di evidenza
-      </summary>
-      <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-        Venticinque fogli: non tutti sono analisi, e non tutte le analisi possono essere calcolate sui dati del rilascio.
-        Lo stato è quello del contenuto intero del foglio; dove il titolo è vivo e il dettaglio no, la nota lo dice.
-        Niente è promosso in silenzio: un risultato statistico congelato non diventa una cifra viva finché non è importato con la sua provenienza.
-      </p>
-      <div className="mt-3 space-y-4">
-        {workbookByStatus().map(({ status, sheets }) => sheets.length === 0 ? null : (
-          <div key={status}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{WORKBOOK_STATUS_LABELS[status]} · {formatNumber(sheets.length, 0)}</p>
-            {/* Three columns only where each text column keeps about 10rem:
-                the list's own width decides, since on a tablet the sidebar and
-                the panel's padding leave far less than the viewport suggests. */}
-            <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border [container-type:inline-size]">
-              {sheets.map((s) => (
-                <li key={s.id} className="grid gap-x-4 gap-y-0.5 px-3 py-2 text-xs [@container(min-width:30rem)]:grid-cols-[7rem_1fr_1fr]">
-                  <span className="font-mono text-muted-foreground [overflow-wrap:anywhere]">{s.id} · {s.sheet}</span>
-                  <span className="text-foreground">{s.holds}</span>
-                  <span className="text-muted-foreground">{s.where}{s.note ? <> · <em>{s.note}</em></> : null}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </details>
   );
 }
 
@@ -604,7 +563,7 @@ export function PillarBReview(props: PillarBReviewProps) {
         {(adoption.volume.length > 0 || adoption.uptake.withheldRows > 0) && <Sub title="In volume · dove la quantità ha un'unità">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              L&apos;uptake in volume è calcolato per (Azienda, principio attivo, via di
+              La quota in volume è calcolata per (Azienda, principio attivo, via di
               somministrazione) su una quantità normalizzata, e soltanto dove la base
               della quantità è risolta. La quota trattenuta qui sotto è il complemento
               esatto a livello di record, non di gruppo.
@@ -623,7 +582,7 @@ export function PillarBReview(props: PillarBReviewProps) {
             </div>}
             <dl className="mt-3 grid gap-3 sm:grid-cols-3">
               {adoption.groupCount > 0 && <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Gruppi con uptake calcolabile</dt>
+                <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Gruppi con quota in volume calcolabile</dt>
                 <dd className="font-display mt-1 text-base text-foreground">{formatNumber(adoption.groupCount, 0)}</dd>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">(Azienda, principio attivo, via, unità) · {years.length === 2 ? "presenti in almeno uno dei due anni" : String(years[0])}</p>
               </div>}
@@ -835,15 +794,6 @@ export function PillarBReview(props: PillarBReviewProps) {
             </div>
           </details>
         </div>
-        {/* INTERNAL (PB-V5-07): the analysis inventory and the release id stay
-            with the platform reviewers; an Azienda or Regione page never shows
-            them. */}
-        {props.scope.allOrganizations && (
-          <div className="rounded-xl border border-dashed border-border p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Interno · visibile solo ai revisori della piattaforma · rilascio {props.releaseId}</p>
-            <div className="mt-2"><WorkbookMap /></div>
-          </div>
-        )}
       </Group>
     </div>
   );
