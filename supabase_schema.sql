@@ -296,6 +296,11 @@ create policy "upload for own approved org" on uploads for insert
 -- "ranking not available for this metric" instead of a fabricated number.
 -- If/when those formulas are confirmed, extend the branch below — don't
 -- guess at them here.
+--
+-- search_path names pg_temp LAST: the body reads its tables unqualified, as
+-- its owner, and with pg_temp left out PostgreSQL would search a session's
+-- temporary schema first. Databases built before this was stated here get it
+-- from supabase/migrations/20261009170000_security_definer_search_path_temp_last.sql.
 -- ============================================================
 create or replace function my_objective_rank(p_metric text)
 returns table(
@@ -307,7 +312,7 @@ returns table(
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   v_caller_org_code text;
@@ -501,6 +506,8 @@ grant select on communication_consents to authenticated;
 --
 -- Keep this section in sync with:
 -- supabase/migrations/20260831224500_access_control_center.sql
+-- and, for the functions' search_path (pg_temp last), with:
+-- supabase/migrations/20261009170000_security_definer_search_path_temp_last.sql
 -- ============================================================
 alter table user_organizations
   add column if not exists requested_role text,
@@ -560,7 +567,7 @@ create or replace function request_organization_membership(
 returns bigint
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   v_user_id uuid := auth.uid();
@@ -602,7 +609,7 @@ create or replace function accept_organization_invitation(p_invitation_id uuid)
 returns text
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   v_user_id uuid := auth.uid();
@@ -654,7 +661,7 @@ create or replace function decline_organization_invitation(p_invitation_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   v_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
@@ -675,7 +682,7 @@ create or replace function admin_decide_organization_membership(
 returns text
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   v_membership user_organizations%rowtype;
@@ -718,7 +725,7 @@ create or replace function admin_revoke_organization_membership(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public, pg_temp
 as $$
 begin
   if auth.role() <> 'service_role' then raise exception 'Service role required'; end if;

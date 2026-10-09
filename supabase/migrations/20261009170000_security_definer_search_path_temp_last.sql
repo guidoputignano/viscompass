@@ -41,12 +41,13 @@
 -- public.user_organizations, public.organization_invitations, %rowtype
 -- included). The temporary schema can reach only the built-in type names in
 -- their declarations (a temporary table named uuid makes the session's own
--- call fail, nothing more). But supabase_schema.sql still carries their earlier
+-- call fail, nothing more). But supabase_schema.sql carries their earlier
 -- bodies, which name the same tables unqualified: in a database built from
--- that file alone, a temporary organization_invitations holding an invitation
--- nobody sent makes accept_organization_invitation() write an APPROVED row
--- into the real user_organizations. ALTER FUNCTION keeps whichever body is
--- installed, so the same statement closes both.
+-- that file alone (as it stood before it stated pg_temp last), a temporary
+-- organization_invitations holding an invitation nobody sent makes
+-- accept_organization_invitation() write an APPROVED row into the real
+-- user_organizations. ALTER FUNCTION keeps whichever body is installed, so
+-- the same statement closes both.
 --
 -- THE FIX. ALTER FUNCTION ... SET search_path = pg_catalog, public, pg_temp
 -- for all six. pg_catalog was already searched before public (implicitly,
@@ -62,6 +63,11 @@
 -- supabase_schema.sql bodies of the other five; recreating them would replace
 -- whatever body is installed with this repository's copy of it. An ALTER
 -- changes the one setting and nothing else.
+--
+-- supabase_schema.sql. Its six headers now state the same search_path, bodies
+-- untouched, so a database built from it is hardened from the start and this
+-- migration only re-sets the value already there. Databases built from the
+-- file before that change, production among them, need the ALTERs below.
 --
 -- LATER MIGRATIONS. CREATE OR REPLACE resets a function's SET clauses. A later
 -- migration that recreates any SECURITY DEFINER function must state pg_temp

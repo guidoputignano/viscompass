@@ -10,9 +10,10 @@ import { fileURLToPath } from "node:url";
 // which reads canonical_fact as its owner, past RLS, any membership the session
 // chose. The behaviour, before and after, is proven in PGlite by
 // outputs/pillar-b/logs/b52 (outside this public repository). Here the
-// migration source is pinned, and every later file is held to it: CREATE OR
-// REPLACE resets a function's SET clauses, so one careless recreation would
-// quietly undo the fix for that function.
+// migration source is pinned, supabase_schema.sql is held to the same path
+// (a fresh build must not reopen what the migration closed), and every later
+// file is held to it: CREATE OR REPLACE resets a function's SET clauses, so
+// one careless recreation would quietly undo the fix for that function.
 
 const root = new URL("../", import.meta.url);
 const read = (rel) => fs.readFileSync(fileURLToPath(new URL(rel, root)), "utf8").replace(/\r\n/g, "\n");
@@ -101,12 +102,21 @@ test("the parser sees every function every file creates", () => {
   assert.ok(FILES.includes(MIGRATION), "the migration under test is in supabase/migrations");
 });
 
-test("before this migration, the six were SECURITY DEFINER and searched pg_temp first (search_path = public)", () => {
-  const before = finalState(ALL.filter((s) => FILES.indexOf(s.file) < FILES.indexOf(MIGRATION)));
-  for (const name of Object.keys(SIX)) {
-    const s = before.get(name);
+test("20260831224500, applied and untouched, installs the five access functions searching pg_temp first (search_path = public)", () => {
+  const installed = finalState(parse(read(ACCESS), ACCESS));
+  for (const name of Object.keys(SIX).filter((n) => SIX[n].file === ACCESS)) {
+    const s = installed.get(name);
     assert.deepEqual({ secdef: s?.secdef, searchPath: s?.searchPath }, { secdef: true, searchPath: "public" }, name);
   }
+});
+
+test("supabase_schema.sql states the migration's search_path for all six, so a fresh build agrees with a migrated database", () => {
+  const base = parse(read(SCHEMA), SCHEMA).filter((s) => s.kind === "create" && s.name in SIX);
+  assert.deepEqual(base.map((s) => s.name).sort(), Object.keys(SIX).sort(), "each of the six is created once in the file");
+  for (const s of base) {
+    assert.deepEqual({ secdef: s.secdef, searchPath: s.searchPath }, { secdef: true, searchPath: "pg_catalog, public, pg_temp" }, s.name);
+  }
+  assert.deepEqual(offenders(finalState(parse(read(SCHEMA), SCHEMA))), [], "no SECURITY DEFINER function in the file searches pg_temp first");
 });
 
 test("after the last migration, every SECURITY DEFINER function names pg_temp last", () => {
@@ -154,14 +164,14 @@ test("public stays in the path: an installed body may name its tables unqualifie
     const base = parse(read(SCHEMA), SCHEMA).find((s) => s.kind === "create" && s.name === name);
     assert.ok(unqualified(base.body).size > 0, `${name} (supabase_schema.sql) names a relation unqualified`);
   }
-  // The old path was "public", with pg_catalog implicitly before it and pg_temp
-  // implicitly before both. The new one states pg_catalog where it already was,
-  // keeps the old path after it unchanged, and moves pg_temp from first to last.
-  const before = finalState(ALL.filter((s) => FILES.indexOf(s.file) < FILES.indexOf(MIGRATION)));
+  // The old path was "public" (20260831224500 still states it), with
+  // pg_catalog implicitly before it and pg_temp implicitly before both. The new
+  // one states pg_catalog where it already was, keeps public after it, and
+  // moves pg_temp from first to last.
   for (const name of Object.keys(SIX)) {
     const path = after.get(name).searchPath.split(", ");
     assert.deepEqual([path[0], path.at(-1)], ["pg_catalog", "pg_temp"], name);
-    assert.equal(path.slice(1, -1).join(", "), before.get(name).searchPath, `${name}: the old path, in between`);
+    assert.equal(path.slice(1, -1).join(", "), "public", `${name}: the old path, in between`);
   }
 });
 
