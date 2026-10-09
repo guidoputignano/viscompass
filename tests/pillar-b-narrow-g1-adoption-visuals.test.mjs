@@ -180,7 +180,7 @@ test("no viewport switch is left: every layout switch is a container query", () 
   const hides = new Set([...src.matchAll(/\[@container\(min-width:([\d.]+rem)\)\]:hidden/g)].map((m) => m[1]));
   const shows = new Set([...src.matchAll(/\[@container\(min-width:([\d.]+rem)\)\]:(?:block|inline)\b/g)].map((m) => m[1]));
   assert.deepEqual([...hides].sort(), [...shows].sort());
-  assert.deepEqual([...hides].sort(), ["20.125rem", "26.25rem", "34.125rem", "40.125rem", "40rem", "47.5rem"]);
+  assert.deepEqual([...hides].sort(), ["20.125rem", "26.25rem", "27.125rem", "34.125rem", "40.125rem", "40rem", "47.5rem"]);
 });
 
 test("(a) the dumbbell: the 280-unit drawing below a 47.5rem card, the 760-unit one from there, with the legend's position words", () => {
@@ -249,7 +249,7 @@ test("(b) the timeline's exact values: a stacked list below 40.125rem, the same 
   assert.ok(ul.includes(`<dd class="whitespace-nowrap text-right font-mono text-foreground">${formatPercent(0.4725)}</dd>`));
 });
 
-test("(c) the channel table: stacked below its own min-width plus border, 34.125rem with the Region, 20.125rem without", () => {
+test("(c) the channel table: stacked below its own min-width plus border, 34.125rem with the Region, 27.125rem with its shares only, 20.125rem without", () => {
   const withRegion = html(V.ChannelStack, { rows: OWN, years: [2024, 2025], selectedLabel: "Azienda X", comparator: { label: "Regione · 4 Aziende", aziende: 4, rows: REGION } });
   const capR = "Spesa e quota per canale, Azienda selezionata e Regione, per anno";
   const ulR = assertListMatchesTable(withRegion, `<ul aria-label="${capR}" class="mt-2 divide-y divide-border rounded-lg border border-border text-xs [@container(min-width:34.125rem)]:hidden" translate="no">`, "channels + Region");
@@ -262,6 +262,16 @@ test("(c) the channel table: stacked below its own min-width plus border, 34.125
   const ulO = assertListMatchesTable(own, '<ul aria-label="Spesa e quota per canale, per anno" class="mt-2 divide-y divide-border rounded-lg border border-border text-xs [@container(min-width:20.125rem)]:hidden" translate="no">', "channels");
   assert.ok(own.includes('<div class="mt-2 hidden overflow-x-auto rounded-lg border border-border [@container(min-width:20.125rem)]:block"><table class="w-full text-sm min-w-[20rem]" translate="no">'));
   assert.deepEqual(listItems(ulO)[0].labels, ["Spesa", "Quota"]);
+
+  // An Azienda account: the Region's pooled shares, no amounts (PB-V5-01).
+  const shares = html(V.ChannelStack, { rows: OWN, years: [2024, 2025], selectedLabel: "Azienda X",
+    regionalShares: { label: "Regione", years: [{ year: 2024, shares: { CO: 0.2, DD: 0.5, DPC: 0.3 }, why: null }, { year: 2025, shares: null, why: "non disponibile: motivo" }] } });
+  const capS = "Spesa e quota per canale della tua Azienda e quota della Regione, per anno";
+  const ulS = assertListMatchesTable(shares, `<ul aria-label="${capS}" class="mt-2 divide-y divide-border rounded-lg border border-border text-xs [@container(min-width:27.125rem)]:hidden" translate="no">`, "channels + Region shares");
+  assert.ok(shares.includes('<div class="mt-2 hidden overflow-x-auto rounded-lg border border-border [@container(min-width:27.125rem)]:block"><table class="w-full text-sm min-w-[27rem]" translate="no">'));
+  assert.deepEqual(listItems(ulS)[0].labels, ["Azienda X", "Quota Azienda", "Quota Regione"]);
+  assert.deepEqual(listItems(ulS)[0].values.slice(2), [formatPercent(0.2)]);
+  assert.deepEqual(listItems(ulS)[3].values.slice(2), ["non disponibile"], "a withheld year is said, never 0");
 });
 
 test("(c) MixBar: the name above the bar below a 40rem card; segment labels by the BAR's width (26.25rem), in an ink that clears 4.5:1", () => {

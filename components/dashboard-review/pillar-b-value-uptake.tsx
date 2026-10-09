@@ -17,16 +17,35 @@ import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/
 import type { SubstanceRow, ValueUptakeView } from "@/lib/dashboard-review/pillar-b/value-uptake";
 import type { DumbbellRow, TimelineModel } from "@/lib/dashboard-review/pillar-b/adoption";
 import { DumbbellUptakeChart, FirstUseTimeline } from "@/components/dashboard-review/pillar-b-adoption-visuals";
+import { REGIONAL_LABEL, REGIONAL_QUOTA2_LABEL, type RegionalShare, type RegionalUptakeProps } from "@/lib/dashboard-review/pillar-b/regional-comparator";
+
+/**
+ * The Region's pooled quota beside an Azienda's own (PB-V5-01): a share, or
+ * why there is none. Never a zero standing in for "not available".
+ */
+function RegionalLine({ label, regional }: { label: string; regional: RegionalShare }) {
+  return (
+    <p className="mt-2 border-t border-border pt-2 text-[11px] leading-relaxed text-muted-foreground">
+      <strong className="text-foreground">{label}:</strong>{" "}
+      {regional.available
+        ? <span className="font-mono text-foreground">{formatPercent(regional.share)}</span>
+        : regional.why}
+    </p>
+  );
+}
 
 /** Both denominators, side by side. Neither is shown without the other. */
 function MeasureCard({
-  title, months, measure, accent,
+  title, months, measure, accent, regional = null, regionalLabel = REGIONAL_LABEL,
 }: {
   title: string;
   /** Which months the two sums count: the one thing that differs between the cards. */
   months: string;
   accent?: boolean;
   measure: ValueUptakeView["dateValid"];
+  /** The Region's pooled quota of the same kind, for an Azienda account. */
+  regional?: RegionalShare | null;
+  regionalLabel?: string;
 }) {
   return (
     <div className={
@@ -36,7 +55,9 @@ function MeasureCard({
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {title}
       </p>
-      <p className="font-display mt-1 text-2xl text-foreground">
+      {/* Beside a regional line, the big figure says whose it is. */}
+      {regional && <p className="mt-1 text-[11px] text-muted-foreground">La tua Azienda</p>}
+      <p className={"font-display text-2xl text-foreground " + (regional ? "" : "mt-1")}>
         {measure.share === null ? "n/d" : formatPercent(measure.share)}
       </p>
       {/* THE FORMULA, WITH ITS NUMBERS: the reviewers could not tell what the
@@ -57,6 +78,7 @@ function MeasureCard({
           <dd className="font-mono text-foreground">{formatEur(measure.reference)}</dd>
         </div>
       </dl>
+      {regional && <RegionalLine label={regionalLabel} regional={regional} />}
     </div>
   );
 }
@@ -132,10 +154,15 @@ function ShareBar({ share }: { share: number | null }) {
 }
 
 export function PillarBValueUptake({
-  view, dumbbell, timeline, timelineFollowsAzienda = true, scopeNote = null, substanceHref, resetHref, periodScope,
+  view, dumbbell, timeline, timelineFollowsAzienda = true, scopeNote = null, substanceHref, resetHref, periodScope, regional = null,
 }: {
   /** The scope and period these figures cover, for every exact-value label. */
   periodScope: string;
+  /**
+   * An Azienda account only: the Region's pooled quotas (or why not) and the
+   * sentence saying how they are formed. Shares only, never an amount.
+   */
+  regional?: RegionalUptakeProps | null;
   view: ValueUptakeView;
   dumbbell: DumbbellRow[];
   timeline: TimelineModel;
@@ -157,6 +184,10 @@ export function PillarBValueUptake({
   // fraction of the spend actually held out of both measures.
   const held = view.boundary.total + view.unknown.total + view.outside.total;
   const bothMeasuresAvailable = view.dateValid.share !== null && view.locallyObserved.share !== null;
+  // `regional` is given to an Azienda account only; a regional VALUE (or its
+  // reason) is drawn only when the comparator answered. In the note-only state
+  // (not deployed, a filter, a failed read) no sentence may speak of one.
+  const regionalShown = regional !== null && (regional.quota1 !== null || regional.quota2 !== null);
   const visibleRows = view.rows.filter((r) => r.dateValid.share !== null || r.locallyObserved.share !== null);
   const excludedRows = view.rows.length - visibleRows.length;
   // The table footer totals the rows the table lists; the banner above keeps
@@ -181,31 +212,55 @@ export function PillarBValueUptake({
           title="Quota 1 · su mesi a validità riconosciuta"
           months="ogni mese in cui un biosimilare della sostanza era già autorizzato in EU (il riferimento era già «un riferimento»), nel periodo e nei canali selezionati."
           measure={view.dateValid}
+          regional={regional?.quota1 ?? null}
         />
         <MeasureCard
           accent
           title="Quota 2 · su mesi con biosimilare osservato qui"
-          months="solo i mesi dal primo biosimilare della sostanza dispensato nell'ambito visibile (l'Azienda selezionata, o la Regione) in poi; i mesi validi precedenti escono da entrambi gli importi della formula. Non misura la possibilità clinica di sostituzione."
+          months={regional
+            ? "solo i mesi dal primo biosimilare della sostanza dispensato nella tua Azienda in poi; i mesi validi precedenti escono da entrambi gli importi della formula. Non misura la possibilità clinica di sostituzione."
+            : "solo i mesi dal primo biosimilare della sostanza dispensato nell'ambito visibile (l'Azienda selezionata, o la Regione) in poi; i mesi validi precedenti escono da entrambi gli importi della formula. Non misura la possibilità clinica di sostituzione."}
           measure={view.locallyObserved}
+          regional={regional?.quota2 ?? null}
+          regionalLabel={REGIONAL_QUOTA2_LABEL}
         />
       </div> : <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        Le due quote si leggono solo insieme, e in questa selezione non sono entrambe calcolabili:{" "}
+        {regional ? "Le due quote della tua Azienda si leggono solo insieme" : "Le due quote si leggono solo insieme"}, e in questa selezione non sono entrambe calcolabili:{" "}
         {view.dateValid.share === null && "nessun mese a validità riconosciuta nel denominatore"}
         {view.dateValid.share === null && view.locallyObserved.share === null && "; "}
         {view.locallyObserved.share === null && "nessuna spesa nei mesi successivi al primo uso locale del biosimilare, entro il periodo e i canali selezionati"}.
         {visibleRows.length > 0 && " Il dettaglio per principio attivo mostra le misure disponibili; un trattino indica un denominatore non osservato, non uno zero."}
       </p>}
+      {/* THE REGIONAL COMPARATOR, said once for both cards: how it is formed,
+          or why it is not shown. Without the Azienda's own pair it still
+          states the Region's values, each beside its measure's name. */}
+      {regional && (
+        <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          {!bothMeasuresAvailable && (regional.quota1 || regional.quota2) && (
+            <p className="mb-1.5 text-foreground">
+              Quota 1 · {REGIONAL_LABEL}:{" "}
+              {regional.quota1 === null ? "—" : regional.quota1.available ? <span className="font-mono">{formatPercent(regional.quota1.share)}</span> : regional.quota1.why}
+              {" · "}Quota 2 · {REGIONAL_QUOTA2_LABEL}:{" "}
+              {regional.quota2 === null ? "—" : regional.quota2.available ? <span className="font-mono">{formatPercent(regional.quota2.share)}</span> : regional.quota2.why}
+            </p>
+          )}
+          <p>{regional.note}</p>
+        </div>
+      )}
       {gap !== null && (
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Le due quote differiscono di{" "}
+          {regional ? "Le due quote della tua Azienda differiscono di" : "Le due quote differiscono di"}{" "}
           <strong className="text-foreground">{formatNumber(Math.abs(gap) * 100, 1)}</strong> punti percentuali.
           La formula è la stessa, ma cambiano i mesi inclusi: può variare sia la spesa biosimilare al numeratore sia quella
           di riferimento nel denominatore. La quota 1 chiede «da quando un
           biosimilare esisteva, quanta spesa è andata al biosimilare?»; la quota 2 chiede
           «da quando un biosimilare è stato usato qui, quanta?». Nessuna delle due è
-          «quella giusta»: pubblicarne una sola descriverebbe male l&apos;adozione. La
-          seconda è calcolata sull&apos;ambito visibile a chi guarda, quindi per
-          un&apos;Azienda è il suo primo passaggio, non quello della Regione.
+          «quella giusta»: pubblicarne una sola descriverebbe male l&apos;adozione.{" "}
+          {regionalShown
+            ? "Per la tua Azienda la quota 2 conta dal suo primo uso; nel valore della Regione, ciascuna Azienda conta dal proprio."
+            : regional
+              ? "Per la tua Azienda la quota 2 conta dal suo primo uso."
+              : "La seconda è calcolata sull'ambito visibile a chi guarda, quindi per un'Azienda è il suo primo uso, non quello della Regione."}
         </p>
       )}
       {bothMeasuresAvailable && <WorkedExample view={view} />}

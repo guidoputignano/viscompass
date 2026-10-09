@@ -11,6 +11,7 @@ import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/f
 import type { DumbbellRow, TimelineModel, TimelineRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import { dumbbellGapPoints, dumbbellLead, dumbbellMarkLabel, dumbbellPlottable, monthKeyLabel, timelineLead } from "@/lib/dashboard-review/pillar-b/adoption";
 import { channelYearMix, perimeterComposition, type AziendaPanelRow, type ChannelMixRow, type FacetPerimeter } from "@/lib/dashboard-review/pillar-b/facets";
+import type { RegionalMixYear } from "@/lib/dashboard-review/pillar-b/regional-comparator";
 import { aziendaMetricValue, type AziendaMetric } from "@/lib/dashboard-review/pillar-b/view-options";
 
 const ink = "hsl(var(--foreground))";
@@ -462,9 +463,13 @@ function segmentText(channel: string, w: number, full: number, shareOnly: number
   return w > full ? `${channel} ${formatPercent(w / 100)}` : w > shareOnly ? formatPercent(w / 100) : "";
 }
 
-function MixBar({ label, mix, sub }: { label: string; mix: ReturnType<typeof channelYearMix>[number]; sub?: boolean }) {
+function MixBar({ label, mix, sub, shareOnly }: { label: string; mix: ReturnType<typeof channelYearMix>[number]; sub?: boolean; shareOnly?: boolean }) {
   // Without a comparator the row label IS the year: name it once.
   const who = label === String(mix.year) ? label : `${label}, ${mix.year}`;
+  // A share-only bar (the Region for an Azienda account) has no amount to name.
+  const segmentTitle = (p: (typeof mix.parts)[number]) => shareOnly
+    ? `${who} · ${p.channel}: ${p.share === null ? "—" : formatPercent(p.share)}`
+    : `${who} · ${p.channel}: ${p.eur === null ? "nessun record" : `${formatEur(p.eur)} · ${formatPercent(p.share ?? 0)}`}`;
   // Name beside the bar from 40rem of card (ChannelStack's Frame is the
   // container); above it below that, so the bar keeps the card's width.
   return <div className="grid gap-1.5 [@container(min-width:40rem)]:grid-cols-[13rem_1fr] [@container(min-width:40rem)]:items-center [@container(min-width:40rem)]:gap-3">
@@ -474,7 +479,7 @@ function MixBar({ label, mix, sub }: { label: string; mix: ReturnType<typeof cha
       : <div role="img" aria-label={`Composizione per canale, ${who}: ${mix.parts.map((p) => `${p.channel} ${p.share === null ? "nessun record" : formatPercent(p.share)}`).join(", ")}`} className={"flex overflow-hidden rounded-lg bg-muted/40 " + (sub ? "h-5" : "h-7")}>
           {mix.parts.map((p) => {
             const w = p.share === null ? 0 : Math.max(0, p.share) * 100;
-            return <div key={p.channel} title={`${who} · ${p.channel}: ${p.eur === null ? "nessun record" : `${formatEur(p.eur)} · ${formatPercent(p.share ?? 0)}`}`} className="flex items-center justify-center overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#0b1f28]" style={{ width: `${w}%`, background: CHANNEL_COLORS[p.channel] ?? muted }}>
+            return <div key={p.channel} title={segmentTitle(p)} className="flex items-center justify-center overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#0b1f28]" style={{ width: `${w}%`, background: CHANNEL_COLORS[p.channel] ?? muted }}>
               <span className="[@container(min-width:26.25rem)]:hidden">{segmentText(p.channel, w, 24, 14)}</span>
               <span className="hidden [@container(min-width:26.25rem)]:inline">{segmentText(p.channel, w, 16, 8)}</span>
             </div>;
@@ -483,49 +488,94 @@ function MixBar({ label, mix, sub }: { label: string; mix: ReturnType<typeof cha
   </div>;
 }
 
-export function ChannelStack({ rows, years, selectedLabel = null, comparator = null, comparatorNote = null }: {
+/** A Region bar that is withheld: the row keeps its place and says why. */
+function MixWithheld({ label, why }: { label: string; why: string }) {
+  return <div className="grid gap-1.5 [@container(min-width:40rem)]:grid-cols-[13rem_1fr] [@container(min-width:40rem)]:items-center [@container(min-width:40rem)]:gap-3">
+    <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="text-[11px] text-muted-foreground">{why}</div>
+  </div>;
+}
+
+/** The Region's pooled shares of one year as a bar model: shares, no amounts. */
+function sharesMix(year: number, shares: Record<string, number>, channels: ReadonlyArray<string>): ReturnType<typeof channelYearMix>[number] {
+  return { year, total: 1, drawable: true, parts: channels.map((channel) => ({ channel, eur: null, share: shares[channel] ?? null })) };
+}
+
+export function ChannelStack({ rows, years, selectedLabel = null, comparator = null, comparatorNote = null, regionalShares = null }: {
   rows: ChannelMixRow[];
   years: ReadonlyArray<number>;
   /** The selected Azienda's name as this viewer may see it; null when none is selected. */
   selectedLabel?: string | null;
   /** The Region under the same years, channels and molecule (reviewer / Regione only). */
   comparator?: { label: string; aziende: number; rows: ChannelMixRow[] } | null;
-  /** Why no comparator is drawn, when that needs saying (an Azienda account). */
+  /** Why no comparator is drawn, or how the Azienda's regional bars are formed. */
   comparatorNote?: string | null;
+  /**
+   * An Azienda account: the Region's POOLED channel shares per year, from the
+   * aggregate-only function (three channels, no filter). Shares only; a year
+   * withheld by the disclosure rule says why.
+   */
+  regionalShares?: { label: string; years: ReadonlyArray<RegionalMixYear> } | null;
 }) {
   const total = rows.reduce((s, r) => s + r.spend_eur, 0);
+  const empty = rows.length === 0 || total === 0;
+  // The reviewer / Regione comparator (amounts) and the Azienda's (shares)
+  // never meet: an Azienda account has no amounts of the Region to show. With
+  // no bar of its own there is nothing to set the Region's beneath, so the
+  // card stays the Azienda's alone and does not describe a comparison.
+  const shareRegion = comparator || empty ? null : regionalShares;
   // ONE BAR PER YEAR, no pooled "Totale". With an Azienda selected and an
   // authorised regional scope, the Region's bar for the same year follows the
   // Azienda's, each on its own 100% (PB-V5-01).
-  const channels = ["CO", "DD", "DPC"].filter((c) => rows.some((r) => r.channel === c) || comparator?.rows.some((r) => r.channel === c));
+  const channels = ["CO", "DD", "DPC"].filter((c) => rows.some((r) => r.channel === c) || comparator?.rows.some((r) => r.channel === c)
+    || Boolean(shareRegion?.years.some((y) => y.shares !== null && c in y.shares)));
   const own = channelYearMix(rows, years, channels);
   const region = comparator ? channelYearMix(comparator.rows, years, channels) : null;
+  const regionYear = (year: number) => shareRegion?.years.find((y) => y.year === year) ?? null;
+  const paired = region !== null || shareRegion !== null;
   // The exact-value table's headings, shared with its stacked form.
-  const ownHead = selectedLabel ?? (region ? "Azienda" : "Spesa");
-  const ownShareHead = region ? "Quota Azienda" : "Quota";
-  const caption = region ? "Spesa e quota per canale, Azienda selezionata e Regione, per anno" : "Spesa e quota per canale, per anno";
+  const ownHead = selectedLabel ?? (paired ? "Azienda" : "Spesa");
+  const ownShareHead = paired ? "Quota Azienda" : "Quota";
+  const caption = region ? "Spesa e quota per canale, Azienda selezionata e Regione, per anno"
+    : shareRegion ? "Spesa e quota per canale della tua Azienda e quota della Regione, per anno" : "Spesa e quota per canale, per anno";
+  // Below the table's min-width plus its 2 px of border (0.125rem), one item
+  // per year and channel: 34rem with the Region's amounts, 27rem with its
+  // shares only, 20rem without.
+  const listHidden = region ? "[@container(min-width:34.125rem)]:hidden" : shareRegion ? "[@container(min-width:27.125rem)]:hidden" : "[@container(min-width:20.125rem)]:hidden";
+  const tableShown = region ? "[@container(min-width:34.125rem)]:block" : shareRegion ? "[@container(min-width:27.125rem)]:block" : "[@container(min-width:20.125rem)]:block";
+  const tableWidth = region ? "min-w-[34rem]" : shareRegion ? "min-w-[27rem]" : "min-w-[20rem]";
+  const regionShareCell = (year: number, channel: string): string => {
+    const r = regionYear(year);
+    return r === null || r.shares === null ? "non disponibile" : formatPercent(r.shares[channel as keyof typeof r.shares]);
+  };
   return <Frame
     container
-    title={comparator ? "Composizione per canale · Azienda e Regione" : "Composizione per canale"}
-    lead={`Quota di ciascun canale sulla spesa rendicontata, per anno: ogni barra somma a 100% sul proprio totale, con i filtri di canale e molecola attivi.${comparator ? ` Sotto la barra ${selectedLabel ? `di ${selectedLabel}` : "dell'Azienda selezionata"}, quella della Regione (${formatNumber(comparator.aziende, 0)} Aziende, ${selectedLabel ?? "quella selezionata"} compresa), con gli stessi anni, canali e molecola.` : ""}${comparatorNote ? ` ${comparatorNote}` : ""}`}
+    title={paired ? "Composizione per canale · Azienda e Regione" : "Composizione per canale"}
+    lead={`Quota di ciascun canale sulla spesa rendicontata, per anno: ogni barra somma a 100% sul proprio totale, con i filtri di canale e molecola attivi.${comparator ? ` Sotto la barra ${selectedLabel ? `di ${selectedLabel}` : "dell'Azienda selezionata"}, quella della Regione (${formatNumber(comparator.aziende, 0)} Aziende, ${selectedLabel ?? "quella selezionata"} compresa), con gli stessi anni, canali e molecola.` : ""}${comparatorNote && !(empty && regionalShares && !comparator) ? ` ${comparatorNote}` : ""}`}
   >
-    {rows.length === 0 || total === 0 ? <p className="text-sm text-muted-foreground">Nessun canale osservato.</p> : <>
+    {empty ? <p className="text-sm text-muted-foreground">Nessun canale osservato.</p> : <>
     <div className="mb-2 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
       {channels.map((c) => <span key={c}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm" style={{ background: CHANNEL_COLORS[c] ?? muted }} />{c} · {CHANNEL_NAMES[c] ?? ""}</span>)}
     </div>
     <div className="space-y-3">
-      {own.map((mix, k) => <div key={mix.year} className="space-y-1">
-        {region && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{mix.year}</p>}
-        <MixBar label={region ? (selectedLabel ?? "Azienda selezionata") : String(mix.year)} mix={mix} />
-        {region && <MixBar label={comparator!.label} mix={region[k]} sub />}
-      </div>)}
+      {own.map((mix, k) => {
+        const r = regionYear(mix.year);
+        return <div key={mix.year} className="space-y-1">
+          {paired && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{mix.year}</p>}
+          <MixBar label={paired ? (selectedLabel ?? "Azienda selezionata") : String(mix.year)} mix={mix} />
+          {region && <MixBar label={comparator!.label} mix={region[k]} sub />}
+          {shareRegion && (!mix.drawable
+            // Nothing of the Azienda's own to set the Region's bar beneath.
+            ? <MixWithheld label={shareRegion.label} why="non mostrata: la tua Azienda non ha una barra per quest'anno" />
+            : r !== null && r.shares !== null
+              ? <MixBar label={shareRegion.label} mix={sharesMix(mix.year, r.shares, channels)} sub shareOnly />
+              : <MixWithheld label={shareRegion.label} why={r?.why ?? "non disponibile"} />)}
+        </div>;
+      })}
     </div>
     <details className="mt-3">
       <summary className="cursor-pointer text-xs font-semibold text-primary">Valori esatti per anno e canale</summary>
-      {/* Below the table's min-width (34rem with the Region's columns, 20rem
-          without; plus 2 px of border, 0.125rem) one item per year and
-          channel, same values, same order. */}
-      <ul aria-label={caption} className={"mt-2 divide-y divide-border rounded-lg border border-border text-xs " + (region ? "[@container(min-width:34.125rem)]:hidden" : "[@container(min-width:20.125rem)]:hidden")} translate="no">
+      <ul aria-label={caption} className={"mt-2 divide-y divide-border rounded-lg border border-border text-xs " + listHidden} translate="no">
         {own.flatMap((mix, k) => mix.parts.map((p, c) => {
           const q = region ? region[k].parts[c] : null;
           return <li key={`${mix.year}-${p.channel}`} className="px-3 py-2">
@@ -535,12 +585,13 @@ export function ChannelStack({ rows, years, selectedLabel = null, comparator = n
               <Pair label={ownShareHead} value={p.share === null ? "—" : formatPercent(p.share)} />
               {q && <Pair label="Regione" value={q.eur === null ? "nessun record" : formatEur(q.eur)} />}
               {q && <Pair label="Quota Regione" value={q.share === null ? "—" : formatPercent(q.share)} />}
+              {shareRegion && <Pair label="Quota Regione" value={regionShareCell(mix.year, p.channel)} />}
             </dl>
           </li>;
         }))}
       </ul>
-      <div className={"mt-2 hidden overflow-x-auto rounded-lg border border-border " + (region ? "[@container(min-width:34.125rem)]:block" : "[@container(min-width:20.125rem)]:block")}>
-        <table className={"w-full text-sm " + (region ? "min-w-[34rem]" : "min-w-[20rem]")} translate="no">
+      <div className={"mt-2 hidden overflow-x-auto rounded-lg border border-border " + tableShown}>
+        <table className={"w-full text-sm " + tableWidth} translate="no">
           <caption className="sr-only">{caption}</caption>
           <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
@@ -548,7 +599,7 @@ export function ChannelStack({ rows, years, selectedLabel = null, comparator = n
               <th scope="col" className="px-3 py-2 text-right font-semibold">{ownHead}</th>
               <th scope="col" className="px-3 py-2 text-right font-semibold">{ownShareHead}</th>
               {region && <th scope="col" className="px-3 py-2 text-right font-semibold">Regione</th>}
-              {region && <th scope="col" className="px-3 py-2 text-right font-semibold">Quota Regione</th>}
+              {(region || shareRegion) && <th scope="col" className="px-3 py-2 text-right font-semibold">Quota Regione</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -560,6 +611,7 @@ export function ChannelStack({ rows, years, selectedLabel = null, comparator = n
                 <td className="px-3 py-2 text-right font-mono text-xs">{p.share === null ? "—" : formatPercent(p.share)}</td>
                 {q && <td className="px-3 py-2 text-right font-mono text-xs">{q.eur === null ? "nessun record" : formatEur(q.eur)}</td>}
                 {q && <td className="px-3 py-2 text-right font-mono text-xs">{q.share === null ? "—" : formatPercent(q.share)}</td>}
+                {shareRegion && <td className="px-3 py-2 text-right font-mono text-xs">{regionShareCell(mix.year, p.channel)}</td>}
               </tr>;
             }))}
           </tbody>

@@ -147,6 +147,7 @@ test("PB-V5-06/07: customer-facing copy carries no gate code, workbook block cod
     "components/dashboard-review/pillar-b-monthly-bars.tsx", "components/dashboard-review/pillar-b-filter-bar.tsx",
     "lib/dashboard-review/pillar-b/view-options.ts", "lib/dashboard-review/pillar-b/review-queue.ts",
     "lib/dashboard-review/pillar-b/bridge-b.ts", "lib/dashboard-review/pillar-b/facets.ts", "lib/dashboard-review/pillar-b/adoption.ts",
+    "lib/dashboard-review/pillar-b/regional-comparator.ts",
   ];
   for (const f of files) {
     const src = stripComments(fs.readFileSync(`${root}${f}`, "utf8"));
@@ -221,8 +222,10 @@ test("PB-V5-01/03: what the review of the v5 diff found stays fixed", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const read = (f) => fs.readFileSync(`${root}${f}`, "utf8").replace(/\r\n/g, "\n");
   const page = read("app/dashboard-review/revisione-pillar-b/page.tsx");
-  // The note names an Azienda account by the account, not by a count of one.
-  assert.match(page, /channelsComparatorNote: !scope\.regional && !scope\.allOrganizations\n/);
+  // The note names an Azienda account by the account, not by a count of one
+  // (and, since the Azienda comparator, carries its method or why it is absent).
+  assert.match(page, /const aziendaAccount = !scope\.regional && !scope\.allOrganizations;/);
+  assert.match(page, /channelsComparatorNote: aziendaAccount\n\s*\? \(regionalProps\?\.mix\.note \?\? null\)/);
   // The optional regional read fails on its own, never taking the page down.
   assert.match(page, /aslCode: null, facets: \["channels"\] \}\)\n\s*\.catch\(/);
   assert.match(page, /regionalWork,\n\s*\]\);/);

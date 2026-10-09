@@ -418,9 +418,10 @@ export function channelYearMix(rows: ReadonlyArray<ChannelMixRow>, years: Readon
  * Whether the page may show a regional channel comparator beside the
  * selected Azienda. Only a viewer whose authorised scope holds more than one
  * Azienda (a Regione account under RLS, or a reviewer through the widened
- * scope) and who has selected one. An Azienda account never gets it: the
- * regional aggregate is computed from peers' rows, and its disclosure to an
- * Azienda is an open owner decision (PB-V5-01).
+ * scope) and who has selected one. An Azienda account never gets THIS one:
+ * it is computed from peers' rows with their amounts. An Azienda's regional
+ * comparator is the pooled, share-only answer of the aggregate-only database
+ * function (regional-comparator.ts, PB-V5-01, owner decision of 9 October 2026).
  */
 export function regionalComparatorAllowed(input: { scopeAziende: number; aziendaSelected: boolean }): boolean {
   return input.scopeAziende > 1 && input.aziendaSelected;

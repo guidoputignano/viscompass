@@ -26,7 +26,7 @@ import {
   channelTrend, concentration, coverageNotices, funnelRows, moleculeTrend, narrowRows, spendLike, sumSpend, uptakeCoverage,
 } from "@/lib/dashboard-review/pillar-b/review-data";
 import {
-  getEvidenceFunnel, getFacets, getMoleculeSpend, getSpend, getUptake, getUptakeCoverage,
+  getEvidenceFunnel, getFacets, getMoleculeSpend, getRegionalComparator, getSpend, getUptake, getUptakeCoverage,
   getValueUptake, getValueUptakeScoped, isMissingFunction, pillarBActiveRelease, pillarBReleaseId, readActiveRelease,
   type MoleculeSpendRow, type SpendRow, type UptakeCoverageRow, type UptakeRow, type UptakeScope,
   type UptakeWithWithheld, type ValueUptakeRow, type WithheldRow,
@@ -44,6 +44,9 @@ import {
   type ConcentrationYear, type PerimeterMode, type TrendOrder,
 } from "@/lib/dashboard-review/pillar-b/view-options";
 import { resolvePillarBScope } from "@/lib/dashboard-review/pillar-b/scope";
+import {
+  REGIONAL_FAILED, REGIONAL_NOT_DEPLOYED, regionalComparatorRequest, regionalViewProps, type RegionalComparator,
+} from "@/lib/dashboard-review/pillar-b/regional-comparator";
 import { pillarBCacheKey, pillarBServerCache } from "@/lib/dashboard-review/pillar-b/server-cache";
 import { bridgeB, bridgeBPerimeterCheck, bridgeBPublishable } from "@/lib/dashboard-review/pillar-b/bridge-b";
 import { reviewQueue, reviewQueuePublishable } from "@/lib/dashboard-review/pillar-b/review-queue";
@@ -174,6 +177,17 @@ export default async function RevisionePillarBPage({
   // The volume measure's rows are narrowed server-side by Azienda and substance;
   // its COVERAGE needs the dedicated RPC (migration 20261003130000) to follow.
   const uptakeNarrowed = aslCode !== null || filters.substance !== null;
+  // THE REGIONAL COMPARATOR FOR AN AZIENDA ACCOUNT (PB-V5-01). An ordinary
+  // Azienda reads its own rows only; the Region's pooled shares come from the
+  // one aggregate-only database function, which derives the Azienda and the
+  // Region from this session and returns percentages and nothing else. Asked
+  // only without a channel or molecule filter (its scope is fixed), and never
+  // for a Regione or a reviewer, who read the Region's Aziende directly.
+  const aziendaAccount = !scope.regional && !scope.allOrganizations;
+  const regionalRequest = regionalComparatorRequest({
+    aziendaAccount, years: filters.years, channels: filters.channels, substance: filters.substance,
+  });
+  const regionalYears = regionalRequest.ask ? regionalRequest.years : null;
   let data: {
     spend2024: SpendRow[]; spend2025: SpendRow[];
     funnel: Awaited<ReturnType<typeof getEvidenceFunnel>>;
@@ -186,6 +200,8 @@ export default async function RevisionePillarBPage({
     facets: Facets | null;
     calendarFacets: Facets | null;
     regionalFacets: Facets | null;
+    /** An Azienda account's regional comparator, or the sentence saying why there is none. */
+    aziendaRegional: RegionalComparator | { kind: "note"; why: string } | null;
   };
   // FILTER-INDEPENDENT READS ARE SHARED across requests of the same scope and
   // release (server-cache.ts): they were ~5.4 s of the ~6.6 s of statements a
@@ -295,6 +311,18 @@ export default async function RevisionePillarBPage({
       }
     })();
 
+    // OPTIONAL, like the Regione's comparator: a function not yet published
+    // or a failed read removes only the regional lines and says so. The
+    // session client is the Azienda's own; the function refuses service_role.
+    const aziendaRegionalWork: Promise<RegionalComparator | { kind: "note"; why: string } | null> = regionalYears !== null
+      ? shared(() => getRegionalComparator(db, regionalYears), "regional-comparator", regionalYears.join("+"))
+          .catch((error): { kind: "note"; why: string } => {
+            if (isMissingFunction(error)) return { kind: "note", why: REGIONAL_NOT_DEPLOYED };
+            console.error("Pillar B Azienda regional comparator failed", error);
+            return { kind: "note", why: REGIONAL_FAILED };
+          })
+      : Promise.resolve(regionalRequest.ask || regionalRequest.note === null ? null : { kind: "note", why: regionalRequest.note });
+
     // Narrowed coverage of the volume measure: one call per selected year.
     // Absent until its migration is applied; the page then withholds the
     // coverage under these filters and says so, rather than showing the
@@ -310,7 +338,7 @@ export default async function RevisionePillarBPage({
       }
     })();
 
-    const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome, coverage] =
+    const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome, coverage, aziendaRegional] =
       await Promise.all([
         identified("SPEND24", shared(() => getSpend(db, 2024), "spend", 2024)),
         identified("SPEND25", shared(() => getSpend(db, 2025), "spend", 2025)),
@@ -319,6 +347,7 @@ export default async function RevisionePillarBPage({
         valueUptakeWork,
         facetsWork,
         coverageWork,
+        aziendaRegionalWork,
       ]);
     const uptake = mergeUptake(uptakeParts);
     fallback = valueOutcome.fallback;
@@ -327,7 +356,8 @@ export default async function RevisionePillarBPage({
 
     data = { spend2024, spend2025, funnel, molecules2024, molecules2025, uptake, coverage,
              valueUptakeRows: valueOutcome.rows, allSubstances: valueOutcome.substances,
-             facets: facetsOutcome.facets, calendarFacets: facetsOutcome.calendar, regionalFacets: facetsOutcome.regional };
+             facets: facetsOutcome.facets, calendarFacets: facetsOutcome.calendar, regionalFacets: facetsOutcome.regional,
+             aziendaRegional };
   } catch (error) {
     // The server log retains the full cause. The scoped browser gets only a
     // stable phase code, never a SQL message or a misleading zero-valued chart.
@@ -504,6 +534,10 @@ export default async function RevisionePillarBPage({
 
   const aslLabel = (code: string) => scope.aslLabels[code] ?? code;
   const scopeLine = describePillarBFilters(filters, narrowed?.label ?? null);
+  // Shares and sentences only: what the two quota cards and the channel mix
+  // show of the Region to an Azienda account. Its own name labels its own bar.
+  const regionalProps = data.aziendaRegional === null ? null : regionalViewProps(data.aziendaRegional);
+  const ownLabel = aziendaAccount ? (scope.scopedOrgs[0]?.label ?? "La tua Azienda") : null;
   const yearsSpend = filters.years.map((y) => (y === 2024 ? s24 : s25)).flat();
 
   // REMOUNT ON EVERY FILTER CHANGE. A browser that machine-translates the page
@@ -574,16 +608,20 @@ export default async function RevisionePillarBPage({
       channelsComparator: data.regionalFacets?.channelsByYear
         ? { label: `Regione · ${scope.narrowable.length} Aziende`, aziende: scope.narrowable.length, rows: channelMix(data.regionalFacets.channelsByYear) }
         : null,
-      channelsSelectedLabel: narrowed?.label ?? null,
-      // An Azienda account sees its own mix only: the regional aggregate is
-      // made of peers' rows and its disclosure is an open owner decision.
+      channelsSelectedLabel: narrowed?.label ?? (regionalProps?.mix.years ? ownLabel : null),
+      // An Azienda account never receives the Region's rows or amounts: its
+      // comparator is the pooled shares of the aggregate-only function, with
+      // the sentence that says how they are formed or why they are absent.
       // Keyed on the account, not on the number of Aziende: a Regione with
-      // one Azienda is not "un account aziendale".
-      channelsComparatorNote: !scope.regional && !scope.allOrganizations
-        ? "Il confronto con la Regione non è disponibile per un account aziendale."
+      // one Azienda is not an Azienda account.
+      channelsComparatorNote: aziendaAccount
+        ? (regionalProps?.mix.note ?? null)
         : regionalComparatorAllowed({ scopeAziende: scope.narrowable.length, aziendaSelected: aslCode !== null }) && data.regionalFacets === null
           ? "Il confronto con la Regione non è disponibile in questo momento: la lettura regionale non è riuscita."
           : null,
+      channelsRegionalShares: aziendaAccount && regionalProps?.mix.years
+        ? { label: regionalProps.mix.label, years: regionalProps.mix.years }
+        : null,
     }}
     adoption={{
       valueUptakeSection: (
@@ -597,6 +635,7 @@ export default async function RevisionePillarBPage({
           substanceHref={(s) => pillarBHref(BASE, filters, { substance: s })}
           resetHref={BASE}
           periodScope={vuScopeLine}
+          regional={aziendaAccount ? (regionalProps?.uptake ?? null) : null}
         />
       ),
       // BRIDGE B. The total and the view must come from the SAME filters and

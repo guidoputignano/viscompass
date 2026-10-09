@@ -35,6 +35,7 @@ import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/f
 import type { CoverageNotice, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
 import type { UptakeWithWithheld, WithheldRow } from "@/lib/dashboard-review/pillar-b/rpc";
 import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
+import type { RegionalMixYear } from "@/lib/dashboard-review/pillar-b/regional-comparator";
 import type { VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { BridgeB, BridgeBPerimeterCheck } from "@/lib/dashboard-review/pillar-b/bridge-b";
 import { partialYearCopy } from "@/lib/dashboard-review/pillar-b/view-options";
@@ -81,8 +82,13 @@ export interface PillarBReviewProps {
     channelsComparator: { label: string; aziende: number; rows: ChannelMixRow[] } | null;
     /** The selected Azienda's label as this viewer may see it. */
     channelsSelectedLabel: string | null;
-    /** One sentence when the comparator is unavailable to this viewer. */
+    /** One sentence when the comparator is unavailable to this viewer, or how an Azienda's is formed. */
     channelsComparatorNote: string | null;
+    /**
+     * An Azienda account: the Region's pooled channel SHARES per year (no
+     * amounts), from the aggregate-only function. null otherwise.
+     */
+    channelsRegionalShares: { label: string; years: RegionalMixYear[] } | null;
   };
   adoption: {
     valueUptakeSection: React.ReactNode;
@@ -331,6 +337,42 @@ function Notice({ tone, children }: { tone: "warning" | "info"; children: React.
   );
 }
 
+/**
+ * NATIONAL CONTEXT, NOT A BENCHMARK (PB-V5-01). No official national figure
+ * matches these measures: AIFA's biosimilar monitoring counts public-structure
+ * purchases in the traceability flow (no CO / DD / DPC split, no stated price
+ * basis, whole calendar years, three molecules in value), while this page
+ * counts dispensing in the CO / DD / DPC flows over the whole perimeter, with
+ * quota 1 on date-valid months and quota 2 from a local first use. The source
+ * register and the measure-by-measure verdict are in
+ * docs/PILLAR_B_REGIONAL_COMPARATOR.md §9. So the card only points to the
+ * public data, in its own box, after the private measures and with no figure:
+ * nothing here can be read on the same scale as a quota. The same for every
+ * role, and no filter changes it.
+ */
+function NationalContextCard() {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+      <p className="font-semibold text-foreground">Contesto nazionale · dati pubblici AIFA, non un termine di confronto</p>
+      <p className="mt-1.5">
+        L&apos;AIFA pubblica «Biosimilari: distribuzione dei consumi e della spesa secondo la forma di
+        somministrazione» (gennaio–dicembre 2025, dato NSIS/Tracciabilità del farmaco): per infliximab,
+        rituximab e trastuzumab, la ripartizione tra originator e biosimilare per territorio (Regioni e Province
+        autonome) e per l&apos;Italia. Non è sulla stessa scala delle quote di questa pagina: misura gli acquisti
+        delle strutture pubbliche registrati nel flusso della tracciabilità, senza distinguere CO, DD e DPC, per
+        tre sole molecole, sull&apos;intero 2025 e senza dichiarare la base di prezzo. Le quote qui sopra misurano
+        la spesa registrata nei flussi CO, DD e DPC, nei canali, nelle molecole e negli anni selezionati; la
+        quota 1 conta solo i mesi in cui un biosimilare era autorizzato, la quota 2 parte dal primo uso locale.
+        Una differenza tra le due fonti non indica un risultato migliore o peggiore.
+      </p>
+      <p className="mt-1.5">
+        <a href="/pillar-b" className="font-semibold text-primary underline-offset-2 hover:underline">I dati pubblici AIFA, con la fonte, nella pagina pubblica Pillar B</a>
+        {" "}(la pagina pubblica ordina i territori secondo la fonte AIFA; quell&apos;ordine non si applica alle quote di questa pagina).
+      </p>
+    </div>
+  );
+}
+
 export function PillarBReview(props: PillarBReviewProps) {
   const { panorama, adoption, spend, evidence, notices, years, viewOptions } = props;
   const yoy = spend.totals.spend2024 === 0
@@ -356,7 +398,7 @@ export function PillarBReview(props: PillarBReviewProps) {
             Dalla spesa all&apos;adozione.<br /><span className="text-primary">Una lettura verificabile.</span>
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Spesa, confronto tra anni e adozione dei biosimilari nel perimetro di {props.scope.perimeterLabel}.
+            Spesa, confronto tra anni e adozione dei biosimilari. Ambito: {props.scope.perimeterLabel}.
             Ogni misura conserva il proprio denominatore e la propria copertura.
           </p>
         </div>
@@ -489,7 +531,8 @@ export function PillarBReview(props: PillarBReviewProps) {
         )}
 
         {panorama.channels && <ChannelStack rows={panorama.channels} years={years}
-          selectedLabel={panorama.channelsSelectedLabel} comparator={panorama.channelsComparator} comparatorNote={panorama.channelsComparatorNote} />}
+          selectedLabel={panorama.channelsSelectedLabel} comparator={panorama.channelsComparator} comparatorNote={panorama.channelsComparatorNote}
+          regionalShares={panorama.channelsRegionalShares} />}
       </Group>}
 
       {/* ============================================================ ADOZIONE */}
@@ -503,6 +546,8 @@ export function PillarBReview(props: PillarBReviewProps) {
           </p>
           {adoption.valueUptakeSection}
         </Sub>
+
+        <NationalContextCard />
 
         {adoption.reviewQueue && (adoption.reviewQueue.afterLocalSwitch.length > 0 || adoption.reviewQueue.notObservedHere.length > 0) && (
           <Sub title="Domande di revisione, molecola per molecola">
@@ -520,7 +565,7 @@ export function PillarBReview(props: PillarBReviewProps) {
                 next="aprire la molecola, leggerla per canale e per mese, e portare i casi alla commissione terapeutica aziendale."
                 rows={adoption.reviewQueue.afterLocalSwitch} total={adoption.reviewQueue.afterLocalSwitchTotal} hrefs={adoption.reviewQueue.hrefs}
                 firstColumn="Primo uso qui" amountColumn="Riferimento dopo il primo uso" shareColumn="Quota 2" shareOf="locallyObservedShare"
-                method="Spesa del medicinale di riferimento nei mesi successivi al primo biosimilare della stessa sostanza dispensato nelle Aziende selezionate, letto su tutta la storia del rilascio (ogni canale, ogni anno). Per la Regione il primo uso è quello della prima Azienda che ha cambiato. Non dimostra che le dispensazioni fossero clinicamente sostituibili. La quota 2 è la quota biosimilare sugli stessi mesi." />
+                method="Spesa del medicinale di riferimento nei mesi successivi al primo biosimilare della stessa sostanza dispensato nelle Aziende selezionate, letto su tutta la storia del rilascio (ogni canale, ogni anno). Nella vista dell'intera Regione (account Regione o revisore) il primo uso è quello della prima Azienda che ha cambiato. Non dimostra che le dispensazioni fossero clinicamente sostituibili. La quota 2 è la quota biosimilare sugli stessi mesi." />
               <ReviewQuestion
                 title="Biosimilare autorizzato in EU, non ancora osservato qui"
                 headline={`${formatEur(adoption.reviewQueue.notObservedHereTotal)} · ${formatNumber(adoption.reviewQueue.notObservedHere.length, 0)} ${adoption.reviewQueue.notObservedHere.length === 1 ? "molecola" : "molecole"}`}

@@ -30,6 +30,7 @@ import { cache } from "react";
 import type { createClient } from "@/lib/supabase/server";
 import type { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { parseFacets, type Facets } from "./facets";
+import { parseRegionalComparator, type RegionalComparator } from "./regional-comparator";
 import { uptakeCoverage } from "./review-data";
 
 // Re-exported from the pure module, which owns the list so that it can be
@@ -523,5 +524,23 @@ export const getFacets = cache(
     });
     if (error) throw new PillarBRpcError("pillar_b_facets", error.message, error.code);
     return parseFacets(data);
+  },
+);
+
+/**
+ * The regional comparator for an ORDINARY AZIENDA (PB-V5-01): pooled shares
+ * of the caller's own Region, the caller included, and nothing else.
+ *
+ * The one reader here that is SECURITY DEFINER in the database, and the one
+ * that takes no organisation at all: the function derives the Azienda and the
+ * Region from the session's auth.uid(). It must be called with the Azienda's
+ * own SESSION client — EXECUTE is refused to service_role — and only for the
+ * years; its scope (three channels, whole perimeter) is fixed by design.
+ */
+export const getRegionalComparator = cache(
+  async (db: PillarBDb, years: ReadonlyArray<number>): Promise<RegionalComparator> => {
+    const { data, error } = await db.rpc("pillar_b_regional_comparator", { p_years: [...years] });
+    if (error) throw new PillarBRpcError("pillar_b_regional_comparator", error.message, error.code);
+    return parseRegionalComparator(data, years);
   },
 );
