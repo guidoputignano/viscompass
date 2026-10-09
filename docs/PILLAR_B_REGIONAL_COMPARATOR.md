@@ -1,10 +1,10 @@
 # Pillar B — the regional comparator for an ordinary Azienda (PB-V5-01)
 
-Status: **implemented and reviewed locally, not applied to production.** The
-migration `supabase/migrations/20261009120000_pillar_b_regional_comparator.sql`
-is a security change and is applied only with the owner's explicit approval.
-Until then the page says "Il confronto con la Regione non è ancora
-disponibile." and shows nothing regional to an Azienda account.
+Status: **live and verified (9 October 2026).** The migration
+`supabase/migrations/20261009120000_pillar_b_regional_comparator.sql` was
+applied to production on the owner's explicit approval and verified there (§11).
+If the function is ever missing, the page says "Il confronto con la Regione non
+è ancora disponibile." and shows nothing regional to an Azienda account.
 
 This document holds no figure from the private workbook. The reconciled values
 are in the private evidence logs (`outputs/pillar-b/logs/b49`, `b50`).
@@ -379,3 +379,27 @@ to the public AIFA data already compiled and shown on `/pillar-b`.
      name;
    * a Regione account: unchanged, no call;
    * the reviewer: unchanged, no call.
+
+## 11. Production record (9 October 2026)
+
+* **Applied:** the committed file (SHA-256 checked against commit 37aeadb), in
+  one transaction in the SQL editor, after the pre-check of §10 passed: one
+  active release, four codes each resolving to one Azienda of the Region, only
+  CO/DD/DPC.
+* **Verified, function:**
+  * one function, SECURITY DEFINER, STABLE, `search_path=pg_catalog, pg_temp`;
+  * EXECUTE for `authenticated` only; `anon` and `service_role` refused;
+  * the `canonical_fact` policy and grant fingerprints unchanged.
+* **Verified, as the real approved Azienda user:**
+  * a direct read still shows only its own rows;
+  * all 12 answers equal an independent production computation to within
+    1e-12;
+  * 2026 is refused; the two-year call takes about 0.4 s.
+* **Verified, other callers:**
+  * as the real approved Regione user: `not_an_azienda`;
+  * the page's parser accepts every production answer.
+* **Live:** the reviewer page is unchanged apart from the new header wording
+  and the national-context card.
+* **Not done:** a live page session as an Azienda or a Regione account. No
+  test accounts were created, since on production they would be real access
+  grants. The owner accepted the evidence above as verification.
