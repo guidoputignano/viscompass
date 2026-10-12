@@ -189,7 +189,7 @@ test("the file stays a client component, with no viewport layout switch left and
   const classes = [...src.matchAll(/className=\{?["`]([^"`]*)["`]/g)].map((m) => m[1]).join(" ");
   const viewport = classes.split(/\s+/).filter((c) => /^(sm|md|lg|xl):/.test(c));
   assert.deepEqual(viewport, ["sm:p-5"], "only the volume card's padding still follows the viewport");
-  assert.match(src, /<MonthlyBars rows=\{rows\} title=\{metric === "spesa" \? title : MONTH_TITLES\[metric\]\} metric=\{metric\} view=\{selected\} \/>/);
+  assert.match(src, /<MonthlyBars rows=\{rows\} title=\{metric === "spesa" \? title : MONTH_TITLES\[metric\]\} metric=\{metric\} view=\{selected\} exact=\{exact\} \/>/);
   assert.match(src, /<MoleculeChangeChart rows=\{rows\}\n\s*title=\{title\}\n\s*measure=\{order\}/);
   assert.match(src, /<AziendaBars rows=\{rows\} years=\{years\} metric=\{metric\} \/>/);
 });

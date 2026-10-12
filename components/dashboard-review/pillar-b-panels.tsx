@@ -9,6 +9,7 @@
 // this reader. The chosen variant is written to the URL without a navigation
 // (see pillar-b-local-toggle.tsx), so a link reproduces the view.
 
+import { useId, useState } from "react";
 import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
 import { monthKeyLabel, type VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { AziendaPanelRow, CalendarRow } from "@/lib/dashboard-review/pillar-b/facets";
@@ -24,6 +25,53 @@ import { AziendaBars } from "@/components/dashboard-review/pillar-b-adoption-vis
 import { MonthlyBars } from "@/components/dashboard-review/pillar-b-monthly-bars";
 import { ConcentrationCurve, MoleculeChangeChart } from "@/components/dashboard-review/pillar-b-review-visuals";
 import { LocalToggle, useUrlOption } from "@/components/dashboard-review/pillar-b-local-toggle";
+
+/**
+ * REPLACED, NEVER PATCHED, WHEN A LOCAL OPTION CHANGES. A browser's machine
+ * translation (Chrome, Edge) swaps the page's text nodes for elements of its
+ * own. If React then updates such a node in place it either throws
+ * NotFoundError (removeChild / insertBefore on a node that is no longer there,
+ * and the page falls to the error screen) or writes into a detached node, and
+ * the reader keeps seeing the old text. So everything a local option changes
+ * is rendered inside an element keyed by the options, replaced whole on every
+ * change: React then removes and inserts ELEMENTS, which a translator leaves
+ * in place, and the new content is translated afresh. The keyed element is the
+ * only child of its own wrapper, so inserting it needs no reference node. The
+ * toggles stay outside it, so the focus stays on the button just pressed. The
+ * same reason keys the whole review on the filter state (page.tsx).
+ */
+export function Fresh({ stateKey, className, children }: { stateKey: string; className?: string; children: React.ReactNode }) {
+  return <div><div key={stateKey} className={className}>{children}</div></div>;
+}
+
+/**
+ * A <details> whose open state survives its content being replaced (Fresh).
+ * `defaultOpen` is the panel's own default for the current view: the reader's
+ * choice is kept until that default changes, as it was while the element was
+ * patched in place. `capture` reads the element itself just before a toggle
+ * replaces it, because the reader may have opened it before hydration, when
+ * no React listener could hear the click.
+ */
+function useDetailsOpen(defaultOpen = false) {
+  const id = useId();
+  const [choice, setChoice] = useState<{ forDefault: boolean; open: boolean } | null>(null);
+  const open = choice !== null && choice.forDefault === defaultOpen ? choice.open : defaultOpen;
+  return {
+    id,
+    open,
+    onToggle: (e: React.SyntheticEvent<HTMLDetailsElement>) => setChoice({ forDefault: defaultOpen, open: e.currentTarget.open }),
+    // Read in the click handler only, never during render.
+    capture: () => {
+      const el = document.getElementById(id);
+      if (el instanceof HTMLDetailsElement) setChoice({ forDefault: defaultOpen, open: el.open });
+    },
+  };
+}
+
+/** A setter that first keeps the open state of the details it is about to replace. */
+function keeping<T>(details: ReadonlyArray<{ capture: () => void }>, set: (next: T) => void): (next: T) => void {
+  return (next) => { for (const d of details) d.capture(); set(next); };
+}
 
 /** "1 molecola" / "12 molecole": a count through the formatter, with its noun. */
 function count(n: number, singular: string, plural: string): string {
@@ -84,20 +132,27 @@ export function CalendarPanel({ rows, initial, initialView, title }: {
   // period with no record falls back to the first that has one, and 2026,
   // with no comparable-quantity basis, is never drawn as a comparable share.
   const { available, view: selected, metric } = effectiveCalendarState(rows, view, metricChoice);
+  const reading = useDetailsOpen(selected === "confronto" && metric === "spesa");
+  // Each chart's own "Valori esatti" list, kept open across a replacement too.
+  const exact = useDetailsOpen();
+  const exactCompanion = useDetailsOpen();
+  const sections = [reading, exact, exactCompanion];
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {available.length > 1 && <LocalToggle label="Periodo" ariaLabel="Periodo del profilo mensile" value={selected} onChange={(next) => {
+          for (const d of sections) d.capture();
           if (next === "2026" && metric === "comparabile") setMetric("spesa");
           setView(next);
         }}
           options={available.map((v) => ({ value: v, label: v === "confronto" ? "2024 / 2025" : v === "2026" ? partialPeriodLabel(rows) : v }))} />}
-        <LocalToggle label="Misura" ariaLabel="Misura del profilo mensile" value={metric} onChange={setMetric}
+        <LocalToggle label="Misura" ariaLabel="Misura del profilo mensile" value={metric} onChange={keeping(sections, setMetric)}
           options={CALENDAR_METRICS.filter((m) => selected !== "2026" || m !== "comparabile").map((m) => ({ value: m, label: CALENDAR_METRIC_LABELS[m] }))} />
       </div>
-      <MonthlyBars rows={rows} title={metric === "spesa" ? title : MONTH_TITLES[metric]} metric={metric} view={selected} />
+      <Fresh stateKey={`${selected}|${metric}`} className="flex flex-col gap-3">
+      <MonthlyBars rows={rows} title={metric === "spesa" ? title : MONTH_TITLES[metric]} metric={metric} view={selected} exact={exact} />
       {selected !== "2026" && metric !== "perimetro" && (
-        <details className="rounded-xl border border-border bg-card p-4" open={selected === "confronto" && metric === "spesa"}>
+        <details id={reading.id} className="rounded-xl border border-border bg-card p-4" open={reading.open} onToggle={reading.onToggle}>
           <summary className="cursor-pointer text-sm font-semibold text-primary">
             Leggi insieme spesa e copertura, negli stessi mesi
           </summary>
@@ -108,10 +163,11 @@ export function CalendarPanel({ rows, initial, initialView, title }: {
           </p>
           <div className="mt-3">
             <MonthlyBars rows={rows} title={metric === "spesa" ? MONTH_TITLES.comparabile : MONTH_TITLES.spesa}
-              metric={metric === "spesa" ? "comparabile" : "spesa"} view={selected} />
+              metric={metric === "spesa" ? "comparabile" : "spesa"} view={selected} exact={exactCompanion} />
           </div>
         </details>
       )}
+      </Fresh>
     </div>
   );
 }
@@ -135,12 +191,14 @@ export function AziendaPanel({ rows, years, initial, absent = [] }: {
               ? "Percentuale: spesa con quantità confrontabile ÷ spesa rendicontata dell'Azienda, negli anni selezionati. Copertura della misura in volume, non adozione."
               : "Numero di righe rendicontate per Azienda negli anni selezionati. Record, non pazienti né confezioni.",
         }))} />
+      <Fresh stateKey={metric} className="flex flex-col gap-3">
       <AziendaBars rows={rows} years={years} metric={metric} />
       {absent.length > 0 && (
         <p className="text-[11px] text-muted-foreground">
           Nessun record con questi filtri per {absent.join(", ")}: {absent.length === 1 ? "non è uno zero, e non compare fra le barre" : "non sono zeri, e non compaiono fra le barre"}.
         </p>
       )}
+      </Fresh>
     </div>
   );
 }
@@ -163,6 +221,7 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
   const [order, setOrder] = useUrlOption<TrendOrder>(VIEW_OPTION_KEYS.trendOrder, initial.order, VIEW_OPTION_DEFAULTS.trendOrder);
   const [limit, setLimit] = useUrlOption<TrendLimit>(VIEW_OPTION_KEYS.trendLimit, initial.limit, VIEW_OPTION_DEFAULTS.trendLimit);
   const [perimeter, setPerimeter] = useUrlOption<PerimeterMode>(VIEW_OPTION_KEYS.perimeter, initial.perimeter, VIEW_OPTION_DEFAULTS.perimeter);
+  const table = useDetailsOpen();
   const rows = variants[perimeter][order].slice(0, limit);
   const total = totals[perimeter];
   const orderWord = TREND_ORDER_LABELS[order];
@@ -175,14 +234,14 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
-        <LocalToggle label="Perimetro" ariaLabel="Perimetro delle molecole" value={perimeter} onChange={setPerimeter}
+        <LocalToggle label="Perimetro" ariaLabel="Perimetro delle molecole" value={perimeter} onChange={keeping([table], setPerimeter)}
           options={PERIMETER_MODES.map((m) => ({
             value: m, label: PERIMETER_MODE_LABELS[m],
             title: m === "biosimilare"
               ? `Solo le molecole del perimetro biosimilare (l'elenco segue l'Azienda selezionata, su 2024–2025 e tutti i canali), con tutte le loro presentazioni: a livello di molecola, non di AIC. In questa selezione: ${count(totals.biosimilare, "molecola", "molecole")}.`
               : `Tutte le molecole della spesa rendicontata in questa selezione (${count(totals.tutto, "molecola", "molecole")}).`,
           }))} />
-        <LocalToggle label="Ordina per" ariaLabel="Ordinamento delle variazioni" value={order} onChange={setOrder}
+        <LocalToggle label="Ordina per" ariaLabel="Ordinamento delle variazioni" value={order} onChange={keeping([table], setOrder)}
           options={TREND_ORDERS.map((o) => ({
             value: o, label: TREND_ORDER_LABELS[o],
             title: o === "spesa"
@@ -190,9 +249,10 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
               : o === "pct" ? "Variazione 2025 meno 2024 divisa per il valore assoluto della spesa 2024 della molecola; non calcolabile se la spesa 2024 è assente o nulla."
               : "Variazione in euro: spesa 2025 meno spesa 2024 della molecola, nella selezione.",
           }))} />
-        <LocalToggle label="Mostra" ariaLabel="Numero di molecole mostrate" value={limit} onChange={setLimit}
+        <LocalToggle label="Mostra" ariaLabel="Numero di molecole mostrate" value={limit} onChange={keeping([table], setLimit)}
           options={TREND_LIMITS.map((n) => ({ value: n, label: String(n) }))} />
       </div>
+      <Fresh stateKey={`${perimeter}|${order}|${limit}`} className="flex flex-col gap-3">
       {/* WHAT EACH FIGURE IS, beside the plot, not in a collapsed table: the
           reviewers could not tell whether "spesa 2025" was the ledger total or
           the molecule's, nor which channels the change was read on. */}
@@ -215,7 +275,7 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
         title={title}
         measure={order}
         orderNote={`Selezione per ${orderWord}${perimeter === "biosimilare" ? ", fra le molecole del perimetro biosimilare (tutte le presentazioni, a livello di molecola)" : ""}; ${count(total, "voce", "voci")} nell'insieme (principi attivi; le righe senza principio attivo risolto formano una voce a parte).`} />
-      <details className="group">
+      <details id={table.id} className="group" open={table.open} onToggle={table.onToggle}>
         <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la serie numerica per principio attivo</summary>
         <div className="mt-3">
           <TrendTable
@@ -226,6 +286,7 @@ export function TrendPanel({ variants, totals, initial, scopeLine, comparisonLab
               : undefined} />
         </div>
       </details>
+      </Fresh>
     </div>
   );
 }
@@ -309,6 +370,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
 }) {
   const [year, setYear] = useUrlOption<ConcentrationYear>(VIEW_OPTION_KEYS.concentrationYear, initial.year, defaultYear);
   const [perimeter, setPerimeter] = useUrlOption<PerimeterMode>(VIEW_OPTION_KEYS.concentrationPerimeter, initial.perimeter, VIEW_OPTION_DEFAULTS.concentrationPerimeter);
+  const ranking = useDetailsOpen();
   const conc = variants[perimeter][year];
   const perimeterSize = variants.biosimilare[year].moleculeCount;
   const scopeNote = perimeter === "biosimilare"
@@ -318,9 +380,9 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
-        <LocalToggle label="Anno" ariaLabel="Anno della concentrazione" value={year} onChange={setYear}
+        <LocalToggle label="Anno" ariaLabel="Anno della concentrazione" value={year} onChange={keeping([ranking], setYear)}
           options={CONCENTRATION_YEARS.map((y) => ({ value: y, label: String(y) }))} />
-        <LocalToggle label="Perimetro" ariaLabel="Perimetro delle molecole" value={perimeter} onChange={setPerimeter}
+        <LocalToggle label="Perimetro" ariaLabel="Perimetro delle molecole" value={perimeter} onChange={keeping([ranking], setPerimeter)}
           options={PERIMETER_MODES.map((m) => ({
             value: m, label: PERIMETER_MODE_LABELS[m],
             title: m === "biosimilare"
@@ -328,6 +390,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
               : `Tutte le molecole della spesa rendicontata in questa selezione nel ${year} (${count(variants.tutto[year].moleculeCount, "molecola", "molecole")}).`,
           }))} />
       </div>
+      <Fresh stateKey={`${year}|${perimeter}`} className="flex flex-col gap-3">
       {conc.moleculeCount > 1 && conc.totalEur === 0 ? (
         <Note>
           La spesa netta {scopeShort} nel {year} è pari a zero (acquisti e rettifiche si compensano): le quote di
@@ -350,7 +413,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
         <Stat label={`Voci osservate · ${year}`} value={formatNumber(conc.moleculeCount, 0)} detail={`${scopeShort}; principi attivi, più l'eventuale voce «Principio attivo non risolto»`} />
         <Stat label={`Molecole a saldo negativo · ${year}`} value={formatNumber(conc.negativeMolecules, 0)} detail={`${scopeShort}; resi e note di credito superiori agli acquisti`} />
       </div>
-      <details className="group">
+      <details id={ranking.id} className="group" open={ranking.open} onToggle={ranking.onToggle}>
         <summary className="cursor-pointer text-xs font-semibold text-primary">Apri la classifica numerica {conc.rows.length === 1 ? "della prima molecola" : `delle prime ${formatNumber(conc.rows.length, 0)} molecole`} · {year} · {scopeShort}</summary>
         {/* NARROW (under 41rem): one item per molecola, rank and name as its heading; the total last. */}
         <ul aria-label={`Classifica numerica ${conc.rows.length === 1 ? "della prima molecola" : `delle prime ${formatNumber(conc.rows.length, 0)} molecole`} · ${year} · ${scopeShort}`}
@@ -415,6 +478,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
       </details>
       </div>
       </>)}
+      </Fresh>
     </div>
   );
 }
@@ -450,6 +514,7 @@ export function VolumePanel({ rows, routes, initial }: {
         <LocalToggle label="Via di somministrazione" ariaLabel="Via di somministrazione" value={route} onChange={setRoute}
           options={[{ value: "", label: "Tutte" }, ...routes.map((r) => ({ value: r, label: r.toLowerCase() }))]} />
       )}
+      <Fresh stateKey={route} className="flex flex-col gap-3">
       {chosen !== null && (
         <p className="text-[11px] text-muted-foreground">
           Le schede qui sopra (copertura, gruppi calcolabili, spesa trattenuta) riguardano tutte le vie: i gruppi
@@ -564,6 +629,7 @@ export function VolumePanel({ rows, routes, initial }: {
           </tbody>
         </table>
       </div>
+      </Fresh>
     </div>
   );
 }

@@ -259,16 +259,22 @@ export function PillarBFilterBar({
           </span>
         )}
         <span className="ml-auto flex items-center gap-3">
+          {/* The icon and its words are ONE keyed element, replaced whole: a
+              browser translation swaps bare text nodes for its own, and an
+              icon swapped in place before such a node throws NotFoundError
+              (see Fresh in pillar-b-panels.tsx). */}
           <button type="button" onClick={copyLink}
-                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-            {copied ? <Check size={12} /> : <Copy size={12} />}
-            {copied ? "Link copiato" : "Copia il link a questa vista"}
+                  className="text-muted-foreground hover:text-foreground">
+            <span key={copied ? "copied" : "copy"} className="flex items-center gap-1">
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              <span>{copied ? "Link copiato" : "Copia il link a questa vista"}</span>
+            </span>
           </button>
           {(active > 0 || localCount > 0) && (
             <button type="button" onClick={() => router.replace(base, { scroll: false })}
                     title="Rimuove i filtri e riporta ogni pannello alla sua vista predefinita."
                     className="flex items-center gap-1 font-semibold text-primary hover:underline">
-              <RotateCcw size={12} /> Azzera{active > 0 ? ` (${active})` : ""}
+              <RotateCcw size={12} /> <span>{active > 0 ? `Azzera (${active})` : "Azzera"}</span>
             </button>
           )}
         </span>

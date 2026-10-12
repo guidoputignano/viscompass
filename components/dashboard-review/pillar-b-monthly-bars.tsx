@@ -92,11 +92,17 @@ function MonthlyBarsNarrow({ points, months, shownYears, metric, low, span, labe
   </svg>;
 }
 
-export function MonthlyBars({ rows, metric, view, title }: {
+export function MonthlyBars({ rows, metric, view, title, exact }: {
   rows: CalendarRow[];
   metric: CalendarMetric;
   view: MonthView;
   title: string;
+  /**
+   * The "Valori esatti" list's open state, owned by the panel so it survives
+   * the panel replacing this chart on a toggle (Fresh, pillar-b-panels.tsx).
+   * Without it the list is an ordinary uncontrolled <details>.
+   */
+  exact?: { id: string; open: boolean; onToggle: (e: React.SyntheticEvent<HTMLDetailsElement>) => void };
 }) {
   const points = monthlyChartSeries(rows, view, metric);
   // Every month of the period keeps its slot, so a month with no bar reads as
@@ -175,7 +181,7 @@ export function MonthlyBars({ rows, metric, view, title }: {
       </svg>
       </div>
       </div>
-      <details className="mt-3 rounded-lg border border-border p-3">
+      <details className="mt-3 rounded-lg border border-border p-3" id={exact?.id} open={exact?.open} onToggle={exact?.onToggle}>
         <summary className="cursor-pointer text-xs font-semibold text-primary">Valori esatti, mese per mese</summary>
         <div className="mt-2 max-h-72 overflow-y-auto">
           <table className="w-full text-xs" translate="no">

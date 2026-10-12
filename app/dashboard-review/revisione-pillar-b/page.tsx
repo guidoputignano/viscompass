@@ -540,13 +540,17 @@ export default async function RevisionePillarBPage({
   const ownLabel = aziendaAccount ? (scope.scopedOrgs[0]?.label ?? "La tua Azienda") : null;
   const yearsSpend = filters.years.map((y) => (y === 2024 ? s24 : s25)).flat();
 
-  // REMOUNT ON EVERY FILTER CHANGE. A browser that machine-translates the page
+  // REMOUNT ON EVERY SERVER ANSWER. A browser that machine-translates the page
   // wraps text nodes in its own elements; React's in-place text updates then
   // miss them while attribute updates still land, and a reader sees new chip
   // highlights above a stale scope line and stale figures. Keying the subtree
-  // on the filter state replaces the nodes instead of patching them, so a
-  // translated page is re-rendered whole and re-translated.
-  const filterKey = pillarBHref(BASE, filters, {});
+  // replaces the nodes instead of patching them, so a translated page is
+  // re-rendered whole and re-translated. The key is the filter state AND this
+  // render: a navigation that keeps the filters (Azzera with only panel
+  // options set, a click on the active choice) must also start the panels
+  // from the URL the server just read, and a different answer for the same
+  // filters (a new release) must not be patched into translated text.
+  const filterKey = `${pillarBHref(BASE, filters, {})}#${crypto.randomUUID()}`;
 
   const bridgeOutcome = !fallback && data.facets?.totals?.spend_eur != null && view.perimeterRows > 0
     ? (() => {

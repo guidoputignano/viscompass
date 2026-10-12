@@ -163,7 +163,7 @@ test("PB-V5-11: the monthly spend and quantity-coverage panels share months and 
   const panels = fs.readFileSync(`${root}components/dashboard-review/pillar-b-panels.tsx`, "utf8");
   const section = panels.slice(panels.indexOf("export function CalendarPanel("), panels.indexOf("// ----------------------------------------------------------------- Azienda"));
   assert.match(section, /selected !== "2026" && metric !== "perimetro"/, "linked comparison is unavailable in partial 2026 or on the different perimeter base");
-  assert.match(section, /<MonthlyBars rows=\{rows\} title=\{metric === "spesa" \? title : MONTH_TITLES\[metric\]\} metric=\{metric\} view=\{selected\} \/>/);
+  assert.match(section, /<MonthlyBars rows=\{rows\} title=\{metric === "spesa" \? title : MONTH_TITLES\[metric\]\} metric=\{metric\} view=\{selected\} exact=\{exact\} \/>/);
   assert.match(section, /<MonthlyBars rows=\{rows\} title=\{metric === "spesa" \? MONTH_TITLES\.comparabile : MONTH_TITLES\.spesa\}/);
   assert.match(section, /metric=\{metric === "spesa" \? "comparabile" : "spesa"\} view=\{selected\}/, "companion chart uses the same period and rows, not a new denominator");
   assert.match(section, /la copertura è la quota[\s\S]*spesa rendicontata con quantità confrontabile, non la quota di adozione/);
