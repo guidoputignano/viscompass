@@ -1,6 +1,7 @@
 # Pillar B — the regional comparator for an ordinary Azienda (PB-V5-01)
 
-Status: **live and verified (9 October 2026).** The migration
+Status: **production function and reviewer page verified; ordinary Azienda and
+Regione page sessions not yet verified (12 October 2026).** The migration
 `supabase/migrations/20261009120000_pillar_b_regional_comparator.sql` was
 applied to production on the owner's explicit approval and verified there (§11).
 If the function is ever missing, the page says "Il confronto con la Regione non
@@ -390,16 +391,23 @@ to the public AIFA data already compiled and shown on `/pillar-b`.
   * one function, SECURITY DEFINER, STABLE, `search_path=pg_catalog, pg_temp`;
   * EXECUTE for `authenticated` only; `anon` and `service_role` refused;
   * the `canonical_fact` policy and grant fingerprints unchanged.
-* **Verified, as the real approved Azienda user:**
+* **Verified in a rolled-back production SQL transaction impersonating the
+  approved Azienda user:**
   * a direct read still shows only its own rows;
   * all 12 answers equal an independent production computation to within
     1e-12;
   * 2026 is refused; the two-year call takes about 0.4 s.
 * **Verified, other callers:**
-  * as the real approved Regione user: `not_an_azienda`;
+  * in a rolled-back production SQL transaction impersonating the approved
+    Regione user: `not_an_azienda`;
   * the page's parser accepts every production answer.
 * **Live:** the reviewer page is unchanged apart from the new header wording
   and the national-context card.
 * **Not done:** a live page session as an Azienda or a Regione account. No
   test accounts were created, since on production they would be real access
-  grants. The owner accepted the evidence above as verification.
+  grants. The owner accepted the evidence above as database-level
+  verification, but the role-specific live-page acceptance checks in §10
+  remain open. The 12 October independent rerun passed b49 (117/117), b50
+  (14/14), 507 tests (499 passed, 8 skipped), TypeScript, lint and build.
+  The browser automation helper was unavailable, so this rerun cannot close
+  the live-page gap.

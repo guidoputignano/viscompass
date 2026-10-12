@@ -187,7 +187,7 @@ export function PillarBValueUptake({
   // `regional` is given to an Azienda account only; a regional VALUE (or its
   // reason) is drawn only when the comparator answered. In the note-only state
   // (not deployed, a filter, a failed read) no sentence may speak of one.
-  const regionalShown = regional !== null && (regional.quota1 !== null || regional.quota2 !== null);
+  const regionalShown = regional?.quota1?.available === true || regional?.quota2?.available === true;
   const visibleRows = view.rows.filter((r) => r.dateValid.share !== null || r.locallyObserved.share !== null);
   const excludedRows = view.rows.length - visibleRows.length;
   // The table footer totals the rows the table lists; the banner above keeps

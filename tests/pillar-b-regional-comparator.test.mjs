@@ -320,6 +320,16 @@ test("the quota cards with one regional quota withheld: neither is shown, each s
   assert.match(plain, /nell&#x27;ambito visibile \(l&#x27;Azienda selezionata, o la Regione\)/);
 });
 
+test("when both regional quotas are withheld, the explanation does not claim a regional value", () => {
+  const props = regionalViewProps(parseRegionalComparator(ok({ uptake: {
+    quota1: { available: false, reason: "cell_rule", share: null },
+    quota2: { available: false, reason: "cell_rule", share: null },
+  } }), [2024, 2025]));
+  const markup = uptakeMarkup(props.uptake);
+  assert.doesNotMatch(markup, /nel valore della Regione/);
+  assert.match(markup, /Per la tua Azienda la quota 2 conta dal suo primo uso\./);
+});
+
 test("the quota cards with the comparator not asked (a filter) or not deployed: one sentence, no figure", () => {
   for (const why of [REGIONAL_FILTER_NOTE, REGIONAL_NOT_DEPLOYED, REGIONAL_FAILED]) {
     const markup = uptakeMarkup(regionalViewProps({ kind: "note", why }).uptake);
