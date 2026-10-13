@@ -11,6 +11,7 @@ import {
   KeyRound,
   MessageSquareText,
   ShieldPlus,
+  PanelsTopLeft,
 } from "lucide-react";
 import { VisLogo } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
@@ -30,6 +31,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/pillar-a", label: "Pillar A · fonti pubbliche", icon: ChartSpline },
       { href: "/dashboard-review/revisione-pillar-b", label: "Pillar B · Biosimilari ed esclusività", icon: ClipboardList },
+      { href: "/dashboard-review/pillar-c", label: "Pillar C · Aree cliniche e budget", icon: PanelsTopLeft, previewOnly: true },
     ],
   },
   {
@@ -120,6 +122,7 @@ export function DashboardReviewNav({
               </span>
               <div className="flex flex-row flex-wrap gap-1 md:flex-col">
                 {group.items.map((item) => {
+                  if ("previewOnly" in item && item.previewOnly && !viewer?.isReviewer && !isAdmin) return null;
                   const active = pathname === item.href;
                   const Icon = item.icon;
                   return (
