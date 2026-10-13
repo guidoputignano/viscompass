@@ -71,7 +71,7 @@ export async function sendRegistrationReceivedEmail(email: string, fullName: str
     to: email,
     subject: "Registrazione ricevuta · VIS Pharma Compass",
     heading: `Ciao ${fullName || ""}`.trim() + ", la registrazione è arrivata.",
-    message: "Conferma il tuo indirizzo email. Dopo l’accesso potrai inviare la candidatura alla demo; la richiesta resterà in verifica fino all’approvazione dell’organizzazione.",
+    message: "Conferma il tuo indirizzo email. Poi potrai richiedere l’accesso per la tua organizzazione; la richiesta resterà in verifica fino all’approvazione di un amministratore.",
     actionLabel: "Conferma e accedi",
     actionPath: "/auth/login",
   });
@@ -80,8 +80,8 @@ export async function sendRegistrationReceivedEmail(email: string, fullName: str
 export async function sendAccessRequestReceivedEmail(email: string, organizationName: string) {
   return sendVisEmail({
     to: email,
-    subject: "Candidatura in verifica · VIS Pharma Compass",
-    heading: "La tua candidatura è in verifica.",
+    subject: "Richiesta di accesso in verifica · VIS Pharma Compass",
+    heading: "La tua richiesta di accesso è in verifica.",
     message: `Abbiamo ricevuto la richiesta di accesso per ${organizationName}. Un amministratore la esaminerà dal Control Center; troverai lo stato aggiornato nella tua area di accesso.`,
     actionLabel: "Controlla lo stato",
     actionPath: "/access",
@@ -95,8 +95,8 @@ export async function sendAccessDecisionEmail(
 ) {
   return sendVisEmail({
     to: email,
-    subject: outcome === "approved" ? "Accesso approvato · VIS Pharma Compass" : "Aggiornamento candidatura · VIS Pharma Compass",
-    heading: outcome === "approved" ? "Il tuo accesso è stato approvato." : "La candidatura è stata aggiornata.",
+    subject: outcome === "approved" ? "Accesso approvato · VIS Pharma Compass" : "Aggiornamento della richiesta di accesso · VIS Pharma Compass",
+    heading: outcome === "approved" ? "Il tuo accesso è stato approvato." : "La richiesta di accesso è stata aggiornata.",
     message: outcome === "approved"
       ? `Puoi ora entrare nel perimetro ${organizationName}. I dati reali restano visibili soltanto agli utenti autorizzati.`
       : `La richiesta per ${organizationName} non è stata approvata. Accedi alla tua area per consultare la nota dell’amministratore o inviare una nuova richiesta.`,

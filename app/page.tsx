@@ -20,8 +20,8 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DemoPrompt } from "@/components/demo-prompt";
-import { DecisionDemo } from "@/components/home/decision-demo";
+import { AccessPrompt } from "@/components/access-prompt";
+import { SignalExplorer } from "@/components/home/signal-explorer";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { VisLogo } from "@/components/vis-logo";
 
@@ -266,7 +266,7 @@ function BenefitVisual({ type }: { type: (typeof BENEFITS)[number]["visual"] }) 
 export default function Home() {
   return (
     <div className="min-h-svh overflow-hidden bg-background">
-      <DemoPrompt />
+      <AccessPrompt />
 
       <nav className="sticky top-0 z-30 border-b border-border/80 bg-white/90 backdrop-blur-xl dark:bg-background/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-5 py-3.5 md:px-8">
@@ -298,7 +298,7 @@ export default function Home() {
                 Trasforma i dati farmaceutici già disponibili in segnali economici verificabili.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Button asChild size="lg" className="rounded-xl px-6"><Link href="/auth/sign-up">Registrati per la demo <ArrowRight size={17} /></Link></Button>
+                <Button asChild size="lg" className="rounded-xl px-6"><Link href="/auth/sign-up">Richiedi l&apos;accesso <ArrowRight size={17} /></Link></Button>
                 <Button asChild size="lg" variant="outline" className="rounded-xl px-6"><Link href="/auth/login">Accedi</Link></Button>
               </div>
               <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
@@ -453,7 +453,7 @@ export default function Home() {
               </div>
               <p className="max-w-sm text-sm text-muted-foreground">Tocca un anno. Il dato cambia, l’interpretazione emerge.</p>
             </div>
-            <DecisionDemo />
+            <SignalExplorer />
           </div>
         </section>
 
@@ -461,7 +461,7 @@ export default function Home() {
           <div className="mx-auto max-w-5xl rounded-[2.2rem] bg-[linear-gradient(135deg,hsl(174_66%_38%),hsl(174_58%_31%))] px-6 py-14 text-center text-white shadow-[0_30px_80px_-45px_rgba(13,148,136,0.8)] md:px-12 md:py-20">
             <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">Porta i tuoi dati. Trova il prossimo segnale.</h2>
             <Button asChild size="lg" variant="secondary" className="mt-7 rounded-xl bg-white px-7 text-[hsl(174_58%_28%)] hover:bg-white/90">
-              <Link href="/auth/sign-up">Registrati per la demo <ArrowRight size={17} /></Link>
+              <Link href="/auth/sign-up">Richiedi l&apos;accesso <ArrowRight size={17} /></Link>
             </Button>
           </div>
         </section>

@@ -23,8 +23,8 @@ export default function Page() {
         <CardContent>
           <p className="text-sm text-muted-foreground">
             La registrazione è andata a buon fine. Controlla la tua email per
-            confermare l&apos;account. Dopo l&apos;accesso potrai inviare la candidatura
-            alla demo oppure accettare un invito ricevuto.
+            confermare l&apos;account. Dopo la conferma potrai inviare la richiesta di
+            accesso per la tua organizzazione oppure accettare un invito ricevuto.
           </p>
           <Button asChild className="mt-4 w-full">
             <Link href="/auth/login">Accedi ora</Link>

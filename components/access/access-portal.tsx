@@ -199,7 +199,7 @@ export function AccessPortal({
               Accesso organizzativo
             </div>
             <h1 className="font-display max-w-3xl text-3xl leading-tight md:text-5xl">
-              Richiedi accesso alla demo.
+              Richiedi l&apos;accesso ai dati della tua organizzazione.
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
               Scegli organizzazione e ruolo. Un amministratore verifica la richiesta.
@@ -255,7 +255,7 @@ export function AccessPortal({
                   <Building2 size={18} />
                 </div>
                 <div>
-                  <CardTitle className="font-display text-2xl">Candidatura demo</CardTitle>
+                  <CardTitle className="font-display text-2xl">Richiesta di accesso</CardTitle>
                 </div>
               </div>
             </CardHeader>
@@ -301,7 +301,7 @@ export function AccessPortal({
                     rows={3}
                     value={requestMessage}
                     onChange={(event) => setRequestMessage(event.target.value)}
-                    placeholder="Quali analisi o decisioni desideri supportare con la demo?"
+                    placeholder="Quali analisi o decisioni desideri supportare con VIS?"
                   />
                   <span className="text-right text-[11px] text-muted-foreground">
                     {requestMessage.length}/1200
@@ -327,7 +327,7 @@ export function AccessPortal({
                     submission.state === "submitting"
                   }
                 >
-                  {submission.state === "submitting" ? "Invio in corso..." : "Invia candidatura"}
+                  {submission.state === "submitting" ? "Invio in corso..." : "Invia richiesta"}
                   <ArrowRight className="ml-2" size={15} />
                 </Button>
               </form>
@@ -346,7 +346,7 @@ export function AccessPortal({
               <Card className="border-dashed shadow-none">
                 <CardContent className="flex min-h-40 flex-col items-center justify-center p-6 text-center">
                   <Clock3 className="mb-3 text-muted-foreground" size={22} />
-                  <p className="text-sm font-medium">Nessuna candidatura inviata</p>
+                  <p className="text-sm font-medium">Nessuna richiesta inviata</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     La richiesta comparirà qui con il relativo stato.
                   </p>

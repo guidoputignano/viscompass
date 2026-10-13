@@ -161,7 +161,7 @@ export function SignUpForm({
                 {isLoading ? "Creazione account..." : "Registrati"}
               </Button>
               <p className="text-xs leading-5 text-muted-foreground sm:col-span-2">
-                Dopo la conferma dell&apos;email potrai candidarti alla demo selezionando la tua
+                Dopo la conferma dell&apos;email potrai richiedere l&apos;accesso selezionando la tua
                 organizzazione e indicando il ruolo professionale.
               </p>
             </div>

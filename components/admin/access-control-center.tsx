@@ -416,7 +416,7 @@ function InvitationComposer({ data }: { data: AdminControlCenterData }) {
               onChange={(event) => setNote(event.target.value)}
               maxLength={1200}
               rows={3}
-              placeholder="Perché stai concedendo l'accesso e cosa può essere valutato nella demo?"
+              placeholder="Perché stai concedendo l'accesso e per quali analisi?"
             />
           </div>
           <div className="flex flex-wrap items-center gap-3 md:col-span-2">
@@ -485,7 +485,7 @@ export function AccessControlCenter({
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            label="Candidature"
+            label="Richieste"
             value={data.pendingMemberships.length}
             helper="richiedono una decisione"
             icon={Clock3}
@@ -524,14 +524,14 @@ export function AccessControlCenter({
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Coda di approvazione
               </p>
-              <h2 className="font-display mt-1 text-2xl">Candidature alla demo</h2>
+              <h2 className="font-display mt-1 text-2xl">Richieste di accesso</h2>
             </div>
             {data.pendingMemberships.length === 0 ? (
               <Card className="border-dashed shadow-none">
                 <CardContent className="flex min-h-44 flex-col items-center justify-center p-6 text-center">
                   <UserRoundCheck className="mb-3 text-primary" size={24} />
                   <p className="text-sm font-semibold">Coda aggiornata</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Nessuna candidatura richiede una decisione.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Nessuna richiesta attende una decisione.</p>
                 </CardContent>
               </Card>
             ) : (

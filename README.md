@@ -2,7 +2,7 @@
 
 Evidence-led pharmaceutical analytics for Italian regions and hospital pharmacies. The application
 uses Supabase authentication, organization-scoped Row Level Security, and a dedicated access
-Control Center for demo applications, invitations, approvals and revocations.
+Control Center for access requests, invitations, approvals and revocations.
 
 Before deploying the access workflow, follow [docs/ACCESS_CONTROL.md](docs/ACCESS_CONTROL.md).
 For the Pillar A public activity proxy, read [docs/PILLAR_A_ACTIVITY_PROXY_STATUS.md](docs/PILLAR_A_ACTIVITY_PROXY_STATUS.md).

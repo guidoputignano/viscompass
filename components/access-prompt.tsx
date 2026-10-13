@@ -5,9 +5,9 @@ import { ArrowRight, BarChart3, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-const SESSION_KEY = "vis-pharma-demo-prompt-seen";
+const SESSION_KEY = "vis-pharma-access-prompt-seen";
 
-export function DemoPrompt() {
+export function AccessPrompt() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export function DemoPrompt() {
       <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby="demo-prompt-title"
+        aria-labelledby="access-prompt-title"
         className="relative grid w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl md:grid-cols-[0.9fr_1.1fr]"
       >
         <button
@@ -68,11 +68,11 @@ export function DemoPrompt() {
           <span className="mb-5 flex size-12 items-center justify-center rounded-2xl bg-secondary text-primary">
             <BarChart3 size={22} />
           </span>
-          <h2 id="demo-prompt-title" className="text-3xl font-semibold leading-tight text-[hsl(204_48%_16%)] md:text-4xl">
+          <h2 id="access-prompt-title" className="text-3xl font-semibold leading-tight text-[hsl(204_48%_16%)] md:text-4xl">
             Guarda il dato diventare una decisione.
           </h2>
           <p className="mt-4 max-w-md text-base leading-7 text-slate-600">
-            Esplora la demo VIS Pharma Compass con un esempio già pronto.
+            Registrati e richiedi l&apos;accesso per la tua organizzazione.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Button asChild size="lg">

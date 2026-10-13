@@ -154,7 +154,7 @@ export async function decideMembership(input: {
     revalidatePath("/dashboard-review", "layout");
     return {
       ok: true,
-      message: input.outcome === "approved" ? "Accesso approvato." : "Candidatura rifiutata.",
+      message: input.outcome === "approved" ? "Accesso approvato." : "Richiesta rifiutata.",
     };
   } catch (error) {
     return {

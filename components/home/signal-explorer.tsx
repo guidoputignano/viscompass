@@ -47,7 +47,7 @@ function formatMillion(value: number) {
   }).format(value) + " mln";
 }
 
-export function DecisionDemo() {
+export function SignalExplorer() {
   const [selectedYear, setSelectedYear] = useState(2025);
   const selected = YEARS.find((row) => row.year === selectedYear) ?? YEARS[2];
   const previous = YEARS.find((row) => row.year === selectedYear - 1);
@@ -72,7 +72,7 @@ export function DecisionDemo() {
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-teal-500 opacity-50 motion-reduce:animate-none" />
                 <span className="relative inline-flex size-2 rounded-full bg-teal-600" />
               </span>
-              Demo interattiva
+              Interattivo
             </span>
             <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Dati sintetici
@@ -154,7 +154,7 @@ export function DecisionDemo() {
           </div>
 
           <Button asChild variant="link" className="mt-3 w-fit px-0 text-teal-700">
-            <Link href="/auth/sign-up">Esplora la demo completa <ArrowRight size={15} /></Link>
+            <Link href="/auth/sign-up">Richiedi l&apos;accesso <ArrowRight size={15} /></Link>
           </Button>
         </div>
       </div>
