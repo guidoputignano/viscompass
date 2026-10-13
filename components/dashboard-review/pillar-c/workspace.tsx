@@ -67,7 +67,7 @@ export function PillarCWorkspace() {
         <label className="min-w-0 text-xs font-medium text-muted-foreground">Canale<select aria-label="Canale" value={filters.channel} onChange={(e) => update({ channel: e.target.value as PreviewFilters["channel"] })} className={fieldClass}><option value="all">Tutti i canali</option><option value="DD">DD · Distribuzione diretta</option><option value="DPC">DPC · Distribuzione per conto</option><option value="CO">CO · Consumo ospedaliero</option></select></label>
         <div className="flex flex-wrap gap-2"><button type="button" className={iconButtonClass} onClick={copyLink}>{copyState === "copied" ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}<span>{copyState === "copied" ? "Link copiato" : "Copia vista"}</span></button><button type="button" className={iconButtonClass} onClick={() => update({}, true)}><RotateCcw size={14} aria-hidden="true" /><span>Azzera</span></button></div>
       </div>
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"><p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{selectedPortfolio} · {channelLabel}</span><span> · ambito dimostrativo</span></p><p className="text-xs text-muted-foreground">I controlli di anno e misura sono accanto ai grafici.</p></div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"><p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{selectedPortfolio} · {channelLabel}</span><span> · dati sintetici</span></p><p className="text-xs text-muted-foreground">I controlli di anno e misura sono accanto ai grafici.</p></div>
       <p className="sr-only" role="status">{selectedPortfolio}, {channelLabel}. Vista aggiornata.</p>
       {copyState === "failed" && <p role="status" className="mt-3 text-xs text-muted-foreground">La copia non è disponibile. Puoi copiare l’indirizzo dalla barra del browser.</p>}
     </section>
@@ -79,7 +79,7 @@ export function PillarCWorkspace() {
         <KpiCard label={`Spesa illustrativa · ${filters.year}`} value={compactEuro(model.amount)} detail="Portafoglio e canale selezionati" icon={Wallet} accent />
         <KpiCard label="Variazione illustrativa · 2024–25" value={`${model.change > 0 ? "+" : ""}${percent(model.change / model.previous)}`} detail={signedEuro(model.change)} icon={ArrowDownUp} />
         <KpiCard label={`Quota condivisa · ${filters.year}`} value={percent(model.sharedShare ?? 0)} detail="Da attribuire con evidenza locale" icon={Layers3} />
-        <KpiCard label="Portafogli in vista" value={String(model.portfolios.length)} detail="Categorie dimostrative selezionate" icon={FileCheck2} />
+        <KpiCard label="Portafogli in vista" value={String(model.portfolios.length)} detail="Categorie selezionate" icon={FileCheck2} />
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
         <Panel title={`Composizione del portafoglio · ${filters.year}`} subtitle="Esplora il contributo di ciascuna categoria." controls={<LocalToggle label="Misura" value={filters.composition} options={[{ value: "amount", label: "Euro" }, { value: "share", label: "Quota %" }]} onChange={(composition) => update({ composition })} ariaLabel="Misura della composizione" />}>
@@ -139,7 +139,7 @@ export function PillarCWorkspace() {
     <section id="priorita" aria-labelledby="priorita-title" className="scroll-mt-6">
       <SectionHeading index={4} description="Trasforma un segnale in una domanda verificabile, con responsabilità e prova di chiusura. Queste schede illustrano il flusso futuro." />
       <div className="grid gap-5 xl:grid-cols-2">
-        <Panel title="Coda di revisione dimostrativa" subtitle="Ordine per variazione assoluta, non per gravità clinica.">
+        <Panel title="Coda di revisione su dati sintetici" subtitle="Ordine per variazione assoluta, non per gravità clinica.">
           <div className="space-y-2">{priorities.map((p, i) => <button key={p.id} type="button" aria-pressed={activePriority.id === p.id} onClick={() => setPriority(p.id)} className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${activePriority.id === p.id ? "border-primary/40 bg-primary/5" : "border-border hover:bg-secondary/60"}`}><span className="text-xs text-muted-foreground">{String(i + 1).padStart(2, "0")}</span><span className="min-w-0 flex-1 text-sm font-medium">{p.label}</span><span className="shrink-0 text-xs font-semibold tabular-nums">{signedEuro(p.change)}</span><ArrowRight size={14} className="shrink-0 text-primary" aria-hidden="true" /></button>)}</div><FigureNote>Nessuna attività viene creata o assegnata. La selezione serve solo a esplorare la scheda.</FigureNote>
         </Panel>
         <Panel title={`Verifica del portafoglio · ${activePriority.label}`} subtitle="Esempio di scheda operativa · confronto 2024–2025">

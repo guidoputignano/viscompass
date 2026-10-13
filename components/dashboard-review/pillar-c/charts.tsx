@@ -92,6 +92,6 @@ export function BudgetChart({ model, view }: { model: PreviewModel; view: "amoun
         {view === "amount" ? <><div className="h-full rounded-full bg-primary" style={{ width: `${p.current / max * 100}%` }} /><div className="absolute -top-1 h-5 w-0.5 bg-foreground" style={{ left: `calc(${p.budget / max * 100}% - 2px)` }} /></> : <><span className="absolute -top-1 left-1/2 h-5 w-px bg-foreground/50" /><div className="absolute h-full rounded-sm" style={{ left: p.deviation < 0 ? `${50 - Math.abs(p.deviation) / maxDelta * 50}%` : "50%", width: `${Math.abs(p.deviation) / maxDelta * 50}%`, background: p.deviation > 0 ? "var(--viz-2)" : "var(--viz-3)" }} /></>}
       </div>
     </div>)}
-    <ValuesTable headers={["Portafoglio", "Consuntivo 2025", "Budget 2025", "Scostamento"]} rows={model.portfolios.map((p) => [p.label, euro(p.current), euro(p.budget), signedEuro(p.deviation)])} caption="Confronto di budget dimostrativo" />
+    <ValuesTable headers={["Portafoglio", "Consuntivo 2025", "Budget 2025", "Scostamento"]} rows={model.portfolios.map((p) => [p.label, euro(p.current), euro(p.budget), signedEuro(p.deviation)])} caption="Confronto di budget" />
   </div>;
 }
