@@ -15,5 +15,5 @@ export default async function ProtectedPage() {
     redirect("/auth/login");
   }
 
-  redirect("/dashboard.html");
+  redirect("/dashboard-review/spend");
 }
