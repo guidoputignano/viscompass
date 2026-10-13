@@ -66,9 +66,18 @@ Practical rules:
   than approximate it. Precedent: the antibiotics module ships 3 of the 5
   standard OSMED indicators because the population denominator was not in
   the source files. It says so on the page.
-- Synthetic/demo data must be flagged in the type system
-  (`mode: "real" | "synthetic"`), labelled visibly in the UI, and never
-  written to a production fact table. See `lib/dashboard-review/antibiotic-demo.ts`.
+- **Nothing in VIS is a demo** (owner rule, 13 October 2026). No UI
+  text, email, entity name, code or document may call VIS or any part of
+  it a demo, demonstration or «dimostrativo». VIS is a real decision tool
+  sold to regional, provincial and organisational decision makers.
+- Synthesize data only when real data (private or public) is unavailable
+  **and** the metric is highly important. Keep it realistic, flag it in
+  the type system (`mode: "real" | "synthetic"`), mark it with a brief
+  note («dati sintetici: …»), and never write it to a production fact
+  table. Synthesized data never stands in for an organization's own
+  figures: with no data, show an empty state. Precedent: the spend
+  overview and antibiotics fallbacks were replaced by empty states on
+  13 Oct 2026 (`docs/NO_DEMO_WORDING_PROPOSAL_20261013.md`).
 - Distinguish "no data available" from "zero" in every type, query, and
   UI state. `null` and `0` are different facts.
 - Never invent testimonials, client logos, press mentions, or customer
