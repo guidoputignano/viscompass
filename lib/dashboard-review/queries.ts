@@ -16,7 +16,6 @@ import { indicatorsFromTotals, type CategoryTotals } from "@/lib/analytics/antib
 import {reportedRoundingBounds} from '@/lib/analytics/cost-basis-reconciliation';
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
-import { getSyntheticAntibioticStewardship } from "@/lib/dashboard-review/antibiotic-demo";
 import { classifyTherapeuticArea, combineTherapeuticAreas } from "@/lib/dashboard-review/therapeutic-area";
 import {
   chooseActiveRelease, costPerPack, maxOf, minOf, packCoverage, selectReportingPeriod,
@@ -1090,16 +1089,17 @@ function antibioticSchemaIsMissing(error: { code?: string; message?: string } | 
 }
 
 // Real rows always come from the RLS-scoped fact table. When the approved
-// organization has not loaded antibiotic data yet, the demo deliberately
-// falls back to a deterministic synthetic scenario. The UI labels that mode
-// prominently; synthetic rows are never written to Supabase.
-export async function getAntibioticStewardship(): Promise<AntibioticStewardshipData> {
+// organization has not loaded antibiotic data yet, this returns null and the
+// page says so. It used to fall back to a synthetic organization; the owner
+// ruled on 13 Oct 2026 that synthesized data must not stand in for an
+// organization's own figures.
+export async function getAntibioticStewardship(): Promise<AntibioticStewardshipData | null> {
   const supabase = await createClient();
   // No year filter. This previously read .gte("year", 2023).lte("year", 2025),
   // which silently dropped every year outside that window: a 2026 upload could
   // never reach latestYear below, and an organization whose ONLY year was 2026
-  // got zero rows here and fell through to getSyntheticAntibioticStewardship(),
-  // showing a real customer demo figures labelled "Dati autorizzati".
+  // got zero rows here and fell through to the synthetic fallback (since
+  // removed), showing a real customer synthetic figures labelled "Dati autorizzati".
   //
   // Every sibling function in this file already derives its window from the
   // data (latestYear = the latest COMPLETE year); this was the sole outlier. RLS
@@ -1110,12 +1110,12 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   const { data, error } = await supabase
     .from("antibiotic_consumption_fact")
     .select("*");
-  if (antibioticSchemaIsMissing(error)) return getSyntheticAntibioticStewardship();
+  if (antibioticSchemaIsMissing(error)) return null;
   if (error) throw new Error(`antibiotic_consumption_fact query failed: ${error.message}`);
   const rows = (data ?? []) as AntibioticConsumptionFact[];
 
   const org = await getCurrentOrg();
-  if (!org || rows.length === 0) return getSyntheticAntibioticStewardship();
+  if (!org || rows.length === 0) return null;
 
   const isRegione = org.org_type === "regione";
   // An asl-type caller's RLS-scoped query only ever returns their own
@@ -1134,7 +1134,7 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
     ownRows = rows.filter(r => codes.has(r.org_code));
   }
   const summaryRows = ownRows.filter((row) => row.unit_code === null);
-  if (summaryRows.length === 0) return getSyntheticAntibioticStewardship();
+  if (summaryRows.length === 0) return null;
 
   const yearGroups = new Map<number, Map<AwareCategory, { cost: number; ddd: number }>>();
   for (const r of summaryRows) {

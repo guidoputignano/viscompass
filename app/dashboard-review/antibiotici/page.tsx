@@ -15,6 +15,7 @@ import {
 import {
   DecisionFrame,
   Delta,
+  EmptyState,
   KpiCard,
   MethodologyPanel,
   PageHeader,
@@ -29,8 +30,30 @@ import {
   formatPercent,
 } from "@/lib/dashboard-review/format";
 
+const HEADER = {
+  eyebrow: "Antibiotici AWaRe",
+  title: "Consumo e costo, nella stessa decisione.",
+  description: "Il confronto mostra quando la spesa scende ma l’esposizione cresce, con dettaglio per categoria e unità organizzativa.",
+};
+
 export default async function AntibioticiPage() {
   const data = await getAntibioticStewardship();
+  // No antibiotic rows in the authorized scope: say so, rather than show an
+  // invented organization (owner rule, 13 Oct 2026). The private workbook
+  // section below reads its own release and still renders when it has data.
+  if (data === null) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader {...HEADER} period="Periodo non disponibile" />
+        <EmptyState
+          title="Nessun dato di consumo caricato per la tua organizzazione"
+          detail="Il riepilogo AWaRe si compone dai file di consumo autorizzati: costi, DDD e quote per categoria, con fonte e periodo."
+          action={{ href: "/dashboard-review/dati", label: "Carica i tuoi dati" }}
+        />
+        <PillarAWorkbookSection />
+      </div>
+    );
+  }
   const latest = data.annual.at(-1);
   const latestAware = data.awareByYear.at(-1);
   const latestSpend = latest?.costEur ?? 0;
@@ -44,7 +67,7 @@ export default async function AntibioticiPage() {
   const hasPopulation = data.orgIndicators?.dddPer1000ResidentsDay != null;
   const hasBedDays = data.orgIndicators?.dddPer100BedDays != null;
   const costLabel = data.costBasis === 'CO1' ? 'Costo CO1' : 'Spesa';
-  const modeLabel = data.mode === "synthetic" ? "Demo sintetica" : "Dati autorizzati";
+  const modeLabel = data.mode === "synthetic" ? "Dati sintetici" : "Dati autorizzati";
 
   // Both ends derived from the data. This read `2023–${data.latestYear}`, which
   // took the trouble to derive the end year and then wrote the start as a
@@ -60,13 +83,7 @@ export default async function AntibioticiPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Antibiotici AWaRe"
-        title="Consumo e costo, nella stessa decisione."
-        description="Il confronto mostra quando la spesa scende ma l’esposizione cresce, con dettaglio per categoria e unità organizzativa."
-        period={periodLabel}
-        scope={modeLabel}
-      />
+      <PageHeader {...HEADER} period={periodLabel} scope={modeLabel} />
 
       {data.mode === "synthetic" && (
         <TemplateNotice label="Dati sintetici" source={data.sourceLabel} />
@@ -175,7 +192,7 @@ export default async function AntibioticiPage() {
         <div className="grid gap-5 md:grid-cols-3">
           <div><p className="font-semibold text-foreground">Rapporti</p><p className="mt-1">Denominatori positivi e dello stesso anno. 365 o 366 giorni per le misure giornaliere.</p></div>
           <div><p className="font-semibold text-foreground">N/D</p><p className="mt-1">Dato mancante o denominatore nullo. Non significa zero.</p></div>
-          <div><p className="font-semibold text-foreground">Accesso</p><p className="mt-1">Solo il perimetro autorizzato. Eventuali dati sintetici sono indicati come demo.</p></div>
+          <div><p className="font-semibold text-foreground">Accesso</p><p className="mt-1">Solo il perimetro autorizzato. Eventuali dati sintetici sono segnalati da una breve nota.</p></div>
         </div>
       </MethodologyPanel>
       {/* Pillar A is the same J01 analysis for the same organization, so it lives

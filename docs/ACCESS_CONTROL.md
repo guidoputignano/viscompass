@@ -162,11 +162,12 @@ The two registration communication choices are independent, optional and uncheck
 The current value is stored in `communication_consents`, while the initial registration metadata
 provides a recovery trail if the database migration has not yet been applied.
 
-## 7. Antibiotic demo and real-data loading
+## 7. Antibiotic data loading
 
-When no RLS-visible antibiotic rows exist, the dashboard shows a prominently labelled synthetic
-scenario. Synthetic rows live in application code only and are never merged into the production
-fact table. Once authorized rows exist, the page switches automatically to real mode.
+When no RLS-visible antibiotic rows exist, the dashboard shows an empty state with a link to the
+data page. Until 13 October 2026 it showed a synthetic organization instead; that fallback was
+removed under the owner's rule that synthesized data never stands in for an organization's own
+figures. Once authorized rows exist, the page shows them.
 
 After applying the 2026-09-02 migration, load the provided workbook with the server-only service
 role key:

@@ -1,19 +1,39 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard-review/analytics-ui";
+import { EmptyState, PageHeader } from "@/components/dashboard-review/analytics-ui";
 import { SpendOverview } from "@/components/dashboard-review/spend-overview";
 import { SpendSankey } from "@/components/dashboard-review/spend-sankey";
 import type { SpendDashboardData } from "@/lib/dashboard-review/types";
 
 export function SpendDashboardView({ dashboard }: { dashboard: SpendDashboardData }) {
+  const header = (
+    <PageHeader
+      eyebrow="Quadro esecutivo"
+      title="Spesa e margine teorico, in sintesi."
+      description="Variazioni, priorità e qualità del dato in un’unica vista."
+      period={dashboard.latest_year ? `Periodo ${dashboard.latest_year}` : "Periodo non disponibile"}
+      scope={dashboard.geography_count > 0 ? `${dashboard.geography_count} ambiti autorizzati` : "Perimetro RLS"}
+    />
+  );
+
+  // No records in the authorized scope: say so. An invented region used to
+  // fill this page; synthesized data is not a substitute for an
+  // organization's own figures (owner rule, 13 Oct 2026).
+  if (dashboard.record_count === 0) {
+    return (
+      <div className="flex flex-col gap-7">
+        {header}
+        <EmptyState
+          title="Nessun dato caricato per la tua organizzazione"
+          detail="Il quadro esecutivo si compone dai file autorizzati della tua organizzazione: ogni valore conserva fonte, periodo e riga di origine."
+          action={{ href: "/dashboard-review/dati", label: "Carica i tuoi dati" }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-7">
-      <PageHeader
-        eyebrow="Quadro esecutivo"
-        title="Spesa e margine teorico, in sintesi."
-        description="Variazioni, priorità e qualità del dato in un’unica vista."
-        period={dashboard.latest_year ? `Periodo ${dashboard.latest_year}` : "Periodo non disponibile"}
-        scope={dashboard.geography_count > 0 ? `${dashboard.geography_count} ambiti autorizzati` : "Perimetro RLS"}
-      />
+      {header}
 
       <SpendOverview data={dashboard} />
 

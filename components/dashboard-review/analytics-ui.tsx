@@ -217,12 +217,25 @@ export function MethodologyPanel({
   );
 }
 
-export function EmptyState({ title, detail }: { title: string; detail: string }) {
+export function EmptyState({
+  title,
+  detail,
+  action,
+}: {
+  title: string;
+  detail: string;
+  action?: { href: string; label: string };
+}) {
   return (
     <div className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-secondary/25 px-6 text-center">
       <FileSearch className="text-muted-foreground" size={22} />
       <p className="mt-3 text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">{detail}</p>
+      {action && (
+        <Link href={action.href} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+          <UploadCloud size={14} /> {action.label}
+        </Link>
+      )}
     </div>
   );
 }
