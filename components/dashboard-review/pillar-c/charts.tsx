@@ -7,7 +7,10 @@ import type { PreviewModel } from "@/lib/dashboard-review/pillar-c/preview";
 
 export const euro = (value: number) => itNumberFormat({ style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
 export const percent = (value: number) => itNumberFormat({ style: "percent", maximumFractionDigits: 1 }).format(value);
-export const compactEuro = (value: number) => `${itNumberFormat({ maximumFractionDigits: 1 }).format(value / 1_000_000)} M€`;
+export const compactEuro = (value: number) => {
+  const divisor = Math.abs(value) >= 1_000_000 ? 1_000_000 : Math.abs(value) >= 1_000 ? 1_000 : 1;
+  return divisor === 1 ? euro(value) : `${itNumberFormat({ maximumFractionDigits: 1 }).format(value / divisor)} ${divisor === 1_000_000 ? "M€" : "k€"}`;
+};
 export const signedEuro = (value: number) => `${value > 0 ? "+" : ""}${euro(value)}`;
 
 export function FigureNote({ children }: { children?: React.ReactNode }) {

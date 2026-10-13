@@ -31,7 +31,7 @@ Local controls preserve other controls and unrelated query parameters. Reset cle
 ## Verification receipt
 
 - Source TypeScript check: passed.
-- Targeted ESLint on preview route, components, model, navigation and new tests: passed in the initial implementation; final verification recorded below when complete.
+- Targeted ESLint on preview route, components, model, navigation and new tests: passed, including the post-review tree.
 - Full existing suite: **520 passed, 0 failed, 8 skipped** (528 total). The skipped checks remain skipped; they are not counted as passes.
 - New preview suite: **12 passed**. Covers all 8 approval/reviewer/admin combinations, URL whitelist/reset behavior, 56 filter scopes, exact annual/monthly/channel/attribution arithmetic, cumulative values, presentation invariants, synthetic-only mode and the 24-sheet map.
 - Production build: passed, with the new route dynamic and authentication retained. Initial sandbox build was blocked by generated-output filesystem permissions; the permitted retry passed.
@@ -74,4 +74,17 @@ Forecast fans, standardized comparisons, cost/quantity/mix decomposition, produc
 
 ## Production status
 
-Prepared for deployment of the synthetic preview only. Authenticated live acceptance and the final deployment revision must be recorded separately; local screenshots are not live-site screenshots. No production data change is needed.
+Preview implementation commit `22fad7b` was pushed to the existing `main` production branch. Vercel reported **Deployment has completed** for deployment `Eeuk3izfkz4UP4GyNgzsmPTAWehc`. The live route then rendered the correct title, preview version, synthetic badge and all panels in the existing approved reviewer/admin browser session.
+
+Live checks completed on 13 October 2026:
+
+- Default synthetic totals, attribution partition and signed changes agree with the UI fixture.
+- The `Altri portafogli + DPC + 2024` selection displays EUR 128,000, with attribution EUR 90,880 + 28,160 + 6,400 + 2,560; the fixed 2024–2025 change is EUR 16,000 and the fixed 2025 budget deviation is EUR -8,000. These are **invented test values**, not institutional figures.
+- Portfolio/channel/year/cumulative controls update the real Next URL and panels. Reload preserves local choices, browser Back restores DPC after changing to DD, and reset restores defaults. Composition and signed budget-deviation switches work.
+- No warning/error entries were returned by the browser console log check.
+- A fresh anonymous HTTP request to `/dashboard-review/pillar-c` returns **307 to `/auth/login`**, with no preview marker in the body.
+- Public `/pillar-a` and `/pillar-b` each return **200**. No underlying A/B analysis was changed or re-certified by these smoke checks.
+
+One production observation led to a formatting-only follow-up: filtered amounts below EUR 1 million should use kEUR rather than one-decimal MEUR, which rounded EUR 128,000 to 0.1 MEUR. The chart axis already adapted correctly; compact KPI/budget labels now adapt as well. This follow-up must have a successful deployment check before it is described as live.
+
+Ordinary approved non-reviewer session and a separate reviewer-only (non-admin) session have **not** been exercised live in this pass. The server eligibility matrix has all eight combinations unit-tested; this does not substitute for distinct real-session checks. No workbook reconciliation, analytical acceptance, new database permission or production data activation is claimed.
