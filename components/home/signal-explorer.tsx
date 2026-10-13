@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, CircleDollarSign, Gauge, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {itNumberFormat} from "@/lib/format/it-number";
 
@@ -45,6 +45,16 @@ function formatMillion(value: number) {
     currency: "EUR",
     maximumFractionDigits: 2,
   }).format(value) + " mln";
+}
+
+// Chrome's machine translation swaps React's text nodes for its own <font>
+// elements, so a figure React patches in place stays at the previous year on
+// screen, silently. Whatever the year changes renders inside an element keyed
+// on the year, the only child of its wrapper: React replaces it whole and the
+// new figures are translated afresh. Same pattern as Fresh in
+// components/dashboard-review/pillar-b-panels.tsx.
+function YearView({ year, className, children }: { year: number; className?: string; children: ReactNode }) {
+  return <div><div key={year} className={className}>{children}</div></div>;
 }
 
 export function SignalExplorer() {
@@ -124,7 +134,7 @@ export function SignalExplorer() {
         </div>
 
         <div className="flex flex-col justify-between bg-[linear-gradient(145deg,#f5fffd,#f8fafc)] p-5 md:p-7">
-          <div className="grid grid-cols-3 gap-2.5">
+          <YearView year={selected.year} className="grid grid-cols-3 gap-2.5">
             <div className="rounded-2xl border border-white bg-white p-3 shadow-sm">
               <CircleDollarSign className="text-indigo-500" size={17} />
               <p className="mt-4 text-lg font-semibold text-slate-900">{formatMillion(selected.spend)}</p>
@@ -140,9 +150,9 @@ export function SignalExplorer() {
               <p className="mt-4 text-lg font-semibold text-slate-900">€{selected.costPerDdd.toFixed(2)}</p>
               <p className="mt-1 text-[10px] text-slate-500">per DDD</p>
             </div>
-          </div>
+          </YearView>
 
-          <div className="mt-5 rounded-2xl bg-[hsl(204_48%_16%)] p-5 text-white">
+          <YearView year={selected.year} className="mt-5 rounded-2xl bg-[hsl(204_48%_16%)] p-5 text-white">
             <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-teal-300">Segnale {selected.year}</p>
             <p className="mt-2 text-base font-semibold leading-6">{selected.signal}</p>
             {previous && (
@@ -151,7 +161,7 @@ export function SignalExplorer() {
                 <span className="rounded-full bg-white/10 px-2.5 py-1">DDD {dddChange! < 0 ? "↓" : "↑"} {Math.abs(dddChange! * 100).toFixed(1)}%</span>
               </div>
             )}
-          </div>
+          </YearView>
 
           <Button asChild variant="link" className="mt-3 w-fit px-0 text-teal-700">
             <Link href="/auth/sign-up">Richiedi l&apos;accesso <ArrowRight size={15} /></Link>
