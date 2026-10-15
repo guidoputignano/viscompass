@@ -10,6 +10,8 @@ The owner subsequently requested deployment of the available sections without a 
 
 An explicitly configured local file still takes precedence for local inspection and fails closed if invalid. Otherwise the loader reads the fixed immutable storage object. The previous local-file-only limitation below describes the initial checkpoint, not this later storage connection. Future accepted Azienda/region analytical consumption still requires its own RLS-scoped output contract, not broadening this reviewer service read.
 
+The owner's subsequent section-selector polish adds distinct icons, concise descriptions, a teal active card, restrained hover treatment and scroll-aware `aria-current`. Native fragment links preserve filters, browser history and keyboard navigation without fetching analytical data. The navigator is sticky only on wide desktop; section offsets protect headings, and mobile remains in normal flow. A Pillar C-only shell overflow correction uses `clip` instead of `hidden` so desktop sticking follows the document; other pages retain their original shell classes. Data, roles and the stored artifact are unchanged.
+
 Deployment preparation checks: 16 Pillar C review tests pass; the full suite has 538 passes, 8 existing skips and no failures; targeted ESLint and the optimized production build pass. The actual server loader successfully verifies the private remote artifact. Live Next.js checks and deployment identity must be recorded separately after the push; preparation is not a deployment-success claim. Existing approved identities are reviewers, so an approved non-reviewer session is not currently available for a distinct live negative test; no account or membership is created to imply otherwise.
 
 ## Implemented

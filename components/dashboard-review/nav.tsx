@@ -64,9 +64,12 @@ export function DashboardReviewNav({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  // Clip horizontal overflow without creating a vertical scroll container on
+  // Pillar C; its section navigator must stick to the document viewport.
+  const contentOverflow = pathname === "/dashboard-review/pillar-c" ? "overflow-x-clip" : "overflow-x-hidden";
 
   return (
-    <div className="flex min-h-svh w-full max-w-full flex-col overflow-x-hidden md:flex-row">
+    <div className={`flex min-h-svh w-full max-w-full flex-col ${contentOverflow} md:flex-row`}>
       <aside className="flex w-full flex-col gap-6 border-b border-border bg-card px-5 py-5 md:sticky md:top-0 md:min-h-svh md:w-64 md:self-start md:border-b-0 md:border-r md:px-6 md:py-6">
         <div className="flex items-center justify-between gap-3">
           <Link href="/dashboard-review/spend" aria-label="Vai alla panoramica della spesa">
@@ -172,7 +175,7 @@ export function DashboardReviewNav({
         </div>
       </aside>
 
-      <main className="min-w-0 max-w-full flex-1 overflow-x-hidden bg-background px-5 py-6 md:px-8 md:py-8 xl:px-10">
+      <main className={`min-w-0 max-w-full flex-1 ${contentOverflow} bg-background px-5 py-6 md:px-8 md:py-8 xl:px-10`}>
         <div className="mx-auto min-w-0 w-full max-w-[1480px]">{children}</div>
       </main>
     </div>
