@@ -2,6 +2,16 @@
 
 15 October 2026. Implementation and local reviewer inspection, **not** an activated analytical release. No production migration, import, gate change or deployment is part of this checkpoint. The workbook-first acceptance gate remains closed.
 
+## Subsequent owner-authorized deployment
+
+The owner subsequently requested deployment of the available sections without a work-in-progress banner, while Claude continues the other workbook outputs and fitting. This authorizes live reviewer inspection of the existing numerically checked subset; it does not silently promote its formal acceptance state or publish private figures anonymously. The general progress banner and incomplete-roadmap cards were removed. Per-measure source, synthesis and scope labels remain, with detailed lineage in the source accordion.
+
+`review-storage.ts` adds a pinned private Supabase Storage artifact as the deployed server source. The bucket is private; direct anonymous and authenticated-reviewer downloads were exercised and refused. The approved reviewer/admin check runs before the server-only service download. Raw-byte SHA and strict section schema checks are unchanged. No data was added to canonical fact tables, no analytical gate was switched and no DDL was applied. The application reuses its existing server-side Supabase configuration; no private packet is committed or included in static assets.
+
+An explicitly configured local file still takes precedence for local inspection and fails closed if invalid. Otherwise the loader reads the fixed immutable storage object. The previous local-file-only limitation below describes the initial checkpoint, not this later storage connection. Future accepted Azienda/region analytical consumption still requires its own RLS-scoped output contract, not broadening this reviewer service read.
+
+Deployment preparation checks: 16 Pillar C review tests pass; the full suite has 538 passes, 8 existing skips and no failures; targeted ESLint and the optimized production build pass. The actual server loader successfully verifies the private remote artifact. Live Next.js checks and deployment identity must be recorded separately after the push; preparation is not a deployment-success claim. Existing approved identities are reviewers, so an approved non-reviewer session is not currently available for a distinct live negative test; no account or membership is created to imply otherwise.
+
 ## Implemented
 
 The existing private `/dashboard-review/pillar-c` route now supports a narrowly typed analytical workspace, using the Pillar A section hierarchy and Italian interface:

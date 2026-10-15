@@ -11,7 +11,7 @@ import { PillarCAnalyticalWorkspace } from "@/components/dashboard-review/pillar
 
 export const instant = false;
 export const metadata: Metadata = {
-  title: "Pillar C · Aree cliniche e budget · Anteprima | VIS",
+  title: "Pillar C · Aree cliniche e budget | VIS",
   robots: { index: false, follow: false },
 };
 

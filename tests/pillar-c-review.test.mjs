@@ -140,6 +140,24 @@ test('loader rejects non-reviewers before filesystem access and fails closed wit
   assert.deepEqual(await loadCReviewPacket(true, true, {file: 'relative.json', sha: 'a'.repeat(64)}), {state: 'invalid'});
 });
 
+test('production storage cannot be read before approved reviewer authorization', async () => {
+  let calls = 0;
+  const remote = async () => {calls++; throw new Error('must not fetch');};
+  for (const [approved, reviewer] of [[false, false], [false, true], [true, false]]) assert.deepEqual(await loadCReviewPacket(approved, reviewer, {}, remote), {state: 'forbidden'});
+  assert.equal(calls, 0);
+});
+
+test('production storage requires pinned exact bytes and the same strict review schema', async () => {
+  const bytes = new TextEncoder().encode(JSON.stringify(cReviewFixture()));
+  const sha = createHash('sha256').update(bytes).digest('hex');
+  assert.equal((await loadCReviewPacket(true, true, {}, async () => ({state: 'ready', bytes, sha}))).state, 'ready');
+  assert.deepEqual(await loadCReviewPacket(true, true, {}, async () => ({state: 'ready', bytes, sha: '0'.repeat(64)})), {state: 'invalid'});
+  const invalid = new TextEncoder().encode('{}');
+  assert.deepEqual(await loadCReviewPacket(true, true, {}, async () => ({state: 'ready', bytes: invalid, sha: createHash('sha256').update(invalid).digest('hex')})), {state: 'invalid'});
+  assert.deepEqual(await loadCReviewPacket(true, true, {}, async () => {throw new Error('secret-storage-error');}), {state: 'invalid'});
+  assert.deepEqual(await loadCReviewPacket(true, true, {}, async () => ({state: 'not_configured'})), {state: 'not_configured'});
+});
+
 test('loader verifies raw bytes and external location; no malformed packet becomes a fixture fallback', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'vis-c-review-'));
   try {
