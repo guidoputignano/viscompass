@@ -5,6 +5,9 @@ import { getViewerIdentity } from "@/lib/auth/viewer";
 import { getAdminEmail } from "@/lib/auth/admin";
 import { canSeePillarCPreview } from "@/lib/dashboard-review/pillar-c/preview";
 import { PillarCWorkspace } from "@/components/dashboard-review/pillar-c/workspace";
+import Link from "next/link";
+import { loadCReviewPacket } from "@/lib/dashboard-review/pillar-c/review-loader";
+import { PillarCAnalyticalWorkspace } from "@/components/dashboard-review/pillar-c/analytical-workspace";
 
 export const instant = false;
 export const metadata: Metadata = {
@@ -12,12 +15,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function PillarCPage() {
+export default async function PillarCPage({ searchParams }: { searchParams: Promise<{ vista?: string }> }) {
   // An approved membership is required even for an allow-listed reviewer.
   // No role or real-data flag can be enabled through query parameters.
   const [org, viewer, admin] = await Promise.all([getCurrentOrg(), getViewerIdentity(), getAdminEmail()]);
   if (!canSeePillarCPreview(Boolean(org), viewer?.isReviewer ?? false, Boolean(admin))) {
     return <section className="rounded-2xl border border-border bg-card p-8"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Pillar C</p><h1 className="mt-3 text-2xl font-semibold">Aree cliniche e budget · in preparazione</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Le analisi saranno disponibili dopo la validazione del workbook. L’anteprima dell’interfaccia è riservata ai revisori autorizzati.</p></section>;
   }
-  return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento dell’anteprima Pillar C…</p>}><PillarCWorkspace /></Suspense>;
+  const { vista } = await searchParams;
+  if (vista === "interfaccia") {
+    return <><Link href="/dashboard-review/pillar-c" className="mb-5 inline-block text-xs font-semibold text-primary">Torna alla revisione delle analisi</Link><Suspense fallback={<p role="status">Caricamento dell’anteprima…</p>}><PillarCWorkspace /></Suspense></>;
+  }
+  const review = await loadCReviewPacket(Boolean(org), Boolean(viewer?.isReviewer || admin));
+  if (review.state === "ready") {
+    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCAnalyticalWorkspace packet={review.packet} /></Suspense>;
+  }
+  return <section className="rounded-2xl border border-border bg-card p-6 md:p-8"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Pillar C · Revisione di progetto</p><h1 className="mt-3 text-2xl font-semibold">Il collegamento alle analisi è in preparazione</h1><p role="status" className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{review.state === "invalid" ? "Il pacchetto di revisione non supera i controlli di integrità. I risultati non vengono caricati né sostituiti con esempi." : "I componenti analitici sono pronti per il pacchetto privato di risultati controllati. L’accettazione del workbook e il rilascio per le Aziende restano separati."}</p><div className="mt-6 grid gap-5 md:grid-cols-3">{[["Spesa e variazioni", "Andamento mensile o cumulato e ponte contabile su periodi omogenei."], ["Budget e numerosità", "Due chiavi di allocazione e sensibilità del denominatore CO, con ipotesi esplicite."], ["Controllo del rilascio", "Nessuna previsione o analisi non verificata viene attivata dalla presenza di un grafico."]].map(([title, text]) => <div key={title}><h2 className="text-sm font-semibold">{title}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">{text}</p></div>)}</div><Link href="?vista=interfaccia" className="mt-6 inline-flex rounded-lg border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-secondary">Apri l’anteprima separata dell’interfaccia</Link></section>;
 }
