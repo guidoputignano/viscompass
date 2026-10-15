@@ -3,10 +3,12 @@ import "server-only";
 // An immutable, private review artifact, not a canonical fact import. The bucket
 // has no anonymous/authenticated download grant. Its server-side service read
 // is called ONLY after approved project-reviewer authorization in review-loader.
+// R5 (schema pillar-c-review-v2, with the regional forecast section). The R4
+// object stays in the bucket untouched; this pin and the v2 parser ship together.
 export const C_REVIEW_STORAGE = {
   bucket: "pillar-c-review",
-  object: "r4/bd79c75e983a30ca95dd5a5a44c15685d4968efc74168b7ad33e1fa9cda6d4ea.json",
-  sha256: "bd79c75e983a30ca95dd5a5a44c15685d4968efc74168b7ad33e1fa9cda6d4ea",
+  object: "r5/fd09373fafeb5ef2c9acd1788504bac2c911c7d33a828b956e584f4b820d93df.json",
+  sha256: "fd09373fafeb5ef2c9acd1788504bac2c911c7d33a828b956e584f4b820d93df",
 } as const;
 
 export type CStoredReview = { state: "ready"; bytes: Uint8Array; sha: string } | { state: "not_configured" | "invalid" };

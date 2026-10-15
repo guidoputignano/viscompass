@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, ChartNoAxesCombined, FileCheck2, Landmark, UsersRound, WalletCards } from "lucide-react";
+import { ArrowUpRight, ChartNoAxesCombined, FileCheck2, Landmark, TrendingUp, UsersRound, WalletCards } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PILLAR_C_SECTIONS, pillarCSectionAtViewport, type PillarCSectionId } from "@/lib/dashboard-review/pillar-c/section-navigation";
 
-const icons = { spesa: WalletCards, cambiamento: ChartNoAxesCombined, pianificazione: Landmark, numerosita: UsersRound, evidenza: FileCheck2 };
+const icons = { spesa: WalletCards, cambiamento: ChartNoAxesCombined, pianificazione: Landmark, numerosita: UsersRound, previsione: TrendingUp, evidenza: FileCheck2 };
 
 export function PillarCSectionNavigation() {
   const [active, setActive] = useState<PillarCSectionId>("spesa");
@@ -36,12 +36,12 @@ export function PillarCSectionNavigation() {
     };
   }, []);
 
-  return <nav aria-label="Sezioni dell’analisi Pillar C" className="grid grid-cols-2 gap-2 rounded-[22px] border border-border bg-card bg-gradient-to-br from-card via-card to-primary/[0.04] p-2 shadow-sm sm:grid-cols-3 xl:sticky xl:top-3 xl:z-20 xl:grid-cols-5">
+  return <nav aria-label="Sezioni dell’analisi Pillar C" className="grid grid-cols-2 gap-2 rounded-[22px] border border-border bg-card bg-gradient-to-br from-card via-card to-primary/[0.04] p-2 shadow-sm sm:grid-cols-3 xl:sticky xl:top-3 xl:z-20 xl:grid-cols-6">
     {PILLAR_C_SECTIONS.map(({ id, number, label, description }) => {
       const Icon = icons[id], selected = active === id;
       return <a key={id} href={`#${id}`} onClick={() => setActive(id)} aria-current={selected ? "location" : undefined}
         className={cn(
-          "group relative isolate flex min-h-[88px] min-w-0 items-center gap-2 overflow-hidden rounded-2xl border px-2.5 py-3 outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-200 last:col-span-2 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card motion-reduce:transition-none sm:gap-3 sm:px-3.5 sm:last:col-span-1",
+          "group relative isolate flex min-h-[88px] min-w-0 items-center gap-2 overflow-hidden rounded-2xl border px-2.5 py-3 outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card motion-reduce:transition-none sm:gap-3 sm:px-3.5",
           selected ? "border-primary/30 bg-primary text-primary-foreground shadow-md shadow-primary/20" : "border-transparent text-foreground hover:border-primary/15 hover:bg-primary/[0.05] hover:shadow-sm motion-safe:hover:-translate-y-0.5",
         )}>
         {selected && <><span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-white/10 via-transparent to-black/10" /><span aria-hidden="true" className="pointer-events-none absolute -right-6 -top-10 -z-10 size-28 rounded-full bg-white/15 blur-2xl" /></>}

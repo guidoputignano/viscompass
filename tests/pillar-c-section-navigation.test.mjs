@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PILLAR_C_SECTIONS,pillarCSectionAtViewport} from '../lib/dashboard-review/pillar-c/section-navigation.ts';
 
-test('Pillar C section navigation keeps all five existing anchor targets in order',()=>{
-  assert.deepEqual(PILLAR_C_SECTIONS.map(s=>s.id),['spesa','cambiamento','pianificazione','numerosita','evidenza']);
-  assert.equal(new Set(PILLAR_C_SECTIONS.map(s=>s.id)).size,5);
-  assert.deepEqual(PILLAR_C_SECTIONS.map(s=>s.number),['01','02','03','04','05']);
+test('Pillar C section navigation keeps the five existing anchors, adds the regional forecast before Evidenza, and keeps Evidenza last',()=>{
+  assert.deepEqual(PILLAR_C_SECTIONS.map(s=>s.id),['spesa','cambiamento','pianificazione','numerosita','previsione','evidenza']);
+  assert.equal(new Set(PILLAR_C_SECTIONS.map(s=>s.id)).size,6);
+  assert.deepEqual(PILLAR_C_SECTIONS.map(s=>s.number),['01','02','03','04','05','06']);
+  assert.equal(PILLAR_C_SECTIONS.at(-1).id,'evidenza');
   for(const s of PILLAR_C_SECTIONS) {assert.ok(s.label.length>0);assert.ok(s.description.length>0);}
 });
 

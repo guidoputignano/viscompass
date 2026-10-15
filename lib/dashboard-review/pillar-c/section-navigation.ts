@@ -4,7 +4,9 @@ export const PILLAR_C_SECTIONS = [
   { id: "cambiamento", number: "02", label: "Variazioni", description: "Confronti nel tempo" },
   { id: "pianificazione", number: "03", label: "Budget", description: "Piani e allocazioni" },
   { id: "numerosita", number: "04", label: "Numerosità", description: "Scenari CO" },
-  { id: "evidenza", number: "05", label: "Evidenza", description: "Fonti e metodo" },
+  { id: "previsione", number: "05", label: "Previsione", description: "Regionale, fonte pubblica" },
+  // Evidence stays last: it documents every section above it.
+  { id: "evidenza", number: "06", label: "Evidenza", description: "Fonti e metodo" },
 ] as const;
 
 export type PillarCSectionId = typeof PILLAR_C_SECTIONS[number]["id"];
