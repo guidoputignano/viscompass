@@ -66,7 +66,7 @@ function admissionNote(a: CForecastAdmission, labels: CForecast["labels"]): stri
   return typeset(others.length ? `Motivazione: modello registrato ammesso in ogni variante. ${others.join(" ")}` : "Motivazione: modello registrato ammesso in ogni variante; anche il candidato alternativo supera le condizioni.");
 }
 
-export function PillarCForecastPanel({ forecast, series, onSeries }: { forecast: CForecast | undefined; series: CForecastSelectable; onSeries: (series: CForecastSelectable) => void }) {
+export function PillarCForecastPanel({ forecast, series, onSeries, published = false }: { forecast: CForecast | undefined; series: CForecastSelectable; onSeries: (series: CForecastSelectable) => void; published?: boolean }) {
   const caption = useId();
   if (!forecast) return <p role="status" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">Il pacchetto di revisione caricato non contiene la previsione regionale. Nessun valore viene stimato o sostituito.</p>;
   const labels = forecast.labels, view = selectCForecast(forecast, series), annual = view.annual;
@@ -84,7 +84,7 @@ export function PillarCForecastPanel({ forecast, series, onSeries }: { forecast:
   return <div className="space-y-5">
     <div role="note" className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/5 px-5 py-4">
       <div className="min-w-[min(100%,16rem)] flex-1"><p className="text-sm font-semibold">{C_FORECAST_LABEL}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Non è una previsione di un’Azienda, né un budget o un tetto di spesa.</p></div>
-      <span className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">In revisione · accettazione in attesa</span>
+      <span className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{published ? "Previsione regionale · 2026" : "In revisione · accettazione in attesa"}</span>
     </div>
 
     <article className={panelClass}>
@@ -190,7 +190,7 @@ export function PillarCForecastPanel({ forecast, series, onSeries }: { forecast:
 
     <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm font-medium">Base, metodo e limiti della previsione</summary>
       <dl className="mt-4 space-y-3 text-xs leading-5">
-        {[["Ambito", `Regione ${forecast.region} · dati pubblici, nessun dato aziendale`], ["Base della spesa", labels.base], ["Metodo", labels.method], ["Limiti", labels.caveats], ["Serie osservata", `${labels.observed}. ${labels.observedNote}`], ["Totale annuo", labels.annualType], ["Nota", labels.note], ["Stato", `${labels.tier} · in revisione, accettazione in attesa`]].map(([term, detail]) => <div key={term}><dt className="font-semibold">{term}</dt><dd className="mt-1 text-muted-foreground">{typeset(detail)}</dd></div>)}
+        {[["Ambito", `Regione ${forecast.region} · dati pubblici, nessun dato aziendale`], ["Base della spesa", labels.base], ["Metodo", labels.method], ["Limiti", labels.caveats], ["Serie osservata", `${labels.observed}. ${labels.observedNote}`], ["Totale annuo", labels.annualType], ["Nota", labels.note], ["Stato", published ? `${labels.tier} · previsione regionale pubblicata` : `${labels.tier} · in revisione, accettazione in attesa`]].map(([term, detail]) => <div key={term}><dt className="font-semibold">{term}</dt><dd className="mt-1 text-muted-foreground">{typeset(detail)}</dd></div>)}
       </dl>
     </details>
     {/* The packet's attribution names the source, the licence and the modification; the links complete CC BY 4.0 §3(a)(1). */}

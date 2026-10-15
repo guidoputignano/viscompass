@@ -185,7 +185,7 @@ function jsonSafeCopy(value: unknown): unknown { return JSON.parse(JSON.stringif
 function pick(rows: Record<string, unknown>[], fields: readonly string[]) { return rows.map((r) => Object.fromEntries(fields.map((key) => [key, r[key]]))); }
 
 /** Strict forecast section. Always closed: any key outside the contract fails. */
-function parseCForecast(input: unknown): CForecast {
+export function parseCForecast(input: unknown): CForecast {
   const f = object(input);
   keys(f, FORECAST_KEYS);
   requireCondition(f.region === "Abruzzo" && f.scope === "regional_public_forecast", "FORECAST_SCOPE");

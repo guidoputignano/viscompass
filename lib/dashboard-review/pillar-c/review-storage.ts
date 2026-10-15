@@ -2,7 +2,10 @@ import "server-only";
 
 // An immutable, private review artifact, not a canonical fact import. The bucket
 // has no anonymous/authenticated download grant. Its server-side service read
-// is called ONLY after approved project-reviewer authorization in review-loader.
+// is called only through gated server loaders: approved reviewers receive the
+// private review packet; ordinary approved members receive only the closed
+// public-source forecast projection in regional-forecast-loader. Never forward
+// these transport bytes directly to an ordinary member or a public response.
 // R5 (schema pillar-c-review-v2, with the regional forecast section). The R4
 // object stays in the bucket untouched; this pin and the v2 parser ship together.
 export const C_REVIEW_STORAGE = {

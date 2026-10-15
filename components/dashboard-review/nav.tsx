@@ -31,7 +31,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/pillar-a", label: "Pillar A · fonti pubbliche", icon: ChartSpline },
       { href: "/dashboard-review/revisione-pillar-b", label: "Pillar B · Biosimilari ed esclusività", icon: ClipboardList },
-      { href: "/dashboard-review/pillar-c", label: "Pillar C · Aree cliniche e budget", icon: PanelsTopLeft, previewOnly: true },
+      { href: "/dashboard-review/pillar-c", label: "Pillar C · Aree cliniche e budget", icon: PanelsTopLeft, previewOnly: false },
     ],
   },
   {
