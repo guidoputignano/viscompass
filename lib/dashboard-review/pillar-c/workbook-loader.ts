@@ -4,9 +4,13 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseCWorkbookIndex, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSectionId, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
 import { C_WORKBOOK_STORAGE } from "@/lib/dashboard-review/pillar-c/workbook-storage";
+import { createServerCache } from "@/lib/dashboard-review/pillar-b/server-cache";
 
 type Failed = { state: "forbidden" | "invalid" | "not_configured" };
 type Config = { root?: string };
+// Only pinned immutable artifacts are shared. Membership/reviewer checks still
+// run before every read, including a cache hit. Custom/local test readers bypass it.
+const artifacts = createServerCache({ ttlMs: 10 * 60_000, max: 16 });
 export type CWorkbookRead = (name: string, hash: string, root?: string) => Promise<Uint8Array | null>;
 
 /** Service-only transport. Neither bytes nor private sections reach ordinary members. */
@@ -39,9 +43,14 @@ export const readCWorkbookArtifact: CWorkbookRead = async (name, hash, localRoot
   return bytes;
 };
 async function read(name: string, hash: string, config: Config, reader: CWorkbookRead) {
-  const bytes = await reader(name, hash, config.root);
-  if (!bytes || bytes.byteLength < 2 || bytes.byteLength > 5_000_000 || createHash("sha256").update(bytes).digest("hex") !== hash) throw new Error("C_WORKBOOK_INTEGRITY");
-  return JSON.parse(Buffer.from(bytes).toString("utf8")) as unknown;
+  const load = async () => {
+    const bytes = await reader(name, hash, config.root);
+    if (!bytes || bytes.byteLength < 2 || bytes.byteLength > 5_000_000 || createHash("sha256").update(bytes).digest("hex") !== hash) throw new Error("C_WORKBOOK_INTEGRITY");
+    return JSON.parse(Buffer.from(bytes).toString("utf8")) as unknown;
+  };
+  return reader === readCWorkbookArtifact && !config.root
+    ? artifacts.get(`${process.env.NEXT_PUBLIC_SUPABASE_URL}|${name}|${hash}`, load)
+    : load();
 }
 export async function loadCWorkbookIndex(approved: boolean, reviewer: boolean,
   config: Config = { root: process.env.PILLAR_C_WORKBOOK_ROOT }, reader: CWorkbookRead = readCWorkbookArtifact,

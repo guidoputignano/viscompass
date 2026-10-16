@@ -32,9 +32,11 @@ export default async function PillarCPage() {
   if (!projectReviewer) {
     return <section className="rounded-2xl border border-border bg-card p-8"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Pillar C</p><h1 className="mt-3 text-2xl font-semibold">Aree cliniche e budget · in preparazione</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Le analisi saranno disponibili dopo la validazione del workbook. L’anteprima dell’interfaccia è riservata ai revisori autorizzati.</p></section>;
   }
-  const review = await loadCReviewPacket(Boolean(org), Boolean(viewer?.isReviewer || admin));
+  const [review, workbook] = await Promise.all([
+    loadCReviewPacket(Boolean(org), Boolean(viewer?.isReviewer || admin)),
+    loadCWorkbookIndex(Boolean(org), Boolean(viewer?.isReviewer || admin)),
+  ]);
   if (review.state === "ready") {
-    const workbook = await loadCWorkbookIndex(Boolean(org), Boolean(viewer?.isReviewer || admin));
     return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCAnalyticalWorkspace packet={review.packet} workbook={workbook.state === "ready" ? workbook.index : undefined} /></Suspense>;
   }
   return <section className="rounded-2xl border border-border bg-card p-6 md:p-8"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Pillar C · Revisione di progetto</p><h1 className="mt-3 text-2xl font-semibold">Il collegamento alle analisi è in preparazione</h1><p role="status" className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{review.state === "invalid" ? "Il pacchetto di revisione non supera i controlli di integrità. I risultati non vengono caricati né sostituiti con esempi." : "I componenti analitici sono pronti per il pacchetto privato di risultati controllati. L’accettazione del workbook e il rilascio per le Aziende restano separati."}</p><div className="mt-6 grid gap-5 md:grid-cols-3">{[["Spesa e variazioni", "Andamento mensile o cumulato e ponte contabile su periodi omogenei."], ["Budget e numerosità", "Due chiavi di allocazione e sensibilità del denominatore CO, con ipotesi esplicite."], ["Controllo del rilascio", "Nessuna previsione o analisi priva dei propri controlli viene attivata dalla presenza di un grafico."]].map(([title, text]) => <div key={title}><h2 className="text-sm font-semibold">{title}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">{text}</p></div>)}</div></section>;

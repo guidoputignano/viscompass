@@ -510,7 +510,7 @@ test('workspace: text that follows a filter is one text child or a keyed element
   for (const expr of [
     '{`${scope}. Periodi e misure sono accanto ai grafici;',
     '{`${scope}. Selezione aggiornata.`}',
-    '{`Piano modellato 2025 · ${filters.org === "Regione" ? "ASL 1" : C_ORG_LABELS[filters.org]}`}',
+    '{`Piano modellato 2025 · ${budgetFilters.org === "Regione" ? "ASL 1" : C_ORG_LABELS[budgetFilters.org]}`}',
     '{`Prime 12 aree nel grafico; tutte le ${budgets.length} aree sono nella tabella.`}',
     '{`${eur(r.perPerson)} / persona nello scenario`}',
     '{`${data.counts.filter((r) => r.state !== "CALCOLATO").length} portafogli senza rapporto disponibile',
