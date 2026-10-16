@@ -72,6 +72,8 @@ export interface CanonicalFact {
   /** Pillar B release: quantity in the stratum's own unit (numeric; may arrive as a string). */
   comparable_quantity?: number | string | null;
   comparable_unit?: string | null;
+  /** Pillar B release: comparability stratum (molecule | route | form | unit | year). */
+  comparable_stratum_id?: string | null;
 }
 
 export interface Objective {

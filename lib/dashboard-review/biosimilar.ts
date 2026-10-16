@@ -131,6 +131,11 @@ export function comparableMassMg(fact: CanonicalFact): number | null {
  * Biosimilar side. The Pillar B release records it as the B03 perimeter status;
  * earlier loads as `biosimilar_flag`.
  */
+/** Comparability stratum of a row; earlier loads carry none and pool as one. */
+function stratumOf(fact: CanonicalFact): string {
+  return fact.comparable_stratum_id ?? "";
+}
+
 export function isBiosimilar(fact: CanonicalFact): boolean {
   return fact.biosimilar_flag === true || fact.perimeter_status === "biosimilar";
 }
@@ -391,23 +396,41 @@ export function buildBiosimilarRows(
     // onto rows that were never measured — the narrowing the verified analysis
     // makes twice (all reference spend -> window -> measurable) and the previous
     // computation made not at all.
-    const headroomBase = Math.min(
-      Math.max(0, spendOf(measurableFacts(subsOrig))),
-      substitutableOrigSpend,
-    );
+    //
+    // --- gate 3: only inside one comparability stratum ------------------------
+    // A per-mg rate is compared only between rows of the SAME stratum (molecule,
+    // route, pharmaceutical form, unit). A subcutaneous originator set against an
+    // intravenous biosimilar is two different products, and pooling them produced
+    // a differential between them. Each stratum present on both sides gets its own
+    // differential; strata on one side only contribute nothing. Earlier loads carry
+    // no stratum and pool as one, exactly as before.
+    const measOrig = measurableFacts(subsOrig);
+    const measBio = measurableFacts(subsBio);
+    const bioStrata = new Set(measBio.map(stratumOf));
+    const shared = new Set(measOrig.map(stratumOf).filter((s) => bioStrata.has(s)));
+    const sharedOrig = measOrig.filter((f) => shared.has(stratumOf(f)));
+    const sharedBio = measBio.filter((f) => shared.has(stratumOf(f)));
+    let rawBase = 0;
+    let rawHeadroom = 0;
+    for (const stratum of shared) {
+      const o = sharedOrig.filter((f) => stratumOf(f) === stratum);
+      const b = sharedBio.filter((f) => stratumOf(f) === stratum);
+      const oCost = costPerMg(o);
+      const bCost = costPerMg(b);
+      const base = Math.max(0, spendOf(o));
+      rawBase += base;
+      // A differential is applied ONLY where both sides are measurable AND the
+      // biosimilar is actually cheaper. Where it costs more per mg the headroom is
+      // zero, never negative: a negative "saving" would silently offset a real one.
+      if (oCost !== null && bCost !== null && oCost > 0 && oCost > bCost) rawHeadroom += base * (1 - bCost / oCost);
+    }
+    const headroomBase = Math.min(rawBase, substitutableOrigSpend);
 
-    const origCostPerMg = costPerMg(subsOrig);
-    const bioCostPerMg = costPerMg(subsBio);
-
-    // A differential is applied ONLY where both sides are measurable inside the
-    // window AND the biosimilar is actually cheaper. Where the biosimilar costs
-    // more per mg the headroom is zero, never negative: substituting there would
-    // cost money, and a negative "saving" silently offsets a real one elsewhere.
-    const measurable = origCostPerMg !== null && bioCostPerMg !== null && origCostPerMg > 0;
-    const headroom =
-      measurable && origCostPerMg! > bioCostPerMg!
-        ? headroomBase * (1 - bioCostPerMg! / origCostPerMg!)
-        : 0;
+    const origCostPerMg = costPerMg(sharedOrig);
+    const bioCostPerMg = costPerMg(sharedBio);
+    const measurable = shared.size > 0 && origCostPerMg !== null && bioCostPerMg !== null && origCostPerMg > 0;
+    // The base is clamped to the window above it; the headroom follows the clamp.
+    const headroom = measurable && rawBase > 0 ? rawHeadroom * (headroomBase / rawBase) : 0;
 
     const coverage = normalizationCoverage(group);
     const penAll = penetration(group);

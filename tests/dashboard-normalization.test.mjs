@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { isUnresolvedRecord } from "../lib/dashboard-review/normalization.ts";
-import { normalizationCoverage, normalizedMg, isBiosimilar, isOriginatorSide, costPerMg, penetration } from "../lib/dashboard-review/biosimilar.ts";
+import { normalizationCoverage, normalizedMg, isBiosimilar, isOriginatorSide, costPerMg, penetration, buildBiosimilarRows } from "../lib/dashboard-review/biosimilar.ts";
 
 const fact = (overrides) => ({
   total_cost_eur: 100,
@@ -98,4 +98,49 @@ test("cost per mg and mg penetration use the gated mass", () => {
   const p = penetration([ref, bio, ungated]);
   assert.equal(p.basis, "spend");
   assert.equal(p.value, 700 / 1200);
+});
+
+// --- headroom only inside one comparability stratum --------------------------------
+
+const OPTS = { classifyArea: () => ({ label: "Test", status: "supported_by_atc" }) };
+const IV = "content|MAB|ENDOVENOSO|POLVERE|MG|2025";
+const SC = "content|MAB|SOTTOCUTANEO|SOLUZIONE|MG|2025";
+const row = (o) => release({ year: 2025, month: 3, active_substance: "MAB", ...o });
+
+test("an SC originator is not compared per mg with an IV biosimilar", () => {
+  const facts = [
+    row({ perimeter_status: "reference_medicine", comparable_stratum_id: SC, comparable_quantity: 1000, total_cost_eur: 1390 }),
+    row({ perimeter_status: "biosimilar", comparable_stratum_id: IV, comparable_quantity: 1000, total_cost_eur: 227 }),
+  ];
+  const [r] = buildBiosimilarRows(facts, 2025, OPTS);
+  assert.equal(r.substitution_headroom_eur, 0);
+  assert.equal(r.evidence_status, "unresolved");
+  assert.equal(r.originator_cost_per_mg, null);
+});
+
+test("inside one stratum the differential applies; strata on one side add nothing", () => {
+  const facts = [
+    row({ perimeter_status: "reference_medicine", comparable_stratum_id: IV, comparable_quantity: 1000, total_cost_eur: 1000 }),
+    row({ perimeter_status: "biosimilar", comparable_stratum_id: IV, comparable_quantity: 1000, total_cost_eur: 400 }),
+    // SC originator spend with no SC biosimilar: not substitutable here.
+    row({ perimeter_status: "reference_medicine", comparable_stratum_id: SC, comparable_quantity: 1000, total_cost_eur: 5000 }),
+  ];
+  const [r] = buildBiosimilarRows(facts, 2025, OPTS);
+  assert.equal(r.headroom_base_eur, 1000);
+  assert.equal(r.substitution_headroom_eur, 1000 * (1 - 0.4 / 1));
+  assert.equal(r.originator_cost_per_mg, 1);
+  assert.equal(r.biosimilar_cost_per_mg, 0.4);
+  assert.notEqual(r.evidence_status, "unresolved");
+});
+
+test("two shared strata each keep their own differential", () => {
+  const facts = [
+    row({ perimeter_status: "reference_medicine", comparable_stratum_id: IV, comparable_quantity: 1000, total_cost_eur: 1000 }),
+    row({ perimeter_status: "biosimilar", comparable_stratum_id: IV, comparable_quantity: 1000, total_cost_eur: 500 }),
+    row({ perimeter_status: "reference_medicine", comparable_stratum_id: SC, comparable_quantity: 100, total_cost_eur: 400 }),
+    row({ perimeter_status: "biosimilar", comparable_stratum_id: SC, comparable_quantity: 100, total_cost_eur: 300 }),
+  ];
+  const [r] = buildBiosimilarRows(facts, 2025, OPTS);
+  // IV: 1000 x (1 - 0.5/1) = 500; SC: 400 x (1 - 3/4) = 100. Pooled would give 1400 x (1 - 0.7273/1.2727).
+  assert.equal(r.substitution_headroom_eur, 600);
 });
