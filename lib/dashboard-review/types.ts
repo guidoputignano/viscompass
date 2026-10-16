@@ -235,8 +235,14 @@ export interface SpendDashboardData {
    * Named `headroom`, not `opportunity`, because the old name is what let the
    * landing page keep publishing it as recoverable money after the computation
    * behind it had been corrected.
+   *
+   * `null` when no molecule has a measurable €/mg differential: an unmeasured
+   * headroom is "not computable", never 0 €. 0 is reserved for a measured result
+   * (the biosimilar is not cheaper per mg wherever it is measurable).
    */
-  biosimilar_headroom_eur: number;
+  biosimilar_headroom_eur: number | null;
+  /** Molecules whose headroom was measurable, out of those in the biosimilar perimeter. */
+  biosimilar_headroom_measurable: { measurable: number; molecules: number };
   active_review_count: number;
   review_items: ReviewSignal[];
   top_molecules: MoleculeSignal[];

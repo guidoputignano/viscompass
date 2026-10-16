@@ -272,6 +272,25 @@ export interface BuildOptions {
  * `facts` must be the WHOLE fact set, not a single year: first local dispensing is
  * established across all of it. `latestYear` selects which year the row reports.
  */
+/**
+ * Total substitution headroom over the molecules whose €/mg differential was
+ * measurable. An unmeasurable molecule stores 0, so a plain sum would publish
+ * "0 €" when nothing could be computed: with no measurable molecule the total is
+ * `null` ("not computable"). A measured 0 (the biosimilar is not cheaper) stays 0.
+ */
+export function headroomTotal(rows: BiosimilarComparisonRow[]): {
+  total: number | null;
+  measurable: number;
+  molecules: number;
+} {
+  const measurable = rows.filter((row) => row.evidence_status !== "unresolved");
+  return {
+    total: measurable.length === 0 ? null : measurable.reduce((sum, row) => sum + row.substitution_headroom_eur, 0),
+    measurable: measurable.length,
+    molecules: rows.length,
+  };
+}
+
 export function buildBiosimilarRows(
   facts: CanonicalFact[],
   latestYear: number | null,

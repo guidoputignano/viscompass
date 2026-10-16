@@ -24,6 +24,7 @@ import {
 import {
   buildBiosimilarRows as buildBiosimilarRowsImpl,
   commonPenetrationBasis,
+  headroomTotal,
   normalizationCoverage,
   penetration as biosimilarPenetration,
   penetrationOn,
@@ -487,10 +488,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
   // new in this one and the substitutable window opens far too late.
   const currentBio = buildBiosimilarRowsImpl(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS);
   const overallPenetration = biosimilarPenetration(currentFacts);
-  const biosimilarHeadroom = currentBio.reduce(
-    (sum, row) => sum + row.substitution_headroom_eur,
-    0,
-  );
+  const headroom = headroomTotal(currentBio);
 
   const previousMoleculeSpend = new Map<string, number>();
   for (const fact of previousFacts) {
@@ -575,7 +573,8 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
       : ratio(totalPacks, previousPacks),
     biosimilar_penetration: overallPenetration.value,
     biosimilar_penetration_basis: overallPenetration.basis,
-    biosimilar_headroom_eur: biosimilarHeadroom,
+    biosimilar_headroom_eur: headroom.total,
+    biosimilar_headroom_measurable: { measurable: headroom.measurable, molecules: headroom.molecules },
     active_review_count: reviewSignals.length,
     review_items: reviewSignals.slice(0, 6),
     top_molecules: topMolecules,

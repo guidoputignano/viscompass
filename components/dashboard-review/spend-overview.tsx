@@ -248,7 +248,7 @@ export function SpendOverview({ data }: { data: SpendDashboardData }) {
       <DecisionFrame
         changed={yoyText}
         variance={topAtc ? `${topAtc.label}: ${formatPercent(topAtc.share)}` : "ATC da caricare"}
-        materiality={data.biosimilar_headroom_eur > 0 ? `Margine ≤ ${formatEur(data.biosimilar_headroom_eur)}` : "€/mg da normalizzare"}
+        materiality={data.biosimilar_headroom_eur !== null && data.biosimilar_headroom_eur > 0 ? `Margine ≤ ${formatEur(data.biosimilar_headroom_eur)}` : "€/mg da normalizzare"}
         nextEvidence={firstReview ? firstReview.title : "Carica il primo periodo"}
       />
 
@@ -258,7 +258,7 @@ export function SpendOverview({ data }: { data: SpendDashboardData }) {
         <KpiCard accent label="Spesa" value={formatEur(data.total_spend_eur)} detail={<Delta value={data.spend_yoy} suffix={data.previous_year ? ` vs ${data.previous_year}` : undefined} />} icon={ReceiptEuro} />
         <KpiCard label="Confezioni" value={data.total_packs === null ? "n/d" : formatNumber(data.total_packs, 0)} detail={data.total_packs === null ? "Base non confermata dalla Regione" : <Delta value={data.packs_yoy} suffix=" confezioni" />} icon={PackageOpen} />
         <KpiCard label="Var. a/a" value={data.spend_yoy === null ? "—" : formatPercent(data.spend_yoy)} detail={data.previous_year ? `vs ${data.previous_year}` : undefined} icon={Activity} />
-        <KpiCard label="Margine (limite superiore)" value={formatEur(data.biosimilar_headroom_eur)} detail={data.biosimilar_penetration === null ? undefined : `${formatPercent(data.biosimilar_penetration)} · ${BASIS_LABEL[data.biosimilar_penetration_basis!]}${data.biosimilar_penetration_basis === "spend" ? " (sottostima il volume)" : ""}`} icon={BadgeEuro} />
+        <KpiCard label="Margine (limite superiore)" value={data.biosimilar_headroom_eur === null ? "Non calcolabile" : formatEur(data.biosimilar_headroom_eur)} detail={data.biosimilar_headroom_eur === null ? (data.biosimilar_headroom_measurable.molecules === 0 ? "Nessuna molecola del perimetro biosimilare" : "Nessun differenziale €/mg misurabile") : data.biosimilar_penetration === null ? undefined : `${formatPercent(data.biosimilar_penetration)} · ${BASIS_LABEL[data.biosimilar_penetration_basis!]}${data.biosimilar_penetration_basis === "spend" ? " (sottostima il volume)" : ""}`} icon={BadgeEuro} />
         <KpiCard label="Irrisolti" value={formatNumber(data.unresolved_record_count, 0)} detail={formatPercent(unresolvedShare)} icon={CircleAlert} />
         <KpiCard label="Revisioni" value={formatNumber(data.active_review_count, 0)} icon={ClipboardCheck} />
       </div>

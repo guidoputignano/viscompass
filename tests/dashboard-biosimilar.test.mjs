@@ -5,6 +5,7 @@ import {
   commonPenetrationBasis,
   costPerMg,
   firstLocalDispensing,
+  headroomTotal,
   isLocallySubstitutable,
   measurableFacts,
   normalizationCoverage,
@@ -525,4 +526,27 @@ test("a cohort of one, and an empty cohort, still behave", () => {
 test("no year to report means no rows, not an empty-shaped row", () => {
   assert.deepEqual(buildBiosimilarRows(FACTS, null, OPTIONS), []);
   assert.deepEqual(buildBiosimilarRows(FACTS, 1999, OPTIONS), []);
+});
+
+test("headroom total: nothing measurable is 'not computable', never 0 euros", () => {
+  // An unmeasurable molecule stores 0; summing those published "0 EUR" on the overview.
+  const unmeasured = [
+    { evidence_status: "unresolved", substitution_headroom_eur: 0 },
+    { evidence_status: "unresolved", substitution_headroom_eur: 0 },
+  ];
+  assert.deepEqual(headroomTotal(unmeasured), { total: null, measurable: 0, molecules: 2 });
+  assert.deepEqual(headroomTotal([]), { total: null, measurable: 0, molecules: 0 });
+  // A measured zero (biosimilar not cheaper) is a real 0, and unmeasured rows add nothing.
+  const mixed = [
+    { evidence_status: "ready", substitution_headroom_eur: 0 },
+    { evidence_status: "partial", substitution_headroom_eur: 250 },
+    { evidence_status: "unresolved", substitution_headroom_eur: 0 },
+  ];
+  assert.deepEqual(headroomTotal(mixed), { total: 250, measurable: 2, molecules: 3 });
+  assert.equal(headroomTotal([mixed[0]]).total, 0);
+  // On the real fixture the total is the sum over measurable rows only.
+  const expected = ROWS.filter((r) => r.evidence_status !== "unresolved").reduce((s, r) => s + r.substitution_headroom_eur, 0);
+  const t = headroomTotal(ROWS);
+  assert.equal(t.molecules, ROWS.length);
+  assert.equal(t.total, t.measurable === 0 ? null : expected);
 });
