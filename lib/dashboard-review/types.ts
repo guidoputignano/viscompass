@@ -251,7 +251,7 @@ export interface SpendDashboardData {
    * (the biosimilar is not cheaper per mg wherever it is measurable).
    */
   biosimilar_headroom_eur: number | null;
-  /** Molecules whose headroom was measurable, out of those in the biosimilar perimeter. */
+  /** Measurable organization–molecule evaluations, out of those in the perimeter. */
   biosimilar_headroom_measurable: { measurable: number; molecules: number };
   active_review_count: number;
   review_items: ReviewSignal[];
@@ -349,7 +349,7 @@ export interface MoleculeSignal {
   spend_yoy: number | null;
   biosimilar_penetration: number | null;
   /** This molecule's substitution headroom. An upper bound, never a saving. */
-  headroom_eur: number;
+  headroom_eur: number | null;
 }
 
 export interface BenchmarkRow {

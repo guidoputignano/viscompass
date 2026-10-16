@@ -14,7 +14,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {itNumberFormat} from "@/lib/format/it-number";
+import {formatSignedPercent} from "@/lib/dashboard-review/format";
 
 export function PageHeader({
   eyebrow,
@@ -135,7 +135,7 @@ export function Delta({ value, suffix = " vs periodo precedente" }: { value: num
   return (
     <span className={cn("inline-flex items-center gap-1", value >= 0 ? "text-rose-700" : "text-emerald-700")}>
       <UpOrDown size={13} />
-      {itNumberFormat({ style: "percent", maximumFractionDigits: 1 }).format(Math.abs(value))}
+      {formatSignedPercent(value)}
       {suffix}
     </span>
   );

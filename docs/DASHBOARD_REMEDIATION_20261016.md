@@ -56,3 +56,23 @@ causal attribution, validated savings, or permission to combine incompatible
 cost bases. Withheld workbook outputs remain withheld. The core cold path still
 pages a row ledger: server-side aggregated read contracts should replace that
 path if measured cold loads remain above the target after this change.
+
+## Integration checkpoint
+
+- `d459e5b` replaces the mounted workbook explorer; `50ad85c` includes it on
+  main alongside Claude's latest same-stratum unit-cost correction.
+- Signed-in browser check confirmed the new question-led layout, absence of the
+  former explorer heading, and a populated published department Budget default
+  (its scope remains independent of the spending controls).
+- Core reads now use bounded, disjoint primary-key ranges instead of OFFSET
+  over wide ledger rows. The full production read matched the independent
+  aggregate RPC by organization and reporting-year total. The desktop diagnostic
+  took 28.6 seconds; this is explicitly not an end-user page timing.
+- A scope-related financial safeguard was added: compare each Azienda using its
+  own complete history and prices, then add organizational upper bounds. Never
+  let an early dispensing or cheaper price in one Azienda create an opportunity
+  in another. Discriminating cross-organization fixtures cover this.
+- Missing molecule-level margins remain null; measured zero remains zero.
+  The summary displays the coverage of organization–molecule evaluations.
+- Production deployment and live verification of the core changes, and production
+  archival of the identified test uploads, are still pending at this checkpoint.

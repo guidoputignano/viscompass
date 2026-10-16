@@ -8,7 +8,7 @@ import {
   StatusPill,
 } from "@/components/dashboard-review/analytics-ui";
 import { getBenchmarkData } from "@/lib/dashboard-review/queries";
-import { formatEur, formatEurPrecise, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
+import { formatEur, formatEurPrecise, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 
 // The whole column shares one basis (see commonPenetrationBasis): a mg share and
 // a packs share in the same column would not be comparable, nor would their median.
@@ -35,7 +35,7 @@ export default async function BenchmarkPage() {
       />
 
       <DecisionFrame
-        changed={fastestChange ? `${fastestChange.org_name} mostra la variazione assoluta più ampia: ${formatPercent(fastestChange.spend_yoy!)}.` : "Nessuna annualità precedente confrontabile."}
+        changed={fastestChange ? `${fastestChange.org_name} mostra la variazione assoluta più ampia: ${formatSignedPercent(fastestChange.spend_yoy!)}.` : "Nessuna annualità precedente confrontabile."}
         variance={data.benchmark_available && largest && data.median_spend_eur ? `${largest.org_name} registra una spesa pari a ${formatNumber(largest.spend_eur / data.median_spend_eur, 1)}× la mediana regionale.` : "Servono almeno due ASL visibili per localizzare la varianza."}
         materiality={excess > 0 ? `${formatEur(excess)} di spesa complessiva sopra la mediana, prima di qualunque aggiustamento per popolazione o casistica.` : "Materialità territoriale non calcolabile nel perimetro corrente."}
         nextEvidence="Aprire l’ATC che genera lo scarto."
@@ -70,7 +70,7 @@ export default async function BenchmarkPage() {
                     <td className="px-5 py-4"><div className="flex items-center gap-2"><span className="font-semibold">{row.org_name}</span>{row.is_current_org && <StatusPill tone="positive">Il tuo ambito</StatusPill>}</div><span className="font-mono text-[10px] text-muted-foreground">{row.org_code}</span></td>
                     <td className="px-5 py-4"><div className="flex items-center gap-3"><div className="h-2 w-28 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(row.spend_index ?? 0, 200) / 2}%` }} /></div><span className="font-mono text-xs font-semibold">{row.spend_index === null ? "—" : formatNumber(row.spend_index, 0)}</span></div></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{formatEur(row.spend_eur)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{row.spend_yoy === null ? "—" : formatPercent(row.spend_yoy)}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{row.spend_yoy === null ? "—" : formatSignedPercent(row.spend_yoy)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{row.cost_per_pack_eur === null ? "—" : formatEurPrecise(row.cost_per_pack_eur)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{row.normalization_coverage === null ? "—" : formatPercent(row.normalization_coverage)}</td>

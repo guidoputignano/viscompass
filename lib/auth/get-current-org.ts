@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
 import type { Organization } from "@/lib/dashboard-review/types";
 
 // The only source of truth for "which organization is this user allowed
@@ -30,7 +31,9 @@ async function getApprovedOrgs(): Promise<Organization[]> {
 // one exists, the earliest-approved one is treated as primary — this app
 // does not yet support rendering more than one profile at a time, and
 // building that out isn't needed by anything requesting this helper today.
-export async function getCurrentOrg(): Promise<Organization | null> {
+// React cache is request-local: recheck approved membership on every HTTP
+// request, without repeating the identical lookup across its layout/panels.
+export const getCurrentOrg = cache(async (): Promise<Organization | null> => {
   const [org] = await getApprovedOrgs();
   return org ?? null;
-}
+});

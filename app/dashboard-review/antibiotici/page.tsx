@@ -28,6 +28,7 @@ import {
   formatEurPrecise,
   formatNumber,
   formatPercent,
+  formatSignedPercent,
 } from "@/lib/dashboard-review/format";
 
 const HEADER = {
@@ -94,7 +95,7 @@ export default async function AntibioticiPage() {
       </p></details>}
 
       <DecisionFrame
-        changed={latest ? `${costLabel} ${latest.costYoy === null ? "N/D" : formatPercent(latest.costYoy)} · DDD ${latest.dddYoy === null ? "N/D" : formatPercent(latest.dddYoy)}.` : "Confronto non disponibile."}
+        changed={latest ? `${costLabel} ${latest.costYoy === null ? "N/D" : formatSignedPercent(latest.costYoy)} · DDD ${latest.dddYoy === null ? "N/D" : formatSignedPercent(latest.dddYoy)}.` : "Confronto non disponibile."}
         variance={reserveShare === null || watchDddShare === null ? "Composizione non disponibile." : `Reserve ${formatPercent(reserveShare)} della spesa · Watch ${formatPercent(watchDddShare)} delle DDD.`}
         materiality={latest ? `${formatEur(latest.costEur)} · ${formatNumber(latest.dddCount, 0)} DDD.` : "Materialità non disponibile."}
         nextEvidence={data.units.length > 0 ? `${highCostUnits} unità sopra la media €/DDD.` : "Caricare il dettaglio delle unità."}
@@ -123,8 +124,8 @@ export default async function AntibioticiPage() {
               </div>
               {latest && (
                 <div className="flex gap-2 text-[10px] font-semibold">
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">Spesa {latest.costYoy === null ? "N/D" : formatPercent(latest.costYoy)}</span>
-                  <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700">DDD {latest.dddYoy === null ? "N/D" : formatPercent(latest.dddYoy)}</span>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">Spesa {latest.costYoy === null ? "N/D" : formatSignedPercent(latest.costYoy)}</span>
+                  <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700">DDD {latest.dddYoy === null ? "N/D" : formatSignedPercent(latest.dddYoy)}</span>
                 </div>
               )}
             </div>

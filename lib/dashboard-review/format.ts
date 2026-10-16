@@ -30,6 +30,11 @@ export function formatPercent(value: number): string {
   }).format(value);
 }
 
+/** Signed changes only; shares and coverage continue to use formatPercent. */
+export function formatSignedPercent(value: number): string {
+  return itNumberFormat({style:"percent", maximumFractionDigits:1, signDisplay:"exceptZero"}).format(value);
+}
+
 export function formatDate(value: string): string {
   return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(new Date(value));
 }

@@ -1,10 +1,8 @@
 // Typed data-access layer for the dashboard-review modules.
 //
-// Every function queries Supabase directly and applies no org/asl
-// filtering of its own — visibility is enforced entirely by the RLS
-// policies in supabase_schema.sql. A plain `select *` already returns
-// exactly the rows the caller's approved membership(s) allow, nothing
-// more, so there is nothing here to keep in sync with the policies.
+// Ordinary members always query through their session and RLS. Approved
+// reviewers reuse the existing server-only pillar scope resolver; that explicit
+// exception is never selected from a query parameter or browser-supplied role.
 //
 // Only ever called from Server Components. searchMolecules and
 // submitFeatureRequest are called from Client Components instead, and
@@ -12,6 +10,13 @@
 // can't just be exported from here too.
 
 import { cache } from "react";
+import { isArchivedUpload } from "@/lib/uploads/archive";
+import { resolvePrivateScope } from "@/lib/analytics/private-scope";
+import { CANONICAL_DASHBOARD_COLUMNS, readCanonicalById } from "./canonical-pages";
+import { resolvePillarBScope } from "./pillar-b/scope";
+import { readActiveRelease } from "./pillar-b/rpc";
+import { createServerCache, pillarBCacheKey } from "./pillar-b/server-cache";
+import { organizationBiosimilarRows, organizationHeadroomByMolecule, type OrganizationComparison } from "./organization-biosimilar";
 import { indicatorsFromTotals, type CategoryTotals } from "@/lib/analytics/antibiotic-indicators";
 import {reportedRoundingBounds} from '@/lib/analytics/cost-basis-reconciliation';
 import { createClient } from "@/lib/supabase/server";
@@ -50,7 +55,6 @@ import type {
   MoleculeSignal,
   Objective,
   ObjectiveRank,
-  Organization,
   ReviewSignal,
   ReviewWorkspaceData,
   SpendFlowData,
@@ -60,8 +64,6 @@ import type {
   SpendDashboardData,
   UploadRecord,
 } from "./types";
-
-const PAGE_SIZE = 1000;
 
 // Supabase/PostgREST caps a response at the configured API page size (1,000
 // in this project). The previous implementation silently analysed only that
@@ -85,63 +87,44 @@ const activeReleaseId = cache(async (): Promise<string | null> => {
   return chooseActiveRelease(data as Array<{ release_id: string }> | null);
 });
 
+// Re-use the already-tested Pillar B identity decision, never a client scope.
+// Authorization and the active-release stamp are re-read before cache lookup.
+const getCoreScope = cache(async () => {
+  const scope = await resolvePillarBScope();
+  if (scope?.reviewerScopeUnavailable) throw new Error("CORE_REVIEWER_SCOPE_UNAVAILABLE");
+  return scope?.viewerCode ? scope : null;
+});
+const coreFactCache = createServerCache({ ttlMs: 120_000, max: 1 });
 const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
-  const supabase = await createClient();
-
-  // FAIL CLOSED. If no release is declared the dashboard publishes nothing
-  // rather than everything. An import can therefore land without the legacy
-  // pages immediately showing figures that have not been through the gates:
-  // the rows are inert until a release is activated.
-  const releaseId = await activeReleaseId();
-  if (releaseId === null) return [];
-  // ORDER BY is not cosmetic here. PostgreSQL gives no row order without it, so
-  // OFFSET/LIMIT paging over an unordered relation can return the same row on two
-  // pages and omit another entirely — a total that silently disagrees with the
-  // source, which is the one thing this whole project exists to prevent. `id` is
-  // the primary key, so the ordering is total and stable.
-  const first = await supabase
-    .from("canonical_fact")
-    .select("*", { count: "exact" })
-    .eq("source_version_id", releaseId)
-    .order("id", { ascending: true })
-    .range(0, PAGE_SIZE - 1);
-  const { data, error, count } = first;
-  if (error) throw new Error(`canonical_fact query failed: ${error.message}`);
-  const facts = [...((data ?? []) as CanonicalFact[])];
-  const total = count ?? facts.length;
-
-  for (let start = PAGE_SIZE; start < total; start += PAGE_SIZE * 8) {
-    const offsets = Array.from(
-      { length: Math.min(8, Math.ceil((total - start) / PAGE_SIZE)) },
-      (_, index) => start + index * PAGE_SIZE,
-    );
-    const pages = await Promise.all(
-      offsets.map((offset) =>
-        supabase
-          .from("canonical_fact")
-          .select("*")
-          .eq("source_version_id", releaseId)
-          .order("id", { ascending: true })
-          .range(offset, Math.min(offset + PAGE_SIZE - 1, total - 1)),
-      ),
-    );
-    for (const page of pages) {
-      if (page.error) throw new Error(`canonical_fact query failed: ${page.error.message}`);
-      facts.push(...((page.data ?? []) as CanonicalFact[]));
-    }
+  const scope = await getCoreScope();
+  if (!scope) return [];
+  const release = await readActiveRelease(scope.db);
+  if (!release) return [];
+  const load = async () => {
+    const cancelled=new AbortController(),deadline=AbortSignal.timeout(45_000);
+    const signal=()=>AbortSignal.any([cancelled.signal,deadline,AbortSignal.timeout(12_000)]);
+    try {
+      return await readCanonicalById(
+        edge=>scope.db.from("canonical_fact").select("id",edge==='first'?{count:"exact"}:undefined)
+          .eq("source_version_id",release.id).order("id",{ascending:edge==='first'}).limit(1)
+          .abortSignal(signal()).returns<{id:number}[]>(),
+        (after,through,size)=>scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
+          .eq("source_version_id",release.id).gt("id",after).lte("id",through)
+          .order("id",{ascending:true}).limit(size).abortSignal(signal()).returns<CanonicalFact[]>(),
+      );
+    } catch(cause) {cancelled.abort();throw cause;}
+  };
+  // Reviewer service reads have an identical, explicitly approved cohort.
+  // Do not persist RLS rows across requests: a secondary membership could be
+  // revoked without changing the viewer's primary-org cache identity.
+  const facts = scope.allOrganizations && scope.cacheScope
+    ? await coreFactCache.get(pillarBCacheKey(scope.cacheScope, release.stamp, "core-facts"), load)
+    : await load();
+  // A release removed/switched during a load must not publish the old response.
+  if ((await readActiveRelease(scope.db))?.stamp !== release.stamp) {
+    coreFactCache.clear();
+    throw new Error("CANONICAL_RELEASE_CHANGED");
   }
-
-  // The pages are fetched concurrently against a live table. If rows were inserted
-  // or deleted mid-read the assembled set will not match the count, and a total
-  // built from it would be wrong in a way nothing downstream could detect.
-  const unique = new Set(facts.map((fact) => fact.id));
-  if (unique.size !== facts.length) {
-    throw new Error(
-      `canonical_fact paging returned ${facts.length - unique.size} duplicate row(s); ` +
-        "totals would not reconcile to the source",
-    );
-  }
-
   return facts;
 });
 
@@ -485,9 +468,9 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
   // The WHOLE fact set, not currentFacts: first local dispensing has to be read
   // across every year, or a biosimilar first dispensed in an earlier year looks
   // new in this one and the substitutable window opens far too late.
-  const currentBio = buildBiosimilarRowsImpl(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS);
+  const currentBio = organizationBiosimilarRows(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS);
   const overallPenetration = biosimilarPenetration(currentFacts);
-  const headroom = headroomTotal(currentBio);
+  const headroom = headroomTotal(currentBio.map(item => item.row));
 
   const previousMoleculeSpend = new Map<string, number>();
   for (const fact of previousFacts) {
@@ -504,9 +487,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
     group.push(fact);
     currentMoleculeFacts.set(fact.active_substance, group);
   }
-  const headroomByMolecule = new Map(
-    currentBio.map((row) => [row.active_substance, row.substitution_headroom_eur]),
-  );
+  const headroomByMolecule = organizationHeadroomByMolecule(currentBio);
   const topMolecules: MoleculeSignal[] = Array.from(currentMoleculeFacts.entries())
     .map(([activeSubstance, group]) => {
       const spend = group.reduce((sum, fact) => sum + (fact.total_cost_eur ?? 0), 0);
@@ -523,7 +504,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
         spend_eur: spend,
         spend_yoy: ratio(spend, previousSpend),
         biosimilar_penetration: biosimilarPenetration(group).value,
-        headroom_eur: headroomByMolecule.get(activeSubstance) ?? 0,
+        headroom_eur: headroomByMolecule.get(activeSubstance) ?? null,
       };
     })
     .sort((a, b) => b.spend_eur - a.spend_eur)
@@ -531,6 +512,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
 
   const reviewSignals = buildReviewSignals({
     biosimilarRows: currentBio,
+    organizationLabels: (await getCoreScope())?.aslLabels ?? {},
     unresolvedRecordCount,
     currentRecordCount: currentFacts.length,
     uploads,
@@ -624,25 +606,28 @@ function compactEur(value: number): string {
 
 function buildReviewSignals({
   biosimilarRows,
+  organizationLabels,
   unresolvedRecordCount,
   currentRecordCount,
   uploads,
   objectives,
 }: {
-  biosimilarRows: BiosimilarComparisonRow[];
+  biosimilarRows: OrganizationComparison[];
+  organizationLabels: Record<string,string>;
   unresolvedRecordCount: number;
   currentRecordCount: number;
   uploads: UploadRecord[];
   objectives: Objective[];
 }): ReviewSignal[] {
   const signals: ReviewSignal[] = biosimilarRows
-    .filter((row) => row.substitution_headroom_eur > 0)
+    .filter(({row}) => row.substitution_headroom_eur > 0)
+    .sort((a,b)=>b.row.substitution_headroom_eur-a.row.substitution_headroom_eur)
     .slice(0, 5)
-    .map((row) => ({
-      id: `bio-${row.active_substance}`,
+    .map(({organizationCode,row}) => ({
+      id: `bio-${organizationCode}-${row.active_substance}`,
       kind: "biosimilar" as const,
       title: row.active_substance,
-      context: `Confronto originator/biosimilare su base ${row.penetration_basis}.`,
+      context: `${organizationLabels[organizationCode] ?? organizationCode} · confronto originator/biosimilare su base ${row.penetration_basis}.`,
       value_label: `${compactEur(row.substitution_headroom_eur)} margine (limite superiore)`,
       href: "/dashboard-review/revisione-pillar-b",
       severity: row.substitution_headroom_eur >= 100000 ? "high" as const : "medium" as const,
@@ -726,11 +711,11 @@ export async function getUploads(): Promise<UploadRecord[]> {
     .select("*")
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(`uploads query failed: ${error.message}`);
-  return (data ?? []) as UploadRecord[];
+  return ((data ?? []) as UploadRecord[]).filter(upload => !isArchivedUpload(upload));
 }
 
 export async function getBenchmarkData(): Promise<BenchmarkData> {
-  const [facts, org] = await Promise.all([selectCanonicalFacts(), getCurrentOrg()]);
+  const [facts, org, scope] = await Promise.all([selectCanonicalFacts(), getCurrentOrg(), getCoreScope()]);
   const latestYear = selectReportingPeriod(facts).year;
   if (!org || latestYear === null) {
     return {
@@ -746,16 +731,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
     };
   }
 
-  const supabase = await createClient();
-  let orgQuery = supabase
-    .from("organizations")
-    .select("org_code, org_name, org_type, region_code")
-    .eq("org_type", "asl");
-  if (org.region_code) orgQuery = orgQuery.eq("region_code", org.region_code);
-  const { data: organizationRows } = await orgQuery;
-  const orgNames = new Map(
-    ((organizationRows ?? []) as Organization[]).map((item) => [item.org_code, item.org_name]),
-  );
+  const orgNames = new Map((scope?.scopedOrgs ?? []).flatMap(o => [[o.aslCode, o.label], [o.orgCode, o.label]]));
 
   // The previous COMPLETE year, from the same selector as latestYear.
   const previousYear = selectReportingPeriod(facts).previousYear;
@@ -810,7 +786,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
       cost_per_pack_eur: costPerPack(spend, packs),
       biosimilar_penetration: cohortBasis === null ? null : penetrationOn(group, cohortBasis),
       normalization_coverage: normalizationCoverage(group),
-      is_current_org: org.org_code === code,
+      is_current_org: scope?.scopedOrgs.some(o => o.orgCode === org.org_code && o.aslCode === code) ?? false,
     };
   });
   const medianSpend = median(baseRows.map((row) => row.spend_eur));
@@ -825,7 +801,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
   return {
     latest_year: latestYear,
     rows,
-    peer_count: org.org_type === "asl" ? Math.max(rows.length - 1, 0) : rows.length,
+    peer_count: scope?.allOrganizations || scope?.regional ? rows.length : Math.max(rows.length - 1, 0),
     median_spend_eur: medianSpend,
     median_cost_per_pack_eur: median(
       rows.map((row) => row.cost_per_pack_eur).filter((value): value is number => value !== null),
@@ -895,9 +871,9 @@ function explorerHref(filters: ExplorerFilters): string {
 }
 
 export async function getExplorerData(filters: ExplorerFilters): Promise<ExplorerData> {
-  const [facts, org] = await Promise.all([selectCanonicalFacts(), getCurrentOrg()]);
+  const [facts, org, scope] = await Promise.all([selectCanonicalFacts(), getCurrentOrg(), getCoreScope()]);
   const latestYear = selectReportingPeriod(facts).year;
-  const levels: ExplorerLevel[] = org?.org_type === "regione"
+  const levels: ExplorerLevel[] = scope?.allOrganizations || scope?.regional
     ? ["asl", "atc1", "atc2", "atc3", "atc4", "atc5", "molecule", "aic"]
     : ["atc1", "atc2", "atc3", "atc4", "atc5", "molecule", "aic"];
   const filterOrder: Array<[ExplorerLevel, keyof ExplorerFilters]> = [
@@ -914,16 +890,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     return candidate === "aic" || (filterKey ? !filters[filterKey] : false);
   }) ?? "aic";
 
-  const supabase = await createClient();
-  let orgQuery = supabase
-    .from("organizations")
-    .select("org_code, org_name, org_type, region_code")
-    .eq("org_type", "asl");
-  if (org?.region_code) orgQuery = orgQuery.eq("region_code", org.region_code);
-  const { data: organizationRows } = await orgQuery;
-  const orgNames = new Map(
-    ((organizationRows ?? []) as Organization[]).map((item) => [item.org_code, item.org_name]),
-  );
+  const orgNames = new Map((scope?.scopedOrgs ?? []).flatMap(o => [[o.aslCode, o.label], [o.orgCode, o.label]]));
 
   const previousYear = selectReportingPeriod(facts).previousYear;
   const currentBase = filterExplorerFacts(
@@ -979,7 +946,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     })
     .sort((a, b) => b.spend_eur - a.spend_eur);
 
-  const breadcrumbs = [{ label: org?.org_name ?? "Perimetro", href: "/dashboard-review/ricerca" }];
+  const breadcrumbs = [{ label: scope?.allOrganizations ? "Tutte le Aziende del rilascio" : org?.org_name ?? "Perimetro", href: "/dashboard-review/ricerca" }];
   const accumulated: ExplorerFilters = {};
   for (const [candidate, key] of filterOrder) {
     const value = filters[key];
@@ -1059,7 +1026,8 @@ export async function getReviewWorkspaceData(): Promise<ReviewWorkspaceData> {
   const current = latestYear === null ? [] : facts.filter((fact) => fact.year === latestYear);
   const signals = buildReviewSignals({
     // `facts`, not `current`, for the same reason as in getSpendDashboardData.
-    biosimilarRows: buildBiosimilarRowsImpl(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS),
+    biosimilarRows: organizationBiosimilarRows(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS),
+    organizationLabels: (await getCoreScope())?.aslLabels ?? {},
     unresolvedRecordCount: current.filter(isUnresolved).length,
     currentRecordCount: current.length,
     uploads,
@@ -1092,7 +1060,9 @@ function antibioticSchemaIsMissing(error: { code?: string; message?: string } | 
 // ruled on 13 Oct 2026 that synthesized data must not stand in for an
 // organization's own figures.
 export async function getAntibioticStewardship(): Promise<AntibioticStewardshipData | null> {
-  const supabase = await createClient();
+  const [org, privateScope] = await Promise.all([getCurrentOrg(), resolvePrivateScope()]);
+  if (!org || !privateScope) return null;
+  const supabase = privateScope.db;
   // No year filter. This previously read .gte("year", 2023).lte("year", 2025),
   // which silently dropped every year outside that window: a 2026 upload could
   // never reach latestYear below, and an organization whose ONLY year was 2026
@@ -1105,32 +1075,24 @@ export async function getAntibioticStewardship(): Promise<AntibioticStewardshipD
   // A rolling window such as max(year) - 2 would not be an improvement: it
   // trades one silent truncation for another, dropping the earliest year from
   // the trend the moment a new one lands.
-  const { data, error } = await supabase
+  const { data, error, count } = await supabase
     .from("antibiotic_consumption_fact")
-    .select("*");
+    .select("*", { count: "exact" })
+    .in("org_code", privateScope.orgCodes);
   if (antibioticSchemaIsMissing(error)) return null;
   if (error) throw new Error(`antibiotic_consumption_fact query failed: ${error.message}`);
   const rows = (data ?? []) as AntibioticConsumptionFact[];
+  if (count === null || count !== rows.length) throw new Error('ANTIBIOTIC_INCOMPLETE_READ');
+  if (rows.length === 0) return null;
 
-  const org = await getCurrentOrg();
-  if (!org || rows.length === 0) return null;
-
-  const isRegione = org.org_type === "regione";
+  const isRegione = privateScope.regional || privateScope.allOrganizations;
   // An asl-type caller's RLS-scoped query only ever returns their own
   // org's rows anyway. A regione-type caller has no antibiotic row of its
   // own (data is uploaded per ASL) — RLS already hands them every ASL in
   // their region, so "their view" is the pooled total across those ASLs,
   // the same org.region_code join pattern the RLS policy itself uses.
-  let ownRows = rows.filter((r) => r.org_code === org.org_code);
-  if (isRegione) {
-    // RLS authorizes memberships; the selected primary membership determines
-    // which authorized region is being analysed, as in the workbook section.
-    const {data: members, error: scopeError} = await supabase.from('organizations')
-      .select('org_code').eq('region_code', org.region_code).eq('org_type', 'asl');
-    if (scopeError) throw new Error('Impossibile verificare il perimetro organizzativo.');
-    const codes = new Set((members ?? []).map(m => m.org_code));
-    ownRows = rows.filter(r => codes.has(r.org_code));
-  }
+  const codes = new Set(privateScope.orgCodes);
+  const ownRows = rows.filter(r => codes.has(r.org_code));
   const summaryRows = ownRows.filter((row) => row.unit_code === null);
   if (summaryRows.length === 0) return null;
 

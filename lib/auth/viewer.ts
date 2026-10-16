@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
 import { isReviewerEmail } from "@/lib/auth/reviewer-list";
 
 // Who is signed in, for display in the shell.
@@ -17,7 +18,9 @@ export type ViewerIdentity = {
   isReviewer: boolean;
 };
 
-export async function getViewerIdentity(): Promise<ViewerIdentity | null> {
+// Request-local only, not a process/session cache. The next request resolves
+// its own live claims before any authorization-dependent artifact/cache read.
+export const getViewerIdentity = cache(async (): Promise<ViewerIdentity | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims?.email) return null;
@@ -39,4 +42,4 @@ export async function getViewerIdentity(): Promise<ViewerIdentity | null> {
   // Never derived from the address. A guessed human name is worse than the
   // address it was guessed from, and worse still next to a privileged role.
   return { email, name: name || email, nameIsEmail: !name, isReviewer: isReviewerEmail(email) };
-}
+});
