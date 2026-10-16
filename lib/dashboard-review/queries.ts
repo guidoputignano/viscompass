@@ -29,6 +29,7 @@ import {
   penetration as biosimilarPenetration,
   penetrationOn,
 } from "./biosimilar";
+import { isUnresolvedRecord } from "./normalization";
 import type {
   AntibioticConsumptionFact,
   AntibioticIndicatorSet,
@@ -186,12 +187,9 @@ function ratio(change: number, baseline: number): number | null {
   return baseline !== 0 ? (change - baseline) / baseline : null;
 }
 
-function isUnresolved(fact: CanonicalFact): boolean {
-  return (
-    fact.mapping_confidence === "Unresolved" ||
-    fact.quality_status?.toLowerCase().includes("unresolved") === true
-  );
-}
+// «Irrisolti» = not eligible for a normalised €/mg or €/DDD comparison. It no
+// longer reads mapping_confidence (the ATC-mapping confidence): see normalization.ts.
+const isUnresolved = isUnresolvedRecord;
 
 
 
