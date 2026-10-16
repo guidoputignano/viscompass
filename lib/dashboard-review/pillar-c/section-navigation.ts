@@ -1,4 +1,5 @@
 /** Presentation only: no analysis filters, data access or release state. */
+import { C_WORKBOOK_SECTIONS, type CWorkbookSectionId } from "@/lib/dashboard-review/pillar-c/workbook";
 export const PILLAR_C_SECTIONS = [
   { id: "spesa", number: "01", label: "Spesa", description: "Andamento e importi" },
   { id: "cambiamento", number: "02", label: "Variazioni", description: "Confronti nel tempo" },
@@ -9,7 +10,8 @@ export const PILLAR_C_SECTIONS = [
   { id: "evidenza", number: "06", label: "Evidenza", description: "Fonti e metodo" },
 ] as const;
 
-export type PillarCSectionId = typeof PILLAR_C_SECTIONS[number]["id"];
+export type PillarCSectionId = CWorkbookSectionId;
+export const PILLAR_C_ALL_SECTIONS = C_WORKBOOK_SECTIONS.map(([id, label, description], i) => ({ id, label, description, number: String(i + 1).padStart(2, "0") }));
 
 /** The last section above the reading line, including long sections. Near the
  * document end the final short section must still be able to become current. */
@@ -17,8 +19,9 @@ export function pillarCSectionAtViewport(
   positions: readonly { id: PillarCSectionId; top: number }[],
   readingLine: number,
   atBottom = false,
+  sections: readonly { id: PillarCSectionId }[] = PILLAR_C_SECTIONS,
 ): PillarCSectionId {
-  const present = PILLAR_C_SECTIONS.filter((section) => positions.some((p) => p.id === section.id && Number.isFinite(p.top)));
+  const present = sections.filter((section) => positions.some((p) => p.id === section.id && Number.isFinite(p.top)));
   if (atBottom && present.length) return present[present.length - 1].id;
   let current: PillarCSectionId = "spesa";
   for (const section of present) {
