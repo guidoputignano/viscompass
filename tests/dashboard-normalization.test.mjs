@@ -92,7 +92,8 @@ test("cost per mg and mg penetration use the gated mass", () => {
   const bio = release({ perimeter_status: "biosimilar", comparable_quantity: 3000, total_cost_eur: 600 });
   assert.equal(costPerMg([ref]), 0.5);
   assert.equal(costPerMg([bio]), 0.2);
-  assert.deepEqual(penetration([ref, bio]), { value: 0.75, basis: "mg" });
+  // No stratum id: the comparable-quantity basis is unavailable and pooled mg is used, as before.
+  assert.deepEqual(penetration([ref, bio]), { value: 0.75, basis: "mg", quantity_coverage: null });
   // One ungated row makes mg incomplete: the share falls back to a complete basis (spend), never mixes.
   const ungated = release({ perimeter_status: "biosimilar", comparable_eligible: false, total_cost_eur: 100 });
   const p = penetration([ref, bio, ungated]);

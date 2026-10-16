@@ -8,11 +8,18 @@ import {
   StatusPill,
 } from "@/components/dashboard-review/analytics-ui";
 import { getBenchmarkData } from "@/lib/dashboard-review/queries";
-import { formatEur, formatEurPrecise, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
+import { formatEur, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 
 // The whole column shares one basis (see commonPenetrationBasis): a mg share and
 // a packs share in the same column would not be comparable, nor would their median.
-const BENCH_BASIS = { mg: "mg", packs: "confezioni", spend: "spesa" } as const;
+const BENCH_BASIS = { comparable_quantity: "quantità confrontabile", mg: "mg", packs: "confezioni", spend: "spesa" } as const;
+
+/** Lowest and highest unit-cost index in the cohort, e.g. "94–108". */
+function indexRange(values: number[]): string {
+  if (values.length === 0) return "—";
+  const low = Math.min(...values), high = Math.max(...values);
+  return `${formatNumber(low, 0)}–${formatNumber(high, 0)}`;
+}
 
 export default async function BenchmarkPage() {
   const data = await getBenchmarkData();
@@ -20,6 +27,7 @@ export default async function BenchmarkPage() {
   const fastestChange = [...data.rows]
     .filter((row) => row.spend_yoy !== null)
     .sort((a, b) => Math.abs(b.spend_yoy!) - Math.abs(a.spend_yoy!))[0];
+  const unitIndexes = data.rows.map((row) => row.unit_cost_index).filter((value): value is number => value !== null);
   const excess = data.median_spend_eur === null
     ? 0
     : data.rows.reduce((sum, row) => sum + Math.max(row.spend_eur - data.median_spend_eur!, 0), 0);
@@ -29,7 +37,7 @@ export default async function BenchmarkPage() {
       <PageHeader
         eyebrow="Benchmark territoriale"
         title="Confronta i territori senza perdere il contesto."
-        description="Una lettura regionale delle differenze tra ASL: spesa, dinamica, costo per confezione, penetrazione biosimilare e copertura della normalizzazione. Il confronto segnala varianza; non attribuisce performance clinica."
+        description="Una lettura regionale delle differenze tra ASL: spesa, dinamica, costo unitario a parità di prodotto, penetrazione biosimilare e copertura della normalizzazione. Il confronto segnala varianza; non attribuisce performance clinica."
         period={data.latest_year ? `Periodo ${data.latest_year}` : "Periodo non disponibile"}
         scope={data.benchmark_available ? `${data.rows.length} ASL confrontabili` : "Benchmark limitato"}
       />
@@ -44,7 +52,7 @@ export default async function BenchmarkPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard accent label="Territori osservati" value={formatNumber(data.rows.length, 0)} detail={`${data.peer_count} unità nel confronto autorizzato`} icon={Building2} />
         <KpiCard label="Spesa mediana" value={!data.benchmark_available || data.median_spend_eur === null ? "—" : formatEur(data.median_spend_eur)} detail={data.benchmark_available ? "Valore centrale, non target" : "Nessun confronto: un solo ente visibile"} icon={ChartSpline} />
-        <KpiCard label="Costo/confezione mediano" value={!data.benchmark_available || data.median_cost_per_pack_eur === null ? "—" : formatEurPrecise(data.median_cost_per_pack_eur)} detail={data.benchmark_available ? "Indicatore descrittivo di mix" : "Nessun confronto: un solo ente visibile"} icon={PackageSearch} />
+        <KpiCard label="Indice costo unitario" value={!data.benchmark_available ? "—" : indexRange(unitIndexes)} detail={!data.benchmark_available ? "Nessun confronto: un solo ente visibile" : unitIndexes.length === 0 ? "Nessuno strato confrontabile in comune" : `Intervallo tra ASL; 100 = prezzo della coorte per gli stessi prodotti (${formatNumber(data.unit_cost_strata, 0)} strati condivisi)`} icon={PackageSearch} />
         <KpiCard label="Penetrazione bio mediana" value={!data.benchmark_available || data.median_biosimilar_penetration === null ? "—" : formatPercent(data.median_biosimilar_penetration)} detail={data.biosimilar_penetration_basis === null ? "Base non disponibile" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}, uguale per tutte le ASL`} icon={Scale} />
       </div>
 
@@ -62,7 +70,7 @@ export default async function BenchmarkPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-sm">
               <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-                <th className="px-5 py-3 font-semibold">ASL</th><th className="px-5 py-3 font-semibold">Indice</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Costo/conf.</th><th className="px-5 py-3 text-right font-semibold">Biosim.<span className="block font-normal normal-case tracking-normal">{data.biosimilar_penetration_basis === null ? "n/d" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}`}</span></th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th>
+                <th className="px-5 py-3 font-semibold">ASL</th><th className="px-5 py-3 font-semibold">Indice</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Costo unit.<span className="block font-normal normal-case tracking-normal">indice, 100 = coorte</span></th><th className="px-5 py-3 text-right font-semibold">Biosim.<span className="block font-normal normal-case tracking-normal">{data.biosimilar_penetration_basis === null ? "n/d" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}`}</span></th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th>
               </tr></thead>
               <tbody>
                 {data.rows.map((row) => (
@@ -71,8 +79,8 @@ export default async function BenchmarkPage() {
                     <td className="px-5 py-4"><div className="flex items-center gap-3"><div className="h-2 w-28 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(row.spend_index ?? 0, 200) / 2}%` }} /></div><span className="font-mono text-xs font-semibold">{row.spend_index === null ? "—" : formatNumber(row.spend_index, 0)}</span></div></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{formatEur(row.spend_eur)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{row.spend_yoy === null ? "—" : formatSignedPercent(row.spend_yoy)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{row.cost_per_pack_eur === null ? "—" : formatEurPrecise(row.cost_per_pack_eur)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{row.unit_cost_index === null ? "—" : formatNumber(row.unit_cost_index, 0)}{row.unit_cost_coverage !== null && <span className="block text-[10px] text-muted-foreground">su {formatPercent(row.unit_cost_coverage)} della spesa</span>}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}{row.biosimilar_penetration !== null && row.biosimilar_penetration_quantity_coverage !== null && <span className="block text-[10px] text-muted-foreground">quantità su {formatPercent(row.biosimilar_penetration_quantity_coverage)}</span>}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{row.normalization_coverage === null ? "—" : formatPercent(row.normalization_coverage)}</td>
                   </tr>
                 ))}
@@ -88,6 +96,10 @@ export default async function BenchmarkPage() {
           <div><p className="font-semibold text-foreground">Coorte</p><p className="mt-1">Sono incluse solo le ASL con record visibili attraverso le policy RLS e presenti nell’ultima annualità comune disponibile.</p></div>
           <div><p className="font-semibold text-foreground">Indice</p><p className="mt-1">Spesa ASL ÷ mediana della spesa ASL × 100. È un segnale di dispersione; senza popolazione, attività e casistica non è un giudizio di efficienza.</p></div>
           <div><p className="font-semibold text-foreground">Privacy organizzativa</p><p className="mt-1">Un utente regionale vede le ASL della regione. Un utente ASL non riceve identità o valori delle altre aziende; l’assenza del benchmark è resa esplicita.</p></div>
+        </div>
+        <div className="mt-5 border-t border-border pt-5">
+          <p className="font-semibold text-foreground">Costo unitario a parità di prodotto</p>
+          <p className="mt-1">Il rilascio non riporta il numero di confezioni, quindi un costo per confezione non è calcolabile. Per ogni strato di confrontabilità (molecola, via, forma, unità) dispensato da almeno due ASL si calcola il prezzo della coorte, spesa totale ÷ quantità totale. L’indice di un’ASL è la sua spesa in quegli strati divisa per il costo delle sue stesse quantità al prezzo della coorte, × 100: 100 è il prezzo medio per lo stesso paniere, 110 un costo unitario superiore del 10%. Confronta prezzi, non il mix di prodotti; la riga indica quale parte della spesa copre.</p>
         </div>
         <div className="mt-5 border-t border-border pt-5">
           <p className="font-semibold text-foreground">Base di confronto: erogato</p>

@@ -128,6 +128,20 @@ export function comparableMassMg(fact: CanonicalFact): number | null {
 }
 
 /**
+ * The gated quantity of a release row in its stratum's OWN unit (mg, IU, U, MU …),
+ * with the stratum it belongs to; null when the row has none. A quantity is only
+ * ever added to quantities of the same stratum, whose id carries the unit, so IU
+ * products (enoxaparin, epoetins, insulins) count without any unit conversion and
+ * two units are never summed.
+ */
+export function comparableQuantity(fact: CanonicalFact): { stratum: string; quantity: number } | null {
+  if (fact.comparable_eligible !== true || !fact.comparable_stratum_id || !fact.comparable_unit) return null;
+  const quantity = finite(fact.comparable_quantity);
+  if (quantity === null || quantity <= 0) return null;
+  return { stratum: `${fact.comparable_stratum_id}|${fact.comparable_unit.trim().toUpperCase()}`, quantity };
+}
+
+/**
  * Biosimilar side. The Pillar B release records it as the B03 perimeter status;
  * earlier loads as `biosimilar_flag`.
  */
@@ -232,7 +246,8 @@ export function costPerMg(facts: CanonicalFact[]): number | null {
 }
 
 /**
- * Biosimilar share by mg, falling back to packs then spend, with the basis named.
+ * Biosimilar share by comparable quantity (release rows), then mg (earlier
+ * loads), falling back to packs then spend, with the basis named.
  *
  * A basis is used only when it is COMPLETE over the facts being compared. The
  * previous version used mg whenever ANY fact carried a normalised volume, which
@@ -242,10 +257,80 @@ export function costPerMg(facts: CanonicalFact[]): number | null {
  * but complete basis reports less precision; reporting an incomplete one reports
  * the wrong number.
  */
-export type PenetrationBasis = "mg" | "packs" | "spend";
+export type PenetrationBasis = "comparable_quantity" | "mg" | "packs" | "spend";
 
 /** Finest first. A coarser basis is used only when a finer one is incomplete. */
-const BASIS_ORDER: PenetrationBasis[] = ["mg", "packs", "spend"];
+const BASIS_ORDER: PenetrationBasis[] = ["comparable_quantity", "mg", "packs", "spend"];
+
+/**
+ * A molecule's quantity figure is used only when the gated quantities cover at
+ * least this share of the spend on EACH side present. A side left mostly ungated
+ * is not a sample of it: epoetin alfa and somatropin carry gated quantities on
+ * the biosimilar side only, and the gated subset alone reads 100% biosimilar.
+ * The same 80% marks a molecule's evidence «ready» in buildBiosimilarRows.
+ */
+const QUANTITY_SIDE_COVERAGE = 0.8;
+
+const positiveSpend = (fact: CanonicalFact) => Math.max(0, fact.total_cost_eur ?? 0);
+
+/**
+ * Biosimilar share on the release's comparable quantity, with spend kept only
+ * where quantity cannot be read.
+ *
+ * On spend the share understates use, because the biosimilar costs less per unit.
+ * Here each molecule whose quantities cover both sides (see
+ * QUANTITY_SIDE_COVERAGE) is measured in quantity INSIDE each comparability
+ * stratum (molecule, route, form, unit), and its strata are weighted by their
+ * spend: a subcutaneous and an intravenous presentation are never added in mg,
+ * and IU products are measured in IU. Every other molecule keeps its spend share.
+ * Molecules are then weighted by their spend, so the figure still covers all of
+ * it; `quantity_coverage` is the share of that spend measured in quantity.
+ */
+export function comparableQuantityShare(facts: CanonicalFact[]): {
+  value: number | null;
+  quantity_coverage: number | null;
+} {
+  const byMolecule = new Map<string, CanonicalFact[]>();
+  for (const fact of contributingFacts(facts)) {
+    const key = fact.active_substance ?? "";
+    const list = byMolecule.get(key) ?? [];
+    list.push(fact);
+    byMolecule.set(key, list);
+  }
+  let weight = 0, weighted = 0, onQuantity = 0;
+  for (const group of byMolecule.values()) {
+    const spend = group.reduce((sum, fact) => sum + positiveSpend(fact), 0);
+    if (spend <= 0) continue;
+    let share = group.filter(isBiosimilar).reduce((sum, fact) => sum + positiveSpend(fact), 0) / spend;
+    const sides = [group.filter(isBiosimilar), group.filter((fact) => !isBiosimilar(fact))];
+    const covered = sides.every((side) => {
+      const total = side.reduce((sum, fact) => sum + positiveSpend(fact), 0);
+      const gated = side.filter((fact) => comparableQuantity(fact) !== null).reduce((sum, fact) => sum + positiveSpend(fact), 0);
+      return total <= 0 || gated / total >= QUANTITY_SIDE_COVERAGE;
+    });
+    if (covered) {
+      const strata = new Map<string, { bio: number; all: number; spend: number }>();
+      for (const fact of group) {
+        const q = comparableQuantity(fact);
+        if (q === null) continue;
+        const s = strata.get(q.stratum) ?? { bio: 0, all: 0, spend: 0 };
+        s.all += q.quantity;
+        if (isBiosimilar(fact)) s.bio += q.quantity;
+        s.spend += positiveSpend(fact);
+        strata.set(q.stratum, s);
+      }
+      const stratumWeight = [...strata.values()].reduce((sum, s) => sum + s.spend, 0);
+      if (stratumWeight > 0) {
+        share = [...strata.values()].reduce((sum, s) => sum + s.spend * (s.bio / s.all), 0) / stratumWeight;
+        onQuantity += spend;
+      }
+    }
+    weight += spend;
+    weighted += spend * share;
+  }
+  if (weight <= 0 || onQuantity <= 0) return { value: null, quantity_coverage: null };
+  return { value: weighted / weight, quantity_coverage: onQuantity / weight };
+}
 
 /**
  * The facts a share is computed over: flagged as originator or biosimilar, and
@@ -262,6 +347,9 @@ function contributingFacts(facts: CanonicalFact[]): CanonicalFact[] {
 
 function basisIsComplete(contributing: CanonicalFact[], basis: PenetrationBasis): boolean {
   if (contributing.length === 0) return false;
+  // Complete by construction (spend where quantity is missing); usable once at
+  // least one molecule is actually measured in quantity, or it is a spend share.
+  if (basis === "comparable_quantity") return comparableQuantityShare(contributing).value !== null;
   if (basis === "mg") {
     return contributing.every(
       (fact) => (normalizedMg(fact) ?? 0) > 0,
@@ -279,6 +367,7 @@ function measureOn(facts: CanonicalFact[], basis: PenetrationBasis): number {
 
 /** Biosimilar share on an explicitly chosen basis, whether or not it is complete. */
 export function penetrationOn(facts: CanonicalFact[], basis: PenetrationBasis): number | null {
+  if (basis === "comparable_quantity") return comparableQuantityShare(facts).value;
   const contributing = contributingFacts(facts);
   const total = measureOn(contributing, basis);
   if (total <= 0) return null;
@@ -289,15 +378,22 @@ export function penetrationOn(facts: CanonicalFact[], basis: PenetrationBasis): 
 export function penetration(facts: CanonicalFact[]): {
   value: number | null;
   basis: PenetrationBasis | null;
+  /** On the comparable-quantity basis, the share of the compared spend measured in quantity; else null. */
+  quantity_coverage: number | null;
 } {
   const contributing = contributingFacts(facts);
-  if (contributing.length === 0) return { value: null, basis: null };
+  if (contributing.length === 0) return { value: null, basis: null, quantity_coverage: null };
   for (const basis of BASIS_ORDER) {
     if (!basisIsComplete(contributing, basis)) continue;
+    if (basis === "comparable_quantity") {
+      const share = comparableQuantityShare(contributing);
+      if (share.value !== null) return { value: share.value, basis, quantity_coverage: share.quantity_coverage };
+      continue;
+    }
     const value = penetrationOn(facts, basis);
-    if (value !== null) return { value, basis };
+    if (value !== null) return { value, basis, quantity_coverage: null };
   }
-  return { value: null, basis: null };
+  return { value: null, basis: null, quantity_coverage: null };
 }
 
 /**
@@ -456,6 +552,7 @@ export function buildBiosimilarRows(
       headroom_base_eur: headroomBase,
       biosimilar_penetration: penAll.value,
       penetration_basis: penAll.basis ?? "spend",
+      penetration_quantity_coverage: penAll.quantity_coverage,
       penetration_locally_substitutable: penSubs.value,
       // The window figure has its OWN basis and it need not match the all-months
       // one — the window is a different row set, so a basis complete over one can

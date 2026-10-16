@@ -5,6 +5,9 @@
 
 export type OrgType = "asl" | "regione";
 
+/** The measure a biosimilar share is computed on; see `penetration` in biosimilar.ts. */
+export type ShareBasis = "comparable_quantity" | "mg" | "packs" | "spend";
+
 export interface Organization {
   org_code: string;
   org_name: string;
@@ -238,7 +241,9 @@ export interface SpendDashboardData {
   spend_yoy: number | null;
   packs_yoy: number | null;
   biosimilar_penetration: number | null;
-  biosimilar_penetration_basis: "mg" | "packs" | "spend" | null;
+  biosimilar_penetration_basis: ShareBasis | null;
+  /** Share of the compared spend measured in quantity; null off the comparable-quantity basis. */
+  biosimilar_penetration_quantity_coverage: number | null;
   /**
    * Sum of every molecule's `substitution_headroom_eur`. An UPPER BOUND, not a
    * saving — the same quantity the biosimilar page labels "limite superiore".
@@ -299,7 +304,9 @@ export interface BiosimilarComparisonRow {
   headroom_base_eur: number;
   /** Biosimilar share across ALL months of the year. */
   biosimilar_penetration: number | null;
-  penetration_basis: "mg" | "packs" | "spend";
+  penetration_basis: ShareBasis;
+  /** On the comparable-quantity basis, the share of the compared spend measured in quantity; else null. */
+  penetration_quantity_coverage: number | null;
   /**
    * Biosimilar share across locally-substitutable months only. Reported alongside
    * the all-months figure because a single penetration number is not defensible:
@@ -311,7 +318,7 @@ export interface BiosimilarComparisonRow {
    * window is a different row set, so a basis complete over all months can be
    * incomplete over the window. null when the window holds nothing to measure.
    */
-  penetration_locally_substitutable_basis: "mg" | "packs" | "spend" | null;
+  penetration_locally_substitutable_basis: ShareBasis | null;
   /**
    * Share of this molecule's originator spend that cleared BOTH gates — the
    * window and measurability. `headroom_base_eur / originator_spend_eur`.
@@ -348,6 +355,8 @@ export interface MoleculeSignal {
   spend_eur: number;
   spend_yoy: number | null;
   biosimilar_penetration: number | null;
+  biosimilar_penetration_basis: ShareBasis | null;
+  biosimilar_penetration_quantity_coverage: number | null;
   /** This molecule's substitution headroom. An upper bound, never a saving. */
   headroom_eur: number | null;
 }
@@ -359,8 +368,18 @@ export interface BenchmarkRow {
   /** null when NO row states a package count. Not the same as zero packages. */
   packs: number | null;
   spend_yoy: number | null;
-  cost_per_pack_eur: number | null;
+  /**
+   * Unit cost against the cohort for the SAME products: this ASL's spend in the
+   * comparability strata it shares with at least one other ASL, over what those
+   * quantities cost at each stratum's cohort-wide price per unit, × 100. 100 =
+   * the cohort's price for this ASL's own mix. null with fewer than two ASLs or
+   * no shared stratum. See unit-cost-index.ts.
+   */
+  unit_cost_index: number | null;
+  /** Share of this ASL's spend inside those shared strata; what the index rests on. */
+  unit_cost_coverage: number | null;
   biosimilar_penetration: number | null;
+  biosimilar_penetration_quantity_coverage: number | null;
   normalization_coverage: number | null;
   spend_index: number | null;
   is_current_org: boolean;
@@ -376,10 +395,11 @@ export interface BenchmarkData {
    * cohort — one ASL's missing strength value moves the whole column, never just
    * that row.
    */
-  biosimilar_penetration_basis: "mg" | "packs" | "spend" | null;
+  biosimilar_penetration_basis: ShareBasis | null;
   peer_count: number;
   median_spend_eur: number | null;
-  median_cost_per_pack_eur: number | null;
+  /** Comparability strata shared by at least two ASLs: the index's reference set. */
+  unit_cost_strata: number;
   median_biosimilar_penetration: number | null;
   benchmark_available: boolean;
   limitation: string | null;

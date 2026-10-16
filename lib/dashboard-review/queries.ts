@@ -30,12 +30,14 @@ import {
   buildBiosimilarRows as buildBiosimilarRowsImpl,
   commonPenetrationBasis,
   comparableMassMg,
+  comparableQuantityShare,
   headroomTotal,
   normalizationCoverage,
   penetration as biosimilarPenetration,
   penetrationOn,
 } from "./biosimilar";
 import { isUnresolvedRecord } from "./normalization";
+import { unitCostIndexByOrg } from "./unit-cost-index";
 import type {
   AntibioticConsumptionFact,
   AntibioticIndicatorSet,
@@ -184,6 +186,15 @@ const isUnresolved = isUnresolvedRecord;
 // than to the Azienda that consumed them. Only the dispensed (erogato) basis is
 // attributable per Azienda, and only it may feed a cross-Azienda comparison.
 // Returns null when a fact carries no value that is safe to compare.
+/** A share with the measure it was computed on, as one molecule row carries it. */
+function moleculeShare(share: ReturnType<typeof biosimilarPenetration>) {
+  return {
+    biosimilar_penetration: share.value,
+    biosimilar_penetration_basis: share.basis,
+    biosimilar_penetration_quantity_coverage: share.quantity_coverage,
+  };
+}
+
 function comparableSpendEur(fact: CanonicalFact): number | null {
   const erogato = fact.erogato_cost_eur ?? null;
   if (erogato !== null) return erogato;
@@ -503,7 +514,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
         therapeutic_area_status: therapeuticArea.status,
         spend_eur: spend,
         spend_yoy: ratio(spend, previousSpend),
-        biosimilar_penetration: biosimilarPenetration(group).value,
+        ...moleculeShare(biosimilarPenetration(group)),
         headroom_eur: headroomByMolecule.get(activeSubstance) ?? null,
       };
     })
@@ -554,6 +565,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
       : ratio(totalPacks, previousPacks),
     biosimilar_penetration: overallPenetration.value,
     biosimilar_penetration_basis: overallPenetration.basis,
+    biosimilar_penetration_quantity_coverage: overallPenetration.quantity_coverage,
     biosimilar_headroom_eur: headroom.total,
     biosimilar_headroom_measurable: { measurable: headroom.measurable, molecules: headroom.molecules },
     active_review_count: reviewSignals.length,
@@ -627,7 +639,9 @@ function buildReviewSignals({
       id: `bio-${organizationCode}-${row.active_substance}`,
       kind: "biosimilar" as const,
       title: row.active_substance,
-      context: `${organizationLabels[organizationCode] ?? organizationCode} · confronto originator/biosimilare su base ${row.penetration_basis}.`,
+      // The margin is a €/unit differential inside one comparability stratum;
+      // it is never computed on spend, whatever basis the share uses.
+      context: `${organizationLabels[organizationCode] ?? organizationCode} · differenza €/unità tra originator e biosimilare nello stesso strato (via, forma, unità).`,
       value_label: `${compactEur(row.substitution_headroom_eur)} margine (limite superiore)`,
       href: "/dashboard-review/revisione-pillar-b",
       severity: row.substitution_headroom_eur >= 100000 ? "high" as const : "medium" as const,
@@ -724,7 +738,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
       peer_count: 0,
       biosimilar_penetration_basis: null,
       median_spend_eur: null,
-      median_cost_per_pack_eur: null,
+      unit_cost_strata: 0,
       median_biosimilar_penetration: null,
       benchmark_available: false,
       limitation: "Nessun perimetro territoriale disponibile.",
@@ -745,7 +759,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
       peer_count: 0,
       biosimilar_penetration_basis: null,
       median_spend_eur: null,
-      median_cost_per_pack_eur: null,
+      unit_cost_strata: 0,
       median_biosimilar_penetration: null,
       benchmark_available: false,
       limitation: ACQUISTATO_ONLY_LIMITATION,
@@ -774,6 +788,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
   // mg-based percentage beside a packs-based one in the same column, and median
   // them together, as though they were the same measure.
   const cohortBasis = commonPenetrationBasis(Array.from(byOrg.values()));
+  const unitCost = unitCostIndexByOrg(byOrg, comparableSpendEur);
   const baseRows = Array.from(byOrg.entries()).map(([code, group]) => {
     const spend = group.reduce((sum, fact) => sum + (comparableSpendEur(fact) ?? 0), 0);
     const packs = sumPacks(group);
@@ -783,8 +798,11 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
       spend_eur: spend,
       packs,
       spend_yoy: ratio(spend, previousSpend.get(code) ?? 0),
-      cost_per_pack_eur: costPerPack(spend, packs),
+      unit_cost_index: unitCost.byOrg.get(code)?.index ?? null,
+      unit_cost_coverage: unitCost.byOrg.get(code)?.coverage ?? null,
       biosimilar_penetration: cohortBasis === null ? null : penetrationOn(group, cohortBasis),
+      biosimilar_penetration_quantity_coverage:
+        cohortBasis === "comparable_quantity" ? comparableQuantityShare(group).quantity_coverage : null,
       normalization_coverage: normalizationCoverage(group),
       is_current_org: scope?.scopedOrgs.some(o => o.orgCode === org.org_code && o.aslCode === code) ?? false,
     };
@@ -803,9 +821,7 @@ export async function getBenchmarkData(): Promise<BenchmarkData> {
     rows,
     peer_count: scope?.allOrganizations || scope?.regional ? rows.length : Math.max(rows.length - 1, 0),
     median_spend_eur: medianSpend,
-    median_cost_per_pack_eur: median(
-      rows.map((row) => row.cost_per_pack_eur).filter((value): value is number => value !== null),
-    ),
+    unit_cost_strata: unitCost.sharedStrata,
     biosimilar_penetration_basis: cohortBasis,
     median_biosimilar_penetration: median(
       rows

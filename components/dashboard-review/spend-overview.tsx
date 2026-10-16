@@ -17,10 +17,19 @@ import {
   StatusPill,
 } from "@/components/dashboard-review/analytics-ui";
 import { TrendLineChart } from "@/components/dashboard-review/trend-line-chart";
-import type { ReviewSeverity, SpendDashboardData } from "@/lib/dashboard-review/types";
+import type { ReviewSeverity, ShareBasis, SpendDashboardData } from "@/lib/dashboard-review/types";
 import { formatDate, formatEur, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 import { latestComparison } from "@/lib/dashboard-review/trend";
 import { MONTHS_OBSERVED_CAVEAT } from "@/lib/dashboard-review/release-scope";
+
+// Each molecule names its own measure: a quantity share and a spend share are
+// not the same figure, and the spend one understates use.
+const SHARE_BASIS_LABEL: Record<ShareBasis, string> = {
+  comparable_quantity: "quantità",
+  mg: "mg",
+  packs: "confezioni",
+  spend: "spesa",
+};
 
 const REVIEW_STYLE: Record<ReviewSeverity, "danger" | "warning" | "neutral"> = {
   high: "danger",
@@ -130,7 +139,7 @@ function MoleculePanel({ data }: { data: SpendDashboardData }) {
                   </td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs">{formatEur(row.spend_eur)}</td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs">{row.spend_yoy === null ? "—" : formatSignedPercent(row.spend_yoy)}</td>
-                  <td className="px-5 py-3.5 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}</td>
+                  <td className="px-5 py-3.5 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}{row.biosimilar_penetration !== null && row.biosimilar_penetration_basis !== null && <span className="block text-[10px] text-muted-foreground">{SHARE_BASIS_LABEL[row.biosimilar_penetration_basis]}</span>}</td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs font-semibold text-primary">{row.headroom_eur === null ? "Non calcolabile" : `${row.headroom_eur > 0 ? "≤ " : ""}${formatEur(row.headroom_eur)}`}</td>
                 </tr>
               ))}
@@ -273,7 +282,7 @@ export function SpendOverview({ data }: { data: SpendDashboardData }) {
       <MethodologyPanel>
         <div className="grid gap-5 md:grid-cols-3">
           <div><p className="font-semibold text-foreground">Definizioni</p><p className="mt-1">Spesa e confezioni sono somme dei record dell’ultima annualità visibile. La variazione usa l’ultima annualità precedente disponibile, senza interpolazioni.</p></div>
-          <div><p className="font-semibold text-foreground">Base della penetrazione</p><p className="mt-1">La quota biosimilare usa i mg quando il contenuto è noto su tutte le righe confrontate, altrimenti confezioni, altrimenti spesa. <strong>Su base spesa la quota sottostima sistematicamente il volume</strong>: il biosimilare costa meno per unità, quindi pesa meno in euro di quanto pesi in quantità. Va letta come limite inferiore dell’adozione.</p></div>
+          <div><p className="font-semibold text-foreground">Base della penetrazione</p><p className="mt-1">La quota biosimilare è misurata in <strong>quantità confrontabile</strong> (mg, UI…) dentro ciascuno strato di confrontabilità — molecola, via, forma, unità — e gli strati sono pesati per la loro spesa: una forma sottocutanea e una endovenosa non si sommano mai in mg. Una molecola resta su base spesa quando le quantità coprono meno dell’80% della spesa di uno dei due lati. <strong>Su base spesa la quota sottostima il volume</strong>, perché il biosimilare costa meno per unità: lì va letta come limite inferiore dell’adozione.</p></div>
           <div><p className="font-semibold text-foreground">Margine, non risparmio</p><p className="mt-1">È il <strong>limite superiore</strong> della sostituzione, non denaro recuperabile: si applica solo ai mesi in cui un biosimilare è stato effettivamente dispensato qui e solo dove i mg sono noti su entrambi i lati. Presuppone sostituibilità clinica integrale, tenuta del prezzo a volumi maggiori e assenza di vincoli contrattuali — condizioni non verificabili da questi dati. Dettaglio e funnel completo in <em>Intelligence biosimilari</em>.</p></div>
           <div><p className="font-semibold text-foreground">Linea dati</p><p className="mt-1">{`${formatNumber(data.record_count, 0)} record, ${formatNumber(data.source_version_count, 0)} versioni fonte. Ultimo caricamento ${data.latest_loaded_at ? formatDate(data.latest_loaded_at) : "non disponibile"}. Copertura €/mg o €/DDD ${data.normalization_coverage === null ? "non calcolabile" : formatPercent(data.normalization_coverage)}.`}</p></div>
         </div>
