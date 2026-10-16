@@ -24,6 +24,7 @@ import {
 import {
   buildBiosimilarRows as buildBiosimilarRowsImpl,
   commonPenetrationBasis,
+  comparableMassMg,
   headroomTotal,
   normalizationCoverage,
   penetration as biosimilarPenetration,
@@ -403,7 +404,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
   const previousPacks = sumPacks(previousFacts);
   const normalizationEligible = currentFacts.filter((f) => (f.total_cost_eur ?? 0) > 0);
   const normalizedRecordCount = normalizationEligible.filter(
-    (f) => f.cost_per_mg !== null || f.cost_per_ddd !== null,
+    (f) => f.cost_per_mg !== null || f.cost_per_ddd !== null || comparableMassMg(f) !== null,
   ).length;
   const unresolvedRecordCount = currentFacts.filter(
     (f) =>

@@ -64,6 +64,14 @@ export interface CanonicalFact {
   mapping_confidence: MappingConfidence | null;
   quality_status: string | null;
   created_at: string;
+  /** Pillar B release: B03 perimeter status ("biosimilar", "reference_medicine",
+   *  "non_biosimilar_same_substance", "unresolved", "outside_biosimilar_perimeter"). */
+  perimeter_status?: string | null;
+  /** Pillar B release: true only for rows that passed the comparability gate. */
+  comparable_eligible?: boolean | null;
+  /** Pillar B release: quantity in the stratum's own unit (numeric; may arrive as a string). */
+  comparable_quantity?: number | string | null;
+  comparable_unit?: string | null;
 }
 
 export interface Objective {

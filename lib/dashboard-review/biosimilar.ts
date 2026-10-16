@@ -89,6 +89,62 @@ function monthSpan(fact: CanonicalFact): { first: number; last: number } | null 
   return { first: monthKey(fact.year, month), last: monthKey(fact.year, month) };
 }
 
+/** A numeric column that may arrive as a JSON number or as a string (pg wire); null stays null. */
+function finite(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Mass units the comparable quantity can be converted from, to mg. */
+const MG_PER_UNIT: Record<string, number> = { MG: 1, MCG: 0.001, G: 1000 };
+
+/**
+ * The row's normalised mass in mg, or null when it has none.
+ *
+ * Pillar B release rows carry it as `comparable_quantity`, in the comparability
+ * stratum's own unit, and only rows that passed the release's comparability gate
+ * (`comparable_eligible`) may enter a €/mg figure. Units that are not a mass
+ * (packs, IU, ml, MBq, …) are never converted to mg and never mixed with it.
+ * Rows from earlier loads carry it as per-pack content × packs.
+ */
+export function normalizedMg(fact: CanonicalFact): number | null {
+  if (fact.comparable_eligible === true) return comparableMassMg(fact);
+  const perPack = finite(fact.total_content_mg), packs = finite(fact.quantity_packs);
+  return perPack !== null && packs !== null && perPack > 0 && packs > 0 ? perPack * packs : null;
+}
+
+/**
+ * The gated Pillar B mass in mg: a row that passed the comparability gate and
+ * whose stratum unit is a mass. This, not `normalizedMg`, decides whether a
+ * release row counts as normalised: earlier loads keep their own per-row
+ * `cost_per_mg`/`cost_per_ddd` rule unchanged.
+ */
+export function comparableMassMg(fact: CanonicalFact): number | null {
+  if (fact.comparable_eligible !== true) return null;
+  const factor = fact.comparable_unit ? MG_PER_UNIT[fact.comparable_unit.trim().toUpperCase()] : undefined;
+  const quantity = finite(fact.comparable_quantity);
+  return factor !== undefined && quantity !== null && quantity > 0 ? quantity * factor : null;
+}
+
+/**
+ * Biosimilar side. The Pillar B release records it as the B03 perimeter status;
+ * earlier loads as `biosimilar_flag`.
+ */
+export function isBiosimilar(fact: CanonicalFact): boolean {
+  return fact.biosimilar_flag === true || fact.perimeter_status === "biosimilar";
+}
+
+/**
+ * Originator side: the EPAR-named reference medicine. «unresolved» and
+ * «non_biosimilar_same_substance» are deliberately NOT originators (B03 rules R1,
+ * R2): blank or unproven status never becomes "originator".
+ */
+export function isOriginatorSide(fact: CanonicalFact): boolean {
+  if (isBiosimilar(fact)) return false;
+  return fact.originator_flag === true || fact.biosimilar_flag === false || fact.perimeter_status === "reference_medicine";
+}
+
 /**
  * The earliest month a biosimilar of each molecule could have been dispensed here.
  *
@@ -98,7 +154,7 @@ function monthSpan(fact: CanonicalFact): { first: number; last: number } | null 
 export function firstLocalDispensing(facts: CanonicalFact[]): Map<string, number> {
   const out = new Map<string, number>();
   for (const fact of facts) {
-    if (fact.biosimilar_flag !== true) continue;
+    if (!isBiosimilar(fact)) continue;
     if (!fact.active_substance) continue;
     // A row with no packs and no spend records no dispensing. Negative values are
     // credit notes against an earlier dispensing, which does not open a window on
@@ -130,10 +186,7 @@ export function isLocallySubstitutable(
 }
 
 export function normalizedVolumeMg(facts: CanonicalFact[]): number {
-  return facts.reduce((sum, fact) => {
-    if ((fact.total_content_mg ?? 0) <= 0 || (fact.quantity_packs ?? 0) <= 0) return sum;
-    return sum + fact.total_content_mg! * fact.quantity_packs!;
-  }, 0);
+  return facts.reduce((sum, fact) => sum + (normalizedMg(fact) ?? 0), 0);
 }
 
 export function spendOf(facts: CanonicalFact[]): number {
@@ -144,8 +197,7 @@ export function spendOf(facts: CanonicalFact[]): number {
 export function measurableFacts(facts: CanonicalFact[]): CanonicalFact[] {
   return facts.filter(
     (fact) =>
-      (fact.total_content_mg ?? 0) > 0 &&
-      (fact.quantity_packs ?? 0) > 0 &&
+      (normalizedMg(fact) ?? 0) > 0 &&
       (fact.total_cost_eur ?? 0) > 0,
   );
 }
@@ -198,7 +250,7 @@ const BASIS_ORDER: PenetrationBasis[] = ["mg", "packs", "spend"];
 function contributingFacts(facts: CanonicalFact[]): CanonicalFact[] {
   return facts.filter(
     (fact) =>
-      (fact.biosimilar_flag !== null || fact.originator_flag === true) &&
+      (isBiosimilar(fact) || isOriginatorSide(fact)) &&
       ((fact.quantity_packs ?? 0) > 0 || (fact.total_cost_eur ?? 0) > 0),
   );
 }
@@ -207,7 +259,7 @@ function basisIsComplete(contributing: CanonicalFact[], basis: PenetrationBasis)
   if (contributing.length === 0) return false;
   if (basis === "mg") {
     return contributing.every(
-      (fact) => (fact.total_content_mg ?? 0) > 0 && (fact.quantity_packs ?? 0) > 0,
+      (fact) => (normalizedMg(fact) ?? 0) > 0,
     );
   }
   if (basis === "packs") return contributing.every((fact) => (fact.quantity_packs ?? 0) > 0);
@@ -225,7 +277,7 @@ export function penetrationOn(facts: CanonicalFact[], basis: PenetrationBasis): 
   const contributing = contributingFacts(facts);
   const total = measureOn(contributing, basis);
   if (total <= 0) return null;
-  const bio = contributing.filter((fact) => fact.biosimilar_flag === true);
+  const bio = contributing.filter(isBiosimilar);
   return measureOn(bio, basis) / total;
 }
 
@@ -311,9 +363,9 @@ export function buildBiosimilarRows(
 
   const out: BiosimilarComparisonRow[] = [];
   for (const [activeSubstance, group] of byMolecule) {
-    const bio = group.filter((f) => f.biosimilar_flag === true);
+    const bio = group.filter(isBiosimilar);
     if (bio.length === 0) continue;
-    const orig = group.filter((f) => f.originator_flag === true || f.biosimilar_flag === false);
+    const orig = group.filter(isOriginatorSide);
 
     const origSpend = spendOf(orig);
     const bioSpend = spendOf(bio);
@@ -419,7 +471,7 @@ export function normalizationCoverage(facts: CanonicalFact[]): number | null {
   const eligible = facts.filter((fact) => (fact.total_cost_eur ?? 0) > 0);
   if (eligible.length === 0) return null;
   const normalized = eligible.filter(
-    (fact) => fact.cost_per_mg !== null || fact.cost_per_ddd !== null,
+    (fact) => fact.cost_per_mg !== null || fact.cost_per_ddd !== null || comparableMassMg(fact) !== null,
   );
   return normalized.length / eligible.length;
 }

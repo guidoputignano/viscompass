@@ -1,8 +1,10 @@
+import { comparableMassMg } from "./biosimilar.ts";
 import type { CanonicalFact } from "./types";
 
 /**
  * A record is "irrisolto" when it cannot enter a normalised €/mg or €/DDD
- * comparison: it carries neither per-unit cost, or its quality status says it is
+ * comparison: it carries neither a per-unit cost nor a gated normalised mass (see
+ * `comparableMassMg`), or its quality status says it is
  * unresolved. This is the same test `normalizationCoverage` applies, so the
  * «Irrisolti» count and the «Copertura normalizzata» share always describe the
  * same records.
@@ -14,6 +16,7 @@ import type { CanonicalFact } from "./types";
  */
 export function isUnresolvedRecord(fact: CanonicalFact): boolean {
   if (fact.quality_status?.toLowerCase().includes("unresolved") === true) return true;
+  if (comparableMassMg(fact) !== null) return false;
   // `?? null`: a column absent from an older row reads as missing, never as a cost.
   return (fact.cost_per_mg ?? null) === null && (fact.cost_per_ddd ?? null) === null;
 }
