@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {C_WORKBOOK_HASH,C_WORKBOOK_SECTIONS,cWorkbookDecimal,cWorkbookLabel,cWorkbookRows,cWorkbookPlotRows,cWorkbookComparableColumns,cWorkbookAxisLabel,parseCWorkbookIndex,parseCWorkbookSection} from '../lib/dashboard-review/pillar-c/workbook.ts';
+import {C_WORKBOOK_HASH,C_WORKBOOK_SECTIONS,cWorkbookDecimal,cWorkbookLabel,cWorkbookRows,cWorkbookPlotRows,cWorkbookComparableColumns,cWorkbookLabelColumn,cWorkbookAxisLabel,parseCWorkbookIndex,parseCWorkbookSection} from '../lib/dashboard-review/pillar-c/workbook.ts';
 import {loadCWorkbookIndex,loadCWorkbookSection} from '../lib/dashboard-review/pillar-c/workbook-loader.ts';
 import {PILLAR_C_ALL_SECTIONS,pillarCSectionAtViewport} from '../lib/dashboard-review/pillar-c/section-navigation.ts';
 
@@ -55,6 +55,12 @@ test('percentage axes use percentage units and overlays refuse mixed raw scales'
   assert.equal(cWorkbookAxisLabel(25,t,4,formats),'25,0 %');
   const plotted=cWorkbookPlotRows(t,cWorkbookRows(t,'',{},null,'asc'),formats,1,0,2,'bar',2);
   assert.equal(plotted[0].other,0.4);assert.equal(plotted[0].otherExact,'40,0 %');
+});
+
+test('automatic chart labels use categories, not a year-bearing numerical measure',()=>{
+  const t={...fixture().outputs[0].tables[0],columns:['Codice','Categoria','Righe (n) · Anno 2024','G⁺ (€) · Anno 2024'],numericColumns:[2,3]};
+  assert.equal(cWorkbookLabelColumn(t),1);
+  assert.equal(cWorkbookLabelColumn(fixture().outputs[0].tables[0]),0);
 });
 test('unapproved and ordinary identities are refused before any artifact read',async()=>{
   let reads=0;const reader=async()=>{reads++;return null;};

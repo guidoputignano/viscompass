@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowDownUp, BarChart3, ChevronLeft, ChevronRight, FileSpreadsheet, LineChart as LineIcon, Search, RotateCcw } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
-import { C_WORKBOOK_SECTIONS, cWorkbookLabel, cWorkbookRaw, cWorkbookRows, cWorkbookPlotRows, cWorkbookComparableColumns, cWorkbookAxisLabel, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection, type CWorkbookSectionId, type CWorkbookTable } from "@/lib/dashboard-review/pillar-c/workbook";
+import { C_WORKBOOK_SECTIONS, cWorkbookLabel, cWorkbookRaw, cWorkbookRows, cWorkbookPlotRows, cWorkbookComparableColumns, cWorkbookLabelColumn, cWorkbookAxisLabel, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection, type CWorkbookSectionId, type CWorkbookTable } from "@/lib/dashboard-review/pillar-c/workbook";
 import { itNumber } from "@/lib/format/it-number";
 
 const control = "mt-1.5 h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -49,14 +49,15 @@ function metricDefault(table: CWorkbookTable): number {
 function WorkbookTableView({ table, formats, outputId, section }: { table: CWorkbookTable; formats: Record<string, string>; outputId: string; section: CWorkbookSectionId }) {
   const params = useSearchParams(), prefix = `cw_${section}_`;
   const initialMetric = Number(params.get(prefix + "metrica"));
-  const [metric, setMetric] = useState(params.has(prefix + "metrica") && table.numericColumns.includes(initialMetric) ? initialMetric : metricDefault(table));
+  const metric = params.has(prefix + "metrica") && table.numericColumns.includes(initialMetric) ? initialMetric : metricDefault(table);
   const [xMetric, setXMetric] = useState(table.numericColumns.find(c => c !== metric) ?? metric);
   const [comparisonMetric, setComparisonMetric] = useState(-1);
   const comparable = useMemo(() => cWorkbookComparableColumns(table, metric, formats), [table, metric, formats]);
   const comparison = comparable.includes(comparisonMetric) ? comparisonMetric : -1;
-  const [labelColumn, setLabelColumn] = useState(() => table.columns.findIndex(h => /descrizione|portafoglio|classe|disciplina|dipartimento|causa|unità|mese|anno|serie|area/i.test(h) && !/crit\.|quota|spesa|numero|costo|codice|€/i.test(h)));
+  const [labelColumn, setLabelColumn] = useState(() => cWorkbookLabelColumn(table));
   const [view, setView] = useState<"bar" | "line" | "scatter">(section === "tendenze" || outputId === "PUB-04" ? "line" : "bar");
   const [query, setQuery] = useState(""), [facets, setFacets] = useState<Record<number, string>>({}), [sortColumn, setSortColumn] = useState<number | null>(null), [direction, setDirection] = useState<"asc" | "desc">("desc"), [page, setPage] = useState(0);
+  const [includeTotals, setIncludeTotals] = useState(false);
   const rows = useMemo(() => cWorkbookRows(table, query, facets, sortColumn, direction), [table, query, facets, sortColumn, direction]);
   const facetColumns = useMemo(() => table.columns.flatMap((h, c) => {
     if (!/^(?:confronto|periodo|anno|azienda|canale|ambito|unità|classe|stato|partizione|livello|versione|tipo|serie)(?:\s|$)/i.test(h) || table.numericColumns.includes(c)) return [];
@@ -64,11 +65,14 @@ function WorkbookTableView({ table, formats, outputId, section }: { table: CWork
     return values.length > 1 && values.length <= 40 ? [{ c, label: h, values }] : [];
   }).slice(0, 5), [table]);
   const label = labelColumn < 0 ? 0 : labelColumn;
-  const candidates = cWorkbookPlotRows(table, rows, formats, metric, label, xMetric, view, view === "scatter" ? -1 : comparison);
+  const isTotal = (row: typeof rows[number]) => /^(?:tot|totale|total)$/i.test(cWorkbookRaw(row.cells[0]).trim());
+  const totalRows = rows.filter(isTotal).length, canHideTotals = totalRows > 0 && totalRows < rows.length;
+  const chartRows = canHideTotals && !includeTotals ? rows.filter(row => !isTotal(row)) : rows;
+  const candidates = cWorkbookPlotRows(table, chartRows, formats, metric, label, xMetric, view, view === "scatter" ? -1 : comparison);
   const eligible = candidates.filter(d => d.value !== null || d.other !== null);
   const shown = (view === "line" ? candidates : eligible).slice(0, view === "line" ? 120 : view === "scatter" ? 500 : 25), pageSize = 25, lastPage = Math.max(0, Math.ceil(rows.length / pageSize) - 1), currentPage = Math.min(page, lastPage);
   const resetPage = () => setPage(0);
-  const persistMetric = (next: number) => { setMetric(next); const p = new URLSearchParams(window.location.search); p.set(prefix + "metrica", String(next)); window.history.replaceState(null, "", `${window.location.pathname}?${p}${window.location.hash}`); };
+  const persistMetric = (next: number) => { const p = new URLSearchParams(window.location.search); p.set(prefix + "metrica", String(next)); window.history.replaceState(null, "", `${window.location.pathname}?${p}${window.location.hash}`); };
   const tooltip = ({ active, payload }: { active?: boolean; payload?: { payload?: typeof shown[number] }[] }) => {
     const d = payload?.[0]?.payload; return active && d ? <div className="max-w-sm rounded-xl border border-border bg-card p-3 text-xs shadow-md"><p className="font-semibold">{d.name}</p><p className="mt-1">{table.columns[metric]}: {d.exact}</p>{comparison >= 0 && view !== "scatter" && <p>{table.columns[comparison]}: {d.otherExact}</p>}{view === "scatter" && <p>{table.columns[xMetric]}: {d.xExact}</p>}<p className="mt-1 text-muted-foreground">Riga workbook {d.sourceRow}</p></div> : null;
   };
@@ -81,6 +85,7 @@ function WorkbookTableView({ table, formats, outputId, section }: { table: CWork
     </div>
     <div className="flex flex-wrap items-center gap-2 text-xs"><span className="mr-auto text-muted-foreground">{itNumber(rows.length)} righe selezionate · nessuna aggregazione aggiunta</span><button type="button" className={button} disabled={sortColumn === null} onClick={() => setDirection(direction === "asc" ? "desc" : "asc")}><ArrowDownUp size={14} aria-hidden="true" />{direction === "asc" ? "Crescente" : "Decrescente"}</button><button type="button" className={button} onClick={() => { setQuery(""); setFacets({}); setSortColumn(null); resetPage(); }}><RotateCcw size={14} aria-hidden="true" />Azzera righe</button></div>
     {table.numericColumns.length > 0 && <>
+      {canHideTotals && <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" className="size-4 accent-primary" checked={includeTotals} onChange={e => setIncludeTotals(e.target.checked)} />Includi nel grafico le righe di totale, sempre presenti nel dettaglio</label>}
       <div className="grid gap-4 rounded-xl bg-secondary/40 p-4 sm:grid-cols-2 xl:grid-cols-4">
         <label className="text-xs font-medium">Misura del grafico<select aria-label={`Misura ${outputId}`} className={control} value={metric} onChange={e => persistMetric(Number(e.target.value))}>{table.numericColumns.map(c => <option key={c} value={c}>{table.columns[c]} · col. {sourceColumn(table.startColumn + c)}</option>)}</select></label>
         <label className="text-xs font-medium">Etichetta delle righe<select aria-label={`Etichetta ${outputId}`} className={control} value={label} onChange={e => setLabelColumn(Number(e.target.value))}>{table.columns.map((h, c) => <option key={c} value={c}>{h}</option>)}</select></label>
@@ -98,7 +103,7 @@ function WorkbookTableView({ table, formats, outputId, section }: { table: CWork
               : <ScatterChart margin={{ top: 10, right: 20, left: 15, bottom: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /><XAxis type="number" dataKey="x" name={table.columns[xMetric]} tick={{ fontSize: 10 }} tickFormatter={v => cWorkbookAxisLabel(v, table, xMetric, formats)} label={{ value: table.columns[xMetric], position: 'bottom', fontSize: 10 }} /><YAxis type="number" dataKey="value" name={table.columns[metric]} tick={{ fontSize: 10 }} tickFormatter={v => cWorkbookAxisLabel(v, table, metric, formats)} /><Tooltip content={tooltip} /><Scatter data={shown} fill="var(--viz-1)" isAnimationActive={false} /></ScatterChart>}
           </ResponsiveContainer>
         </div>
-        <figcaption className="mt-2 text-xs leading-5 text-muted-foreground">{shown.filter(d => d.value !== null || d.other !== null).length} righe numeriche mostrate su {eligible.length}; {rows.length - eligible.length} senza valore per questa visualizzazione restano nel dettaglio. {view === 'line' ? 'I punti seguono l’ordine selezionato; i valori assenti interrompono la linea, senza interpolazione o nuove stime.' : 'La selezione non viene sommata o trasformata in una quota.'}</figcaption>
+        <figcaption className="mt-2 text-xs leading-5 text-muted-foreground">{shown.filter(d => d.value !== null || d.other !== null).length} righe numeriche mostrate su {eligible.length}; {chartRows.length - eligible.length} senza valore per questa visualizzazione restano nel dettaglio. {canHideTotals && !includeTotals ? `${totalRows} righe di totale sono solo nel dettaglio. ` : ''}{view === 'line' ? 'I punti seguono l’ordine selezionato; i valori assenti interrompono la linea, senza interpolazione o nuove stime.' : 'La selezione non viene sommata o trasformata in una quota.'}</figcaption>
       </figure> : <p role="status" className="rounded-xl bg-secondary/40 p-4 text-sm">Nessun valore numerico disponibile per questa misura e questi filtri. I valori mancanti non sono zeri.</p>}
     </>}
     <details className="rounded-xl border border-border" open={table.numericColumns.length === 0}>
@@ -114,18 +119,18 @@ export function PillarCWorkbookExplorer({ index, section }: { index: CWorkbookIn
   const root = useRef<HTMLDivElement>(null), params = useSearchParams(), key = `cw_${section}_output`;
   const definitions = index.outputs.filter(o => o.section === section);
   const fromUrl = params.get(key), initial = definitions.find(o => o.id === fromUrl)?.id ?? definitions.find(o => o.id === defaults[section])?.id ?? definitions[0]?.id;
-  const [selected, setSelected] = useState(initial), [block, setBlock] = useState(0);
+  const selected = initial, [block, setBlock] = useState(0);
   const { result, failed, retry } = useWorkbookSection(section, index, root);
   const definition = definitions.find(o => o.id === selected) ?? definitions[0], output = result?.outputs.find(o => o.id === definition?.id), table = output?.tables[block] ?? output?.tables[0];
   if (!definition) return null;
   return <div ref={root} className="mt-6 min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6" data-workbook-family={section}>
     <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary"><FileSpreadsheet size={15} aria-hidden="true" />Esplora il workbook</p><p className="mt-2 text-xs leading-5 text-muted-foreground">Selettori locali, distinti dai filtri delle viste precedenti. Ogni blocco conserva il proprio ambito congelato.</p></div><span className="rounded-full border border-border px-3 py-1 text-[10px] text-muted-foreground">{definitions.length} output nel registro</span></div>
-    <label className="mt-5 block text-xs font-medium">Analisi da esplorare<select aria-label={`Analisi workbook ${section}`} className={control} value={definition.id} onChange={e => { setSelected(e.target.value); setBlock(0); const p = new URLSearchParams(window.location.search); p.set(key, e.target.value); p.delete(`cw_${section}_metrica`); window.history.replaceState(null, '', `${window.location.pathname}?${p}${window.location.hash}`); }}>{definitions.map(o => <option key={o.id} value={o.id}>{o.title}{o.availability === 'withheld' ? ' · trattenuto' : ''}</option>)}</select></label>
+    <label className="mt-5 block text-xs font-medium">Analisi da esplorare<select aria-label={`Analisi workbook ${section}`} className={control} value={definition.id} onChange={e => { setBlock(0); const p = new URLSearchParams(window.location.search); p.set(key, e.target.value); p.delete(`cw_${section}_metrica`); window.history.replaceState(null, '', `${window.location.pathname}?${p}${window.location.hash}`); }}>{definitions.map(o => <option key={o.id} value={o.id}>{o.title}{o.availability === 'withheld' ? ' · trattenuto' : ''}</option>)}</select></label>
     <div className="mt-4 space-y-2"><h3 className="text-base font-semibold">{definition.title}</h3><p className="text-xs leading-5 text-muted-foreground">{definition.tier} · Ambito del blocco: {definition.grain}. {definition.qualifier !== '—' ? definition.qualifier : ''}</p><p className="text-[11px] text-muted-foreground">{definition.id} · R5 · ammissione e accettazione del metodo restano distinte dalla rappresentazione.</p></div>
     {definition.availability === 'withheld' ? <p role="status" className="mt-5 rounded-xl border border-border bg-secondary/30 p-4 text-sm leading-6">{definition.reason}</p>
       : !result ? <div role="status" className="mt-5 min-h-32 rounded-xl bg-secondary/30 p-5 text-sm text-muted-foreground">{failed ? <><p>Questo approfondimento non è disponibile. Nessun valore viene sostituito.</p><button type="button" className={`${button} mt-3`} onClick={retry}>Riprova</button></> : 'Caricamento dei risultati del workbook…'}</div>
       : output && <>
-        {output.tables.length > 1 && <label className="mt-4 block text-xs font-medium">Dettaglio da esplorare<select className={control} value={block} onChange={e => setBlock(Number(e.target.value))}>{output.tables.map((t, i) => <option key={i} value={i}>{t.notes[0]?.[1].find(Boolean) ?? `${t.sheet} · ${t.range}`}</option>)}</select></label>}
+        {output.tables.length > 1 && <label className="mt-4 block text-xs font-medium">Dettaglio da esplorare<select className={control} value={block} onChange={e => { setBlock(Number(e.target.value)); const p = new URLSearchParams(window.location.search); p.delete(`cw_${section}_metrica`); window.history.replaceState(null, '', `${window.location.pathname}?${p}${window.location.hash}`); }}>{output.tables.map((t, i) => <option key={i} value={i}>{t.notes[0]?.[1].find(Boolean) ?? `${t.sheet} · ${t.range}`}</option>)}</select></label>}
         {table && <WorkbookTableView key={`${definition.id}-${block}`} table={table} formats={result.formats} outputId={definition.id} section={section} />}
       </>}
     <details className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">Provenienza e perimetro</summary><p className="mt-2 break-words">{definition.ranges.join(' · ')}</p><p className="mt-2">Le celle provengono dal workbook congelato. Il grafico non modifica la base di calcolo e non crea dati per ambiti assenti. I dati sintetici e i rifiuti di metodo restano qualificati.</p></details>

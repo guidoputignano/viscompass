@@ -59,7 +59,7 @@ export function PillarCAnalyticalWorkspace({ packet, workbook }: { packet: CRevi
   const countMin = Math.min(0, ...countValues), countMax = Math.max(1, ...countValues);
   const countPosition = (n: number) => (n - countMin) / (countMax - countMin) * 100;
   const scope = `${C_ORG_LABELS[filters.org]} · ${filters.channel === "Tutti" ? "Tutti i canali" : filters.channel}`;
-  return <div className="space-y-8 pb-12" data-pillar-c-review={packet.schema === "pillar-c-review-v2" ? "v2" : "v1"} data-release-state="review_only">
+  return <div className={`space-y-8 pb-12 ${workbook ? "xl:[&_section[id]]:scroll-mt-56" : ""}`} data-pillar-c-review={packet.schema === "pillar-c-review-v2" ? "v2" : "v1"} data-release-state="review_only">
     <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." />
     <PillarCSectionNavigation extended={Boolean(workbook)} />
     <section aria-label="Ambito di revisione" className="rounded-2xl border border-border bg-card p-5 md:p-6"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.5fr_1fr_auto]">

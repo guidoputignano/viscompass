@@ -166,6 +166,10 @@ function columnUnit(table: CWorkbookTable, column: number, formats: Record<strin
 export function cWorkbookComparableColumns(table: CWorkbookTable, column: number, formats: Record<string, string>) {
   return table.numericColumns.filter(c => c !== column && columnUnit(table, c, formats) === columnUnit(table, column, formats));
 }
+export function cWorkbookLabelColumn(table: CWorkbookTable): number {
+  const preferred = table.columns.findIndex((h, c) => !table.numericColumns.includes(c) && /^(?:descrizione|categoria|portafoglio|classe|disciplina|dipartimento|causa|unità|mese|anno|serie|area|azienda|ambito|atc2)(?:\s|$|\/)/i.test(h) && !/crit\.|quota|spesa|numero|costo|codice|€|righe/i.test(h));
+  return preferred >= 0 ? preferred : Math.max(0, table.columns.findIndex((_, c) => !table.numericColumns.includes(c)));
+}
 export function cWorkbookAxisLabel(value: number, table: CWorkbookTable, column: number, formats: Record<string, string>) {
   const cell = table.rows.find(r => Array.isArray(r[column]))?.[column];
   if (Array.isArray(cell) && /percent|pp/.test(columnUnit(table, column, formats))) return cWorkbookLabel([String(value), cell[1]], formats);
