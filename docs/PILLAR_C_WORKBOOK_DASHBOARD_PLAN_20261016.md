@@ -57,3 +57,13 @@ Status starts at implementation, not delivered. Production activation and comple
 - Use `scripts/build_pillar_c_workbook_catalogue.py` with the frozen source and an output directory outside this public checkout. Use `scripts/stage_pillar_c_workbook.mjs --dir <private-directory>` to verify staged objects, or explicitly add `--upload` to create missing immutable objects after parity receipts pass. Never commit extracted payloads or private receipts here.
 
 Build/deployment and live interaction results belong in the final delivery receipt; this checkpoint alone does not assert they have happened.
+
+## Final quality scope
+
+The final source comparison passed for 263,913 cached cells, including 78,278 numeric cells, across all 99 blocks. The actual application parser/formatter/filter/chart-adapter run passed 449,364 assertions. The final application suite has 584 tests: 576 pass, eight pre-existing skips, zero failures. The actual TypeScript compiler, targeted ESLint and production webpack build pass.
+
+Private storage staging verified all 15 immutable objects (index plus 14 sections) byte-for-byte. Both anonymous public-object and authenticated-object reads were refused for every object. Seven independent HTTP checks confirm anonymous private-page/API redirects and working public home/A/B pages. No private catalogue marker was present in those anonymous responses.
+
+Live reviewer inspection observed the expanded navigation and real workbook controls/results for spending, composition, attribution, contribution detail, PVM, comparisons, public historical context and evidence. Desktop and the browser's narrower existing viewport were observed. The inspection caught and corrected a category-label selection defect. URL output/metric selection now follows navigation state, total rows remain in exact tables with an explicit plot toggle, and mixed-unit columns require a single-unit selection before plotting. PVM and standardized-comparison defaults now select their substantive measures rather than a support count.
+
+These are bounded checks, not a claim that every combination of the 84 outputs, 99 blocks, local filters, browser roles and device/theme states was manually exercised live. A separate real ordinary-member session was unavailable and is not claimed. Its private-delivery refusal/projection tests pass; no new ordinary-member institutional access was added. The private release receipt records final deployment identity and these limits. Whole-workbook clinical/domain acceptance and the withheld findings remain separate.

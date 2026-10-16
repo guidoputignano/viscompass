@@ -154,30 +154,42 @@ export function cWorkbookRows(table: CWorkbookTable, query: string, facets: Reco
   return rows;
 }
 
-function columnFormat(table: CWorkbookTable, column: number, formats: Record<string, string>) {
-  const cell = table.rows.find(r => Array.isArray(r[column]))?.[column];
+function columnFormat(table: CWorkbookTable, column: number, formats: Record<string, string>, rows = table.rows) {
+  const cell = rows.find(r => Array.isArray(r[column]))?.[column];
   return Array.isArray(cell) ? formats[cell[1]] ?? "General" : "General";
 }
-function columnUnit(table: CWorkbookTable, column: number, formats: Record<string, string>) {
-  const fmt = columnFormat(table, column, formats), unquoted = fmt.replace(/"[^"]*"/g, "");
+function formatUnit(fmt: string) {
+  const unquoted = fmt.replace(/"[^"]*"/g, "");
   return fmt.includes("€") ? "eur" : unquoted.includes("%") ? "percent-ratio" : fmt.includes("%") ? "percent-literal" : fmt.includes('" pp"') ? "pp" : "number";
 }
+function columnUnit(table: CWorkbookTable, column: number, formats: Record<string, string>, rows = table.rows) {
+  return formatUnit(columnFormat(table, column, formats, rows));
+}
+/** Mixed units are readable in tables, never a single numerical chart scale. */
+export function cWorkbookMetricUnits(table: CWorkbookTable, column: number, formats: Record<string, string>, rows = table.rows) {
+  const unitColumn = table.columns.findIndex(h => /^unità(?: di misura)?$/i.test(h));
+  const explicitUnits = unitColumn >= 0 && rows.some(r => /^(?:€|eur|euro|%|pp|record|righe|celle|residenti|persone|n\.?|numero|giornate|dimissioni|ricoveri)$/i.test(cWorkbookRaw(r[unitColumn]).trim()));
+  return [...new Set(rows.flatMap(r => Array.isArray(r[column]) ? [formatUnit(formats[r[column][1]] ?? "General") + (explicitUnits ? `:${cWorkbookRaw(r[unitColumn])}` : "")] : []))];
+}
 /** Only overlay columns with the same raw scale/unit; never rescale one silently. */
-export function cWorkbookComparableColumns(table: CWorkbookTable, column: number, formats: Record<string, string>) {
-  return table.numericColumns.filter(c => c !== column && columnUnit(table, c, formats) === columnUnit(table, column, formats));
+export function cWorkbookComparableColumns(table: CWorkbookTable, column: number, formats: Record<string, string>, rows = table.rows) {
+  if (cWorkbookMetricUnits(table, column, formats, rows).length > 1) return [];
+  return table.numericColumns.filter(c => c !== column && cWorkbookMetricUnits(table, c, formats, rows).length === 1 && columnUnit(table, c, formats, rows) === columnUnit(table, column, formats, rows));
 }
 export function cWorkbookLabelColumn(table: CWorkbookTable): number {
   const preferred = table.columns.findIndex((h, c) => !table.numericColumns.includes(c) && /^(?:descrizione|categoria|portafoglio|classe|disciplina|dipartimento|causa|unità|mese|anno|serie|area|azienda|ambito|atc2)(?:\s|$|\/)/i.test(h) && !/crit\.|quota|spesa|numero|costo|codice|€|righe/i.test(h));
   return preferred >= 0 ? preferred : Math.max(0, table.columns.findIndex((_, c) => !table.numericColumns.includes(c)));
 }
-export function cWorkbookAxisLabel(value: number, table: CWorkbookTable, column: number, formats: Record<string, string>) {
-  const cell = table.rows.find(r => Array.isArray(r[column]))?.[column];
-  if (Array.isArray(cell) && /percent|pp/.test(columnUnit(table, column, formats))) return cWorkbookLabel([String(value), cell[1]], formats);
+export function cWorkbookAxisLabel(value: number, table: CWorkbookTable, column: number, formats: Record<string, string>, rows = table.rows) {
+  const cell = rows.find(r => Array.isArray(r[column]))?.[column];
+  if (Array.isArray(cell) && /percent|pp/.test(columnUnit(table, column, formats, rows))) return cWorkbookLabel([String(value), cell[1]], formats);
   return new Intl.NumberFormat("it-IT", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 export function cWorkbookPlotRows(table: CWorkbookTable, rows: ReturnType<typeof cWorkbookRows>, formats: Record<string, string>,
   metric: number, label: number, xMetric: number, view: "bar" | "line" | "scatter", comparison = -1) {
   if (!table.numericColumns.includes(metric)) return [];
+  const cells = rows.map(r => r.cells);
+  if (cWorkbookMetricUnits(table, metric, formats, cells).length > 1 || (view === "scatter" && cWorkbookMetricUnits(table, xMetric, formats, cells).length > 1) || (comparison >= 0 && !cWorkbookComparableColumns(table, metric, formats, cells).includes(comparison))) return [];
   return rows.flatMap(({ cells, sourceRow }) => {
     const value = cWorkbookNumber(cells[metric]), x = xMetric < 0 ? null : cWorkbookNumber(cells[xMetric]), other = comparison < 0 ? null : cWorkbookNumber(cells[comparison]);
     if ((view !== "line" && value === null && other === null) || (view === "scatter" && (x === null || value === null))) return [];

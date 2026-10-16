@@ -62,6 +62,15 @@ test('automatic chart labels use categories, not a year-bearing numerical measur
   assert.equal(cWorkbookLabelColumn(t),1);
   assert.equal(cWorkbookLabelColumn(fixture().outputs[0].tables[0]),0);
 });
+
+test('a mixed-unit priority column cannot share one scale until its unit is filtered',()=>{
+  const t={...fixture().outputs[0].tables[0],columns:['ID','Materialità','Unità'],numericColumns:[1],rows:[['X',['10',164],'€'],['Y',['0.2',167],'%'],['Z',['5',3],'record']],sourceRows:[2,3,4]};
+  const formats={164:'#,##0.00 "€"',167:'0.0%',3:'#,##0'};
+  assert.deepEqual(cWorkbookPlotRows(t,cWorkbookRows(t,'',{},null,'asc'),formats,1,0,1,'bar'),[]);
+  const selected=cWorkbookRows(t,'',{2:'%'},null,'asc');
+  assert.equal(cWorkbookPlotRows(t,selected,formats,1,0,1,'bar').length,1);
+  assert.equal(cWorkbookAxisLabel(0.2,t,1,formats,selected.map(r=>r.cells)),'20,0 %');
+});
 test('unapproved and ordinary identities are refused before any artifact read',async()=>{
   let reads=0;const reader=async()=>{reads++;return null;};
   for(const [approved,reviewer] of [[false,false],[false,true],[true,false]]){

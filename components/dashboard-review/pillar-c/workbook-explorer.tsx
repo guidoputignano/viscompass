@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowDownUp, BarChart3, ChevronLeft, ChevronRight, FileSpreadsheet, LineChart as LineIcon, Search, RotateCcw } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
-import { C_WORKBOOK_SECTIONS, cWorkbookLabel, cWorkbookRaw, cWorkbookRows, cWorkbookPlotRows, cWorkbookComparableColumns, cWorkbookLabelColumn, cWorkbookAxisLabel, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection, type CWorkbookSectionId, type CWorkbookTable } from "@/lib/dashboard-review/pillar-c/workbook";
+import { C_WORKBOOK_SECTIONS, cWorkbookLabel, cWorkbookRaw, cWorkbookRows, cWorkbookPlotRows, cWorkbookComparableColumns, cWorkbookMetricUnits, cWorkbookLabelColumn, cWorkbookAxisLabel as workbookAxisLabel, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection, type CWorkbookSectionId, type CWorkbookTable } from "@/lib/dashboard-review/pillar-c/workbook";
 import { itNumber } from "@/lib/format/it-number";
 
 const control = "mt-1.5 h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -42,23 +42,29 @@ function useWorkbookSection(section: CWorkbookSectionId, index: CWorkbookIndex, 
   return { result, failed, retry: () => retry(x => x + 1) };
 }
 function sourceColumn(column: number): string { let s = "", n = column; while (n) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
-function metricDefault(table: CWorkbookTable): number {
+function metricDefault(table: CWorkbookTable, outputId: string): number {
+  const preferred = outputId.startsWith('ML-4') ? /Quantità.*Shapley/i : outputId === 'O-14-03' ? /D std \(pp/i : null;
+  const specific = preferred ? table.numericColumns.find(c => preferred.test(table.columns[c])) : undefined;
+  if (specific !== undefined) return specific;
   return table.numericColumns.find(c => /€|quota|copertura|pendenza|variaz/i.test(table.columns[c]) && !/residuo|controllo|crit\./i.test(table.columns[c])) ?? table.numericColumns[0] ?? -1;
 }
 
 function WorkbookTableView({ table, formats, outputId, section }: { table: CWorkbookTable; formats: Record<string, string>; outputId: string; section: CWorkbookSectionId }) {
   const params = useSearchParams(), prefix = `cw_${section}_`;
   const initialMetric = Number(params.get(prefix + "metrica"));
-  const metric = params.has(prefix + "metrica") && table.numericColumns.includes(initialMetric) ? initialMetric : metricDefault(table);
+  const metric = params.has(prefix + "metrica") && table.numericColumns.includes(initialMetric) ? initialMetric : metricDefault(table, outputId);
   const [xMetric, setXMetric] = useState(table.numericColumns.find(c => c !== metric) ?? metric);
   const [comparisonMetric, setComparisonMetric] = useState(-1);
-  const comparable = useMemo(() => cWorkbookComparableColumns(table, metric, formats), [table, metric, formats]);
-  const comparison = comparable.includes(comparisonMetric) ? comparisonMetric : -1;
   const [labelColumn, setLabelColumn] = useState(() => cWorkbookLabelColumn(table));
   const [view, setView] = useState<"bar" | "line" | "scatter">(section === "tendenze" || outputId === "PUB-04" ? "line" : "bar");
   const [query, setQuery] = useState(""), [facets, setFacets] = useState<Record<number, string>>({}), [sortColumn, setSortColumn] = useState<number | null>(null), [direction, setDirection] = useState<"asc" | "desc">("desc"), [page, setPage] = useState(0);
   const [includeTotals, setIncludeTotals] = useState(false);
   const rows = useMemo(() => cWorkbookRows(table, query, facets, sortColumn, direction), [table, query, facets, sortColumn, direction]);
+  const selectedCells = useMemo(() => rows.map(r => r.cells), [rows]);
+  const comparable = useMemo(() => cWorkbookComparableColumns(table, metric, formats, selectedCells), [table, metric, formats, selectedCells]);
+  const comparison = comparable.includes(comparisonMetric) ? comparisonMetric : -1;
+  const mixedUnits = cWorkbookMetricUnits(table, metric, formats, selectedCells).length > 1;
+  const cWorkbookAxisLabel = (v: number, source: CWorkbookTable, column: number, format: Record<string, string>) => workbookAxisLabel(v, source, column, format, selectedCells);
   const facetColumns = useMemo(() => table.columns.flatMap((h, c) => {
     if (!/^(?:confronto|periodo|anno|azienda|canale|ambito|unità|classe|stato|partizione|livello|versione|tipo|serie)(?:\s|$)/i.test(h) || table.numericColumns.includes(c)) return [];
     const values = [...new Set(table.rows.map(r => cWorkbookRaw(r[c])).filter(Boolean))];
@@ -104,7 +110,7 @@ function WorkbookTableView({ table, formats, outputId, section }: { table: CWork
           </ResponsiveContainer>
         </div>
         <figcaption className="mt-2 text-xs leading-5 text-muted-foreground">{shown.filter(d => d.value !== null || d.other !== null).length} righe numeriche mostrate su {eligible.length}; {chartRows.length - eligible.length} senza valore per questa visualizzazione restano nel dettaglio. {canHideTotals && !includeTotals ? `${totalRows} righe di totale sono solo nel dettaglio. ` : ''}{view === 'line' ? 'I punti seguono l’ordine selezionato; i valori assenti interrompono la linea, senza interpolazione o nuove stime.' : 'La selezione non viene sommata o trasformata in una quota.'}</figcaption>
-      </figure> : <p role="status" className="rounded-xl bg-secondary/40 p-4 text-sm">Nessun valore numerico disponibile per questa misura e questi filtri. I valori mancanti non sono zeri.</p>}
+      </figure> : <p role="status" className="rounded-xl bg-secondary/40 p-4 text-sm">{mixedUnits ? 'Questa misura contiene unità diverse. Seleziona una sola unità nel filtro per confrontarla nel grafico; tutte le righe restano nel dettaglio.' : 'Nessun valore numerico disponibile per questa misura e questi filtri. I valori mancanti non sono zeri.'}</p>}
     </>}
     <details className="rounded-xl border border-border" open={table.numericColumns.length === 0}>
       <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Valori esatti e righe del workbook · {itNumber(rows.length)} righe</summary>
