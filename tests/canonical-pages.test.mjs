@@ -46,3 +46,27 @@ test('the lane count is 16 by default; an override is clamped to 4-16 and report
   assert.deepEqual(run('6.0'),{lanes:6,warnings:[]},'6.0 is six');
   for(const v of ['abc','8 lanes','1e1','Infinity','0x10']){const r=run(v);assert.equal(r.lanes,16,v);assert.equal(r.warnings.length,1,v);}
 });
+
+test('the compact transport rebuilds every field, in order, nulls included',async()=>{
+  const {CANONICAL_COMPACT_COLUMNS,CANONICAL_DASHBOARD_COLUMNS,decodeCompactFacts}=await import('../lib/dashboard-review/canonical-pages.ts');
+  const fields=CANONICAL_DASHBOARD_COLUMNS.split(',');
+  const pairs=CANONICAL_COMPACT_COLUMNS.split(',').map(p=>p.split(':'));
+  // Every field but the release id is sent once, under a distinct short alias.
+  assert.deepEqual(pairs.map(([,f])=>f),fields.filter(f=>f!=='source_version_id'));
+  assert.equal(new Set(pairs.map(([w])=>w)).size,pairs.length);
+  for(const [w] of pairs)assert.match(w,/^[a-z]{1,2}$/);
+  const wire=Object.fromEntries(pairs.map(([w,f])=>[f,w]));
+  const full=Object.fromEntries(fields.map(f=>[f,null]));
+  Object.assign(full,{id:7,source_version_id:'rel-1',year:2025,month:3,asl_code:'130201',total_cost_eur:12.5,
+    comparable_eligible:false,biosimilar_flag:false,quantity_packs:0,comparable_quantity:'4000',created_at:'2026-10-01T00:00:00+00:00'});
+  // Stripped: nulls absent; false, 0 and strings kept.
+  const stripped=Object.fromEntries(Object.entries(full).filter(([f,v])=>f!=='source_version_id'&&v!==null).map(([f,v])=>[wire[f],v]));
+  const [row]=decodeCompactFacts([stripped],'rel-1');
+  assert.deepStrictEqual(row,full);
+  assert.deepEqual(Object.keys(row),fields,'same key order as the full-name read');
+  // An unstripped page decodes the same.
+  const unstripped=Object.fromEntries(Object.entries(full).filter(([f])=>f!=='source_version_id').map(([f,v])=>[wire[f],v]));
+  assert.deepStrictEqual(decodeCompactFacts([unstripped],'rel-1')[0],full);
+  assert.deepEqual(decodeCompactFacts([],'rel-1'),[]);
+  for(const bad of [null,{},'[]',[null],[[1]],[{zz:1}],[{...stripped,id_:1}]])assert.throws(()=>decodeCompactFacts(bad,'rel-1'),/CANONICAL_COMPACT_INVALID/,JSON.stringify(bad));
+});

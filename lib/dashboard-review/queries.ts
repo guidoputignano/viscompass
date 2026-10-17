@@ -12,7 +12,8 @@
 import { cache } from "react";
 import { isArchivedUpload } from "@/lib/uploads/archive";
 import { resolvePrivateScope } from "@/lib/analytics/private-scope";
-import { CANONICAL_DASHBOARD_COLUMNS, factLanes, readCanonicalById } from "./canonical-pages";
+import { isDeepStrictEqual } from "node:util";
+import { CANONICAL_COMPACT_COLUMNS, CANONICAL_DASHBOARD_COLUMNS, decodeCompactFacts, factLanes, readCanonicalById } from "./canonical-pages";
 import { resolvePillarBScope } from "./pillar-b/scope";
 import { readActiveRelease } from "./pillar-b/rpc";
 import { createServerCache, pillarBCacheKey } from "./pillar-b/server-cache";
@@ -104,17 +105,45 @@ const getCoreScope = cache(async () => {
 // after a two-minute pause paid the full cold read (12-20 s) again.
 const coreFactCache = createServerCache({ ttlMs: 10 * 60_000, max: 1 });
 let lanesWarned = false;
+// Compact transport (canonical-pages.ts) unless DASHBOARD_FACT_TRANSPORT=json,
+// or for 15 minutes after a fault of the compact transport (COMPACT_FAULT).
+const COMPACT_SUSPENSION_MS = 15 * 60_000;
+const CANARY_ROWS = 200;
+// One budget for a load, fallback included: it stays inside the reviewer
+// cache's 60 s single-flight window, and a JSON re-read starts only with time
+// left for a cold read.
+const FACT_DEADLINE_MS = 45_000;
+const FALLBACK_MIN_BUDGET_MS = 25_000;
+// Faults the compact transport itself can cause: the request refused, a page
+// that does not decode, a canary that disagrees. Anything else (a timeout, a
+// 5xx, a statement timeout, rows changing during the read, a canary that could
+// not be read) would fail the same way in JSON, so it fails the load as before.
+const COMPACT_FAULT = /CANONICAL_COMPACT_(REJECTED|INVALID|MISMATCH)/;
+let compactSuspendedUntil = 0;
+function factTransport(): "compact" | "json" {
+  return process.env.DASHBOARD_FACT_TRANSPORT?.trim() === "json" || Date.now() < compactSuspendedUntil ? "json" : "compact";
+}
 const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
   const scope = await getCoreScope();
   if (!scope) return [];
   const release = await readActiveRelease(scope.db);
   if (!release) return [];
-  const load = async () => {
-    const cancelled=new AbortController(),deadline=AbortSignal.timeout(45_000);
+  const loadWith = async (transport: "compact" | "json", deadline: AbortSignal, fallback = false) => {
+    const cancelled=new AbortController();
     const signal=()=>AbortSignal.any([cancelled.signal,deadline,AbortSignal.timeout(12_000)]);
     const lanes=factLanes(process.env.DASHBOARD_FACT_LANES,message=>{if(!lanesWarned){lanesWarned=true;console.warn(message);}});
     const started=Date.now();let pages=0,slowest=0,rowCount=0;
     let outcome:"ok"|"error"="error",failure:string|undefined;
+    // The canary: the release's first rows in the full-name form, read beside
+    // a compact load and compared with the decoded rows of the same ids. The
+    // builder only sends on then(), so Promise.resolve starts it now; it
+    // resolves with {error} rather than rejecting, so a failed load leaves no
+    // unhandled rejection behind.
+    const canary = transport === "compact"
+      ? Promise.resolve(scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
+          .eq("source_version_id",release.id).order("id",{ascending:true}).limit(CANARY_ROWS)
+          .abortSignal(signal()).returns<CanonicalFact[]>())
+      : null;
     try {
       const rows = await readCanonicalById(
         edge=>scope.db.from("canonical_fact").select("id",edge==='first'?{count:"exact"}:undefined)
@@ -122,30 +151,73 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
           .abortSignal(signal()).returns<{id:number}[]>(),
         async (after,through,size)=>{
           const t=Date.now();
-          const page=await scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
-            .eq("source_version_id",release.id).gt("id",after).lte("id",through)
-            .order("id",{ascending:true}).limit(size).abortSignal(signal()).returns<CanonicalFact[]>();
+          const page = transport === "json"
+            ? await scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
+                .eq("source_version_id",release.id).gt("id",after).lte("id",through)
+                .order("id",{ascending:true}).limit(size).abortSignal(signal()).returns<CanonicalFact[]>()
+            : await scope.db.from("canonical_fact").select(CANONICAL_COMPACT_COLUMNS)
+                .eq("source_version_id",release.id).gt("id",after).lte("id",through)
+                .order("id",{ascending:true}).limit(size).stripNulls().abortSignal(signal()).returns<unknown[]>()
+                // Refused: 406 (the nulls=stripped media type) or a PGRST1xx request
+                // parse error (the alias select). Any other error, a 400 from
+                // Postgres included, is passed on as the JSON read would.
+                .then(p => p.error
+                  ? { data: null, error: p.status === 406 || (p.status === 400 && /^PGRST1\d\d$/.test(p.error.code ?? "")) ? { message: "CANONICAL_COMPACT_REJECTED" } : p.error }
+                  : { data: decodeCompactFacts(p.data, release.id), error: null });
           pages++;slowest=Math.max(slowest,Date.now()-t);
           return page;
         },
         1000,lanes,
       );
+      if (canary) {
+        const sample = await canary;
+        if (sample.error || !sample.data) throw new Error("CANONICAL_COMPACT_CANARY_UNAVAILABLE");
+        // The canary may come back shorter than asked under a small API row cap,
+        // never longer than the read and never empty when the read is not.
+        const n = sample.data.length;
+        if (n > Math.min(CANARY_ROWS, rows.length) || (rows.length > 0 && n === 0) || !sample.data.every((row, i) => isDeepStrictEqual(row, rows[i]))) {
+          throw new Error("CANONICAL_COMPACT_MISMATCH");
+        }
+      }
       outcome="ok";rowCount=rows.length;
       return rows;
     } catch(cause) {
       cancelled.abort();
       // A fixed class only, never the message: it can carry query text.
       const message=cause instanceof Error?cause.message:"";
-      failure=/^CANONICAL_[A-Z_]+$/.test(message)?message:deadline.aborted?"deadline_45s"
-        :/TimeoutError|AbortError/.test(message)?"page_timeout_12s":"query_error";
+      failure=message.match(/CANONICAL_[A-Z_]+/)?.[0]??(deadline.aborted?"deadline_45s"
+        :/TimeoutError|AbortError/.test(message)?"page_timeout_12s":"query_error");
       throw cause;
     } finally {
-      // One line per load, successful or not, for the cold-load measurement.
+      // One line per read attempt, successful or not, for the cold-load
+      // measurement; a compact load that falls back adds a json line marked
+      // fallback, whose ms covers the re-read only.
       // Page time is client wall time (pool wait, transfer, parse, event loop),
       // not database time. Rows and pages only for the reviewer read, which is
       // the whole release: under RLS they would reveal the member's Azienda.
-      const line={event:"dashboard_fact_load",outcome,...(failure?{error:failure}:{}),lanes,ms:Date.now()-started,slowest_page_ms:slowest};
+      const line={event:"dashboard_fact_load",outcome,...(failure?{error:failure}:{}),transport,...(fallback?{fallback:true}:{}),lanes,ms:Date.now()-started,slowest_page_ms:slowest};
       console.info(JSON.stringify(scope.allOrganizations?{...line,perimeter:"reviewer",rows:rowCount,pages}:{...line,perimeter:"rls"}));
+    }
+  };
+  // A compact read that the transport itself broke (COMPACT_FAULT) is read
+  // again in full-name JSON within the same 45 s budget when 25 s remain, and
+  // this instance stays on JSON for 15 minutes either way. Any other
+  // failure is not retried: a second full read would only double the wait
+  // before the same error.
+  const load = async () => {
+    const started = Date.now(), deadline = AbortSignal.timeout(FACT_DEADLINE_MS);
+    const transport = factTransport();
+    try {
+      return await loadWith(transport, deadline);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "";
+      const fault = transport === "compact" && !deadline.aborted ? message.match(COMPACT_FAULT)?.[0] : undefined;
+      if (!fault) throw cause;
+      compactSuspendedUntil = Date.now() + COMPACT_SUSPENSION_MS;
+      const retried = FACT_DEADLINE_MS - (Date.now() - started) >= FALLBACK_MIN_BUDGET_MS;
+      console.error(JSON.stringify({ event: "dashboard_fact_compact_fallback", reason: fault, retried }));
+      if (!retried) throw cause;
+      return await loadWith("json", deadline, true);
     }
   };
   // Reviewer service reads have an identical, explicitly approved cohort.

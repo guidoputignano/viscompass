@@ -16,6 +16,33 @@ const fields={id:true,source_record_id:true,source_version_id:true,year:true,mon
 } satisfies Record<keyof CanonicalFact,true>;
 export const CANONICAL_DASHBOARD_COLUMNS=Object.keys(fields).join(',');
 
+/* Compact transport. A cold read of the whole release was 271 MB of JSON
+ * (261,153 rows, 16 Oct 2026), most of it the 42 key names repeated on every
+ * row and the nulls of columns the release leaves empty. Each field is asked
+ * for under a one- or two-letter alias with nulls stripped (109 MB), and
+ * `source_version_id`, which always equals the read's own filter value, is
+ * not transferred (102 MB). The decoder rebuilds every row with ALL fields, in
+ * the order above, an absent value as null: the rows equal the full-name
+ * reads, so nothing downstream can tell the transports apart. */
+const FIELD_ORDER=Object.keys(fields) as Array<keyof CanonicalFact>;
+const wireName=(i:number)=>{const a='abcdefghijklmnopqrstuvwxyz';return i<26?a[i]:a[Math.floor(i/26)-1]+a[i%26];};
+const WIRE=FIELD_ORDER.map((field,i)=>({field,wire:wireName(i)}));
+const SENT=WIRE.filter(w=>w.field!=='source_version_id');
+const FIELD_BY_WIRE=new Map(SENT.map(w=>[w.wire,w.field]));
+export const CANONICAL_COMPACT_COLUMNS=SENT.map(w=>`${w.wire}:${w.field}`).join(',');
+/** Rows of a compact page, complete; throws on anything that is not one. */
+export function decodeCompactFacts(raw:unknown,releaseId:string):CanonicalFact[]{
+  if(!Array.isArray(raw))throw new Error('CANONICAL_COMPACT_INVALID');
+  return raw.map(item=>{
+    if(item===null||typeof item!=='object'||Array.isArray(item))throw new Error('CANONICAL_COMPACT_INVALID');
+    const wire=item as Record<string,unknown>;
+    for(const key of Object.keys(wire))if(!FIELD_BY_WIRE.has(key))throw new Error('CANONICAL_COMPACT_INVALID');
+    const row:Record<string,unknown>={};
+    for(const {field,wire:name} of WIRE)row[field]=field==='source_version_id'?releaseId:(Object.hasOwn(wire,name)?wire[name]:null);
+    return row as unknown as CanonicalFact;
+  });
+}
+
 /** Concurrent id ranges for one release read. A page costs the database about
  * 27 ms (EXPLAIN ANALYZE, 1000 rows, 16 Oct 2026); a cold read of the whole
  * release is ~262 pages, so with 8 lanes each lane waits on ~33 round trips in
