@@ -10,18 +10,21 @@
 // can't just be exported from here too.
 
 import { cache } from "react";
+import { after } from "next/server";
 import { isArchivedUpload } from "@/lib/uploads/archive";
 import { resolvePrivateScope } from "@/lib/analytics/private-scope";
 import { isDeepStrictEqual } from "node:util";
 import { CANONICAL_COMPACT_COLUMNS, CANONICAL_DASHBOARD_COLUMNS, decodeCompactFacts, factLanes, readCanonicalById } from "./canonical-pages";
 import { resolvePillarBScope } from "./pillar-b/scope";
-import { readActiveRelease } from "./pillar-b/rpc";
+import { readActiveRelease, type PillarBDb } from "./pillar-b/rpc";
 import { createServerCache, pillarBCacheKey } from "./pillar-b/server-cache";
 import { organizationBiosimilarRows, organizationHeadroomByMolecule, type OrganizationComparison } from "./organization-biosimilar";
 import { indicatorsFromTotals, type CategoryTotals } from "@/lib/analytics/antibiotic-indicators";
 import {reportedRoundingBounds} from '@/lib/analytics/cost-basis-reconciliation';
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
+import { getReviewerEmail } from "@/lib/auth/reviewer";
+import { createServiceRoleClient, hasServiceRoleConfig } from "@/lib/supabase/service-role";
 import { classifyTherapeuticArea, combineTherapeuticAreas } from "@/lib/dashboard-review/therapeutic-area";
 import {
   chooseActiveRelease, costPerPack, maxOf, minOf, packCoverage, selectReportingPeriod,
@@ -117,9 +120,9 @@ const FACT_DEADLINE_MS = 45_000;
 // PostgREST request costs ~250-330 ms at the gateway even for one row, while
 // Postgres spends 40-70 ms on a 1000-row page, so a cold read of ~264 pages is
 // mostly per-request overhead. PostgREST returns at most its Data API
-// "Max rows" (1000 today) whatever is asked, and readCanonicalById reads on
-// until a range is exhausted, so asking for 5000 changes nothing until that
-// setting is raised, and then cuts the read to ~53 requests.
+// "Max rows" whatever is asked, and readCanonicalById reads on until a range
+// is exhausted, so a smaller cap only means more pages. The owner raised it
+// from 1000 to 5000 on 17 Oct 2026: ~56 requests instead of ~264.
 const FACT_PAGE_ROWS = 5000;
 const FALLBACK_MIN_BUDGET_MS = 25_000;
 // Faults the compact transport itself can cause: the request refused, a page
@@ -131,11 +134,12 @@ let compactSuspendedUntil = 0;
 function factTransport(): "compact" | "json" {
   return process.env.DASHBOARD_FACT_TRANSPORT?.trim() === "json" || Date.now() < compactSuspendedUntil ? "json" : "compact";
 }
-const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
-  const scope = await getCoreScope();
-  if (!scope) return [];
-  const release = await readActiveRelease(scope.db);
-  if (!release) return [];
+/**
+ * One read of the whole active release through `db`: the service-role client
+ * for a widened reviewer, the viewer's own session otherwise. `reviewer` only
+ * decides what the load's log line may carry.
+ */
+function readReleaseFacts(db: PillarBDb, releaseId: string, reviewer: boolean): Promise<CanonicalFact[]> {
   const loadWith = async (transport: "compact" | "json", deadline: AbortSignal, fallback = false) => {
     const cancelled=new AbortController();
     const signal=()=>AbortSignal.any([cancelled.signal,deadline,AbortSignal.timeout(12_000)]);
@@ -148,30 +152,30 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
     // resolves with {error} rather than rejecting, so a failed load leaves no
     // unhandled rejection behind.
     const canary = transport === "compact"
-      ? Promise.resolve(scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
-          .eq("source_version_id",release.id).order("id",{ascending:true}).limit(CANARY_ROWS)
+      ? Promise.resolve(db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
+          .eq("source_version_id",releaseId).order("id",{ascending:true}).limit(CANARY_ROWS)
           .abortSignal(signal()).returns<CanonicalFact[]>())
       : null;
     try {
       const rows = await readCanonicalById(
-        edge=>scope.db.from("canonical_fact").select("id",edge==='first'?{count:"exact"}:undefined)
-          .eq("source_version_id",release.id).order("id",{ascending:edge==='first'}).limit(1)
+        edge=>db.from("canonical_fact").select("id",edge==='first'?{count:"exact"}:undefined)
+          .eq("source_version_id",releaseId).order("id",{ascending:edge==='first'}).limit(1)
           .abortSignal(signal()).returns<{id:number}[]>(),
         async (after,through,size)=>{
           const t=Date.now();
           const page = transport === "json"
-            ? await scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
-                .eq("source_version_id",release.id).gt("id",after).lte("id",through)
+            ? await db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
+                .eq("source_version_id",releaseId).gt("id",after).lte("id",through)
                 .order("id",{ascending:true}).limit(size).abortSignal(signal()).returns<CanonicalFact[]>()
-            : await scope.db.from("canonical_fact").select(CANONICAL_COMPACT_COLUMNS)
-                .eq("source_version_id",release.id).gt("id",after).lte("id",through)
+            : await db.from("canonical_fact").select(CANONICAL_COMPACT_COLUMNS)
+                .eq("source_version_id",releaseId).gt("id",after).lte("id",through)
                 .order("id",{ascending:true}).limit(size).stripNulls().abortSignal(signal()).returns<unknown[]>()
                 // Refused: 406 (the nulls=stripped media type) or a PGRST1xx request
                 // parse error (the alias select). Any other error, a 400 from
                 // Postgres included, is passed on as the JSON read would.
                 .then(p => p.error
                   ? { data: null, error: p.status === 406 || (p.status === 400 && /^PGRST1\d\d$/.test(p.error.code ?? "")) ? { message: "CANONICAL_COMPACT_REJECTED" } : p.error }
-                  : { data: decodeCompactFacts(p.data, release.id), error: null });
+                  : { data: decodeCompactFacts(p.data, releaseId), error: null });
           pages++;slowest=Math.max(slowest,Date.now()-t);
           return page;
         },
@@ -204,7 +208,7 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
       // not database time. Rows and pages only for the reviewer read, which is
       // the whole release: under RLS they would reveal the member's Azienda.
       const line={event:"dashboard_fact_load",outcome,...(failure?{error:failure}:{}),transport,...(fallback?{fallback:true}:{}),lanes,ms:Date.now()-started,slowest_page_ms:slowest};
-      console.info(JSON.stringify(scope.allOrganizations?{...line,perimeter:"reviewer",rows:rowCount,pages}:{...line,perimeter:"rls"}));
+      console.info(JSON.stringify(reviewer?{...line,perimeter:"reviewer",rows:rowCount,pages}:{...line,perimeter:"rls"}));
     }
   };
   // A compact read that the transport itself broke (COMPACT_FAULT) is read
@@ -228,13 +232,78 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
       return await loadWith("json", deadline, true);
     }
   };
+  return load();
+}
+
+// The reviewer's read does not depend on the reviewer directory that
+// resolvePillarBScope reads first (pillar_b_facets, 1.5 s on a cold instance,
+// measured 17 Oct 2026): it needs only the live reviewer check, the
+// service-role client and the active release. It therefore starts as soon as
+// those are known, into the reviewer cache entry, and the scoped read below
+// joins that entry instead of starting its own. The rows are returned only
+// through that same key, which only a request whose resolved scope is the
+// widened reviewer scope reads; a failed widening never reads them and the
+// entry expires like any other. getReviewerEmail is the same per-request
+// check scope.ts uses before creating its own service-role client.
+//
+// It starts only when this request could consume it: getCoreScope returns
+// null without an approved membership (viewerCode), so a reviewer without one
+// never reads the entry. A reviewer whose widening then fails (directory
+// error) still starts it once; the entry then serves the next widened request
+// or expires. getCurrentOrg is the same per-request promise the scope
+// awaits. The load is registered with after() (waitUntil on Vercel), so a load
+// no request awaits is never frozen mid-read and later joined, and a failure
+// pauses the prefetch for a minute rather than repeating a full read on every
+// view while the database is failing. Known cost, accepted: a release activated
+// between this lookup and the scope's leaves one stale-stamp read running, at
+// most the 45 s budget.
+const PREFETCH_PAUSE_MS = 60_000;
+let prefetchPausedUntil = 0;
+type ReviewerPrefetch = { key: string; facts: Promise<CanonicalFact[]> } | null;
+const prefetchReviewerFacts = cache(async (): Promise<ReviewerPrefetch> => {
+  // The live reviewer check reads the session first: with cacheComponents a
+  // clock read before any request data fails the build's prerender.
+  if (!(await getReviewerEmail()) || !hasServiceRoleConfig()) return null;
+  if (Date.now() < prefetchPausedUntil) return null;
+  const admin = createServiceRoleClient();
+  const [org, release] = await Promise.all([getCurrentOrg(), readActiveRelease(admin)]);
+  if (!org || !release) return null;
+  const key = pillarBCacheKey("reviewer:service-role", release.stamp, "core-facts");
+  // Returned inside an object: an async function returning the bare promise
+  // would wait for the whole read before the caller could continue.
+  const facts = coreFactCache.get(key, () => readReleaseFacts(admin, release.id, true));
+  after(facts.then(() => {}, () => { prefetchPausedUntil = Date.now() + PREFETCH_PAUSE_MS; }));
+  return { key, facts };
+});
+
+const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
+  // Started now, consumed below only under the same key.
+  const prefetch = prefetchReviewerFacts().catch((cause): ReviewerPrefetch => {
+    // A fixed class only, never the message. The scoped read below still runs.
+    const message = cause instanceof Error ? cause.message : "";
+    console.error(JSON.stringify({ event: "dashboard_fact_prefetch_error", error: message.match(/CANONICAL_[A-Z_]+/)?.[0] ?? "error" }));
+    return null;
+  });
+  const scope = await getCoreScope();
+  if (!scope) return [];
+  const release = await readActiveRelease(scope.db);
+  if (!release) return [];
   // Reviewer service reads have an identical, explicitly approved cohort.
   // Do not persist RLS rows across requests: a secondary membership could be
   // revoked without changing the viewer's primary-org cache identity.
   const key = scope.allOrganizations && scope.cacheScope
     ? pillarBCacheKey(scope.cacheScope, release.stamp, "core-facts")
     : null;
-  const facts = key ? await coreFactCache.get(key, load) : await load();
+  // Only a widened reviewer's key can equal the prefetch key, so a failed
+  // widening (key null) never touches the prefetched rows. A load the prefetch
+  // started is awaited, never read a second time: its failure is this
+  // request's failure, as with a single read.
+  const started = key ? await prefetch : null;
+  const facts = key
+    ? await (started?.key === key
+        ? started.facts
+        : coreFactCache.get(key, () => readReleaseFacts(scope.db, release.id, scope.allOrganizations)))
+    : await readReleaseFacts(scope.db, release.id, scope.allOrganizations);
   // A release removed/switched during a load must not publish the old response.
   // Only this request's own (old-stamp) entry is dropped: clear() would also
   // drop the new release's in-flight load and start a second full read.
