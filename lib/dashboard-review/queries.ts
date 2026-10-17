@@ -1138,6 +1138,8 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
         packs,
         spend_yoy: ratio(spend, previousSpend.get(key) ?? 0),
         biosimilar_penetration: levelBasis === null ? null : penetrationOn(group, levelBasis),
+        biosimilar_penetration_quantity_coverage:
+          levelBasis === "comparable_quantity" ? comparableQuantityShare(group).quantity_coverage : null,
         normalization_coverage: normalizationCoverage(group),
         record_count: group.length,
         therapeutic_area: therapeuticArea.label,
@@ -1167,6 +1169,7 @@ export async function getExplorerData(filters: ExplorerFilters): Promise<Explore
     total_spend_eur: totalSpend,
     total_packs: explorerPacks.packs,
     packs_coverage: explorerPacks.coverage,
+    biosimilar_penetration_basis: levelBasis,
     filters,
   };
 }

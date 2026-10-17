@@ -433,6 +433,8 @@ export interface ExplorerNode {
   packs: number | null;
   spend_yoy: number | null;
   biosimilar_penetration: number | null;
+  /** On the comparable-quantity basis, the share of this node's compared spend measured in quantity; else null. */
+  biosimilar_penetration_quantity_coverage: number | null;
   normalization_coverage: number | null;
   record_count: number;
   therapeutic_area: string;
@@ -457,6 +459,8 @@ export interface ExplorerData {
    * both render as n/d, and the label must not assert the wrong one.
    */
   packs_coverage: number | null;
+  /** The one measure every node's biosimilar share uses at this level (siblings share a basis). */
+  biosimilar_penetration_basis: ShareBasis | null;
   filters: ExplorerFilters;
 }
 

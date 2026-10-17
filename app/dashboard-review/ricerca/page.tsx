@@ -11,6 +11,9 @@ import { getExplorerData } from "@/lib/dashboard-review/queries";
 import type { ExplorerFilters } from "@/lib/dashboard-review/types";
 import { formatEur, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 
+// Siblings share one basis (commonPenetrationBasis), so the header names it once.
+const SHARE_BASIS = { comparable_quantity: "quantità confrontabile", mg: "mg", packs: "confezioni", spend: "spesa" } as const;
+
 function scalar(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" && value.length <= 160 ? value : undefined;
 }
@@ -83,7 +86,7 @@ export default async function ExplorerPage({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
               <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-                <th className="px-5 py-3 font-semibold">{data.level_label}</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Quota</th><th className="px-5 py-3 text-right font-semibold">Confezioni</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Penetrazione bio</th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th><th className="px-5 py-3" />
+                <th className="px-5 py-3 font-semibold">{data.level_label}</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Quota</th><th className="px-5 py-3 text-right font-semibold">Confezioni</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Penetrazione bio<span className="block font-normal normal-case tracking-normal">{data.biosimilar_penetration_basis === null ? "n/d" : `base ${SHARE_BASIS[data.biosimilar_penetration_basis]}`}</span></th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th><th className="px-5 py-3" />
               </tr></thead>
               <tbody>
                 {data.nodes.map((node) => (
@@ -93,7 +96,7 @@ export default async function ExplorerPage({
                     <td className="px-5 py-4 text-right"><div className="ml-auto flex w-28 items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${node.spend_share * 100}%` }} /></div><span className="w-10 text-right font-mono text-[10px]">{formatPercent(node.spend_share)}</span></div></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.packs === null ? "n/d" : formatNumber(node.packs, 0)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.spend_yoy === null ? "—" : formatSignedPercent(node.spend_yoy)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{node.biosimilar_penetration === null ? "—" : formatPercent(node.biosimilar_penetration)}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{node.biosimilar_penetration === null ? "—" : formatPercent(node.biosimilar_penetration)}{node.biosimilar_penetration !== null && node.biosimilar_penetration_quantity_coverage !== null && <span className="block text-[10px] text-muted-foreground">quantità su {formatPercent(node.biosimilar_penetration_quantity_coverage)}</span>}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.normalization_coverage === null ? "—" : formatPercent(node.normalization_coverage)}</td>
                     <td className="px-5 py-4">{node.href ? <Link href={node.href} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Apri <ArrowRight size={12} /></Link> : <span className="text-[10px] text-muted-foreground">Livello finale</span>}</td>
                   </tr>
