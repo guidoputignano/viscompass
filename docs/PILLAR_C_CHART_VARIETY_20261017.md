@@ -69,6 +69,27 @@ checkout, in `outputs/dashboard-remediation-20261016/`.
 - Production build, actual TypeScript checking and targeted lint passed locally.
   A sandbox filesystem error was resolved by the permitted build retry, not by
   suppressing errors or changing the source contract.
-- Live deployment and interaction receipt: pending below. Static rendering does
-  not establish responsive browser behavior, filter interaction or production
-  deployment.
+- The full suite includes static-render checks; static rendering alone does not
+  establish responsive browser behavior or production interaction.
+
+### Live receipt
+
+- Code commit `2698ac7` pushed to main. Vercel reported success for deployment
+  `Fe25oaSN93cYKCHHM3boowRddjSW` in the existing `viscompass-217a` project.
+- Signed-in reviewer browser: the shared-area heatmap loaded; changing to the
+  paired comparison and scatter views changed the controls and chart. The
+  paired view automatically selected the other full year, not a partial year.
+- The native accounting waterfall rendered, switched to the signed-contribution
+  alternative, and updated under the January–May comparison selector. Its
+  opening, closing and change agree with the frozen source, checked separately
+  for all 40 source scopes by the value verifier.
+- The published-budget point view rendered. These are live spot checks, not a
+  claim that every output/selector combination or phone layout was manually
+  tested. Contract and render regressions cover the reusable chart adapters.
+- Public A/B pages returned 200; anonymous private C and its data endpoint
+  redirected to sign-in. No private data was made public.
+- One initial private catalogue request timed out; explicit retry succeeded.
+  Cold-load performance/reliability therefore remains open. It was not hidden,
+  relabelled as zero, or described as fully resolved by this visual upgrade.
+- Claude's concurrent uncommitted core-query/reader work and its separate
+  remediation-document edits were preserved and excluded from these commits.
