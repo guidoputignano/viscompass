@@ -1,14 +1,16 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, ChevronLeft, ChevronRight, LineChart as LineIcon, Search } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { C_WORKBOOK_SECTIONS, cWorkbookAxisLabel, cWorkbookComparableColumns, cWorkbookLabel, cWorkbookLabelColumn, cWorkbookMetricUnits, cWorkbookPlotRows, cWorkbookRaw, cWorkbookRows, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection, type CWorkbookSectionId, type CWorkbookTable } from '@/lib/dashboard-review/pillar-c/workbook';
-import { C_INSIGHT_DEFAULTS, C_INSIGHT_TITLES, cInsightBlockName, cInsightCellText, cInsightRowName, cInsightScope, cInsightText, cInsightVisibleColumns } from '@/lib/dashboard-review/pillar-c/insights';
+import { ArrowLeftRight, BarChart3, ChartArea, ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleDot, Grid3X3, MoveHorizontal, Search, Waypoints } from 'lucide-react';
+import { C_WORKBOOK_SECTIONS, cWorkbookAxisLabel, cWorkbookLabel, cWorkbookMetricUnits, cWorkbookNumber, cWorkbookRaw, cWorkbookRows, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection, type CWorkbookSectionId, type CWorkbookTable } from '@/lib/dashboard-review/pillar-c/workbook';
+import { C_INSIGHT_DEFAULTS, C_INSIGHT_TITLES, cInsightBlockName, cInsightCellText, cInsightScope, cInsightText, cInsightVisibleColumns } from '@/lib/dashboard-review/pillar-c/insights';
+import { C_INSIGHT_CHARTS, cInsightChartOptions, cInsightComparable, cInsightDefaultChart, cInsightIntervals, cInsightMatrixColumns, cInsightPoints, cInsightPreferredComparison, cInsightPreferredMetric, type CInsightChart } from '@/lib/dashboard-review/pillar-c/insight-charts';
+import { PillarCInsightChart } from './insight-chart';
 import { itNumber } from '@/lib/format/it-number';
 
 const select='mt-1.5 h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm';
 const action='inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-xs hover:bg-secondary disabled:opacity-40';
+const chartIcons={dot:CircleDot,paired:ArrowLeftRight,matrix:Grid3X3,interval:MoveHorizontal,scatter:Waypoints,line:ChartNoAxesCombined,area:ChartArea,bar:BarChart3};
 const questions:Partial<Record<CWorkbookSectionId,[string,string]>>={
   composizione:['Dove si concentra la spesa?','Classi ATC, portafogli terapeutici e variazioni delle quote.'],
   attribuzione:['Quanta spesa è condivisa fra più aree?','Evidenza di attribuzione, spesa condivisa e intervalli per area. I portafogli sono proxy ATC, non reparti osservati.'],
@@ -54,10 +56,6 @@ function useInsightData(index:CWorkbookIndex,section:CWorkbookSectionId,target:R
   },[index,section,target,attempt,requests]);
   return {data,failed,retry:()=>retry(n=>n+1)};
 }
-function preferredMetric(table:CWorkbookTable,output:string,visible:number[]) {
-  const preferred=output.startsWith('ML-4')?/Quantità.*Shapley/i:output==='O-14-03'?/D std \(pp/i:/€|quota|copertura|pendenza|variaz/i;
-  return table.numericColumns.find(c=>visible.includes(c)&&preferred.test(table.columns[c]))??table.numericColumns.find(c=>visible.includes(c))??-1;
-}
 function humanColumn(raw:string) {
   return cInsightText(raw).replace(/\bLB[12]\b/g,'limite inferiore').replace(/\bUB[12]\b/g,'limite superiore').replace(/\bW[12]\b/g,'ampiezza dell’intervallo').replace(/\bF \(attribuzione tramite portafoglio\)/g,'Spesa attribuita').replace(/\bD std\b/g,'Differenza standardizzata').replace(/\bI std\b/g,'Indice standardizzato').replace(/\bI grezzo\b/g,'Indice grezzo').replace(/\bSC-0\b/g,'Scenario invariato').replace(/\bSC-1\b/g,'Scenario di continuità').replace(/\bSC-L\b/g,'Scenario basso').replace(/\bSC-H\b/g,'Scenario alto');
 }
@@ -65,51 +63,70 @@ function humanColumn(raw:string) {
 function InsightView({table,formats,output,section}:{table:CWorkbookTable;formats:Record<string,string>;output:string;section:CWorkbookSectionId}) {
   const visible=useMemo(()=>cInsightVisibleColumns(table),[table]);
   const metrics=table.numericColumns.filter(c=>visible.includes(c));
-  const [metric,setMetric]=useState(()=>preferredMetric(table,output,visible));
-  const [compare,setCompare]=useState(-1),[query,setQuery]=useState(''),[facets,setFacets]=useState<Record<number,string>>({}),[page,setPage]=useState(0);
-  const [requestedView,setView]=useState<'bar'|'line'>('bar');
+  const [metric,setMetric]=useState(()=>cInsightPreferredMetric(table,output,visible));
+  const [compare,setCompare]=useState(-2),[query,setQuery]=useState(''),[facets,setFacets]=useState<Record<number,string>>({}),[page,setPage]=useState(0);
+  const [requestedView,setView]=useState<CInsightChart|'auto'>('auto');
+  const [xMetric,setXMetric]=useState(-1),[order,setOrder]=useState<'source'|'asc'|'desc'|'magnitude'>('source'),[chartPage,setChartPage]=useState(0),[pageSize,setPageSize]=useState(12),[intervalIndex,setIntervalIndex]=useState(0);
   const rows=useMemo(()=>cWorkbookRows(table,query,facets,null,'asc'),[table,query,facets]);
   const cells=useMemo(()=>rows.map(r=>r.cells),[rows]);
-  const compatible=cWorkbookComparableColumns(table,metric,formats,cells).filter(c=>metrics.includes(c));
-  const comparison=compatible.includes(compare)?compare:-1;
-  const label=cWorkbookLabelColumn(table),mixed=cWorkbookMetricUnits(table,metric,formats,cells).length>1;
-  // A connecting line across unrelated products/Aziende suggests a time trend
-  // that does not exist. Offer it only for a genuine single-context time axis.
-  const canTrend=/^(?:anno|mese|periodo|data)(?:\s|$)/i.test(table.columns[label]??'') &&
-    table.columns.every((h,c)=>c===label||! /^(?:azienda|canale|classe|serie)(?:\s|$)/i.test(h)||new Set(rows.map(r=>cWorkbookRaw(r.cells[c]))).size<=1);
-  const view=canTrend?requestedView:'bar';
+  const compatible=cInsightComparable(table,rows,formats,metric,visible);
+  const automaticComparison=cInsightPreferredComparison(table,metric,compatible);
+  const options=cInsightChartOptions({table,rows,formats,metric,visible,output});
+  const recommended=cInsightDefaultChart(options,section);
+  const view=requestedView!=='auto'&&options.includes(requestedView)?requestedView:recommended;
+  const comparison=compatible.includes(compare)?compare:compare===-2?(automaticComparison>=0?automaticComparison:view==='paired'?compatible[0]??-1:-1):-1;
+  const mixed=cWorkbookMetricUnits(table,metric,formats,cells).length>1;
+  const intervals=cInsightIntervals(table,metric,compatible,output),interval=intervals[intervalIndex]??intervals[0];
+  const matrix=cInsightMatrixColumns(table,metric,compatible,output);
+  const xOptions=metrics.filter(c=>c!==metric&&cWorkbookMetricUnits(table,c,formats,cells).length===1&&rows.filter(r=>Array.isArray(r.cells[c])&&Array.isArray(r.cells[metric])).length>=2);
+  const abscissa=xOptions.includes(xMetric)?xMetric:xOptions[0]??-1;
   const categories=table.columns.flatMap((h,c)=>{
     if(!visible.includes(c)||metrics.includes(c)||! /^(?:confronto|periodo|anno|azienda|canale|ambito|classe|stato|livello|unità|tipo|serie)(?:\s|$)/i.test(h))return [];
     const values=[...new Set(table.rows.map(r=>cWorkbookRaw(r[c])).filter(Boolean))];
     return values.length>1&&values.length<=40?[{c,h:humanColumn(h),values}]:[];
   });
   const plotRows=rows.filter(r=>! /^(?:tot|totale|total)$/i.test(cWorkbookRaw(r.cells[0]).trim()));
-  const rawPlot=cWorkbookPlotRows(table,plotRows.length?plotRows:rows,formats,metric,label,metric,view,comparison);
-  const bySourceRow=new Map(rows.map(r=>[r.sourceRow,r.cells]));
-  const plotted=rawPlot.slice(0,view==='line'?120:20).map(d=>({...d,name:cInsightRowName(table,bySourceRow.get(d.sourceRow)!,d.name)}));
+  const sourceRows=plotRows.length?plotRows:rows;
+  const temporal=view==='line'||view==='area';
+  const candidates=sourceRows.filter(r=>{
+    if(temporal)return true;
+    if(view==='matrix')return matrix.some(c=>cWorkbookNumber(r.cells[c])!==null);
+    if(view==='scatter')return cWorkbookNumber(r.cells[metric])!==null&&cWorkbookNumber(r.cells[abscissa])!==null;
+    return cWorkbookNumber(r.cells[metric])!==null||(view==='paired'&&comparison>=0&&cWorkbookNumber(r.cells[comparison])!==null);
+  });
+  const ordered=temporal||order==='source'?candidates:[...candidates].sort((a,b)=>{
+    const av=cWorkbookNumber(a.cells[metric]),bv=cWorkbookNumber(b.cells[metric]);
+    if(av==null)return bv==null?a.sourceRow-b.sourceRow:1;if(bv==null)return -1;
+    return (order==='magnitude'?Math.abs(bv)-Math.abs(av):order==='desc'?bv-av:av-bv)||a.sourceRow-b.sourceRow;
+  });
+  const currentChartPage=Math.min(chartPage,Math.max(0,Math.ceil(ordered.length/pageSize)-1));
+  const chartColumns=[...new Set([metric,...(view==='matrix'?matrix:[]),...((view==='paired'||temporal)&&comparison>=0?[comparison]:[]),...(view==='scatter'?[abscissa]:[]),...(view==='interval'&&interval?[interval.low,interval.high]:[])])];
+  const plotted=cInsightPoints(table,ordered.slice(currentChartPage*pageSize,(currentChartPage+1)*pageSize),formats,chartColumns);
+  const unbounded=view==='interval'&&interval?plotted.filter(p=>{const lo=p.values[interval.low]?.value,hi=p.values[interval.high]?.value,v=p.values[metric]?.value;return lo==null||hi==null||v==null||lo>v||v>hi;}).length:0;
   const currentPage=Math.min(page,Math.max(0,Math.ceil(rows.length/20)-1));
   const descriptiveOnly=section==='evidenza'||metrics.length===0||/^(O-12-06|O-16-0[234]|O-18-03|PC-05)/.test(output);
-  const scope=cInsightScope(table),axis=(v:number)=>cWorkbookAxisLabel(v,table,metric,formats,cells);
-  const tooltip=({active,payload}:{active?:boolean;payload?:{payload?:typeof plotted[number]}[]})=>{
-    const d=payload?.[0]?.payload;return active&&d?<div className="max-w-sm rounded-lg border border-border bg-card p-3 text-xs shadow-lg"><p className="font-semibold">{d.name}</p><p className="mt-2">{humanColumn(table.columns[metric])}: {d.exact}</p>{comparison>=0&&<p>{humanColumn(table.columns[comparison])}: {d.otherExact}</p>}</div>:null;
-  };
+  const scope=cInsightScope(table),axis=(v:number,c:number)=>cWorkbookAxisLabel(v,table,c,formats,cells);
   return <div className="mt-5 space-y-5">
     {scope&&<p className="rounded-lg bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">{`${scope}. I selettori delle altre sezioni non modificano questa vista.`}</p>}
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <label className="text-xs font-medium text-muted-foreground">Cerca prodotto, classe o area<div className="relative"><Search size={14} aria-hidden="true" className="absolute left-3 top-5"/><input className={`${select} pl-9`} value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}} placeholder="Cerca…"/></div></label>
-      {categories.map(({c,h,values})=><label key={c} className="text-xs font-medium text-muted-foreground">{h}<select className={select} value={facets[c]??''} onChange={e=>{setFacets({...facets,[c]:e.target.value});setPage(0);}}><option value="">Tutti</option>{values.map(v=><option key={v} value={v}>{cInsightCellText(v)}</option>)}</select></label>)}
+      <label className="text-xs font-medium text-muted-foreground">Cerca prodotto, classe o area<div className="relative"><Search size={14} aria-hidden="true" className="absolute left-3 top-5"/><input className={`${select} pl-9`} value={query} onChange={e=>{setQuery(e.target.value);setPage(0);setChartPage(0);}} placeholder="Cerca…"/></div></label>
+      {categories.map(({c,h,values})=><label key={c} className="text-xs font-medium text-muted-foreground">{h}<select className={select} value={facets[c]??''} onChange={e=>{setFacets({...facets,[c]:e.target.value});setPage(0);setChartPage(0);}}><option value="">Tutti</option>{values.map(v=><option key={v} value={v}>{cInsightCellText(v)}</option>)}</select></label>)}
     </div>
     {!descriptiveOnly&&<>
       <div className="grid gap-4 rounded-xl bg-secondary/30 p-4 sm:grid-cols-2 xl:grid-cols-3">
-        <label className="text-xs font-medium">Indicatore<select className={select} aria-label="Indicatore del grafico" value={metric} onChange={e=>setMetric(Number(e.target.value))}>{metrics.map(c=><option key={c} value={c}>{humanColumn(table.columns[c])}</option>)}</select></label>
-        {compatible.length>0&&<label className="text-xs font-medium">Confronta con<select className={select} value={comparison} onChange={e=>setCompare(Number(e.target.value))}><option value={-1}>Nessun confronto aggiuntivo</option>{compatible.map(c=><option key={c} value={c}>{humanColumn(table.columns[c])}</option>)}</select></label>}
-        <div className="flex items-end gap-2"><button className={`${action} ${view==='bar'?'border-primary text-primary':''}`} aria-pressed={view==='bar'} onClick={()=>setView('bar')}><BarChart3 size={15}/>Barre</button>{canTrend&&<button className={`${action} ${view==='line'?'border-primary text-primary':''}`} aria-pressed={view==='line'} onClick={()=>setView('line')}><LineIcon size={15}/>Andamento</button>}</div>
+        <label className="text-xs font-medium">Indicatore<select className={select} aria-label="Indicatore del grafico" value={metric} onChange={e=>{setMetric(Number(e.target.value));setCompare(-2);setView('auto');setIntervalIndex(0);setChartPage(0);}}>{metrics.map(c=><option key={c} value={c}>{humanColumn(table.columns[c])}</option>)}</select></label>
+        {(view==='paired'||temporal)&&compatible.length>0&&<label className="text-xs font-medium">Confronta con<select className={select} value={comparison} onChange={e=>setCompare(Number(e.target.value))}>{view!=='paired'&&<option value={-1}>Nessun confronto aggiuntivo</option>}{compatible.map(c=><option key={c} value={c}>{humanColumn(table.columns[c])}</option>)}</select></label>}
+        {view==='scatter'&&<label className="text-xs font-medium">Indicatore sull’asse orizzontale<select className={select} value={abscissa} onChange={e=>setXMetric(Number(e.target.value))}>{xOptions.map(c=><option key={c} value={c}>{humanColumn(table.columns[c])}</option>)}</select></label>}
+        {view==='interval'&&intervals.length>1&&<label className="text-xs font-medium">Intervallo<select className={select} value={intervalIndex<intervals.length?intervalIndex:0} onChange={e=>setIntervalIndex(Number(e.target.value))}>{intervals.map((b,i)=><option key={b.label} value={i}>{b.label}</option>)}</select></label>}
+        {!temporal&&<label className="text-xs font-medium">Ordina le voci<select className={select} value={order} onChange={e=>{setOrder(e.target.value as typeof order);setChartPage(0);}}><option value="source">Ordine della fonte</option><option value="desc">Valore decrescente</option><option value="asc">Valore crescente</option><option value="magnitude">Impatto assoluto</option></select></label>}
       </div>
+      <div role="group" aria-label="Visualizzazione dell’analisi" className="flex flex-wrap gap-2">{options.map(kind=>{const Icon=chartIcons[kind];return <button type="button" key={kind} className={`${action} ${view===kind?'border-primary bg-primary/5 text-primary shadow-sm':''}`} aria-pressed={view===kind} onClick={()=>{setView(kind);setChartPage(0);if(kind==='paired'&&comparison<0)setCompare(automaticComparison>=0?automaticComparison:compatible[0]??-1);}}><Icon size={15} aria-hidden="true"/>{C_INSIGHT_CHARTS[kind].label}{kind===recommended&&<span className="sr-only"> · consigliata</span>}</button>;})}</div>
       {mixed?<p className="text-sm text-muted-foreground">Seleziona una sola unità per confrontare i valori nel grafico. Gli importi e i conteggi restano distinti.</p>:plotted.length?<figure aria-label={C_INSIGHT_TITLES[output]}>
-        <div className="mb-3 flex flex-wrap gap-4 text-xs"><span className="font-medium">{humanColumn(table.columns[metric])}</span>{comparison>=0&&<span className="text-muted-foreground">{`Confronto: ${humanColumn(table.columns[comparison])}`}</span>}</div>
-        <div style={{height:view==='bar'?Math.max(280,plotted.length*(comparison>=0?34:27)+55):330}} className="min-w-0">
-          <ResponsiveContainer width="100%" height="100%">{view==='bar'?<BarChart data={plotted} layout="vertical" margin={{left:0,right:20,top:6,bottom:10}}><CartesianGrid horizontal={false} strokeDasharray="3 4" stroke="hsl(var(--border))"/><XAxis type="number" tickFormatter={axis} tick={{fontSize:10}}/><YAxis type="category" dataKey="name" width={160} tick={{fontSize:10}} tickFormatter={v=>String(v).length>26?String(v).slice(0,25)+'…':String(v)}/><ReferenceLine x={0} stroke="hsl(var(--muted-foreground))"/><Tooltip content={tooltip}/><Bar dataKey="value" isAnimationActive={false} radius={[0,4,4,0]}>{plotted.map(d=><Cell key={d.sourceRow} fill={(d.value??0)<0?'var(--viz-3)':'var(--viz-1)'}/>)}</Bar>{comparison>=0&&<Bar dataKey="other" fill="var(--viz-2)" isAnimationActive={false}/>}</BarChart>:<LineChart data={plotted} margin={{left:8,right:20,top:10,bottom:10}}><CartesianGrid strokeDasharray="3 4" stroke="hsl(var(--border))"/><XAxis dataKey="name" minTickGap={25} tick={{fontSize:10}}/><YAxis tickFormatter={axis} tick={{fontSize:10}}/><Tooltip content={tooltip}/><Line type="linear" dataKey="value" stroke="var(--viz-1)" dot={{r:2}} connectNulls={false} isAnimationActive={false}/>{comparison>=0&&<Line type="linear" dataKey="other" stroke="var(--viz-2)" strokeDasharray="5 3" connectNulls={false} isAnimationActive={false}/>}</LineChart>}</ResponsiveContainer>
-        </div><figcaption className="mt-2 text-xs text-muted-foreground">{`${itNumber(plotted.length)} categorie mostrate. Tutti i valori, compresi i totali, sono nel dettaglio. Nessuna somma aggiunta; i dati assenti non diventano zero.`}</figcaption>
+        <div className="mb-4 space-y-2 text-xs"><p className="font-medium">{humanColumn(table.columns[metric])}</p><p className="text-muted-foreground">{C_INSIGHT_CHARTS[view].description}</p>{(view==='paired'||temporal)&&comparison>=0&&<p className="flex flex-wrap gap-x-4 gap-y-1"><span className="text-primary">● {humanColumn(table.columns[metric])}</span><span>◇ {humanColumn(table.columns[comparison])}</span></p>}{view==='interval'&&interval&&<p className="text-muted-foreground">{interval.label} · limiti riportati, non ricalcolati.</p>}</div>
+        <PillarCInsightChart key={`${output}-${metric}-${view}`} kind={view} points={plotted} metric={metric} comparison={comparison} xMetric={abscissa} matrix={matrix} interval={interval} heading={c=>humanColumn(table.columns[c])} axis={axis} title={C_INSIGHT_TITLES[output]}/>
+        {unbounded>0&&<p className="mt-3 text-xs text-muted-foreground">{`${itNumber(unbounded)} voci senza intervallo tracciabile: è mostrato solo il punto disponibile. I limiti assenti o non ordinati non vengono ricostruiti.`}</p>}
+        {candidates.length<sourceRows.length&&<p className="mt-3 text-xs text-muted-foreground">{`${itNumber(sourceRows.length-candidates.length)} voci senza gli indicatori necessari per questa vista restano nel dettaglio, senza punti fittizi.`}</p>}
+        <figcaption className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>{`${itNumber(currentChartPage*pageSize+1)}–${itNumber(currentChartPage*pageSize+plotted.length)} di ${itNumber(ordered.length)} voci. Valori assenti distinti da zero; totali nel dettaglio.`}</span><div className="flex items-center gap-2"><label>Voci per vista<select className="ml-2 h-9 rounded-lg border border-border bg-background px-2" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setChartPage(0);}}>{[12,24,48,96].map(n=><option key={n} value={n}>{n}</option>)}</select></label>{ordered.length>pageSize&&<><button type="button" aria-label="Voci precedenti nel grafico" className={action} disabled={currentChartPage===0} onClick={()=>setChartPage(currentChartPage-1)}><ChevronLeft size={15}/></button><button type="button" aria-label="Voci successive nel grafico" className={action} disabled={(currentChartPage+1)*pageSize>=ordered.length} onClick={()=>setChartPage(currentChartPage+1)}><ChevronRight size={15}/></button></>}</div></figcaption>
       </figure>:<p className="text-sm text-muted-foreground">Nessun valore disponibile per questa selezione.</p>}
     </>}
     <details open={descriptiveOnly} className="rounded-xl border border-border"><summary className="cursor-pointer px-4 py-3 text-sm font-medium">{`${descriptiveOnly?'Risultati e contesto':'Valori e dettaglio'} · ${itNumber(rows.length)} voci`}</summary>

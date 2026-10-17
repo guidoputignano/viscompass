@@ -87,7 +87,7 @@ export function cInsightResetSearch(search:string):string {
 
 /** Multiple years/channels must not become indistinguishable bars labelled only ASL. */
 export function cInsightRowName(table:CWorkbookTable,cells:CWorkbookTable['rows'][number],fallback:string):string {
-  const parts=table.columns.flatMap((h,c)=> /^(?:confronto|periodo|anno|azienda|canale|ambito|classe|stato|livello|tipo|serie)(?:\s|$)/i.test(h)
+  const parts=table.columns.flatMap((h,c)=> /^(?:confronto|periodo|anno|azienda|canale|ambito|classe|stato|livello|tipo|serie|variante|scenario)(?:\s|$)/i.test(h)&&(!table.numericColumns.includes(c)||/^(?:anno|mese|periodo)$/i.test(h))
     ? [Array.isArray(cells[c]) ? cells[c][0] : typeof cells[c]==='string' ? cells[c] : ''] : []);
   return [...new Set([fallback,...parts].filter(Boolean).map(cInsightCellText))].join(' · ');
 }

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowDownUp, Copy, RotateCcw, Wallet, FileCheck2, CalendarRange } from "lucide-react";
-import { BarChart, Bar, Cell, CartesianGrid, LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ArrowDownUp, Copy, RotateCcw, Wallet, FileCheck2, CalendarRange, ChartArea, ChartNoAxesCombined, BarChart3 } from "lucide-react";
+import { AreaChart, Area, BarChart, Bar, Cell, CartesianGrid, LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageHeader, KpiCard } from "@/components/dashboard-review/analytics-ui";
 import { LocalToggle } from "@/components/dashboard-review/pillar-b-local-toggle";
 import { PillarCSectionNavigation } from "@/components/dashboard-review/pillar-c/section-navigation";
 import { PillarCForecastPanel } from "@/components/dashboard-review/pillar-c/forecast-section";
 import { PillarCInsightsPanel, PillarCInsightsSection, PillarCInsightsProvider } from "@/components/dashboard-review/pillar-c/insight-panels";
+import { PillarCChangeBridge } from "@/components/dashboard-review/pillar-c/change-bridge";
 import { cBudgetFilters, cBudgetSearch, cDecisionAnswer, cInsightResetSearch } from "@/lib/dashboard-review/pillar-c/insights";
 import type { CWorkbookIndex } from "@/lib/dashboard-review/pillar-c/workbook";
 import { itNumber } from "@/lib/format/it-number";
@@ -40,6 +41,8 @@ function OutputLineage({ packet }: { packet: CReviewPacket }) {
 export function PillarCAnalyticalWorkspace({ packet, workbook }: { packet: CReviewPacket; workbook?: CWorkbookIndex }) {
   const search = useSearchParams(), filters = cReviewFilters(search), data = selectCReview(packet, filters);
   const [copied, setCopied] = useState(false);
+  const [spendView, setSpendView] = useState<'area' | 'line' | 'bar'>('area');
+  const spendGradient = useId().replaceAll(':', '');
   const budgetFilters = cBudgetFilters(packet, new URLSearchParams(search));
   const budgetData = selectCReview(packet, budgetFilters);
   const updateBudget = (patch: Partial<CReviewFilters>) => {
@@ -57,7 +60,6 @@ export function PillarCAnalyticalWorkspace({ packet, workbook }: { packet: CRevi
   const max = Math.max(1, ...monthly.map((r) => Math.abs(r.amount ?? 0)));
   const divisor = max >= 1_000_000 ? 1_000_000 : max >= 1000 ? 1000 : 1;
   const axisUnit = divisor === 1_000_000 ? "Milioni di euro" : divisor === 1000 ? "Migliaia di euro" : "Euro";
-  const bridgeMax = Math.max(1, ...data.bridge.map((r) => Math.abs(Number(r.value))));
   const budgets = budgetData.budgets;
   const budgetValues = budgets.flatMap((r) => [Number(r.budget), Number(r.actual ?? 0), Number(r.alternative ?? 0)]);
   const budgetMin = Math.min(0, ...budgetValues), budgetMax = Math.max(1, ...budgetValues);
@@ -83,19 +85,27 @@ export function PillarCAnalyticalWorkspace({ packet, workbook }: { packet: CRevi
       <div className="mb-5 flex flex-wrap gap-4"><label className="min-w-48 text-xs font-medium text-muted-foreground">Periodo della spesa<select aria-label="Periodo della spesa" className={selectClass} value={filters.period} onChange={(e) => update({ period: e.target.value as CReviewFilters["period"] })}>{C_PERIODS.map((p) => <option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label></div>
       {baseline ? <><div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label={`Spesa netta · ${C_PERIOD_LABELS[filters.period]}`} value={eur(baseline.net)} detail={scope} icon={Wallet} accent /><KpiCard label="Importi positivi" value={eur(baseline.positive)} detail="Prima delle rettifiche negative" icon={ArrowDownUp} /><KpiCard label="Rettifiche negative" value={eur(baseline.negative)} detail="Incluse, non rimosse dal totale" icon={FileCheck2} /><KpiCard label="Mesi rappresentati" value={`${monthly.filter((r) => r.rows > 0).length} / ${monthly.length}`} detail="Non certifica la completezza degli invii" icon={CalendarRange} /></div></> : <Empty>Nessun dato nel pacchetto di revisione per questa selezione. Il valore non viene sostituito con zero.</Empty>}
       <Panel title={`Profilo della spesa · ${C_PERIOD_LABELS[filters.period]}`} description={`${scope}. ${axisUnit}.`} controls={<LocalToggle label="Vista" value={filters.trend} options={[{ value: "monthly", label: "Mensile" }, { value: "cumulative", label: "Cumulata" }]} onChange={(trend) => update({ trend })} ariaLabel="Vista della spesa" />}>
+        <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Grafico della spesa">{([{id:'area',label:'Area',icon:ChartArea},{id:'line',label:'Linea',icon:ChartNoAxesCombined},{id:'bar',label:'Colonne',icon:BarChart3}] as const).map(({id,label,icon:Icon})=><button key={id} type="button" className={`${actionClass} ${spendView===id?'border-primary bg-primary/5 text-primary':''}`} aria-pressed={spendView===id} onClick={()=>setSpendView(id)}><Icon size={15} aria-hidden="true"/>{label}</button>)}</div>
         <div className="h-72 min-w-0" aria-hidden="true">
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            {filters.trend === "monthly" ? <BarChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
+            {spendView === "area" ? <AreaChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
+              <defs><linearGradient id={spendGradient} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--viz-1)" stopOpacity={0.35}/><stop offset="100%" stopColor="var(--viz-1)" stopOpacity={0.02}/></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
               <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), "Spesa netta"]} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), filters.trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
+              <Area dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={2.5} fill={`url(#${spendGradient})`} isAnimationActive={false}/>
+            </AreaChart> : spendView === "bar" ? <BarChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
+              <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), filters.trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
               <Bar dataKey="amount" isAnimationActive={false} radius={[4, 4, 0, 0]}>{monthly.map((r) => <Cell key={r.month} fill={(r.amount ?? 0) < 0 ? "var(--viz-4)" : "var(--viz-1)"} />)}</Bar>
             </BarChart> : <LineChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
               <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), "Spesa cumulata"]} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), filters.trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
               <Line dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={3} isAnimationActive={false} />
             </LineChart>}
           </ResponsiveContainer>
@@ -108,7 +118,7 @@ export function PillarCAnalyticalWorkspace({ packet, workbook }: { packet: CRevi
     {workbook && <><PillarCInsightsPanel index={workbook} section="spesa" /><PillarCInsightsSection index={workbook} section="composizione" /><PillarCInsightsSection index={workbook} section="attribuzione" /></>}
     <section id="cambiamento" aria-labelledby="cambiamento-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading id="cambiamento" number={workbook ? "04" : "02"} title="Quali componenti spiegano la variazione?">Un ponte contabile con periodi omogenei. I contributi non sono effetti clinici, di prezzo o di volume.</Heading>
       <Panel title={`${C_PERIOD_LABELS[data.leftPeriod as keyof typeof C_PERIOD_LABELS]} → ${C_PERIOD_LABELS[data.rightPeriod as keyof typeof C_PERIOD_LABELS]}`} description={scope} controls={<LocalToggle label="Confronto" value={filters.comparison} options={[{ value: "K1", label: "2024 → 2025" }, { value: "K2", label: "Gen–mag 2025 → 2026" }]} onChange={(comparison) => update({ comparison })} ariaLabel="Periodi del ponte" />}>
-        {data.left && data.right && data.bridge.length ? <><div className="mb-6 grid gap-3 sm:grid-cols-3">{[["Spesa iniziale", eur(data.left.net)], ["Variazione", signed(cMoneyDifference(data.right.net, data.left.net))], ["Spesa finale", eur(data.right.net)]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/50 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-lg font-semibold tabular-nums">{value}</p></div>)}</div><div className="space-y-5">{data.bridge.map((r) => <div key={r.component}><div className="mb-2 flex justify-between gap-3 text-sm"><span>{C_COMPONENT_LABELS[r.component]}</span><span className="shrink-0 font-semibold tabular-nums">{signed(r.value)}</span></div><div className="relative h-4 rounded bg-secondary" aria-hidden="true"><span className="absolute -top-1 bottom-[-4px] left-1/2 w-px bg-border" /><span className="absolute h-full rounded-sm" style={{ left: Number(r.value) < 0 ? `${50 - Math.abs(Number(r.value)) / bridgeMax * 50}%` : "50%", width: `${Math.abs(Number(r.value)) / bridgeMax * 50}%`, background: Number(r.value) < 0 ? "var(--viz-3)" : "var(--viz-2)" }} /></div></div>)}</div><ExactTable caption="Componenti del ponte" headers={["Componente", "Contributo", "Celle prodotto"]} rows={data.bridge.map((r) => [C_COMPONENT_LABELS[r.component], signed(r.value), itNumber(r.cells)])} /></> : <Empty>Il confronto non è disponibile nel pacchetto di revisione.</Empty>}
+        {data.left && data.right && data.bridge.length ? <><div className="mb-6 grid gap-3 sm:grid-cols-3">{[["Spesa iniziale", eur(data.left.net)], ["Variazione", signed(cMoneyDifference(data.right.net, data.left.net))], ["Spesa finale", eur(data.right.net)]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/50 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-lg font-semibold tabular-nums">{value}</p></div>)}</div><PillarCChangeBridge opening={data.left.net} closing={data.right.net} components={data.bridge}/><ExactTable caption="Componenti del ponte" headers={["Componente", "Contributo", "Celle prodotto"]} rows={data.bridge.map((r) => [C_COMPONENT_LABELS[r.component], signed(r.value), itNumber(r.cells)])} /></> : <Empty>Il confronto non è disponibile nel pacchetto di revisione.</Empty>}
       </Panel>
     </section>
 
