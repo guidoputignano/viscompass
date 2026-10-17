@@ -113,6 +113,14 @@ const CANARY_ROWS = 200;
 // cache's 60 s single-flight window, and a JSON re-read starts only with time
 // left for a cold read.
 const FACT_DEADLINE_MS = 45_000;
+// Rows asked for per page. Measured 17 Oct 2026 (Supabase gateway logs): every
+// PostgREST request costs ~250-330 ms at the gateway even for one row, while
+// Postgres spends 40-70 ms on a 1000-row page, so a cold read of ~264 pages is
+// mostly per-request overhead. PostgREST returns at most its Data API
+// "Max rows" (1000 today) whatever is asked, and readCanonicalById reads on
+// until a range is exhausted, so asking for 5000 changes nothing until that
+// setting is raised, and then cuts the read to ~53 requests.
+const FACT_PAGE_ROWS = 5000;
 const FALLBACK_MIN_BUDGET_MS = 25_000;
 // Faults the compact transport itself can cause: the request refused, a page
 // that does not decode, a canary that disagrees. Anything else (a timeout, a
@@ -167,7 +175,7 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
           pages++;slowest=Math.max(slowest,Date.now()-t);
           return page;
         },
-        1000,lanes,
+        FACT_PAGE_ROWS,lanes,
       );
       if (canary) {
         const sample = await canary;
