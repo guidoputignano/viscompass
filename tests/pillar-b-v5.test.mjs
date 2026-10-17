@@ -148,6 +148,7 @@ test("PB-V5-06/07: customer-facing copy carries no gate code, workbook block cod
     "lib/dashboard-review/pillar-b/view-options.ts", "lib/dashboard-review/pillar-b/review-queue.ts",
     "lib/dashboard-review/pillar-b/bridge-b.ts", "lib/dashboard-review/pillar-b/facets.ts", "lib/dashboard-review/pillar-b/adoption.ts",
     "lib/dashboard-review/pillar-b/regional-comparator.ts",
+    "components/dashboard-review/pillar-b-stratum-cost.tsx", "lib/dashboard-review/pillar-b/stratum-cost.ts",
   ];
   for (const f of files) {
     const src = stripComments(fs.readFileSync(`${root}${f}`, "utf8"));

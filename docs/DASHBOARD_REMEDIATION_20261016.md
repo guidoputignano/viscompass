@@ -21,7 +21,7 @@ status are not changed by this presentation work.
 | SCOPE-01 | Use the established reviewer policy in core pages | Reuses the Pillar B server-side scope resolver, including the live reviewer decision. Ordinary accounts keep their own session/RLS. No policy/grant changes. |
 | SCOPE-02 | Correct names and drill-down | Both approved code forms resolve to the same authorized label. Reviewers can drill down from Azienda; the selected Azienda is correctly recognized on Benchmark. |
 | SCOPE-03 | Align antibiotic summary and workbook scope | Uses the existing private Pillar A scope and verifies complete reads. Separate cost bases are retained; no artificial equality or savings claim. |
-| HK-01 | Remove the two September test uploads from the operational queue | Exact records identified. Reversible maintenance metadata is supported; the row, file and uploaded status remain intact. Production archival must be recorded separately when applied. The genuine original workbook upload is not a test and is retained. |
+| HK-01 | Remove the two September test uploads from the operational queue | Applied on 16 October 2026: both test uploads carry the reversible maintenance marker (`reconciliation_summary.maintenance_archive`, reason `test_upload`) and have left the operational list. Their status is still uploaded, neither is marked reconciled, and no row or file was deleted; the timestamps are in the private verification receipt. The genuine original workbook upload is not a test and is retained, unchanged. |
 | HK-02 | Distinguish antibiotic totals | Cost-basis disclosure and scope-matched reconciliation already existed. Scope alignment and explicit signed changes address additional ambiguity; CF and normalized summary costs are not interchangeable. |
 | HK-03 | Show signs for changes | Added a dedicated signed percentage formatter and applied it only to changes, not composition shares or coverage. |
 
@@ -74,5 +74,4 @@ path if measured cold loads remain above the target after this change.
   in another. Discriminating cross-organization fixtures cover this.
 - Missing molecule-level margins remain null; measured zero remains zero.
   The summary displays the coverage of organization–molecule evaluations.
-- Production deployment and live verification of the core changes, and production
-  archival of the identified test uploads, are still pending at this checkpoint.
+- Production deployment and live verification of the core changes are still pending at this checkpoint. The archival of the two test uploads was applied afterwards, on 16 October 2026 (HK-01).

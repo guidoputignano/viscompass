@@ -16,7 +16,11 @@
 //
 // WHAT THIS PAGE MAY NOT SHOW, by instruction and because the data does not
 // support it:
-//   - a package or quantity total of any kind
+//   - a package total, or a quantity summed across comparability strata or
+//     units (a quantity appears only as the denominator of one stratum's
+//     observed €/unit, beside its spend)
+//   - a ratio, a difference or a saving between two unit costs, or a colour
+//     or an order that says which side is cheaper
 //   - an uptake figure presented as full-population coverage
 //   - a saving, an opportunity, or any recoverable-money figure
 //   - 2026 as a year — it appears only as five labelled calendar cells
@@ -110,6 +114,8 @@ export interface PillarBReviewProps {
     reviewQueueWithheld: string | null;
     /** The bridge reconciles to the cent: when false its panel opens and says so. */
     bridgeReady: boolean;
+    /** Per-stratum unit cost for one Azienda (server-rendered); says why when it holds no figure. */
+    stratumCostSection: React.ReactNode;
   };
   /** The panel-local options as read from the URL on this request. */
   viewOptions: ViewOptions;
@@ -714,6 +720,10 @@ export function PillarBReview(props: PillarBReviewProps) {
             )}
           </div>
         </Sub>}
+
+        {/* THE PER-STRATUM UNIT COST (owner decision, 17 October 2026): the
+            margin's working for one Azienda, collapsed, last in Adozione. */}
+        {adoption.stratumCostSection}
       </Group>
 
 

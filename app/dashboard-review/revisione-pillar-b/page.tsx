@@ -22,11 +22,12 @@ import { formatEur, formatPercent } from "@/lib/dashboard-review/format";
 import { PillarBReview } from "@/components/dashboard-review/pillar-b-review";
 import { PillarBFilterBar } from "@/components/dashboard-review/pillar-b-filter-bar";
 import { PillarBValueUptake } from "@/components/dashboard-review/pillar-b-value-uptake";
+import { PillarBStratumCost } from "@/components/dashboard-review/pillar-b-stratum-cost";
 import {
   channelTrend, concentration, coverageNotices, funnelRows, moleculeTrend, narrowRows, spendLike, sumSpend, uptakeCoverage,
 } from "@/lib/dashboard-review/pillar-b/review-data";
 import {
-  getEvidenceFunnel, getFacets, getMoleculeSpend, getRegionalComparator, getSpend, getUptake, getUptakeCoverage,
+  getEvidenceFunnel, getFacets, getMoleculeSpend, getRegionalComparator, getSpend, getStratumUnitCost, getUptake, getUptakeCoverage,
   getValueUptake, getValueUptakeScoped, isMissingFunction, pillarBActiveRelease, pillarBReleaseId, readActiveRelease,
   type MoleculeSpendRow, type SpendRow, type UptakeCoverageRow, type UptakeRow, type UptakeScope,
   type UptakeWithWithheld, type ValueUptakeRow, type WithheldRow,
@@ -50,6 +51,7 @@ import {
 import { pillarBCacheKey, pillarBServerCache } from "@/lib/dashboard-review/pillar-b/server-cache";
 import { bridgeB, bridgeBPerimeterCheck, bridgeBPublishable } from "@/lib/dashboard-review/pillar-b/bridge-b";
 import { reviewQueue, reviewQueuePublishable } from "@/lib/dashboard-review/pillar-b/review-queue";
+import { stratumCostPanel, stratumFacetsReference, type StratumCostOutcome } from "@/lib/dashboard-review/pillar-b/stratum-cost";
 
 const BASE = "/dashboard-review/revisione-pillar-b";
 
@@ -188,6 +190,9 @@ export default async function RevisionePillarBPage({
     aziendaAccount, years: filters.years, channels: filters.channels, substance: filters.substance,
   });
   const regionalYears = regionalRequest.ask ? regionalRequest.years : null;
+  // One Azienda: the selected one (Regione/reviewer), else the only Azienda in scope
+  // (an Azienda account: aslCode is null for it, page.tsx:137-140, scope.ts:199-200, 233).
+  const stratumAsl = aslCode ?? (scope.scopedOrgs.length === 1 ? scope.scopedOrgs[0].aslCode : null);
   let data: {
     spend2024: SpendRow[]; spend2025: SpendRow[];
     funnel: Awaited<ReturnType<typeof getEvidenceFunnel>>;
@@ -202,6 +207,8 @@ export default async function RevisionePillarBPage({
     regionalFacets: Facets | null;
     /** An Azienda account's regional comparator, or the sentence saying why there is none. */
     aziendaRegional: RegionalComparator | { kind: "note"; why: string } | null;
+    /** One Azienda's per-stratum unit cost, or why there is none. */
+    stratum: StratumCostOutcome;
   };
   // FILTER-INDEPENDENT READS ARE SHARED across requests of the same scope and
   // release (server-cache.ts): they were ~5.4 s of the ~6.6 s of statements a
@@ -338,7 +345,21 @@ export default async function RevisionePillarBPage({
       }
     })();
 
-    const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome, coverage, aziendaRegional] =
+    // THE PER-STRATUM UNIT COST (owner decision, 17 October 2026): one Azienda
+    // at a time, or no read at all. OPTIONAL like the regional reads: a
+    // function not yet published or a failed read removes only that panel and
+    // says so. Not shared(): it follows every filter.
+    const stratumWork: Promise<StratumCostOutcome> = stratumAsl === null
+      ? Promise.resolve({ kind: "pick-azienda" })
+      : getStratumUnitCost(db, { years, aslCode: stratumAsl, channels, substance: filters.substance })
+          .then((raw): StratumCostOutcome => ({ kind: "read", raw }))
+          .catch((error): StratumCostOutcome => {
+            if (isMissingFunction(error)) return { kind: "not-deployed" };
+            console.error("Pillar B stratum unit cost failed", error);
+            return { kind: "failed" };
+          });
+
+    const [spend2024, spend2025, funnel, uptakeParts, valueOutcome, facetsOutcome, coverage, aziendaRegional, stratum] =
       await Promise.all([
         identified("SPEND24", shared(() => getSpend(db, 2024), "spend", 2024)),
         identified("SPEND25", shared(() => getSpend(db, 2025), "spend", 2025)),
@@ -348,6 +369,7 @@ export default async function RevisionePillarBPage({
         facetsWork,
         coverageWork,
         aziendaRegionalWork,
+        stratumWork,
       ]);
     const uptake = mergeUptake(uptakeParts);
     fallback = valueOutcome.fallback;
@@ -357,7 +379,7 @@ export default async function RevisionePillarBPage({
     data = { spend2024, spend2025, funnel, molecules2024, molecules2025, uptake, coverage,
              valueUptakeRows: valueOutcome.rows, allSubstances: valueOutcome.substances,
              facets: facetsOutcome.facets, calendarFacets: facetsOutcome.calendar, regionalFacets: facetsOutcome.regional,
-             aziendaRegional };
+             aziendaRegional, stratum };
   } catch (error) {
     // The server log retains the full cause. The scoped browser gets only a
     // stable phase code, never a SQL message or a misleading zero-valued chart.
@@ -373,6 +395,15 @@ export default async function RevisionePillarBPage({
 
   // ------------------------------------------------------------ view models
   const view = buildValueUptake(data.valueUptakeRows);
+
+  // Strings only reach the panel: the Azienda by the label this viewer may
+  // see, its code used only to pick its own facets rows for the cross-check.
+  const stratumPanel = stratumCostPanel(data.stratum, {
+    aziendaLabel: stratumAsl === null ? null : (scope.aslLabels[stratumAsl] ?? "Azienda selezionata"),  // pseudonyms, scope.ts:203-207
+    channels: filters.channels, substance: filters.substance,
+    facetsReference: stratumAsl !== null && data.facets?.asl ? stratumFacetsReference(data.facets.asl, stratumAsl) : null,
+    showStratumIds: scope.allOrganizations,                                      // true only after reviewer widening
+  });
 
   // THE PARTIAL YEAR AS OBSERVED UNDER THE ACTIVE FILTERS, not a constant.
   // A molecule or channel may have 2026 records in fewer than five months, or
@@ -671,6 +702,7 @@ export default async function RevisionePillarBPage({
       volume: volumePanelRows(volume),
       routes,
       notes: adoptionNotes,
+      stratumCostSection: <PillarBStratumCost panel={stratumPanel} />,
     }}
     viewOptions={viewOptions}
     spend={{

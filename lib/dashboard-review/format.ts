@@ -23,6 +23,21 @@ export function formatEurPrecise(value: number, decimals = 2): string {
   }).format(value);
 }
 
+/** A unit cost to N significant digits ("0,1234 €"); formatEurPrecise's fixed decimals print "0,00 €". */
+export function formatEurSignificant(value: number, digits = 4): string {
+  return itNumberFormat({
+    style: "currency",
+    currency: "EUR",
+    minimumSignificantDigits: digits,
+    maximumSignificantDigits: digits,
+  }).format(value);
+}
+
+/** A quantity with up to N decimals ("123.456,79"). */
+export function formatNumberUpTo(value: number, maxDecimals = 2): string {
+  return itNumberFormat({ maximumFractionDigits: maxDecimals }).format(value);
+}
+
 export function formatPercent(value: number): string {
   return itNumberFormat({
     style: "percent",

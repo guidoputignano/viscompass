@@ -25,6 +25,7 @@
 //   - an uptake figure without its withheld counterpart (see getUptake)
 //   - a saving, an opportunity, or any recoverable-money figure
 //   - 2026 as a year: it holds five months and zero comparable-eligible rows
+//   - a quantity outside its stratum: pillar_b_stratum_unit_cost returns quantity only per (stratum, side), in that stratum's own unit, beside its spend
 
 import { cache } from "react";
 import type { createClient } from "@/lib/supabase/server";
@@ -32,6 +33,7 @@ import type { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { parseFacets, type Facets } from "./facets";
 import { parseRegionalComparator, type RegionalComparator } from "./regional-comparator";
 import { uptakeCoverage } from "./review-data";
+import { parseStratumUnitCost, type StratumCostArgs, type StratumUnitCostRaw } from "./stratum-cost";
 
 // Re-exported from the pure module, which owns the list so that it can be
 // asserted without a database client. 2026 is not offered.
@@ -526,6 +528,18 @@ export const getFacets = cache(
     return parseFacets(data);
   },
 );
+
+/** One Azienda's observed gross cost per unit, per comparability stratum (migration 20261018090000).
+ *  Throws PillarBRpcError (PGRST202/42883 while not deployed: see isMissingFunction). */
+export const getStratumUnitCost = cache(async (db: PillarBDb, args: StratumCostArgs): Promise<StratumUnitCostRaw> => {
+  // ONE jsonb value, read like getFacets: callRpc is typed for row sets.
+  const { data, error } = await db.rpc("pillar_b_stratum_unit_cost", {
+    p_years: [...args.years], p_asl_code: args.aslCode,
+    p_channels: args.channels === null ? null : [...args.channels], p_substance: args.substance,
+  });
+  if (error) throw new PillarBRpcError("pillar_b_stratum_unit_cost", error.message, error.code);
+  return parseStratumUnitCost(data, args);
+});
 
 /**
  * The regional comparator for an ORDINARY AZIENDA (PB-V5-01): pooled shares
