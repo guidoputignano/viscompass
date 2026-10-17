@@ -43,21 +43,23 @@ export function decodeCompactFacts(raw:unknown,releaseId:string):CanonicalFact[]
   });
 }
 
-/** Concurrent id ranges for one release read. A page costs the database about
- * 27 ms (EXPLAIN ANALYZE, 1000 rows, 16 Oct 2026); a cold read of the whole
- * release is ~262 pages, so with 8 lanes each lane waits on ~33 round trips in
- * a row and the read is bound by request latency, not by the database. 16 is
- * the reader's own limit and the default, so DASHBOARD_FACT_LANES can only
- * lower it: a number is clamped to 4-16 (fewer than 4 lanes cannot finish a
- * cold read inside the 45 s deadline), anything unreadable keeps 16, and every
- * value changed or rejected is reported through `warn`. Never throws: it runs
- * on every load. */
-export const DEFAULT_FACT_LANES=16,MIN_FACT_LANES=4;
+/** Concurrent id ranges for one release read. 8 by default. Measured live on
+ * 17 Oct 2026 (Supabase gateway logs and pg_stat_statements): a cold read is
+ * ~264 page requests and the shared-compute instance that runs both Postgres
+ * and PostgREST is CPU-bound, so 16 lanes did not raise throughput (still
+ * ~14 pages/s, ~19 s) but doubled every page's time (gateway origin time 370
+ * -> 690 ms) and queued other users' requests behind the read.
+ * DASHBOARD_FACT_LANES overrides it: a number is clamped to 4-16 (fewer than 4
+ * lanes cannot finish a cold read inside the 45 s deadline; 16 is the
+ * reader's own limit), anything unreadable keeps the default, and every value
+ * changed or rejected is reported through `warn`. Never throws: it runs on
+ * every load. */
+export const DEFAULT_FACT_LANES=8,MIN_FACT_LANES=4,MAX_FACT_LANES=16;
 export function factLanes(value:string|undefined,warn:(message:string)=>void=()=>{}):number{
   const raw=value?.trim();
   if(!raw)return DEFAULT_FACT_LANES;
   const n=/^-?\d+(\.\d+)?$/.test(raw)?Number(raw):NaN;
-  const lanes=Number.isFinite(n)?Math.min(DEFAULT_FACT_LANES,Math.max(MIN_FACT_LANES,Math.trunc(n))):DEFAULT_FACT_LANES;
+  const lanes=Number.isFinite(n)?Math.min(MAX_FACT_LANES,Math.max(MIN_FACT_LANES,Math.trunc(n))):DEFAULT_FACT_LANES;
   if(lanes!==n)warn(JSON.stringify({event:"dashboard_fact_lanes_adjusted",value:raw.slice(0,16),lanes}));
   return lanes;
 }

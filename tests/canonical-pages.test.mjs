@@ -32,19 +32,19 @@ test('key-range reader rejects count drift, boundary errors, disorder, duplicate
   assert.deepEqual(await readCanonicalById(async()=>({data:[],count:0,error:null}),async()=>{throw Error('must not read rows');}),[]);
 });
 
-test('the lane count is 16 by default; an override is clamped to 4-16 and reported',async()=>{
+test('the lane count is 8 by default; an override is clamped to 4-16 and reported',async()=>{
   const {factLanes,DEFAULT_FACT_LANES}=await import('../lib/dashboard-review/canonical-pages.ts');
-  assert.equal(DEFAULT_FACT_LANES,16);
+  assert.equal(DEFAULT_FACT_LANES,8);
   const run=v=>{const warnings=[];const lanes=factLanes(v,m=>warnings.push(JSON.parse(m)));return {lanes,warnings};};
-  for(const v of [undefined,'','  '])assert.deepEqual(run(v),{lanes:16,warnings:[]},String(v));
+  for(const v of [undefined,'','  '])assert.deepEqual(run(v),{lanes:8,warnings:[]},String(v));
   for(const v of ['4','8','12','16',' 8 '])assert.deepEqual(run(v),{lanes:Number(v),warnings:[]},v);
-  // A throttle below the floor gets the floor, never the maximum.
+  // A throttle below the floor gets the floor, a value above the reader's limit gets the limit.
   for(const [v,want] of [['2',4],['3',4],['0',4],['-8',4],['17',16],['32',16],['6.5',6]]){
     const r=run(v);assert.equal(r.lanes,want,v);assert.equal(r.warnings.length,1,v);
     assert.deepEqual(r.warnings[0],{event:'dashboard_fact_lanes_adjusted',value:v,lanes:want});
   }
   assert.deepEqual(run('6.0'),{lanes:6,warnings:[]},'6.0 is six');
-  for(const v of ['abc','8 lanes','1e1','Infinity','0x10']){const r=run(v);assert.equal(r.lanes,16,v);assert.equal(r.warnings.length,1,v);}
+  for(const v of ['abc','8 lanes','1e1','Infinity','0x10']){const r=run(v);assert.equal(r.lanes,8,v);assert.equal(r.warnings.length,1,v);}
 });
 
 test('the compact transport rebuilds every field, in order, nulls included',async()=>{
