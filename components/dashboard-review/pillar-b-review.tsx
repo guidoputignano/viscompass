@@ -31,7 +31,7 @@ import {
   type ConcentrationVariants, type TrendVariants,
 } from "@/components/dashboard-review/pillar-b-panels";
 import type { ConcentrationYear, PerimeterMode, ViewOptions } from "@/lib/dashboard-review/pillar-b/view-options";
-import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
+import { formatEur, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 import type { CoverageNotice, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
 import type { UptakeWithWithheld, WithheldRow } from "@/lib/dashboard-review/pillar-b/rpc";
 import type { AziendaPanelRow, CalendarRow, ChannelMixRow, FacetTotals, PerimeterRow } from "@/lib/dashboard-review/pillar-b/facets";
@@ -434,7 +434,7 @@ export function PillarBReview(props: PillarBReviewProps) {
               value={formatEur(spend.totals.spend2025)}
               detail={`${formatNumber(spend.totals.rows2025, 0)} record · Azienda, canale e molecola selezionati`} />}
         {has2024 && has2025 && yoy !== null && <Stat label="Variazione · 2024 → 2025"
-              value={formatPercent(yoy)}
+              value={formatSignedPercent(yoy)}
               detail={`${formatEur(spend.totals.spend2025 - spend.totals.spend2024)} · confronto fisso fra i due anni, il filtro anno non si applica · ${props.comparisonLabel}`} />}
         {adoption.bridge && adoption.bridge.check?.consistent === true && adoption.bridge.model.residual === 0 && adoption.bridge.model.gates.every((g) => g.eur >= 0) && adoption.bridge.model.total > 0 && <Stat label={`Perimetro biosimilare · ${years.length === 2 ? "2024 e 2025" : headlineYear}`}
               value={formatEur(adoption.bridge.model.perimeter)}

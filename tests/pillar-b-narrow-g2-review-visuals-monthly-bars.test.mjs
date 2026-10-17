@@ -216,7 +216,7 @@ test("ChannelSlopeChart render: both variants, same accessible name, the narrow 
   assert.equal(narrow.label, wide.label);
   assertNarrowGeometry(narrow, "slope");
   const words = narrow.texts.map((t) => t.text);
-  for (const s of ["Consumi ospedalieri", "25%", "-14,6%", "2024 · 1,2 Mln €", "2025 · 1,5 Mln €", "2024 · 0 €", "2025 · 350.000 €"]) {
+  for (const s of ["Consumi ospedalieri", "+25%", "-14,6%", "2024 · 1,2 Mln €", "2025 · 1,5 Mln €", "2024 · 0 €", "2025 · 350.000 €"]) {
     assert.ok(words.includes(s), `narrow prints "${s}"`);
   }
   // DPC from zero has no rate: no percentage is invented for it, in either drawing.

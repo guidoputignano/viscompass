@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-import { formatEur, formatNumber, formatPercent } from "../lib/dashboard-review/format.ts";
+import { formatEur, formatNumber, formatPercent, formatSignedPercent } from "../lib/dashboard-review/format.ts";
 
 // NARROW LAYOUTS of the panel tables (components/dashboard-review/pillar-b-panels.tsx).
 //
@@ -105,7 +105,7 @@ function trendValues() {
     compilerOptions: { jsx: ts.JsxEmit.React, jsxFactory: "h", target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const h = (type, props, ...children) => ({ type, props, children });
-  return new Function("h", "formatEur", "formatPercent", "formatNumber", `${js}\nreturn TREND_VALUES;`)(h, formatEur, formatPercent, formatNumber);
+  return new Function("h", "formatEur", "formatPercent", "formatNumber", "formatSignedPercent", `${js}\nreturn TREND_VALUES;`)(h, formatEur, formatPercent, formatNumber, formatSignedPercent);
 }
 const textOf = (v) => (typeof v === "string" ? v : v.children.join(""));
 
@@ -128,7 +128,9 @@ test("TrendTable values: a year with no record says so (never 0 €), a rate fro
   assert.equal(z[0], formatEur(0), "observed zero is an amount");
   assert.equal(textOf(z[1]), "nessun record");
   assert.equal(z[2], formatEur(-500));
-  assert.equal(z[3], formatPercent(-0.25));
+  assert.equal(z[3], formatSignedPercent(-0.25));
+  assert.match(cols[3].value({ ...zero, change: 0.25 }), /^\+25\s*%$/);
+  assert.doesNotMatch(cols[3].value({ ...zero, change: 0 }), /^[+-]/);
 });
 
 test("ConcentrationPanel: figures and ranking switch on their own block; the curve is called as before, outside it", () => {

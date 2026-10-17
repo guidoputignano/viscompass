@@ -9,7 +9,7 @@ import {
 } from "@/components/dashboard-review/analytics-ui";
 import { getExplorerData } from "@/lib/dashboard-review/queries";
 import type { ExplorerFilters } from "@/lib/dashboard-review/types";
-import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
+import { formatEur, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 
 function scalar(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" && value.length <= 160 ? value : undefined;
@@ -48,7 +48,7 @@ export default async function ExplorerPage({
       />
 
       <DecisionFrame
-        changed={fastest ? `${fastest.label} ha la variazione più ampia nel livello corrente: ${formatPercent(fastest.spend_yoy!)}.` : "Nessun periodo precedente confrontabile per questo livello."}
+        changed={fastest ? `${fastest.label} ha la variazione più ampia nel livello corrente: ${formatSignedPercent(fastest.spend_yoy!)}.` : "Nessun periodo precedente confrontabile per questo livello."}
         variance={largest ? `${largest.label} concentra il ${formatPercent(largest.spend_share)} della spesa nel perimetro selezionato.` : "Nessuna voce disponibile nel percorso selezionato."}
         materiality={largest ? `${formatEur(largest.spend_eur)} osservati nella voce principale.` : "Materialità non calcolabile."}
         nextEvidence={largest?.href ? `Aprire ${largest.label} per il livello successivo.` : "Livello AIC: verificare mapping e costo."}
@@ -92,7 +92,7 @@ export default async function ExplorerPage({
                     <td className="px-5 py-4 text-right font-mono text-xs">{formatEur(node.spend_eur)}</td>
                     <td className="px-5 py-4 text-right"><div className="ml-auto flex w-28 items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${node.spend_share * 100}%` }} /></div><span className="w-10 text-right font-mono text-[10px]">{formatPercent(node.spend_share)}</span></div></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.packs === null ? "n/d" : formatNumber(node.packs, 0)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{node.spend_yoy === null ? "—" : formatPercent(node.spend_yoy)}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{node.spend_yoy === null ? "—" : formatSignedPercent(node.spend_yoy)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.biosimilar_penetration === null ? "—" : formatPercent(node.biosimilar_penetration)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.normalization_coverage === null ? "—" : formatPercent(node.normalization_coverage)}</td>
                     <td className="px-5 py-4">{node.href ? <Link href={node.href} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Apri <ArrowRight size={12} /></Link> : <span className="text-[10px] text-muted-foreground">Livello finale</span>}</td>

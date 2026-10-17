@@ -4,7 +4,7 @@
 // No new data is computed here: every mark is a direct visual encoding of a
 // figure also present in the review tables. Negative values retain their sign.
 
-import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
+import { formatEur, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 import type { Concentration, FunnelRow, TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
 import { TREND_FIGURE_HEADINGS, trendFigures, type TrendFigure, type TrendOrder } from "@/lib/dashboard-review/pillar-b/view-options";
 import { KeepLink } from "@/components/dashboard-review/pillar-b-local-toggle";
@@ -141,7 +141,7 @@ function ChannelSlopeNarrow({ rows, ticks, lo, span, axisLabel }: {
   const W = NARROW_W, l = 10, r = W - 10, top = 2;
   const nx = (v: number) => l + (v - lo) / span * (r - l);
   const bands = rows.map((row) => {
-    const pct = row.change === null ? null : formatPercent(row.change);
+    const pct = row.change === null ? null : formatSignedPercent(row.change);
     const name = clipLabel(row.label, (r - l - (pct === null ? 0 : textWidth(pct, 12) + 10)) / (13 * 0.6));
     // A year with no record is "nessun record", never "0 €" (trend() fills it as 0).
     const v2024 = `2024 · ${row.rows2024 === 0 ? "nessun record" : axisLabel(row.spend2024)}`;
@@ -214,7 +214,7 @@ export function ChannelSlopeChart({ rows }: { rows: TrendRow[] }) {
         {r.rows2024 > 0 && r.rows2025 > 0 && <line x1={x(r.spend2024)} y1={y} x2={x(r.spend2025)} y2={y} stroke={r.changeEur >= 0 ? teal : coral} strokeWidth="5" strokeLinecap="round" />}
         {r.rows2024 > 0 && <circle cx={x(r.spend2024)} cy={y} r="6" fill={muted} />}
         {r.rows2025 > 0 && <circle cx={x(r.spend2025)} cy={y} r="7" fill={teal} stroke="white" strokeWidth="2" />}
-        {r.change !== null && <text x={width - 4} y={y + 4} textAnchor="end" fontSize="12" fill={ink}>{formatPercent(r.change)}</text>}
+        {r.change !== null && <text x={width - 4} y={y + 4} textAnchor="end" fontSize="12" fill={ink}>{formatSignedPercent(r.change)}</text>}
       </g>; })}
     </svg>
     </div>

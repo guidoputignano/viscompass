@@ -10,7 +10,7 @@
 // (see pillar-b-local-toggle.tsx), so a link reproduces the view.
 
 import { useId, useState } from "react";
-import { formatEur, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
+import { formatEur, formatNumber, formatPercent, formatSignedPercent } from "@/lib/dashboard-review/format";
 import { monthKeyLabel, type VolumePanelRow } from "@/lib/dashboard-review/pillar-b/adoption";
 import type { AziendaPanelRow, CalendarRow } from "@/lib/dashboard-review/pillar-b/facets";
 import type { TrendRow } from "@/lib/dashboard-review/pillar-b/review-data";
@@ -302,7 +302,7 @@ const TREND_VALUES: ReadonlyArray<{ label: string; muted?: boolean; value: (row:
   { label: "Spesa 2024", value: (row) => row.rows2024 === 0 ? <span className="text-muted-foreground">nessun record</span> : formatEur(row.spend2024) },
   { label: "Spesa 2025", value: (row) => row.rows2025 === 0 ? <span className="text-muted-foreground">nessun record</span> : formatEur(row.spend2025) },
   { label: "Variazione €", value: (row) => formatEur(row.changeEur) },
-  { label: "Variazione %", value: (row) => row.change === null ? "—" : formatPercent(row.change) },
+  { label: "Variazione %", value: (row) => row.change === null ? "—" : formatSignedPercent(row.change) },
   { label: "Record 2024", value: (row) => formatNumber(row.rows2024, 0), muted: true },
   { label: "Record 2025", value: (row) => formatNumber(row.rows2025, 0), muted: true },
 ];
