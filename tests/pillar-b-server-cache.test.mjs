@@ -117,3 +117,20 @@ test("the RLS key carries the region code the policy selects rows by", () => {
   assert.notEqual(a, b, "a corrected region code is a new key");
   assert.match(pillarBCacheScope({ serviceRole: false, subject: "u1", org: { ...base, region_code: null } }), /:-$/);
 });
+
+test("delete drops one entry and leaves another key's in-flight load joinable", async () => {
+  const cache = createServerCache({ ttlMs: 60_000, max: 2 });
+  let release;
+  let loads = 0;
+  const pending = new Promise((resolve) => { release = resolve; });
+  cache.get("old", () => new Promise(() => {}));
+  const first = cache.get("new", () => { loads++; return pending; });
+  cache.delete("old");
+  const joined = cache.get("new", () => { loads++; return Promise.resolve("second"); });
+  assert.equal(joined, first, "the new release's in-flight load is joined, not restarted");
+  release("rows");
+  assert.equal(await joined, "rows");
+  assert.equal(loads, 1);
+  cache.delete("new");
+  assert.equal(cache.size(), 0);
+});

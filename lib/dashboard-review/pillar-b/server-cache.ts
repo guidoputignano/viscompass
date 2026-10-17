@@ -42,6 +42,8 @@ export interface ServerCache {
   get<T>(key: string, load: () => Promise<T>, options?: { keep?: (value: T) => boolean | Promise<boolean> }): Promise<T>;
   size(): number;
   clear(): void;
+  /** Drop one entry, settled or in flight; other keys are untouched. */
+  delete(key: string): void;
 }
 
 export function createServerCache({ ttlMs, max, inflightMs = 60_000, now = () => Date.now() }: {
@@ -96,6 +98,7 @@ export function createServerCache({ ttlMs, max, inflightMs = 60_000, now = () =>
     },
     size: () => store.size,
     clear: () => store.clear(),
+    delete: (key: string) => { store.delete(key); },
   };
 }
 

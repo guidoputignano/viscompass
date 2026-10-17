@@ -16,6 +16,25 @@ const fields={id:true,source_record_id:true,source_version_id:true,year:true,mon
 } satisfies Record<keyof CanonicalFact,true>;
 export const CANONICAL_DASHBOARD_COLUMNS=Object.keys(fields).join(',');
 
+/** Concurrent id ranges for one release read. A page costs the database about
+ * 27 ms (EXPLAIN ANALYZE, 1000 rows, 16 Oct 2026); a cold read of the whole
+ * release is ~262 pages, so with 8 lanes each lane waits on ~33 round trips in
+ * a row and the read is bound by request latency, not by the database. 16 is
+ * the reader's own limit and the default, so DASHBOARD_FACT_LANES can only
+ * lower it: a number is clamped to 4-16 (fewer than 4 lanes cannot finish a
+ * cold read inside the 45 s deadline), anything unreadable keeps 16, and every
+ * value changed or rejected is reported through `warn`. Never throws: it runs
+ * on every load. */
+export const DEFAULT_FACT_LANES=16,MIN_FACT_LANES=4;
+export function factLanes(value:string|undefined,warn:(message:string)=>void=()=>{}):number{
+  const raw=value?.trim();
+  if(!raw)return DEFAULT_FACT_LANES;
+  const n=/^-?\d+(\.\d+)?$/.test(raw)?Number(raw):NaN;
+  const lanes=Number.isFinite(n)?Math.min(DEFAULT_FACT_LANES,Math.max(MIN_FACT_LANES,Math.trunc(n))):DEFAULT_FACT_LANES;
+  if(lanes!==n)warn(JSON.stringify({event:"dashboard_fact_lanes_adjusted",value:raw.slice(0,16),lanes}));
+  return lanes;
+}
+
 type Page = {data: CanonicalFact[] | null; error: {message:string} | null; count?:number|null};
 type Edge = {data: {id:number}[] | null; error:{message:string}|null; count?:number|null};
 

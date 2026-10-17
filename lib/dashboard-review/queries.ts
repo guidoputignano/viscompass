@@ -12,7 +12,7 @@
 import { cache } from "react";
 import { isArchivedUpload } from "@/lib/uploads/archive";
 import { resolvePrivateScope } from "@/lib/analytics/private-scope";
-import { CANONICAL_DASHBOARD_COLUMNS, readCanonicalById } from "./canonical-pages";
+import { CANONICAL_DASHBOARD_COLUMNS, factLanes, readCanonicalById } from "./canonical-pages";
 import { resolvePillarBScope } from "./pillar-b/scope";
 import { readActiveRelease } from "./pillar-b/rpc";
 import { createServerCache, pillarBCacheKey } from "./pillar-b/server-cache";
@@ -96,7 +96,14 @@ const getCoreScope = cache(async () => {
   if (scope?.reviewerScopeUnavailable) throw new Error("CORE_REVIEWER_SCOPE_UNAVAILABLE");
   return scope?.viewerCode ? scope : null;
 });
-const coreFactCache = createServerCache({ ttlMs: 120_000, max: 1 });
+// Ten minutes, the staleness bound the Pillar B page cache already documents.
+// The stamp is read before every lookup and again after it, so an activation
+// (or a re-activation of the same id) is seen at once; what can be stale for up
+// to ten minutes is a correction made in place to the active release's rows
+// without re-activating it (two minutes before). At 120 s every page opened
+// after a two-minute pause paid the full cold read (12-20 s) again.
+const coreFactCache = createServerCache({ ttlMs: 10 * 60_000, max: 1 });
+let lanesWarned = false;
 const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
   const scope = await getCoreScope();
   if (!scope) return [];
@@ -105,26 +112,54 @@ const selectCanonicalFacts = cache(async (): Promise<CanonicalFact[]> => {
   const load = async () => {
     const cancelled=new AbortController(),deadline=AbortSignal.timeout(45_000);
     const signal=()=>AbortSignal.any([cancelled.signal,deadline,AbortSignal.timeout(12_000)]);
+    const lanes=factLanes(process.env.DASHBOARD_FACT_LANES,message=>{if(!lanesWarned){lanesWarned=true;console.warn(message);}});
+    const started=Date.now();let pages=0,slowest=0,rowCount=0;
+    let outcome:"ok"|"error"="error",failure:string|undefined;
     try {
-      return await readCanonicalById(
+      const rows = await readCanonicalById(
         edge=>scope.db.from("canonical_fact").select("id",edge==='first'?{count:"exact"}:undefined)
           .eq("source_version_id",release.id).order("id",{ascending:edge==='first'}).limit(1)
           .abortSignal(signal()).returns<{id:number}[]>(),
-        (after,through,size)=>scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
-          .eq("source_version_id",release.id).gt("id",after).lte("id",through)
-          .order("id",{ascending:true}).limit(size).abortSignal(signal()).returns<CanonicalFact[]>(),
+        async (after,through,size)=>{
+          const t=Date.now();
+          const page=await scope.db.from("canonical_fact").select(CANONICAL_DASHBOARD_COLUMNS)
+            .eq("source_version_id",release.id).gt("id",after).lte("id",through)
+            .order("id",{ascending:true}).limit(size).abortSignal(signal()).returns<CanonicalFact[]>();
+          pages++;slowest=Math.max(slowest,Date.now()-t);
+          return page;
+        },
+        1000,lanes,
       );
-    } catch(cause) {cancelled.abort();throw cause;}
+      outcome="ok";rowCount=rows.length;
+      return rows;
+    } catch(cause) {
+      cancelled.abort();
+      // A fixed class only, never the message: it can carry query text.
+      const message=cause instanceof Error?cause.message:"";
+      failure=/^CANONICAL_[A-Z_]+$/.test(message)?message:deadline.aborted?"deadline_45s"
+        :/TimeoutError|AbortError/.test(message)?"page_timeout_12s":"query_error";
+      throw cause;
+    } finally {
+      // One line per load, successful or not, for the cold-load measurement.
+      // Page time is client wall time (pool wait, transfer, parse, event loop),
+      // not database time. Rows and pages only for the reviewer read, which is
+      // the whole release: under RLS they would reveal the member's Azienda.
+      const line={event:"dashboard_fact_load",outcome,...(failure?{error:failure}:{}),lanes,ms:Date.now()-started,slowest_page_ms:slowest};
+      console.info(JSON.stringify(scope.allOrganizations?{...line,perimeter:"reviewer",rows:rowCount,pages}:{...line,perimeter:"rls"}));
+    }
   };
   // Reviewer service reads have an identical, explicitly approved cohort.
   // Do not persist RLS rows across requests: a secondary membership could be
   // revoked without changing the viewer's primary-org cache identity.
-  const facts = scope.allOrganizations && scope.cacheScope
-    ? await coreFactCache.get(pillarBCacheKey(scope.cacheScope, release.stamp, "core-facts"), load)
-    : await load();
+  const key = scope.allOrganizations && scope.cacheScope
+    ? pillarBCacheKey(scope.cacheScope, release.stamp, "core-facts")
+    : null;
+  const facts = key ? await coreFactCache.get(key, load) : await load();
   // A release removed/switched during a load must not publish the old response.
+  // Only this request's own (old-stamp) entry is dropped: clear() would also
+  // drop the new release's in-flight load and start a second full read.
   if ((await readActiveRelease(scope.db))?.stamp !== release.stamp) {
-    coreFactCache.clear();
+    if (key) coreFactCache.delete(key);
     throw new Error("CANONICAL_RELEASE_CHANGED");
   }
   return facts;
