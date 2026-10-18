@@ -32,7 +32,9 @@ Artifacts are immutable and hash-addressed in the existing private `pillar-c-rev
 - [x] Static rendering with accessible finite range geometry.
 - [x] All private storage objects uploaded and read back with exact hash checks; anonymous access denied on both object endpoints.
 - [x] Final type and lint checks; full suite with no failures; production build passed. Existing unrelated skipped tests remain skipped.
-- [ ] Deployed reviewer UI and endpoint reconciled to the frozen private artifacts.
-- [ ] Screenshots and final release receipt.
+- [x] Deployed reviewer endpoint matches the complete selected scope and matched comparison exactly. Three live UI scopes, first-page product amounts, candidate-name search, layer-2 ranges, pagination and independent/reset controls checked. Signed-out page/API reads are refused.
+- [x] Desktop and narrow-screen inspection; screenshots and private live evidence stored with the operator receipts. The small-euro priority pool also prompted automatic axis scaling, nonzero-tiny-share formatting and singular-label regressions.
+
+Live checks use the already-approved reviewer session; they are not a claim that other organization accounts were signed in. Their existing access boundary is preserved and separately covered by authorization tests. Source aggregates and the R5 workbook did not change during display polishing.
 
 The remaining clinical dependency is a compatible local allocation by indication, using structure or cost center, with amounts and definitions that reconcile. The analysis is useful before that dependency is supplied because it quantifies and prioritizes uncertainty, rather than claiming to have resolved it.
