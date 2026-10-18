@@ -17,6 +17,7 @@ import { isDeepStrictEqual } from "node:util";
 import { CANONICAL_COMPACT_COLUMNS, CANONICAL_DASHBOARD_COLUMNS, decodeCompactFacts, factLanes, readCanonicalById } from "./canonical-pages";
 import { resolvePillarBScope } from "./pillar-b/scope";
 import { readActiveRelease, type PillarBDb } from "./pillar-b/rpc";
+import { stratumCostHref } from "./pillar-b/filters";
 import { createServerCache, pillarBCacheKey } from "./pillar-b/server-cache";
 import { organizationBiosimilarRows, organizationHeadroomByMolecule, type OrganizationComparison } from "./organization-biosimilar";
 import { indicatorsFromTotals, type CategoryTotals } from "@/lib/analytics/antibiotic-indicators";
@@ -708,6 +709,7 @@ export async function getSpendDashboardData(): Promise<SpendDashboardData> {
   const reviewSignals = buildReviewSignals({
     biosimilarRows: currentBio,
     organizationLabels: (await getCoreScope())?.aslLabels ?? {},
+    stratumHref: await stratumHrefFor(),
     unresolvedRecordCount,
     currentRecordCount: currentFacts.length,
     uploads,
@@ -800,9 +802,18 @@ function compactEur(value: number): string {
   }).format(value);
 }
 
+/** Links a margin signal to that Azienda's per-stratum panel, keyed as the Pillar B page keys it. */
+async function stratumHrefFor(): Promise<(aslCode: string) => string> {
+  const scope = await getCoreScope();
+  const narrowable = scope?.narrowable ?? [];
+  const realNames = Boolean(scope?.showRealNames && scope?.allOrganizations);
+  return (aslCode) => stratumCostHref(narrowable, realNames, aslCode);
+}
+
 function buildReviewSignals({
   biosimilarRows,
   organizationLabels,
+  stratumHref,
   unresolvedRecordCount,
   currentRecordCount,
   uploads,
@@ -810,6 +821,7 @@ function buildReviewSignals({
 }: {
   biosimilarRows: OrganizationComparison[];
   organizationLabels: Record<string,string>;
+  stratumHref: (aslCode: string) => string;
   unresolvedRecordCount: number;
   currentRecordCount: number;
   uploads: UploadRecord[];
@@ -823,11 +835,12 @@ function buildReviewSignals({
       id: `bio-${organizationCode}-${row.active_substance}`,
       kind: "biosimilar" as const,
       title: row.active_substance,
-      // The margin is a €/unit differential inside one comparability stratum;
-      // it is never computed on spend, whatever basis the share uses.
-      context: `${organizationLabels[organizationCode] ?? organizationCode} · differenza €/unità tra originator e biosimilare nello stesso strato (via, forma, unità).`,
+      // The margin is a €/mg differential inside one comparability stratum
+      // (mass units only); it is never computed on spend, whatever basis the
+      // share uses. The link opens that Azienda's per-stratum panel.
+      context: `${organizationLabels[organizationCode] ?? organizationCode} · differenza €/mg tra originator e biosimilare nello stesso strato (via, forma, unità di massa).`,
       value_label: `${compactEur(row.substitution_headroom_eur)} margine (limite superiore)`,
-      href: "/dashboard-review/revisione-pillar-b",
+      href: stratumHref(organizationCode),
       severity: row.substitution_headroom_eur >= 100000 ? "high" as const : "medium" as const,
     }));
 
@@ -1231,6 +1244,7 @@ export async function getReviewWorkspaceData(): Promise<ReviewWorkspaceData> {
     // `facts`, not `current`, for the same reason as in getSpendDashboardData.
     biosimilarRows: organizationBiosimilarRows(facts, latestYear, BIOSIMILAR_BUILD_OPTIONS),
     organizationLabels: (await getCoreScope())?.aslLabels ?? {},
+    stratumHref: await stratumHrefFor(),
     unresolvedRecordCount: current.filter(isUnresolved).length,
     currentRecordCount: current.length,
     uploads,

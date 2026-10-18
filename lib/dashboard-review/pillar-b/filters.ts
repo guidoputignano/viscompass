@@ -190,6 +190,23 @@ export function channelsArg(state: PillarBFilters): string[] | null {
  * ("asl-1"), and the server maps it back. Keys are unique within the list;
  * a collision falls back to a positional key, never to the code.
  */
+/**
+ * A link to the Pillar B per-stratum unit-cost panel for one Azienda, keyed
+ * exactly as the page keys its own Azienda filter (aziendaKeys over the same
+ * narrowable list and the same real-names rule), so a reviewer gets the org
+ * code and a pseudonymised viewer gets the opaque key it already uses. With
+ * nothing to narrow (an Azienda account) or no match, the link opens the panel
+ * without a selection and the page asks for one where needed.
+ */
+export function stratumCostHref(
+  narrowable: ReadonlyArray<{ orgCode: string; aslCode: string; label: string }>, realNames: boolean, aslCode: string,
+): string {
+  const base = "/dashboard-review/revisione-pillar-b";
+  const org = narrowable.find((o) => o.aslCode === aslCode);
+  const key = org ? aziendaKeys(narrowable, realNames).get(org.orgCode) : undefined;
+  return key ? `${base}?ambito=${encodeURIComponent(key)}#costo-per-strato` : `${base}#costo-per-strato`;
+}
+
 export function aziendaKeys(
   orgs: ReadonlyArray<{ orgCode: string; label: string }>, realNames: boolean,
 ): Map<string, string> {

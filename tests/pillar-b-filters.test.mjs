@@ -374,3 +374,20 @@ test("the volume panel receives shares and labels, never the summed quantities",
   assert.equal(slim[0].windowShare, 0.5);
   assert.equal(JSON.stringify(slim).includes('"total"'), false);
 });
+
+test("stratumCostHref keys the Azienda exactly as the Pillar B page does", async () => {
+  const { stratumCostHref, aziendaKeys } = await import("../lib/dashboard-review/pillar-b/filters.ts");
+  const orgs = [
+    { orgCode: "201", aslCode: "130201", label: "ASL Avezzano-Sulmona-L'Aquila" },
+    { orgCode: "202", aslCode: "130202", label: "ASL 2" },
+  ];
+  // Reviewer (real names): the org code.
+  assert.equal(stratumCostHref(orgs, true, "130201"), "/dashboard-review/revisione-pillar-b?ambito=201#costo-per-strato");
+  // Pseudonymised viewer: the same opaque key the page's filter uses, never the org code.
+  const key = aziendaKeys(orgs, false).get("202");
+  assert.equal(stratumCostHref(orgs, false, "130202"), `/dashboard-review/revisione-pillar-b?ambito=${encodeURIComponent(key)}#costo-per-strato`);
+  assert.doesNotMatch(stratumCostHref(orgs, false, "130202"), /ambito=202\b/);
+  // Nothing to narrow, or an unknown code: the panel without a selection.
+  assert.equal(stratumCostHref([], true, "130201"), "/dashboard-review/revisione-pillar-b#costo-per-strato");
+  assert.equal(stratumCostHref(orgs, true, "999999"), "/dashboard-review/revisione-pillar-b#costo-per-strato");
+});
