@@ -22,6 +22,8 @@ No existing shared task table exists. This release therefore provides an **in-pa
 
 A durable team workflow remains a separate implementation: organization-scoped cases, validated assignees, evidence references, audit history, server-enforced transitions and role/operational tests. Existing request/upload/objective tables are not repurposed to simulate these contracts.
 
+> Note added 2026-10-19: the two paragraphs above describe this delivery as of 2026-10-18 and are left unchanged. A separate change adds a shared, server-side review queue for the fixed initial attribution priority (2025, regional aggregate, all channels). It has owners, evidence documents, decisions, follow-up and an append-only history. See `docs/PILLAR_C_EVIDENCE_WORKFLOW_20261019.md`. The dossier's in-page review plan described here is unchanged: it still stores nothing and is not connected to that queue.
+
 ## Data and access
 
 New immutable aggregates are generated from the existing frozen ledger/classification and product dictionary outside this public checkout, at `outputs/pillar-c/portfolio-dashboard-20261018/`. An independent exact-Decimal implementation checks original workbook cost literals, every scope/portfolio, monthly and product groups, conditional bounds and chronological bridges. Private values and receipts must never be committed here.

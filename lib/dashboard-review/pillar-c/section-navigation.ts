@@ -10,8 +10,14 @@ export const PILLAR_C_SECTIONS = [
   { id: "evidenza", number: "06", label: "Evidenza", description: "Fonti e metodo" },
 ] as const;
 
-export type PillarCSectionId = CWorkbookSectionId | "portafogli";
-export const PILLAR_C_ALL_SECTIONS = [{id:"portafogli" as const,label:"Dossier",description:"Portafogli e prossimi passi",number:""},...C_WORKBOOK_SECTIONS.map(([id, label, description], i) => ({ id, label, description, number: String(i + 1).padStart(2, "0") }))];
+export type PillarCSectionId = CWorkbookSectionId | "portafogli" | "evidence-workflow";
+export type PillarCNavSection = { id: PillarCSectionId; label: string; description: string; number: string };
+/** Workbook sections keep their 01–14 numbers. The two working areas, the dossier and the shared
+ * review queue, are unnumbered; the queue follows Priorità, whose review questions it turns into cases. */
+export const PILLAR_C_ALL_SECTIONS: readonly PillarCNavSection[] = [{id:"portafogli",label:"Dossier",description:"Portafogli e prossimi passi",number:""},...C_WORKBOOK_SECTIONS.flatMap(([id, label, description], i): PillarCNavSection[] => {
+  const section = { id, label, description, number: String(i + 1).padStart(2, "0") };
+  return id === "priorita" ? [section, { id: "evidence-workflow", label: "Verifiche", description: "Coda condivisa 2025", number: "" }] : [section];
+})];
 
 /** The last section above the reading line, including long sections. Near the
  * document end the final short section must still be able to become current. */
