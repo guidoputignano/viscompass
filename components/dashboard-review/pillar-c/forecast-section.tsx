@@ -191,9 +191,8 @@ export function PillarCForecastPanel({ forecast, series, onSeries, published = f
     <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm font-medium">Base, metodo e limiti della previsione</summary>
       <dl className="mt-4 space-y-3 text-xs leading-5">
         {[["Ambito", `Regione ${forecast.region} · dati pubblici, nessun dato aziendale`], ["Base della spesa", labels.base], ["Metodo", labels.method], ["Limiti", labels.caveats], ["Serie osservata", `${labels.observed}. ${labels.observedNote}`], ["Totale annuo", labels.annualType], ["Nota", labels.note], ["Stato", published ? `${labels.tier} · previsione regionale pubblicata` : `${labels.tier} · in revisione, accettazione in attesa`]].map(([term, detail]) => <div key={term}><dt className="font-semibold">{term}</dt><dd className="mt-1 text-muted-foreground">{typeset(detail)}</dd></div>)}
+        <div><dt className="font-semibold">Fonte e licenza</dt><dd className="mt-1 text-muted-foreground"><span>{labels.attribution}</span> <a href={LICENCE_URL} target="_blank" rel="license noopener noreferrer" className={linkClass}>Licenza</a> · <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>Dati e documentazione AIFA</a></dd></div>
       </dl>
     </details>
-    {/* The packet's attribution names the source, the licence and the modification; the links complete CC BY 4.0 §3(a)(1). */}
-    <p className="text-[11px] leading-5 text-muted-foreground"><span>{labels.attribution}</span> <a href={LICENCE_URL} target="_blank" rel="license noopener noreferrer" className={linkClass}>Licenza</a> · <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>Dati e documentazione AIFA</a></p>
   </div>;
 }

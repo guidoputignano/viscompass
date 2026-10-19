@@ -472,10 +472,15 @@ test('forecast copy: reasons read as conditions not met; the C reason keeps its 
   assert.match(forecastSource, /\{`\$\{view\.label\}: nessuna previsione mostrata\.\$\{view\.admission\?\.rejection \?/, 'the fallback does not repeat «non ammessa»');
 });
 
-test('forecast copy: the CC BY 4.0 attribution links the licence and the AIFA source page, and names the licence once', () => {
+test('forecast copy: source attribution is inside collapsed methodology details, never a standalone footnote', () => {
   assert.ok(forecastSource.includes('const LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/deed.it";'));
   assert.ok(forecastSource.includes('const SOURCE_URL = "https://www.aifa.gov.it/it/spesa-e-consumo-relativi-al-flusso-della-farmaceutica-convenzionata-e-degli-acquisti-diretti";'));
-  assert.match(panelJsx, /<span>\{labels\.attribution\}<\/span> <a href=\{LICENCE_URL\} target="_blank" rel="license noopener noreferrer" className=\{linkClass\}>Licenza<\/a> · <a href=\{SOURCE_URL\} target="_blank" rel="noopener noreferrer" className=\{linkClass\}>Dati e documentazione AIFA<\/a>/);
+  const methodology = panelJsx.match(/<details\b[^>]*><summary\b[^>]*>Base, metodo e limiti della previsione<\/summary>[\s\S]*?<\/details>/)?.[0];
+  assert.ok(methodology, 'the existing methodology disclosure is present');
+  assert.doesNotMatch(methodology.slice(0, methodology.indexOf('>')), /\bopen\b/, 'source details start collapsed');
+  assert.match(methodology, /<dt className="font-semibold">Fonte e licenza<\/dt>/);
+  assert.match(methodology, /<span>\{labels\.attribution\}<\/span> <a href=\{LICENCE_URL\} target="_blank" rel="license noopener noreferrer" className=\{linkClass\}>Licenza<\/a> · <a href=\{SOURCE_URL\} target="_blank" rel="noopener noreferrer" className=\{linkClass\}>Dati e documentazione AIFA<\/a>/);
+  assert.doesNotMatch(panelJsx.replace(methodology, ''), /labels\.attribution|href=\{LICENCE_URL\}|href=\{SOURCE_URL\}/, 'no source footnote outside the disclosure');
   assert.doesNotMatch(panelJsx, /Licenza \$\{labels\.licence\}/, 'the packet attribution already says «CC BY 4.0»');
 });
 
