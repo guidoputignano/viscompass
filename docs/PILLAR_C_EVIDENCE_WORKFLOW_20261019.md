@@ -84,3 +84,21 @@ Opening a case scrolls to it and moves keyboard focus to its title. After each s
 ## Status
 
 The database migration `supabase/migrations/20261019120000_pillar_c_evidence_workflow.sql` must be applied before the queue can be used. It also creates the private storage bucket `pillar-c-evidence`. Until then, the section says that the shared queue is not available, and it presents nothing as a saved assignment.
+
+Applied to production on 2026-10-19, in the SQL editor, as one transaction. The file was hash-checked before running (SHA-256 `c3eb18f67004c874dd973717459e20d7e2c9a186de87ef5c2bb65f375975268d`).
+
+Verified read-only afterwards:
+
+- **Tables:** the three tables have row-level security enabled and forced, with no policies.
+- **Access:** anon and authenticated have no table privileges and cannot execute any `c_evidence_*` function. The service role can select and insert, and can update cases only. It cannot delete or truncate.
+- **Functions:** no function is SECURITY DEFINER.
+- **Triggers:** all nine are present.
+- **Bucket:** private, 4 MiB limit, PDF/CSV/TXT only, with no `storage.objects` policies.
+- **Data:** the tables start empty.
+
+On the live site:
+
+- **Queue:** for the reviewer, the queue lists 72 products, with 80.25% economic coverage of the pool and 72 distinct groups. It has no cases yet.
+- **Signed-out access:** requests to the API are redirected to the login page.
+
+The tests cover the refusal for an ordinary approved (non-reviewer) session, but it has not yet been checked live: that needs a test account. No write was made in production during verification, because cases are permanent by design.
