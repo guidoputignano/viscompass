@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import {
   ArrowLeft,
-  Building2,
   Check,
   Clock3,
   History,
@@ -625,11 +624,6 @@ export function AccessControlCenter({
           </section>
         )}
 
-        <div className="flex items-center gap-2 border-t border-border pt-5 text-xs text-muted-foreground">
-          <Building2 size={14} />
-          Tutte le decisioni sono limitate alle organizzazioni configurate in Supabase e vengono
-          registrate con identità e timestamp.
-        </div>
       </main>
     </div>
   );
