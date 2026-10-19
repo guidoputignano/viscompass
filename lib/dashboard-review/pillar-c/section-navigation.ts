@@ -10,8 +10,8 @@ export const PILLAR_C_SECTIONS = [
   { id: "evidenza", number: "06", label: "Evidenza", description: "Fonti e metodo" },
 ] as const;
 
-export type PillarCSectionId = CWorkbookSectionId;
-export const PILLAR_C_ALL_SECTIONS = C_WORKBOOK_SECTIONS.map(([id, label, description], i) => ({ id, label, description, number: String(i + 1).padStart(2, "0") }));
+export type PillarCSectionId = CWorkbookSectionId | "portafogli";
+export const PILLAR_C_ALL_SECTIONS = [{id:"portafogli" as const,label:"Dossier",description:"Portafogli e prossimi passi",number:""},...C_WORKBOOK_SECTIONS.map(([id, label, description], i) => ({ id, label, description, number: String(i + 1).padStart(2, "0") }))];
 
 /** The last section above the reading line, including long sections. Near the
  * document end the final short section must still be able to become current. */

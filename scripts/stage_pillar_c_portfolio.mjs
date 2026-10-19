@@ -70,5 +70,3 @@ async function worker(){
 await Promise.all([worker(),worker()]);
 await fs.writeFile(path.join(dir,'STORAGE_RECEIPT.json'),JSON.stringify(receipt,null,2));
 console.log(JSON.stringify({state:'PASS',objects:receipt.objects.length,private:true}));
-
-
