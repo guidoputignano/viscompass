@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowDownUp, Copy, RotateCcw, Wallet, FileCheck2, CalendarRange, ChartArea, ChartNoAxesCombined, BarChart3 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, Cell, CartesianGrid, LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -13,6 +13,7 @@ import { PillarCChangeBridge } from "@/components/dashboard-review/pillar-c/chan
 import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar-c/attribution-analysis";
 import { PillarCPortfolioDossier, PillarPurposeNavigation } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
+import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { cBudgetFilters, cBudgetSearch, cDecisionAnswer, cInsightResetSearch } from "@/lib/dashboard-review/pillar-c/insights";
 import type { CWorkbookIndex } from "@/lib/dashboard-review/pillar-c/workbook";
 import { itNumber } from "@/lib/format/it-number";
@@ -53,6 +54,8 @@ export function PillarCAnalyticalWorkspace({ packet, workbook }: { packet: CRevi
     setCopied(false);
   };
   const decision = cDecisionAnswer(packet, filters);
+  // The planning workspace receives only which Azienda|period|channel has a published departmental act: never a budget row or amount.
+  const publishedActs = useMemo(() => [...new Set(packet.budgets.filter(b => b.basis === "published" && b.level === "Dipartimento").map(b => `${b.org}|${b.period}|${b.channel}`))], [packet]);
   const update = (patch: Partial<CReviewFilters>, reset = false) => {
     window.history.pushState(null, "", `${window.location.pathname}${reset ? cInsightResetSearch(window.location.search) : cReviewSearch(window.location.search, patch)}${window.location.hash}`);
     setCopied(false);
@@ -77,6 +80,7 @@ export function PillarCAnalyticalWorkspace({ packet, workbook }: { packet: CRevi
     <PillarCSectionNavigation extended={Boolean(workbook)} />
     <PillarPurposeNavigation />
     <PillarCPortfolioDossier workbook={workbook}/>
+    <PillarCPlanningWorkspace publishedActs={publishedActs} evidenceAnchor={Boolean(workbook)}/>
     <section className="rounded-2xl border border-primary/20 bg-card p-5 md:p-6" aria-labelledby="c-decision-title"><p className="text-xs font-medium text-primary">La domanda di gestione</p><h2 id="c-decision-title" className="mt-1 text-xl font-semibold">Più persone trattate o prodotti più costosi?</h2><p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground">La spesa osservata e i prodotti che la compongono sono misurabili. I dati disponibili non contano le persone trattate: non possiamo attribuire la variazione a un aumento dei pazienti. Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.</p><div className="mt-5 grid gap-4 md:grid-cols-3"><div className="rounded-xl bg-secondary/40 p-4"><p className="text-xs text-muted-foreground">Variazione contabile</p><p className="mt-2 text-xl font-semibold">{decision.change === null ? "Non disponibile" : signed(decision.change)}</p><p className="mt-2 text-xs text-muted-foreground">{`${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}`}</p></div><div className="rounded-xl bg-secondary/40 p-4"><p className="text-xs text-muted-foreground">Contributo dei prodotti presenti nei due periodi</p><p className="mt-2 text-xl font-semibold">{decision.continuing === null ? "Non disponibile" : signed(decision.continuing)}</p><p className="mt-2 text-xs text-muted-foreground">Contributo alla variazione, non un effetto causale o clinico.</p></div><div className="rounded-xl bg-secondary/40 p-4"><p className="text-xs text-muted-foreground">Persone trattate osservate</p><p className="mt-2 text-xl font-semibold">Non disponibili</p><p className="mt-2 text-xs text-muted-foreground">Gli scenari CO stimano il denominatore; non misurano più persone trattate.</p></div></div><div className="mt-5 flex flex-wrap gap-3 text-sm"><a className="font-medium text-primary underline underline-offset-4" href="#attribuzione">Spesa condivisa fra aree</a><a className="font-medium text-primary underline underline-offset-4" href="#costi">Quantità, mix e costo</a><a className="font-medium text-primary underline underline-offset-4" href="#numerosita">Scenari di numerosità</a></div></section>
 
     <section aria-label="Ambito di revisione" className="rounded-2xl border border-border bg-card p-5 md:p-6"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.5fr_1fr_auto]">

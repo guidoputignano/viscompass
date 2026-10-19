@@ -6,7 +6,8 @@ import { createServerCache } from "@/lib/dashboard-review/pillar-b/server-cache"
 import { C_ATTR_STORAGE } from "@/lib/dashboard-review/pillar-c/attribution-storage";
 import { C_ATTR_CHANNELS, C_ATTR_ORGS, C_ATTR_PERIODS, cAttrScope, parseCAttrPacket, type CAttrChannel, type CAttrOrg, type CAttrPacket, type CAttrPeriod, type CAttrPortfolio, type CAttrScope } from "@/lib/dashboard-review/pillar-c/attribution";
 
-export type CAttrView = { schema: "pillar-c-attribution-view-v1"; sourceSha256: string; classificationSha256: string; mappingVersion: string; portfolios: CAttrPortfolio[]; scope: CAttrScope; comparison: CAttrScope | null };
+/** sourceSnapshot is the immutable shard index (C_ATTR_STORAGE.index) that exports bind to. */
+export type CAttrView = { schema: "pillar-c-attribution-view-v1"; sourceSha256: string; classificationSha256: string; mappingVersion: string; sourceSnapshot: string; portfolios: CAttrPortfolio[]; scope: CAttrScope; comparison: CAttrScope | null };
 type Config = { root?: string };
 type Ref = { name: string; sha256: string; bytes: number };
 type Index = Omit<CAttrPacket, "schema" | "scopes"> & { schema: "pillar-c-attribution-index-v1"; scopes: Record<string, Ref> };
@@ -61,6 +62,6 @@ export async function loadCAttrView(approved: boolean, reviewer: boolean, period
     const packet = parseCAttrPacket({...meta,schema:"pillar-c-attribution-v1",scopes});
     const selected = cAttrScope(packet,period,org,channel), comparison = cAttrScope(packet,other,org,channel);
     if (!selected || !comparison) throw Error("C_ATTR_SCOPE");
-    return {state:"ready",view:{schema:"pillar-c-attribution-view-v1",sourceSha256:packet.sourceSha256,classificationSha256:packet.classificationSha256,mappingVersion:packet.mappingVersion,portfolios:packet.portfolios,scope:selected,comparison}};
+    return {state:"ready",view:{schema:"pillar-c-attribution-view-v1",sourceSha256:packet.sourceSha256,classificationSha256:packet.classificationSha256,mappingVersion:packet.mappingVersion,sourceSnapshot:C_ATTR_STORAGE.index,portfolios:packet.portfolios,scope:selected,comparison}};
   } catch { return {state:"invalid"}; }
 }

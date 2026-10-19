@@ -1,6 +1,7 @@
 /** Presentation names and safe view models. Audit/formula plumbing stays internal. */
 import { type CWorkbookSectionId, type CWorkbookTable } from "@/lib/dashboard-review/pillar-c/workbook";
 import { cMoneyDifference, cReviewFilters, cReviewSearch, C_ORGS, C_ORG_LABELS, type CReviewFilters, type CReviewPacket } from "@/lib/dashboard-review/pillar-c/review";
+import { C_PLANNING_PARAMS } from "@/lib/dashboard-review/pillar-c/planning";
 
 export const C_INSIGHT_TITLES: Record<string, string> = {
   'O-09-04':'Qualità degli identificativi e classificazione ATC', 'O-09-05':'Rettifiche di spesa e quantità', 'O-09-06':'Copertura dei mesi osservati', 'O-09-07':'Spesa e rettifiche per periodo', 'O-09-08':'Prodotti distinti per ambito', 'O-10-01':'Quanto della spesa è attribuibile alle aree?', 'O-10-02':'Spesa per portafoglio terapeutico', 'O-10-03':'Spesa condivisa fra aree', 'O-10-04':'Aree esposte alla spesa condivisa', 'O-10-05':'Intervallo di attribuzione per area', 'O-10-06':'Quali evidenze risolvere per prime?', 'O-10-06/20':'Prodotti da approfondire', 'O-10-07':'Copertura della mappatura delle aree', 'O-10-08':'Quanto cambia usando una mappatura alternativa?',
@@ -83,6 +84,7 @@ export function cInsightResetSearch(search:string):string {
   params.delete('c_budget_org');params.delete('c_budget_channel');
   params.delete('c_attr_org');params.delete('c_attr_channel');params.delete('c_attr_period');
   for(const key of ['c_port_org','c_port_channel','c_port_period','c_port_id']) params.delete(key);
+  for(const key of C_PLANNING_PARAMS) params.delete(key);
   for(const key of [...params.keys()])if(key.startsWith('cw_'))params.delete(key);
   return params.size?`?${params}`:'';
 }

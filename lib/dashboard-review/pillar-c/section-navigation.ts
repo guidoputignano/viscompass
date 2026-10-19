@@ -10,11 +10,11 @@ export const PILLAR_C_SECTIONS = [
   { id: "evidenza", number: "06", label: "Evidenza", description: "Fonti e metodo" },
 ] as const;
 
-export type PillarCSectionId = CWorkbookSectionId | "portafogli" | "evidence-workflow";
+export type PillarCSectionId = CWorkbookSectionId | "portafogli" | "scenari" | "evidence-workflow";
 export type PillarCNavSection = { id: PillarCSectionId; label: string; description: string; number: string };
-/** Workbook sections keep their 01–14 numbers. The two working areas, the dossier and the shared
- * review queue, are unnumbered; the queue follows Priorità, whose review questions it turns into cases. */
-export const PILLAR_C_ALL_SECTIONS: readonly PillarCNavSection[] = [{id:"portafogli",label:"Dossier",description:"Portafogli e prossimi passi",number:""},...C_WORKBOOK_SECTIONS.flatMap(([id, label, description], i): PillarCNavSection[] => {
+/** Workbook sections keep their 01–14 numbers. The three working areas, the dossier, the planning workspace that
+ * follows it and the shared review queue, are unnumbered; the queue follows Priorità, whose review questions it turns into cases. */
+export const PILLAR_C_ALL_SECTIONS: readonly PillarCNavSection[] = [{id:"portafogli",label:"Dossier",description:"Portafogli e prossimi passi",number:""},{id:"scenari",label:"Scenari",description:"Ipotesi e intervalli per portafogli",number:""},...C_WORKBOOK_SECTIONS.flatMap(([id, label, description], i): PillarCNavSection[] => {
   const section = { id, label, description, number: String(i + 1).padStart(2, "0") };
   return id === "priorita" ? [section, { id: "evidence-workflow", label: "Verifiche", description: "Coda condivisa 2025", number: "" }] : [section];
 })];

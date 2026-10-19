@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, BriefcaseBusiness, ChartNoAxesCombined, ClipboardList, FileCheck2, Landmark, TrendingUp, UsersRound, WalletCards, ChartPie, Network, Scale, Layers, Activity, SlidersHorizontal, ListChecks, GitCompareArrows } from "lucide-react";
+import { ArrowUpRight, BriefcaseBusiness, ChartNoAxesCombined, ClipboardList, FileCheck2, GitBranch, Landmark, TrendingUp, UsersRound, WalletCards, ChartPie, Network, Scale, Layers, Activity, SlidersHorizontal, ListChecks, GitCompareArrows } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PILLAR_C_SECTIONS, PILLAR_C_ALL_SECTIONS, pillarCSectionAtViewport, type PillarCSectionId } from "@/lib/dashboard-review/pillar-c/section-navigation";
 
-const icons = { portafogli: BriefcaseBusiness, spesa: WalletCards, cambiamento: ChartNoAxesCombined, pianificazione: Landmark, numerosita: UsersRound, previsione: TrendingUp, evidenza: FileCheck2, composizione: ChartPie, attribuzione: Network, costi: Layers, confronti: Scale, attivita: Activity, tendenze: GitCompareArrows, sensibilita: SlidersHorizontal, priorita: ListChecks, "evidence-workflow": ClipboardList };
+const icons = { portafogli: BriefcaseBusiness, scenari: GitBranch, spesa: WalletCards, cambiamento: ChartNoAxesCombined, pianificazione: Landmark, numerosita: UsersRound, previsione: TrendingUp, evidenza: FileCheck2, composizione: ChartPie, attribuzione: Network, costi: Layers, confronti: Scale, attivita: Activity, tendenze: GitCompareArrows, sensibilita: SlidersHorizontal, priorita: ListChecks, "evidence-workflow": ClipboardList };
 
 export function PillarCSectionNavigation({ extended = false }: { extended?: boolean }) {
   const [active, setActive] = useState<PillarCSectionId>(extended ? "portafogli" : "spesa");
