@@ -424,11 +424,11 @@ test('forecast panel: every series-dependent value renders inside SeriesView; th
   const REGION = /<SeriesView series=\{series\}[^>]*>[\s\S]*?<\/SeriesView>/g;
   const regions = jsx.match(REGION) ?? [];
   assert.equal(regions.length, 2, 'the chart region and the exact table');
-  for (const expr of ['eur(annual.total)', 'range(annual.low80, annual.high80)', 'range(annual.low95, annual.high95)', '{axisUnit}', 'data={view.chart}', 'view.rows.map', 'eur(annual.monthlyPointsSum)']) {
+  for (const expr of ['eur(annual.total)', 'range(annual.low80, annual.high80)', 'range(annual.low95, annual.high95)', '{axisUnit}', 'data={view.chart}', 'view.rows.map', 'eur(annual.monthlyPointsSum)', 'decision.largestMonth', 'decision.delta', 'decision.observed2025Annual']) {
     assert.ok(regions.some(r => r.includes(expr)), expr);
   }
   const outside = jsx.replace(REGION, '');
-  assert.doesNotMatch(outside, /(?<![.\w])(view|annual|axisUnit|divisor|firstForecast|admitted)\b/,'nothing derived from the series is rendered outside the keyed regions');
+  assert.doesNotMatch(outside, /(?<![.\w])(view|annual|axisUnit|divisor|firstForecast|admitted|decision)\b/,'nothing derived from the series is rendered outside the keyed regions');
   assert.match(outside, /<LocalToggle label="Serie" value=\{series\}/);
   assert.ok(jsx.indexOf('<LocalToggle ') < jsx.indexOf('<SeriesView '), 'the selector is outside (before) the replaced region, so focus stays on it');
   assert.ok(outside.includes('{C_FORECAST_LABEL}') && outside.includes('Non è una previsione di un’Azienda, né un budget o un tetto di spesa.'));
@@ -442,12 +442,14 @@ test('forecast panel: every series-dependent value renders inside SeriesView; th
 const NB_SRC = String.fromCharCode(92) + 'u00a0';
 const panelJsx = forecastSource.slice(forecastSource.indexOf('  return <div className="space-y-5">'));
 
-test('forecast copy: the annual total is a supplementary regional forecast that follows the chart, never a headline figure', () => {
-  assert.ok(forecastSource.includes('{`Previsione regionale · totale annuo 2026 · ${annualScope}`}'));
+test('forecast copy: indicative annual figures and planning references follow the monthly chart without model jargon', () => {
+  assert.ok(forecastSource.includes('{`Stima annua indicativa 2026 · ${annualScope}`}'));
   assert.match(forecastSource, /const annualScope = series === "TOT" \? "tutte le classi" : view\.label;/, 'no «Totale … Totale (tutte le classi)»');
-  for (const level of ['80', '95']) assert.ok(forecastSource.includes(`Intervallo annuo ${level}${NB_SRC}% · supplementare, non sottoposto a backtest`), `${level} card qualifier`);
-  assert.ok(forecastSource.includes('Supplementare, non sottoposto a backtest'));
-  assert.ok(panelJsx.indexOf('</figure>') < panelJsx.indexOf('totale annuo 2026'), 'the monthly chart comes first');
+  for (const level of ['80', '95']) assert.ok(forecastSource.includes(`Fascia annua indicativa · ${level}${NB_SRC}%`), `${level} card qualifier`);
+  assert.ok(forecastSource.includes('Intervallo di previsione, non limite garantito'));
+  assert.ok(forecastSource.includes('Il riepilogo annuo e le sue fasce non hanno una verifica storica dedicata.'), 'annual evidence limit stays understandable without diagnostics');
+  assert.ok(panelJsx.indexOf('</figure>') < panelJsx.indexOf('Stima annua indicativa 2026'), 'the monthly chart comes first');
+  assert.ok(panelJsx.includes('In breve · riferimenti per la pianificazione') && panelJsx.includes('Mese con maggiore spesa prevista'));
   assert.doesNotMatch(panelJsx.slice(panelJsx.indexOf('<article')), /bg-primary\/5 p-4/, 'no accent card inside the panel');
   assert.ok(forecastSource.includes('{`Previsione regionale mensile 2026 e osservato 2025 · ${view.label}`}'), 'table caption says «regionale»');
   assert.match(forecastSource, /<h3 className="text-base font-semibold">Previsione regionale mensile 2026 e osservato 2025<\/h3>/);
@@ -455,28 +457,29 @@ test('forecast copy: the annual total is a supplementary regional forecast that 
 
 test('forecast copy: observed 2025 is provisional and sums valued rows only; the forecast is ex ante; nothing implies a class C forecast', () => {
   const outside = panelJsx.replace(/<SeriesView series=\{series\}[^>]*>[\s\S]*?<\/SeriesView>/g, '');
-  assert.ok(outside.includes('Osservato 2025 = somma delle sole righe con spesa valorizzata, senza stima delle righe vuote; la previsione 2026 riguarda la stessa base. ${typeset(labels.observedNote)}'), 'the valued-rows note and the packet note (snapshot date, missing never zero) are visible');
+  assert.ok(outside.includes('Osservato 2025 provvisorio: sono sommati solo gli importi valorizzati, senza sostituire i dati mancanti con zero.'), 'provisional observed values and missing-never-zero remain visible');
   assert.ok(forecastSource.includes('<span>Osservato 2025 (provvisorio)</span>') && forecastSource.includes('"Osservato 2025 (provvisorio)"'), 'legend and table header');
   assert.match(forecastSource, /\["Righe valorizzate", row\.rows \? `\$\{itNumber\(row\.rows\.valued\)\} di \$\{itNumber\(row\.rows\.source\)\}`/, 'the 2025 tooltip gives the valued rows');
   assert.ok(forecastSource.includes('Previsione formulata con dati fino a dicembre 2025; non include dati osservati del 2026.'));
-  assert.ok(outside.includes('Classe C non ammessa: nessuna previsione (vedi «Ammissione delle serie»). La differenza fra il totale e le classi A e H non è una previsione della classe C.'));
-  assert.ok(outside.indexOf('<LocalToggle ') < outside.indexOf('Classe C non ammessa'), 'the C line sits right after the selector');
+  assert.ok(outside.includes('Non è disponibile una previsione per la classe C; non si ricava sottraendo A e H dal totale.'));
+  assert.ok(outside.indexOf('<LocalToggle ') < outside.indexOf('Non è disponibile una previsione per la classe C'), 'the C line sits right after the selector');
 });
 
-test('forecast copy: reasons read as conditions not met; the C reason keeps its registered text; reason codes are not rendered', () => {
-  assert.doesNotMatch(forecastSource, /registeredReasons/, 'raw codes such as «ETS_AAA · primaria: non superate c_copertura80» never reach the page');
-  assert.doesNotMatch(forecastSource, /non superat/);
-  assert.match(forecastSource, /return `\$\{conditions\.length > 1 \? "condizioni non soddisfatte" : "condizione non soddisfatta"\}: \$\{conditions\.join\(" · "\)\}`;/);
-  assert.match(forecastSource, /if \(a\.decision === "RIFIUTATA"\) return typeset\(`Motivo del rifiuto \(registrato\): \$\{a\.rejection\?\.reason \?\? "non disponibile"\}`\);/);
-  assert.ok(panelJsx.includes('{admissionNote(a, labels)}') && !panelJsx.includes('Motivazione: ${admissionNote'), 'no «Motivazione: non ammessa: …»');
-  assert.match(forecastSource, /\{`\$\{view\.label\}: nessuna previsione mostrata\.\$\{view\.admission\?\.rejection \?/, 'the fallback does not repeat «non ammessa»');
+test('forecast copy: diagnostics stay internal while the decision summary retains admission and incomplete-data guards', () => {
+  assert.doesNotMatch(panelJsx, /MASE|Winkler|ARIMA|ETS\(|backtest|Ammissione delle serie|Metriche di ammissione|Base, metodo e limiti/);
+  assert.doesNotMatch(panelJsx, /labels\.(models|variants|conditions|method|caveats|reading|annualType)|forecast\.admission\.map|registeredReasons|\.rejection/);
+  assert.match(forecastSource, /const decision = cForecastDecision\(forecast, series\)/);
+  assert.match(forecastSource, /const admitted = decision !== null && annual !== null/);
+  assert.match(panelJsx, /decision\.delta !== null/);
+  assert.ok(panelJsx.includes('Base 2025 incompleta: nessuna variazione annua pubblicata.'));
+  assert.ok(panelJsx.includes('previsione non disponibile per questa selezione.'));
 });
 
-test('forecast copy: source attribution is inside collapsed methodology details, never a standalone footnote', () => {
+test('forecast copy: source attribution is inside collapsed data-and-scope details without modelling content', () => {
   assert.ok(forecastSource.includes('const LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/deed.it";'));
   assert.ok(forecastSource.includes('const SOURCE_URL = "https://www.aifa.gov.it/it/spesa-e-consumo-relativi-al-flusso-della-farmaceutica-convenzionata-e-degli-acquisti-diretti";'));
-  const methodology = panelJsx.match(/<details\b[^>]*><summary\b[^>]*>Base, metodo e limiti della previsione<\/summary>[\s\S]*?<\/details>/)?.[0];
-  assert.ok(methodology, 'the existing methodology disclosure is present');
+  const methodology = panelJsx.match(/<details\b[^>]*><summary\b[^>]*>Dati e ambito della previsione<\/summary>[\s\S]*?<\/details>/)?.[0];
+  assert.ok(methodology, 'the data-and-scope disclosure is present');
   assert.doesNotMatch(methodology.slice(0, methodology.indexOf('>')), /\bopen\b/, 'source details start collapsed');
   assert.match(methodology, /<dt className="font-semibold">Fonte e licenza<\/dt>/);
   assert.match(methodology, /<span>\{labels\.attribution\}<\/span> <a href=\{LICENCE_URL\} target="_blank" rel="license noopener noreferrer" className=\{linkClass\}>Licenza<\/a> · <a href=\{SOURCE_URL\} target="_blank" rel="noopener noreferrer" className=\{linkClass\}>Dati e documentazione AIFA<\/a>/);
@@ -491,7 +494,7 @@ test('forecast copy: a number and its «%» never wrap apart in either component
     assert.equal(source.includes(String.fromCharCode(0xa0)), false, `${file}: the no-break space is written as its escape, never as an invisible character`);
   }
   assert.ok(forecastSource.includes(`const typeset = (text: string) => text.replace(/(\\d) %/g, "$1${NB_SRC}%");`));
-  for (const expr of ['typeset(labels.reading)', 'typeset(labels.observedNote)', 'typeset(detail)', 'typeset(`Valori registrati']) assert.ok(forecastSource.includes(expr), expr);
+  assert.ok(forecastSource.includes('typeset(detail)'), 'packet data notes are typeset when displayed');
 });
 
 test('forecast chart: band opacities rise on the dark card, the legend reads the same values, and a halo separates the point line', () => {

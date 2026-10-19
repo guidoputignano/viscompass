@@ -1,5 +1,5 @@
 /** Presentation names and safe view models. Audit/formula plumbing stays internal. */
-import { type CWorkbookSectionId, type CWorkbookTable } from "@/lib/dashboard-review/pillar-c/workbook";
+import { type CWorkbookOutput, type CWorkbookSectionId, type CWorkbookTable } from "@/lib/dashboard-review/pillar-c/workbook";
 import { cMoneyDifference, cReviewFilters, cReviewSearch, C_ORGS, C_ORG_LABELS, type CReviewFilters, type CReviewPacket } from "@/lib/dashboard-review/pillar-c/review";
 import { C_PLANNING_PARAMS } from "@/lib/dashboard-review/pillar-c/planning";
 
@@ -13,9 +13,23 @@ export const C_INSIGHT_TITLES: Record<string, string> = {
 };
 export const C_INSIGHT_DEFAULTS: Record<CWorkbookSectionId,string> = {spesa:'O-10-02',composizione:'O-11-02',attribuzione:'O-10-03',cambiamento:'O-12-04',costi:'ML-4-REAL',confronti:'O-14-03',attivita:'PUB-04',pianificazione:'PUB-09-v2',numerosita:'ML-3-SENS',tendenze:'O-17-01',previsione:'O-18-04',sensibilita:'PC-19/SG',priorita:'PC-20',evidenza:'O-03-03'};
 
+// Admission and model-scoring records stay in the immutable verification dossier.
+// The typed regional panel already presents ML-5-FC's monthly/annual results;
+// duplicating its raw snapshot would expose audit rows and an unguarded change.
+// No workbook evidence is altered by this presentation policy.
+const FORECAST_DOSSIER_ONLY_OUTPUTS = new Set(['O-18-02', 'O-18-03', 'ML-5-ADM', 'ML-5-FC']);
+export function cInsightDecisionOutputs(outputs: readonly CWorkbookOutput[], section: CWorkbookSectionId): CWorkbookOutput[] {
+  return outputs.filter(o => o.section === section && o.availability === 'snapshot' && !FORECAST_DOSSIER_ONLY_OUTPUTS.has(o.id));
+}
+
 export function cInsightText(value: string): string {
   if (/^\s*[=+@](?:[A-Z]+\d|(?:SUM|IF|ROUND|VLOOKUP|SUMIFS)\s*\()/i.test(value)) return 'Dettaglio di calcolo riservato al dossier';
   return value.replace(/Degenza media ricalcolata\s*=\s*giornate\s*÷\s*dimessi/gi,'Degenza media (giorni)')
+    .replace(/^Pendenza \(€\/mese\)$/,'Variazione tendenziale (€/mese)')
+    .replace(/^SC-0 come 2025 \(€\)$/,'Scenario invariato (€)')
+    .replace(/^SC-1 × rapporto Gen–Mag \(€\)$/,'Scenario di continuità (€)')
+    .replace(/^SC-L × rapporto minimo \(€\)$/,'Scenario basso (€)')
+    .replace(/^SC-H × rapporto massimo \(€\)$/,'Scenario alto (€)')
     .replace(/Sensibilità F\s*=\s*1:\s*/gi,'Scenario alternativo · ')
     .replace(/Δ R − O in formula/gi,'Differenza fra fonti contabili')
     .replace(/\b(20\d{2})\s*=\s*100\b/g,'base $1')
@@ -31,10 +45,15 @@ export function cInsightText(value: string): string {
     .replace(/\bAQ\b/g,'ASL 1').replace(/\bCH\b/g,'ASL 2').replace(/\bPE\b/g,'ASL 3').replace(/\bTE\b/g,'ASL 4')
     .replace(/\s+·\s+·\s+/g,' · ').replace(/\s{2,}/g,' ').replace(/^\s*[·:;,–-]+\s*|\s*[·:;,–-]+\s*$/g,'').trim();
 }
-export function cInsightVisibleColumns(table:CWorkbookTable) {
+export function cInsightVisibleColumns(table:CWorkbookTable, output?:string) {
   // Hide audit plumbing, not financial totals or materiality merely because
   // their source heading mentions a sum/formula. Those results keep their values.
-  return table.columns.flatMap((h,c)=>/crit\.|residu[io]|riconciliazione|F_Fatti|∈|\bcoerenza\b|^parametri$|^esito \(|^controllo:|^requisito a h/i.test(h)?[]:[c]);
+  return table.columns.flatMap((h,c)=>{
+    if (/crit\.|residu[io]|riconciliazione|F_Fatti|∈|\bcoerenza\b|^parametri$|^esito \(|^controllo:|^requisito a h/i.test(h)) return [];
+    if (output === 'O-18-04' && /^(?:Σ 7 mesi arrotondati SC-0|Differenza di arrotondamento SC-0)/.test(h)) return [];
+    if (output === 'O-17-05' && /^(?:Pendenza sui 24 mesi|Pendenza winsorizzata|Stabilità del segno)/.test(h)) return [];
+    return [c];
+  });
 }
 export function cInsightCellText(value:string):string {
   if (/^(?:=|SUM\(|SUMIFS\(|IF\(|ROUND\()/i.test(value.trim()) || /[∈∪]|\bSUMSQ\b|\bSUMIFS\b|\$[A-Z]+\$?\d/.test(value)) return 'Dettaglio metodologico';

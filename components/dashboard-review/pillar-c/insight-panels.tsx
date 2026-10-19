@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftRight, BarChart3, ChartArea, ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleDot, Grid3X3, MoveHorizontal, Search, Waypoints } from 'lucide-react';
 import { C_WORKBOOK_SECTIONS, cWorkbookAxisLabel, cWorkbookLabel, cWorkbookMetricUnits, cWorkbookNumber, cWorkbookRaw, cWorkbookRows, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection, type CWorkbookSectionId, type CWorkbookTable } from '@/lib/dashboard-review/pillar-c/workbook';
-import { C_INSIGHT_DEFAULTS, C_INSIGHT_TITLES, cInsightBlockName, cInsightCellText, cInsightScope, cInsightText, cInsightVisibleColumns } from '@/lib/dashboard-review/pillar-c/insights';
+import { C_INSIGHT_DEFAULTS, C_INSIGHT_TITLES, cInsightBlockName, cInsightCellText, cInsightDecisionOutputs, cInsightScope, cInsightText, cInsightVisibleColumns } from '@/lib/dashboard-review/pillar-c/insights';
 import { C_INSIGHT_CHARTS, cInsightChartOptions, cInsightComparable, cInsightDefaultChart, cInsightIntervals, cInsightMatrixColumns, cInsightPoints, cInsightPreferredComparison, cInsightPreferredMetric, type CInsightChart } from '@/lib/dashboard-review/pillar-c/insight-charts';
 import { PillarCInsightChart } from './insight-chart';
 import { itNumber } from '@/lib/format/it-number';
@@ -17,11 +17,11 @@ const questions:Partial<Record<CWorkbookSectionId,[string,string]>>={
   costi:['Quanto pesano quantità, mix e costo dei prodotti?','Scomposizione descrittiva sui soli confronti ammessi. Le unità imputate rimangono una vista separata.'],
   confronti:['Le differenze rimangono dopo aver considerato il mix?','Confronti nei perimetri supportati e compatibilità delle fonti.'],
   attivita:['Qual è il contesto demografico e ospedaliero?','Fonti pubbliche con anno, territorio e unità propri. Non sono conteggi di persone trattate.'],
-  tendenze:['Quali andamenti meritano un approfondimento?','Andamenti e stime ammessi; i segnali non revisionati restano esclusi.'],
+  tendenze:['Quali andamenti meritano un approfondimento?','Evoluzione mensile della spesa e variazioni tendenziali.'],
   sensibilita:['Quanto dipende il risultato dalle ipotesi?','Alternative registrate alla classificazione e alle assunzioni.'],
   priorita:['Che cosa approfondire prima?','Questioni organizzative, ruolo proposto e indicatore di follow-up.'],
 };
-const familyTitles:Partial<Record<CWorkbookSectionId,string>>={spesa:'Dettaglio della spesa',cambiamento:'Prodotti e classi che spiegano il cambiamento',pianificazione:'Budget, allocazione e copertura',numerosita:'Confronta le ipotesi di numerosità',previsione:'Scenari e affidabilità',evidenza:'Fonti e qualità dei dati'};
+const familyTitles:Partial<Record<CWorkbookSectionId,string>>={spesa:'Dettaglio della spesa',cambiamento:'Prodotti e classi che spiegano il cambiamento',pianificazione:'Budget, allocazione e copertura',numerosita:'Confronta le ipotesi di numerosità',previsione:'Scenari di spesa',evidenza:'Fonti e qualità dei dati'};
 
 const InsightRequests = createContext<Map<string,Promise<CWorkbookSection>>|null>(null);
 /** Page-local only: a new authenticated workspace never inherits another session's data. */
@@ -61,7 +61,7 @@ function humanColumn(raw:string) {
 }
 
 function InsightView({table,formats,output,section}:{table:CWorkbookTable;formats:Record<string,string>;output:string;section:CWorkbookSectionId}) {
-  const visible=useMemo(()=>cInsightVisibleColumns(table),[table]);
+  const visible=useMemo(()=>cInsightVisibleColumns(table,output),[table,output]);
   const metrics=table.numericColumns.filter(c=>visible.includes(c));
   const [metric,setMetric]=useState(()=>cInsightPreferredMetric(table,output,visible));
   const [compare,setCompare]=useState(-2),[query,setQuery]=useState(''),[facets,setFacets]=useState<Record<number,string>>({}),[page,setPage]=useState(0);
@@ -137,7 +137,7 @@ function InsightView({table,formats,output,section}:{table:CWorkbookTable;format
 }
 
 export function PillarCInsightsPanel({index,section,featured=false}:{index:CWorkbookIndex;section:CWorkbookSectionId;featured?:boolean}) {
-  const root=useRef<HTMLDivElement>(null),definitions=index.outputs.filter(o=>o.section===section&&o.availability==='snapshot');
+  const root=useRef<HTMLDivElement>(null),definitions=cInsightDecisionOutputs(index.outputs,section);
   const preferred=featured?'O-10-03':C_INSIGHT_DEFAULTS[section];
   const [selected,setSelected]=useState(definitions.find(o=>o.id===preferred)?.id??definitions[0]?.id),[block,setBlock]=useState(0);
   const {data,failed,retry}=useInsightData(index,section,root),definition=definitions.find(o=>o.id===selected)??definitions[0],output=data?.outputs.find(o=>o.id===definition?.id),table=output?.tables[block]??output?.tables[0];
@@ -146,6 +146,7 @@ export function PillarCInsightsPanel({index,section,featured=false}:{index:CWork
   return <article ref={root} className={`min-w-0 rounded-2xl border bg-card p-5 shadow-sm md:p-6 ${featured?'border-primary/25':'border-border'}`}>
     <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-medium text-primary">{featured?'Attribuzione della spesa':familyTitles[section]??C_WORKBOOK_SECTIONS.find(s=>s[0]===section)?.[1]}</p><h3 className="mt-1 text-lg font-semibold">{C_INSIGHT_TITLES[definition.id]??'Approfondimento'}</h3></div>{modelled&&<span className="rounded-full bg-secondary px-3 py-1 text-xs">Dati sintetici · scenario</span>}</div>
     {featured&&<p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Questi importi riguardano prodotti compatibili con più portafogli terapeutici. Non possono essere assegnati integralmente a ciascuna area né identificano il reparto che li ha utilizzati.</p>}
+    {definition.id==='O-18-04'&&<p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Scenari ipotetici di spesa per giugno–dicembre 2026: continuità rispetto al 2025 oppure prosecuzione delle variazioni osservate da gennaio a maggio. I valori bassi e alti descrivono queste ipotesi, non probabilità né previsioni aziendali.</p>}
     {!featured&&definitions.length>1&&<label className="mt-4 block max-w-3xl text-xs font-medium">Approfondimento<select className={select} value={definition.id} onChange={e=>{setSelected(e.target.value);setBlock(0);}}>{definitions.map(o=><option key={o.id} value={o.id}>{C_INSIGHT_TITLES[o.id]??'Approfondimento'}</option>)}</select></label>}
     {!data?<div role="status" className="mt-5 min-h-24 rounded-xl bg-secondary/30 p-4 text-sm text-muted-foreground">{failed?<><p>Il risultato non è disponibile in questo momento.</p><button className={`${action} mt-3`} onClick={retry}>Riprova</button></>:'Caricamento dell’analisi…'}</div>:output&&<>
       {output.tables.length>1&&<label className="mt-4 block max-w-3xl text-xs font-medium">Vista<select className={select} value={block} onChange={e=>setBlock(Number(e.target.value))}>{output.tables.map((t,i)=><option key={i} value={i}>{cInsightBlockName(t,i)}</option>)}</select></label>}

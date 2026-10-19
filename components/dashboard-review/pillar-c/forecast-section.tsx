@@ -1,15 +1,14 @@
 "use client";
 
-// Regional public-data forecast (AIFA tracciabilità). Not an Azienda forecast,
-// budget, ceiling or clinical estimate; its acceptance is pending. Every value
-// comes from the validated forecast section of the review packet: nothing is
-// estimated, extended or summed here, except the chart's Number coordinates.
+// Decision-facing regional forecast. Validation and model diagnostics stay in
+// the evidence packet, not in the dashboard. Forecast amounts are unchanged.
 
 import { useId } from "react";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { LocalToggle } from "@/components/dashboard-review/pillar-b-local-toggle";
 import { itNumber } from "@/lib/format/it-number";
-import { C_FORECAST_LABEL, C_FORECAST_SELECTABLE, cMoneyLabel, selectCForecast, type CForecast, type CForecastAdmission, type CForecastChartRow, type CForecastSelectable, type CForecastSeries } from "@/lib/dashboard-review/pillar-c/review";
+import { C_FORECAST_LABEL, C_FORECAST_SELECTABLE, cMoneyLabel, selectCForecast, type CForecast, type CForecastChartRow, type CForecastSelectable, type CForecastSeries } from "@/lib/dashboard-review/pillar-c/review";
+import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-decision";
 
 const eur = cMoneyLabel;
 const range = (low: string | null, high: string | null) => `${eur(low)} – ${eur(high)}`;
@@ -31,9 +30,6 @@ const BAND_FILL = "[&_.fc-band-95_.recharts-area-area]:[fill-opacity:var(--fc-ba
 const LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/deed.it";
 const SOURCE_URL = "https://www.aifa.gov.it/it/spesa-e-consumo-relativi-al-flusso-della-farmaceutica-convenzionata-e-degli-acquisti-diretti";
 const linkClass = "font-medium text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
-// Admission metrics are registered decimals; Number is used for reading them, never for a decision.
-const decimal = (value: string) => itNumber(Number(value), { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-const whole = (value: string) => itNumber(Number(value), { maximumFractionDigits: 0 });
 // Quarterly axis ticks; January carries its year. Years are printed raw, never through a number formatter.
 const axisLabel = (row: Pick<CForecastChartRow, "month" | "year">) => row.month === 1 ? String(row.year) : monthShort[row.month - 1];
 
@@ -54,23 +50,12 @@ function ForecastTooltip({ row }: { row?: CForecastChartRow }) {
   return <div key={row.key} style={tooltipStyle} className="px-3 py-2 text-xs shadow-sm"><p className="font-semibold">{`${monthLong[row.month - 1]} ${String(row.year)}`}</p>{lines.map(([label, value]) => <p key={label} className="mt-1 tabular-nums">{`${label}: ${value}`}</p>)}</div>;
 }
 
-/** «condizione non soddisfatta: …» or, for several, «condizioni non soddisfatte: … · …». */
-function unmet(conditions: string[]): string {
-  return `${conditions.length > 1 ? "condizioni non soddisfatte" : "condizione non soddisfatta"}: ${conditions.join(" · ")}`;
-}
-
-function admissionNote(a: CForecastAdmission, labels: CForecast["labels"]): string {
-  // The registered rejection reason is shown verbatim, under its own lead.
-  if (a.decision === "RIFIUTATA") return typeset(`Motivo del rifiuto (registrato): ${a.rejection?.reason ?? "non disponibile"}`);
-  const others = a.variants.flatMap((v) => v.candidates.filter((c) => !c.admitted).map((c) => `${labels.models[c.candidate]}, ${labels.variants[v.variant]}: non ammesso (${unmet(c.failedConditions.map((k) => labels.conditions[k]))}).`));
-  return typeset(others.length ? `Motivazione: modello registrato ammesso in ogni variante. ${others.join(" ")}` : "Motivazione: modello registrato ammesso in ogni variante; anche il candidato alternativo supera le condizioni.");
-}
-
 export function PillarCForecastPanel({ forecast, series, onSeries, published = false }: { forecast: CForecast | undefined; series: CForecastSelectable; onSeries: (series: CForecastSelectable) => void; published?: boolean }) {
   const caption = useId();
   if (!forecast) return <p role="status" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">Il pacchetto di revisione caricato non contiene la previsione regionale. Nessun valore viene stimato o sostituito.</p>;
   const labels = forecast.labels, view = selectCForecast(forecast, series), annual = view.annual;
-  const admitted = view.admission?.decision === "AMMESSA" && annual !== null && view.rows.length === 12;
+  const decision = cForecastDecision(forecast, series);
+  const admitted = decision !== null && annual !== null;
   const values = view.chart.flatMap((r) => [r.observed, r.band95 ? r.band95[1] : null]).filter((n): n is number => n !== null);
   const max = Math.max(1, ...values.map(Math.abs));
   const divisor = max >= 1_000_000 ? 1_000_000 : max >= 1000 ? 1000 : 1;
@@ -89,10 +74,10 @@ export function PillarCForecastPanel({ forecast, series, onSeries, published = f
 
     <article className={panelClass}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
-        <div><h3 className="text-base font-semibold">Previsione regionale mensile 2026 e osservato 2025</h3><p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{"Punto mensile con intervalli all’80\u00a0% e al 95\u00a0%. Previsione formulata con dati fino a dicembre 2025; non include dati osservati del 2026. Il 2025 osservato è il contesto della previsione. Ogni serie è un modello separato."}</p></div>
+        <div><h3 className="text-base font-semibold">Previsione regionale mensile 2026 e osservato 2025</h3><p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{"Confronta l’andamento previsto con il 2025 provvisorio e leggi le fasce all’80\u00a0% e al 95\u00a0%. Previsione formulata con dati fino a dicembre 2025; non include dati osservati del 2026."}</p></div>
         <LocalToggle label="Serie" value={series} options={C_FORECAST_SELECTABLE.map((s) => ({ value: s, label: SERIES_SHORT[s], title: labels.seriesLabels[s] }))} onChange={onSeries} ariaLabel="Serie della previsione regionale" />
       </div>
-      <p className="mb-5 max-w-3xl text-xs leading-5 text-muted-foreground">Classe C non ammessa: nessuna previsione (vedi «Ammissione delle serie»). La differenza fra il totale e le classi A e H non è una previsione della classe C.</p>
+      <p className="mb-5 max-w-3xl text-xs leading-5 text-muted-foreground">Sono disponibili il totale, la classe A e la classe H. Non è disponibile una previsione per la classe C; non si ricava sottraendo A e H dal totale.</p>
       <SeriesView series={series} className="space-y-5">
         {admitted ? <>
           <figure aria-labelledby={caption} className={`min-w-0 ${BAND_VARS}`}>
@@ -122,19 +107,19 @@ export function PillarCForecastPanel({ forecast, series, onSeries, published = f
               </ResponsiveContainer>
             </div>
           </figure>
-          {/* The annual figures are supplementary, so they follow the monthly chart and carry their qualifier on every card. */}
+          <div className="border-t border-border pt-5"><h4 className="text-sm font-semibold">In breve · riferimenti per la pianificazione</h4><p className="mt-1 text-xs leading-5 text-muted-foreground">Stime regionali indicative: affiancale agli importi osservati e alle disponibilità approvate prima di prendere decisioni di budget. Il riepilogo annuo e le sue fasce non hanno una verifica storica dedicata.</p></div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className={cardClass}><p className="text-xs text-muted-foreground">{`Previsione regionale · totale annuo 2026 · ${annualScope}`}</p><p className="mt-2 text-sm font-semibold tabular-nums">{eur(annual.total)}</p><p className="mt-1 text-[11px] text-muted-foreground">Supplementare, non sottoposto a backtest</p></div>
-            <div className={cardClass}><p className="text-xs text-muted-foreground">{"Intervallo annuo 80\u00a0% · supplementare, non sottoposto a backtest"}</p><p className="mt-2 text-sm font-semibold tabular-nums">{range(annual.low80, annual.high80)}</p></div>
-            <div className={cardClass}><p className="text-xs text-muted-foreground">{"Intervallo annuo 95\u00a0% · supplementare, non sottoposto a backtest"}</p><p className="mt-2 text-sm font-semibold tabular-nums">{range(annual.low95, annual.high95)}</p></div>
+            <div className={cardClass}><p className="text-xs text-muted-foreground">{`Stima annua indicativa 2026 · ${annualScope}`}</p><p className="mt-2 text-lg font-semibold tabular-nums" data-c-forecast-annual>{eur(annual.total)}</p><p className="mt-1 text-[11px] text-muted-foreground">Riferimento regionale, non budget approvato</p></div>
+            <div className={cardClass}><p className="text-xs text-muted-foreground">{"Fascia annua indicativa · 80\u00a0%"}</p><p className="mt-2 text-sm font-semibold tabular-nums">{range(annual.low80, annual.high80)}</p><p className="mt-1 text-[11px] text-muted-foreground">Intervallo di previsione, non limite garantito</p></div>
+            <div className={cardClass}><p className="text-xs text-muted-foreground">{"Fascia annua indicativa · 95\u00a0%"}</p><p className="mt-2 text-sm font-semibold tabular-nums">{range(annual.low95, annual.high95)}</p><p className="mt-1 text-[11px] text-muted-foreground">Fascia più ampia per considerare l’incertezza</p></div>
           </div>
-          <p className="text-xs leading-5 text-muted-foreground">{view.roundingDifference !== null && view.roundingDifference !== "0"
-            ? `Il totale annuo è la somma dei dodici punti mensili non arrotondati, arrotondata una sola volta al centesimo; la somma dei valori mensili in tabella è ${eur(annual.monthlyPointsSum)}. La differenza è solo di arrotondamento.`
-            : "Il totale annuo è la somma dei dodici punti mensili, arrotondata al centesimo; coincide con la somma dei valori mensili in tabella."}</p>
-        </> : <p role="status" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">{`${view.label}: nessuna previsione mostrata.${view.admission?.rejection ? ` ${typeset(`Motivo del rifiuto (registrato): ${view.admission.rejection.reason}`)}` : ""}`}</p>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Mese con maggiore spesa prevista</p><p className="mt-2 text-sm font-semibold" data-c-forecast-peak>{`${monthLong[decision.largestMonth.month - 1]} 2026 · ${eur(decision.largestMonth.point)}`}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Un riferimento per programmare il monitoraggio della spesa.</p></div>
+            <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Confronto con il 2025 provvisorio</p>{decision.delta !== null ? <><p className="mt-2 text-sm font-semibold tabular-nums" data-c-forecast-change>{`${decision.delta.startsWith("-") || decision.delta === "0.00" ? "" : "+"}${eur(decision.delta)}${decision.changePct === null ? "" : ` (${decision.changePct.startsWith("-") || decision.changePct === "0.00" ? "" : "+"}${decision.changePct.replace(".", ",")}\u00a0%)`}`}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{`Differenza fra la stima indicativa 2026 e gli importi osservati 2025 (${eur(decision.observed2025Annual)}), sulla stessa base regionale.`}</p></> : <p className="mt-2 text-xs leading-5 text-muted-foreground">Base 2025 incompleta: nessuna variazione annua pubblicata. Usa il profilo mensile per leggere gli importi disponibili.</p>}</div>
+          </div>
+        </> : <p role="status" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">{`${view.label}: previsione non disponibile per questa selezione.`}</p>}
       </SeriesView>
-      <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Osservato 2025 = somma delle sole righe con spesa valorizzata, senza stima delle righe vuote; la previsione 2026 riguarda la stessa base. ${typeset(labels.observedNote)}`}</p>
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">{typeset(labels.reading)}</p>
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">Osservato 2025 provvisorio: sono sommati solo gli importi valorizzati, senza sostituire i dati mancanti con zero. Le previsioni delle classi A e H non si sommano per ricostruire il totale.</p>
       <details className="mt-5 rounded-xl border border-border"><summary className={summaryClass}>Valori esatti · previsione regionale mensile 2026 e osservato 2025</summary>
         <SeriesView series={series} className="overflow-x-auto px-4 pb-4">
           {admitted ? <table className="w-full text-left text-xs"><caption className="sr-only">{`Previsione regionale mensile 2026 e osservato 2025 · ${view.label}`}</caption>
@@ -149,48 +134,16 @@ export function PillarCForecastPanel({ forecast, series, onSeries, published = f
             </tr>)}</tbody>
             <tfoot>
               <tr><th scope="row" className="px-2 py-3 font-medium">Somma dei 12 valori mensili</th><td className="whitespace-nowrap px-2 py-3 tabular-nums">{eur(annual.monthlyPointsSum)}</td><td colSpan={4} className="px-2 py-3 text-muted-foreground">Valori al centesimo mostrati sopra</td></tr>
-              <tr><th scope="row" className="px-2 py-3 font-medium">Totale annuo · supplementare, non sottoposto a backtest</th><td className="whitespace-nowrap px-2 py-3 font-semibold tabular-nums">{eur(annual.total)}</td><td className="whitespace-nowrap px-2 py-3 tabular-nums">{range(annual.low80, annual.high80)}</td><td className="whitespace-nowrap px-2 py-3 tabular-nums">{range(annual.low95, annual.high95)}</td><td colSpan={2} className="px-2 py-3 text-muted-foreground">Su punti mensili non arrotondati</td></tr>
+              <tr><th scope="row" className="px-2 py-3 font-medium">Stima annua indicativa</th><td className="whitespace-nowrap px-2 py-3 font-semibold tabular-nums">{eur(annual.total)}</td><td className="whitespace-nowrap px-2 py-3 tabular-nums">{range(annual.low80, annual.high80)}</td><td className="whitespace-nowrap px-2 py-3 tabular-nums">{range(annual.low95, annual.high95)}</td><td colSpan={2} className="px-2 py-3 text-muted-foreground">Arrotondato una sola volta; può differire dalla somma dei mesi</td></tr>
             </tfoot>
-          </table> : <p className="py-3 text-xs text-muted-foreground">Nessun valore di previsione per una serie non ammessa.</p>}
+          </table> : <p className="py-3 text-xs text-muted-foreground">Nessun valore di previsione disponibile.</p>}
         </SeriesView>
       </details>
     </article>
 
-    <article className={panelClass}>
-      <div className="mb-5"><h3 className="text-base font-semibold">Ammissione delle serie</h3><p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{`Quattro serie valutate con le condizioni registrate (emendamenti ${labels.amendments.join(", ")}). Una serie non ammessa non riceve alcuna previsione.`}</p></div>
-      {/* The reason sits on its own full-width row, so it stays readable on a phone without sideways scrolling. */}
-      <div className="overflow-x-auto"><table className="w-full text-left text-xs"><caption className="sr-only">Esito dell’ammissione per serie, con la motivazione sotto ciascuna serie</caption>
-        <thead><tr>{["Serie", "Esito", "Modello"].map((h) => <th scope="col" key={h} className="border-b border-border px-2 py-3 font-semibold">{h}</th>)}</tr></thead>
-        {forecast.admission.map((a) => <tbody key={a.series} className="border-b border-border/50">
-          <tr data-series={a.series} data-decision={a.decision}>
-            <th scope="row" className="px-2 pb-1 pt-3 align-top font-medium">{labels.seriesLabels[a.series]}</th>
-            <td className="px-2 pb-1 pt-3 align-top font-semibold">{a.decision === "AMMESSA" ? "Ammessa" : "Non ammessa"}</td>
-            <td className="px-2 pb-1 pt-3 align-top">{a.model ? labels.models[a.model] : "Nessuna previsione"}</td>
-          </tr>
-          <tr data-reason-for={a.series}><td colSpan={3} className="px-2 pb-3 pt-1 leading-5 text-muted-foreground">{admissionNote(a, labels)}</td></tr>
-        </tbody>)}
-      </table></div>
-      {/* The registered reason codes are not rendered: this table names each candidate's unmet conditions through the packet's labels. */}
-      <details className="mt-5 rounded-xl border border-border"><summary className={summaryClass}>Metriche di ammissione per variante e candidato</summary>
-        <div className="overflow-x-auto px-4 pb-4"><table className="w-full text-left text-xs"><caption className="pb-3 pt-1 text-left text-muted-foreground">{typeset(`Valori registrati, arrotondati per la lettura. Condizioni: ${Object.values(labels.conditions).join(" · ")}.`)}</caption>
-          <thead><tr>{["Serie", "Variante", "Candidato", "Esito", "MASE / soglia", "Copertura 80\u00a0%", "Copertura 95\u00a0%", "Winkler 80\u00a0% / baseline"].map((h) => <th scope="col" key={h} className="whitespace-nowrap border-b border-border px-2 py-3 font-semibold">{h}</th>)}</tr></thead>
-          <tbody>{forecast.admission.flatMap((a) => a.variants.flatMap((v) => v.candidates.map((c) => <tr key={`${a.series}-${v.variant}-${c.candidate}`}>
-            <th scope="row" className="whitespace-nowrap border-b border-border/50 px-2 py-3 font-medium">{SERIES_SHORT[a.series]}</th>
-            <td className="whitespace-nowrap border-b border-border/50 px-2 py-3">{labels.variants[v.variant]}</td>
-            <td className="whitespace-nowrap border-b border-border/50 px-2 py-3">{labels.models[c.candidate]}</td>
-            <td className="border-b border-border/50 px-2 py-3">{c.admitted ? "Ammesso" : typeset(`Non ammesso (${unmet(c.failedConditions.map((k) => labels.conditions[k]))})`)}</td>
-            <td className="whitespace-nowrap border-b border-border/50 px-2 py-3 tabular-nums">{`${decimal(c.mase)} / ${decimal(c.maseThreshold)}`}</td>
-            <td className="whitespace-nowrap border-b border-border/50 px-2 py-3 tabular-nums">{decimal(c.coverage80)}</td>
-            <td className="whitespace-nowrap border-b border-border/50 px-2 py-3 tabular-nums">{decimal(c.coverage95)}</td>
-            <td className="whitespace-nowrap border-b border-border/50 px-2 py-3 tabular-nums">{`${whole(c.winkler80)} / ${whole(v.winkler80Baseline)}`}</td>
-          </tr>)))}</tbody>
-        </table></div>
-      </details>
-    </article>
-
-    <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm font-medium">Base, metodo e limiti della previsione</summary>
+    <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm font-medium">Dati e ambito della previsione</summary>
       <dl className="mt-4 space-y-3 text-xs leading-5">
-        {[["Ambito", `Regione ${forecast.region} · dati pubblici, nessun dato aziendale`], ["Base della spesa", labels.base], ["Metodo", labels.method], ["Limiti", labels.caveats], ["Serie osservata", `${labels.observed}. ${labels.observedNote}`], ["Totale annuo", labels.annualType], ["Nota", labels.note], ["Stato", published ? `${labels.tier} · previsione regionale pubblicata` : `${labels.tier} · in revisione, accettazione in attesa`]].map(([term, detail]) => <div key={term}><dt className="font-semibold">{term}</dt><dd className="mt-1 text-muted-foreground">{typeset(detail)}</dd></div>)}
+        {[["Territorio", `Regione ${forecast.region}. Le selezioni di Azienda e canale non modificano questa previsione.`], ["Spesa rappresentata", "Acquisti diretti alle strutture pubbliche, inclusi i canali DD e DPC; importi al lordo dell’IVA e del payback."], ["Periodo", "Previsione gennaio–dicembre 2026, formulata con dati disponibili fino a dicembre 2025."], ["Dati osservati", labels.observedNote], ["Lettura degli intervalli", "Le fasce rappresentano l’incertezza della previsione. Quelle annue sono indicative e non sono limiti garantiti né disponibilità approvate."]].map(([term, detail]) => <div key={term}><dt className="font-semibold">{term}</dt><dd className="mt-1 text-muted-foreground">{typeset(detail)}</dd></div>)}
         <div><dt className="font-semibold">Fonte e licenza</dt><dd className="mt-1 text-muted-foreground"><span>{labels.attribution}</span> <a href={LICENCE_URL} target="_blank" rel="license noopener noreferrer" className={linkClass}>Licenza</a> · <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>Dati e documentazione AIFA</a></dd></div>
       </dl>
     </details>

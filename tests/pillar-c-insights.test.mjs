@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {cBudgetFilters,cBudgetSearch,cInsightResetSearch,cDecisionAnswer,cInsightCellText,cInsightText,cInsightVisibleColumns,C_INSIGHT_TITLES} from '../lib/dashboard-review/pillar-c/insights.ts';
+import {cBudgetFilters,cBudgetSearch,cInsightResetSearch,cDecisionAnswer,cInsightCellText,cInsightDecisionOutputs,cInsightText,cInsightVisibleColumns,C_INSIGHT_TITLES} from '../lib/dashboard-review/pillar-c/insights.ts';
 import {DEFAULT_C_REVIEW,cReviewFilters,parseCReviewPacket,selectCReview} from '../lib/dashboard-review/pillar-c/review.ts';
 import {cReviewFixture} from './fixtures/pillar-c-review.mjs';
 
@@ -53,4 +53,39 @@ test('workspace mounts decision sections, not the old workbook explorer',()=>{
   assert.match(source,/Più persone trattate o prodotti più costosi/);
   assert.match(source,/PillarCInsightsProvider/);
   assert.doesNotMatch(source,/>[^<]*(?:Spesa S2|ML-[123])[^<]*</);
+});
+
+test('forecast decision selector excludes model diagnostics and the duplicate raw forecast without changing workbook records',()=>{
+  const item=(id,section='previsione',availability='snapshot')=>({id,section,availability,title:'Invented test output',tier:'Test',qualifier:'Test',grain:'Test',ranges:['Test!A1:B2'],reason:null,sourceState:'Test'});
+  const outputs=[item('O-18-02'),item('O-18-03'),item('ML-5-ADM'),item('O-18-04'),item('ML-5-FC'),item('O-17-01','tendenze'),item('TEST-WITHHELD','previsione','withheld')];
+  const before=JSON.stringify(outputs),visible=cInsightDecisionOutputs(outputs,'previsione');
+  assert.deepEqual(visible.map(o=>o.id),['O-18-04']);
+  assert.equal(JSON.stringify(outputs),before,'immutable workbook evidence is preserved');
+  assert.deepEqual(cInsightDecisionOutputs(outputs,'tendenze').map(o=>o.id),['O-17-01']);
+  const source=readFileSync(new URL('../components/dashboard-review/pillar-c/insight-panels.tsx',import.meta.url),'utf8');
+  assert.match(source,/definitions=cInsightDecisionOutputs\(index\.outputs,section\)/,'the live selector uses the presentation filter');
+  assert.match(source,/cInsightVisibleColumns\(table,output\)/,'column policy is scoped to the actual output');
+  assert.doesNotMatch(source,/previsione:'Scenari e affidabilità'/);
+  assert.match(source,/non probabilità né previsioni aziendali/,'scenario bounds are not forecast probabilities');
+  const workspace=readFileSync(new URL('../components/dashboard-review/pillar-c/analytical-workspace.tsx',import.meta.url),'utf8');
+  assert.match(workspace,/<PillarCForecastPanel forecast=\{packet\.forecast\}/,'the typed chart still presents the forecast results');
+});
+
+test('spending scenarios retain all business values while hiding only their rounding audit columns',()=>{
+  const columns=['Serie','SC-0 come 2025 (€)','SC-1 × rapporto Gen–Mag (€)','SC-L × rapporto minimo (€)','SC-H × rapporto massimo (€)','Intervallo min (€)','Intervallo max (€)','Σ 7 mesi arrotondati SC-0 (€, formula)','Differenza di arrotondamento SC-0 (€) · al centesimo','Esito (|Δ| ≤ 0,035 €)'];
+  const table={columns,rows:[['Test',...Array.from({length:8},(_,i)=>[String(i===0?0:50+i),1]),'OK']]};
+  const before=JSON.stringify(table);
+  assert.deepEqual(cInsightVisibleColumns(table,'O-18-04'),[0,1,2,3,4,5,6]);
+  assert.equal(JSON.stringify(table),before,'the underlying values and audit evidence are untouched');
+  assert.deepEqual(cInsightVisibleColumns(table,'OTHER-OUTPUT'),[0,1,2,3,4,5,6,7,8],'business totals with formula-labelled headers are not suppressed globally');
+  assert.deepEqual(columns.slice(1,5).map(cInsightText),['Scenario invariato (€)','Scenario di continuità (€)','Scenario basso (€)','Scenario alto (€)']);
+});
+
+test('monthly trend keeps its euro change and uncertainty while removing model sensitivity parameters',()=>{
+  const columns=['Serie','Mesi (n)','Pendenza (€/mese)','Intervallo di variabilità 95 %: inf. (€/mese)','Intervallo di variabilità 95 %: sup. (€/mese)','Pendenza sui 24 mesi (€/mese)','Pendenza winsorizzata (€/mese)','Stabilità del segno (formula, segno a tre valori)'];
+  const table={columns,rows:[['Test',['12',1],['0',1],['-5',1],['7',1],['1',1],['2',1],'stabile']]};
+  assert.deepEqual(cInsightVisibleColumns(table,'O-17-05'),[0,1,2,3,4]);
+  assert.deepEqual(cInsightVisibleColumns(table,'OTHER-OUTPUT'),[0,1,2,3,4,5,6,7]);
+  assert.equal(cInsightText(columns[2]),'Variazione tendenziale (€/mese)');
+  assert.equal(table.rows[0][2][0],'0','a zero change remains a real value');
 });
