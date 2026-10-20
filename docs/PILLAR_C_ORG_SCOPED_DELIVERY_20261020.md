@@ -4,10 +4,12 @@ Date: 2026-10-20. Owner decisions: 2026-10-19.
 
 This document covers Pillar C recommendation 5: who sees what of Pillar C beyond the project reviewers, how the database enforces it, how it is switched on and off, and what must be approved before anything reaches production. It contains no workbook figures, row or object counts, email addresses or user identifiers. Those stay in the private Pillar C evidence repository.
 
-**Status on 2026-10-20: designed, not live.**
+**Status on 2026-10-20: implemented and locally verified; production rollout not live.**
 - Migration `supabase/migrations/20261020120000_pillar_c_scoped_storage.sql` is not applied.
 - Nothing is uploaded to the bucket `pillar-c-scoped`.
 - No code for this delivery is deployed.
+
+The scoped implementation has been integrated locally with production main, preserving the regional/organizational registration choices, server-side access-request validation and upload-path hardening. A registration choice remains a preference, never an authorization. Combined-tree verification and production rollout are separate gates; no organization is enabled by this integration. The local worktree uses a dependency junction outside Turbopack's inferred root, so its production build is checked with the supported `next build --webpack` command. This local accommodation changes neither the deployed build configuration nor any data or access rule.
 
 Production Pillar C still serves the reviewer view (service role, `pillar-c-review`) to reviewers and administrators, and only the public regional forecast to every other approved member.
 

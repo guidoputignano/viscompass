@@ -15,7 +15,9 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Building2, MapPinned } from "lucide-react";
 import { registerUser } from "@/app/auth/sign-up/actions";
+import { ACCOUNT_TYPE_OPTIONS, type RequestedAccountType } from "@/lib/access/account-onboarding";
 
 export function SignUpForm({
   className,
@@ -25,6 +27,7 @@ export function SignUpForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
+  const [requestedAccountType, setRequestedAccountType] = useState<RequestedAccountType | "">("");
   const [visNewsletter, setVisNewsletter] = useState(false);
   const [partnerNewsletter, setPartnerNewsletter] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +38,12 @@ export function SignUpForm({
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+
+    if (!requestedAccountType) {
+      setError("Seleziona il tipo di account: Regione o Azienda sanitaria.");
+      setIsLoading(false);
+      return;
+    }
 
     if (password !== repeatPassword) {
       setError("Le password non coincidono");
@@ -49,6 +58,7 @@ export function SignUpForm({
         password,
         visNewsletter,
         partnerNewsletter,
+        requestedAccountType,
       });
       if (!result.ok) throw new Error(result.message);
       router.push("/auth/sign-up-success");
@@ -69,6 +79,37 @@ export function SignUpForm({
         <CardContent>
           <form onSubmit={handleSignUp}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-6">
+              <fieldset className="grid gap-3 sm:col-span-2">
+                <legend className="mb-3 text-sm font-medium">Tipo di account richiesto</legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {ACCOUNT_TYPE_OPTIONS.map((option) => {
+                    const Icon = option.value === "regione" ? MapPinned : Building2;
+                    return (
+                      <label key={option.value} className="relative cursor-pointer">
+                        <input
+                          type="radio"
+                          name="requested-account-type"
+                          value={option.value}
+                          required
+                          checked={requestedAccountType === option.value}
+                          onChange={() => setRequestedAccountType(option.value)}
+                          className="peer sr-only"
+                        />
+                        <span className="flex h-full gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/50 hover:bg-primary/[0.03] peer-checked:border-primary peer-checked:bg-primary/[0.07] peer-checked:ring-1 peer-checked:ring-primary peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+                          <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+                          <span className="grid gap-1">
+                            <span className="text-sm font-semibold">{option.label}</span>
+                            <span className="text-xs leading-5 text-muted-foreground">{option.description}</span>
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Organizzazione e ruolo saranno verificati dopo la conferma dell&apos;email.
+                </p>
+              </fieldset>
               <div className="grid gap-2">
                 <Label htmlFor="full-name">Nome e cognome</Label>
                 <Input

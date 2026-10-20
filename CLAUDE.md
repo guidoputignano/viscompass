@@ -194,7 +194,11 @@ without understanding them:
 ## Current state (update this section when it changes)
 
 **20 October 2026, Pillar C recommendation 5 (organisation-scoped
-delivery): designed, not live.**
+delivery): implemented and integrated locally, production rollout not live.**
+- The scoped delivery and current production-main onboarding are integrated
+  locally. Combined checks passed; see
+  `docs/PILLAR_C_REC5_INTEGRATION_20261020.md`. A registration preference
+  remains an untrusted request, never a membership or a rollout grant.
 - Owner decisions O1–O6 of 19 October 2026 are recorded in the private
   contracts and summarised in
   `docs/PILLAR_C_ORG_SCOPED_DELIVERY_20261020.md`: Azienda and Regione

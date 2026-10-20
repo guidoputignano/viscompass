@@ -1,4 +1,5 @@
 import type { Organization } from "@/lib/dashboard-review/types";
+import type { RequestedAccountType } from "@/lib/access/account-onboarding";
 
 export type MembershipStatus = "pending" | "approved" | "rejected" | "revoked";
 export type InvitationStatus = "pending" | "accepted" | "declined" | "revoked" | "expired";
@@ -42,6 +43,8 @@ export interface AccessOverview {
   memberships: AccessMembership[];
   invitations: OrganizationInvitation[];
   setupRequired: boolean;
+  /** Untrusted registration preference for selecting a form, never an entitlement. */
+  requestedAccountType?: RequestedAccountType | null;
 }
 
 export interface AdminMembership extends AccessMembership {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendAccessRequestReceivedEmail } from "@/lib/email/vis-email";
+import { parseRequestedAccountType } from "@/lib/access/account-onboarding";
 
 export interface AccessActionResult {
   ok: boolean;
@@ -38,22 +39,34 @@ export async function requestOrganizationAccess(input: {
   orgCode: string;
   requestedRole: string;
   message: string;
+  requestedAccountType?: string;
+  requestedRegionCode?: string;
 }): Promise<AccessActionResult> {
   const orgCode = clean(input.orgCode, 80);
   const requestedRole = clean(input.requestedRole, 120);
   const message = input.message.trim().slice(0, 1200);
+  const requestedAccountType = parseRequestedAccountType(input.requestedAccountType);
 
   if (!orgCode || !requestedRole) {
     return { ok: false, message: "Seleziona l'organizzazione e indica il tuo ruolo." };
   }
+  if (input.requestedAccountType !== undefined && requestedAccountType === null) {
+    return { ok: false, message: "Seleziona il tipo di account richiesto." };
+  }
 
   try {
     const { supabase, email } = await requireSession();
-    const { data: organization } = await supabase
+    const { data: organization, error: directoryError } = await supabase
       .from("organizations")
-      .select("org_name")
+      .select("org_name, org_type, region_code")
       .eq("org_code", orgCode)
       .maybeSingle();
+    if (directoryError) throw directoryError;
+    if (!organization ||
+        (requestedAccountType !== null && organization.org_type !== (requestedAccountType === "regione" ? "regione" : "asl")) ||
+        (input.requestedRegionCode !== undefined && organization.region_code !== input.requestedRegionCode)) {
+      return { ok: false, message: "Seleziona un’organizzazione valida per il tipo di account e la regione scelti." };
+    }
     const { error } = await supabase.rpc("request_organization_membership", {
       p_org_code: orgCode,
       p_requested_role: requestedRole,
