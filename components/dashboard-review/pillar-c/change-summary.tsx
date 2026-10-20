@@ -43,7 +43,7 @@ export function CPortfolioChangeSummary({view,onPickProduct}:{view:CPortfolioVie
       <div className="mt-4 grid gap-3 sm:grid-cols-3">{[
         ["Contributi in aumento",explanation.positive!,`${itNumber(explanation.increases.count)} voci`],
         ["Contributi in riduzione",explanation.negative!,`${itNumber(explanation.decreases.count)} voci`],
-        ["Variazione netta",explanation.net!,`${itNumber(explanation.unchangedProducts)} voci senza variazione`],
+        ["Variazione netta",explanation.net!,`${itNumber(explanation.unchangedProducts)} ${explanation.unchangedProducts===1?"voce":"voci"} senza variazione`],
       ].map(([label,value,note])=><div key={label} className="rounded-xl border border-border px-4 py-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-lg font-semibold tabular-nums">{signed(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">{note}</p></div>)}</div>
       <details className="mt-4 rounded-xl border border-border">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Prodotti presenti, entrati e usciti · ponte della variazione</summary>

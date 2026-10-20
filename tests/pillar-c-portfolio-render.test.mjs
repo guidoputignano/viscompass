@@ -39,6 +39,21 @@ test('change summary exposes product drill-down and does not interpret a spendin
  assert.match(missing,/data-change="unavailable"/);assert.doesNotMatch(missing,/Contributi in aumento/);
 });
 
+test('change summary uses singular only for one unchanged product',()=>{
+ const row=(key,c,year)=>({anno:year,mese:1,asl:'AQ',canale:'CO',prodotto_key:key,atc:'TEST',c,attribution_status:'S2',candidate_portfolios:['AA']});
+ const render=rows=>{
+  const packet=buildCPortfolioPacket(rows,[{id:'AA',label:'Area sintetica A',kind:'area_terapeutica'}],new Map(),'1'.repeat(64),'2'.repeat(64),'fictional');
+  return renderToStaticMarkup(reviewer(React.createElement(CPortfolioChangeSummary,{view:cPortfolioView(packet,'FY2025','AQ','CO','AA','3'.repeat(64))})));
+ };
+ for(const count of [0,1,2]){
+  const rows=[row('900000001','8',2024),row('900000001','10',2025)];
+  for(let i=0;i<count;i++)rows.push(row(`90000001${i}`,'3',2024),row(`90000001${i}`,'3',2025));
+  const html=render(rows);
+  assert.ok(html.includes(`${count} ${count===1?'voce':'voci'} senza variazione`),`unchanged count ${count}`);
+  assert.ok(!html.includes(`${count} ${count===1?'voci':'voce'} senza variazione`),`wrong grammar for ${count}`);
+ }
+});
+
 test('PVM rendering gives the admitted subset its own denominator and never shows effects without support',()=>{
  const result={status:'ready',support:'partial',coverage:{earlier:'0.6',later:'0.7'},admittedChange:'8',effects:{quantity:'5',mix:'4',unitCost:'-1'},rounding:{rawResidual:'0',displayResidual:'0'}};
  const html=renderToStaticMarkup(React.createElement(CPortfolioPvmReading,{result}));
