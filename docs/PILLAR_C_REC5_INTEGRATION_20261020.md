@@ -31,17 +31,17 @@ The build emitted `dashboard_fact_prefetch_error` notices but completed successf
 
 ## Production state and remaining gates
 
-The previous production deployment remains unchanged by this integration. No scoped migration, data upload, rollout row, membership or reviewer configuration was modified. The latest available scoped production receipt is the read-only precheck, not a post-apply or account-isolation receipt.
+The application deployment remains unchanged by this integration. After the combined-code verification, browser access recovered and the owner explicitly approved the dormant migration only. Migration `20261020120000` was applied and post-apply verified on 20 October. The scoped bucket and rollout tables remain empty; no upload, user enablement, membership or reviewer configuration changed. See `PILLAR_C_REC5_DORMANT_MIGRATION_20261020.md`.
 
-The browser connection currently refuses access before reaching the website. The configured direct database connection also rejects authentication (`28P01`). No secret is printed or copied into this repository, and no alternative credential/session bypass is attempted.
+The fresh precheck, exact migration, post-apply verification and default-off rollback-only role sweep are saved privately. Existing Storage rules and functions matched the fresh precheck. The intentional exception that ends the sweep is its rollback mechanism, not an apply failure. This proves database-side default-off behavior, not enabled-account Storage HTTP behavior.
+
+Reviewer live checks also covered dossier selectors, chronological change, the shared queue's read view and a planning variant with JSON export. Checked values matched the independent application calculations. No evidence case was created or changed, and no full production evidence lifecycle is claimed. The final lazy-loaded decomposition and console check could not be completed after browser access became unavailable again; this is not evidence of a page failure.
 
 Next, in the order of the reviewed operator plan:
 
-1. Restore an authorized production operator connection and rerun the read-only precheck.
-2. Apply and verify the dormant scoped-storage migration; preserve default-off rollout.
-3. Run the owner-controlled pinned upload and verify every object and default-off behavior.
-4. Deploy the integrated application and verify reviewer and forecast-only regression.
-5. Complete the approved controlled-account tests, including scope isolation, direct Storage operation refusals, exports, revocation and kill switch.
-6. Enable a real production audience only after the documented acceptance and governance prerequisites. No broad `all`-mode activation is implied by this code integration.
+1. Run the separately approved, owner-controlled pinned upload and verify every object and default-off behavior. Do not read, extract or store the owner's privileged key for the agent.
+2. Deploy the integrated application after the deployment approval and verify reviewer and forecast-only regression.
+3. Complete the approved controlled-account tests, including scope isolation, direct Storage operation refusals, exports, revocation and kill switch.
+4. Enable a real production audience only after the documented acceptance and governance prerequisites. No broad `all`-mode activation is implied by this code integration or the migration approval.
 
 National/interregional Pillar C views and extension of reviewer-only capabilities remain separate deliveries. The initial scoped release covers only the documented organizations and region; this receipt does not claim broader data coverage or clinical-area budget completion.
