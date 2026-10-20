@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { processUpload } from "@/lib/uploads/process-upload";
+import { isUploadStoragePath } from "@/lib/uploads/storage-path";
 import type { CanonicalFact, FeatureRequestSubmission } from "./types";
 
 export async function searchMolecules(query: string): Promise<CanonicalFact[]> {
@@ -93,6 +94,12 @@ export async function recordUpload(input: RecordUploadInput): Promise<{ ok: true
   const org = await getCurrentOrg();
   if (!org) {
     throw new Error("Nessuna organizzazione approvata per il tuo account.");
+  }
+
+  // The path is client-supplied and is later read with the service role (processUpload): accept only the caller's
+  // own organisation folder, in the shape the upload shell writes (lib/uploads/storage-path.ts, REC5-SEC-03).
+  if (!isUploadStoragePath(input?.storagePath, org.org_code)) {
+    throw new Error("Il percorso del file caricato non è valido.");
   }
 
   const { data, error } = await supabase
