@@ -208,9 +208,10 @@ delivery): implemented and integrated locally, production rollout not live.**
   was applied on 20 October and verified with rollout off. The rollout
   tables were empty at that checkpoint. Existing Storage rules and
   functions were unchanged. The owner subsequently approved and ran the
-  private upload; integrity readback did not fully pass, so upload
-  acceptance, deployment and activation are held. Read-only verification
-  and a fresh post-upload default-off check remain mandatory. No scoped
+  private upload. The first readback did not fully pass; the subsequent
+  owner-run verification-only receipt passed every pinned object and was
+  independently checked. A fresh post-upload default-off SQL check remains
+  mandatory before upload acceptance, deployment and activation. No scoped
   application code is deployed.
   See `docs/PILLAR_C_REC5_DORMANT_MIGRATION_20261020.md`.
 - Production Pillar C still gives reviewers and administrators the
@@ -219,7 +220,7 @@ delivery): implemented and integrated locally, production rollout not live.**
 - AP0 (read-only checks) and AP1 (dormant migration) have been completed.
   The approval covered the default-off migration only, not data upload,
   user enablement or reviewer changes. The remaining owner approval
-  points are AP2 acceptance (owner upload authorized, readback pending),
+  points are AP2 acceptance (upload/readback complete, SQL check pending),
   AP3 (deploy), AP4 (test accounts and rollout rows) and AP5 (cleanup).
 
 **2 October 2026, Pillar B:** the private page `/dashboard-review/revisione-pillar-b`
