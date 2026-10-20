@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, BriefcaseBusiness, ChartNoAxesCombined, ClipboardList, FileCheck2, GitBranch, Landmark, TrendingUp, UsersRound, WalletCards, ChartPie, Network, Scale, Layers, Activity, SlidersHorizontal, ListChecks, GitCompareArrows } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PILLAR_C_SECTIONS, PILLAR_C_ALL_SECTIONS, pillarCSectionAtViewport, type PillarCSectionId } from "@/lib/dashboard-review/pillar-c/section-navigation";
+import { PILLAR_C_SECTIONS, PILLAR_C_ALL_SECTIONS, pillarCSectionAtViewport, type PillarCNavSection, type PillarCSectionId } from "@/lib/dashboard-review/pillar-c/section-navigation";
 
 const icons = { portafogli: BriefcaseBusiness, scenari: GitBranch, spesa: WalletCards, cambiamento: ChartNoAxesCombined, pianificazione: Landmark, numerosita: UsersRound, previsione: TrendingUp, evidenza: FileCheck2, composizione: ChartPie, attribuzione: Network, costi: Layers, confronti: Scale, attivita: Activity, tendenze: GitCompareArrows, sensibilita: SlidersHorizontal, priorita: ListChecks, "evidence-workflow": ClipboardList };
 
-export function PillarCSectionNavigation({ extended = false }: { extended?: boolean }) {
+/** `list` replaces the default list (the organisation-scoped page passes PILLAR_C_SCOPED_SECTIONS); the reviewer's
+ * page passes none and keeps its lists. */
+export function PillarCSectionNavigation({ extended = false, list }: { extended?: boolean; list?: readonly PillarCNavSection[] }) {
   const [active, setActive] = useState<PillarCSectionId>(extended ? "portafogli" : "spesa");
-  const sections = extended ? PILLAR_C_ALL_SECTIONS : PILLAR_C_SECTIONS;
+  const sections = list ?? (extended ? PILLAR_C_ALL_SECTIONS : PILLAR_C_SECTIONS);
 
   useEffect(() => {
     let frame = 0;

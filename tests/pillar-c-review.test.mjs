@@ -511,8 +511,9 @@ test('forecast chart: band opacities rise on the dark card, the legend reads the
 // The workspace's own copy that follows a filter. React updates ADJACENT text
 // nodes in place, and machine translation has already replaced them, so such a
 // text stays stale on screen. It must be a single text child (React rewrites the
-// element's content) or a keyed element (replaced whole).
-const workspaceSource = fs.readFileSync(fileURLToPath(new URL('../components/dashboard-review/pillar-c/analytical-workspace.tsx', import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
+// element's content) or a keyed element (replaced whole). The blocks shared with the organisation-scoped workspace
+// live in review-blocks.tsx (review finding UI-4), so both files are read.
+const workspaceSource = ['analytical-workspace.tsx', 'review-blocks.tsx'].map((name) => fs.readFileSync(fileURLToPath(new URL(`../components/dashboard-review/pillar-c/${name}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n')).join('\n');
 
 test('workspace: text that follows a filter is one text child or a keyed element, so translation cannot leave it stale', () => {
   for (const expr of [
@@ -520,7 +521,8 @@ test('workspace: text that follows a filter is one text child or a keyed element
     '{`${scope}. Selezione aggiornata.`}',
     '{`Piano modellato 2025 · ${budgetFilters.org === "Regione" ? "ASL 1" : C_ORG_LABELS[budgetFilters.org]}`}',
     '{`Prime 12 aree nel grafico; tutte le ${budgets.length} aree sono nella tabella.`}',
-    '{`${eur(r.perPerson)} / persona nello scenario`}',
+    // The row's ratio and its unit, one text child; the unit is the audience's wording (review finding F-UI3-RES).
+    '{`${eur(r.perPerson)}${labels.unit}`}',
     '{`${data.counts.filter((r) => r.state !== "CALCOLATO").length} portafogli senza rapporto disponibile',
     '<span key={copied ? "copied" : "copy"}>{copied ? "Link copiato" : "Copia vista"}</span>',
   ]) assert.ok(workspaceSource.includes(expr), expr);

@@ -21,6 +21,7 @@ export async function load(url,context,next){
 const req=createRequire(`${root}package.json`),React=req('react'),{renderToStaticMarkup}=req('react-dom/server');
 const {PillarCEvidenceCase,cEvidenceErrorText,cEvidenceReadText,cEvidenceCloseMissing,cEvidenceEventLines}=await import('../components/dashboard-review/pillar-c/evidence-workflow.tsx');
 const {CAttributionView}=await import('../components/dashboard-review/pillar-c/attribution-analysis.tsx');
+const reviewer=await (await import('./helpers/pillar-c-audience.mjs')).reviewerAudience(React);
 const source=file=>fs.readFileSync(fileURLToPath(new URL(`../${file}`,import.meta.url)),'utf8').replace(/\r\n/g,'\n');
 const workflow=source('components/dashboard-review/pillar-c/evidence-workflow.tsx');
 
@@ -147,9 +148,9 @@ test('the queue is its own anchored, navigable section and states its boundaries
 test('the attribution panel offers the queue as its own fixed perimeter, never as the current selection',()=>{
   const packet=attributionFixture();
   const view=(org,channel)=>({schema:'pillar-c-attribution-view-v1',mappingVersion:packet.mappingVersion,portfolios:packet.portfolios,scope:packet.scopes.find(s=>s.period==='FY2025'&&s.org===org&&s.channel===channel),comparison:null});
-  const reference=renderToStaticMarkup(React.createElement(CAttributionView,{view:view('Regione','Tutti')}));
+  const reference=renderToStaticMarkup(reviewer(React.createElement(CAttributionView,{view:view('Regione','Tutti')})));
   assert.match(reference,/<a href="#evidence-workflow"[^>]*>Assegna le verifiche nella coda condivisa · priorità fissa: anno 2025, aggregato regionale, tutti i canali →<\/a>/);
-  const other=renderToStaticMarkup(React.createElement(CAttributionView,{view:view('AQ','CO')}));
+  const other=renderToStaticMarkup(reviewer(React.createElement(CAttributionView,{view:view('AQ','CO')})));
   assert.doesNotMatch(other,/Assegna le verifiche/);
   assert.match(other,/La coda condivisa delle verifiche usa una priorità fissa \(anno 2025, aggregato regionale, tutti i canali, condivisi ed evidenza insufficiente\) e non segue questa selezione/);
   assert.match(source('components/dashboard-review/pillar-c/attribution-analysis.tsx'),/scope\.period==="FY2025"&&scope\.org==="Regione"&&scope\.channel==="Tutti"&&pool==="therapeutic"&&query\.trim\(\)===""/);

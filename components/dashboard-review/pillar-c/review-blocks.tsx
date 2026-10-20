@@ -1,0 +1,126 @@
+"use client";
+
+/** Presentational blocks of the Pillar C review sections, shared by the reviewer workspace (analytical-workspace.tsx)
+ * and the organisation-scoped workspace (scoped-workspace.tsx). They read values only, never an organisation key or
+ * label, and import nothing reviewer-only: the scoped workspace reaches this module, and its bundle must carry no
+ * province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs). */
+import { ArrowDownUp, Wallet, FileCheck2, CalendarRange, ChartArea, ChartNoAxesCombined, BarChart3 } from "lucide-react";
+import { AreaChart, Area, BarChart, Bar, Cell, CartesianGrid, LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { KpiCard } from "@/components/dashboard-review/analytics-ui";
+import { PillarCChangeBridge } from "@/components/dashboard-review/pillar-c/change-bridge";
+import { itNumber } from "@/lib/format/it-number";
+import { C_COMPONENT_LABELS, C_PERIOD_LABELS, cMoneyDifference, cMoneyLabel, type CBaseline, type CBridge, type CBudget, type CCount, type CReviewFilters } from "@/lib/dashboard-review/pillar-c/review";
+
+const eur = cMoneyLabel;
+const signed = (value: string | number) => `${Number(value) > 0 ? "+" : ""}${eur(value)}`;
+const fmt = (value: number) => itNumber(value, { maximumFractionDigits: 1 });
+const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+const selectClass = "mt-2 h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+const actionClass = "inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+const chartTick = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
+const tooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 10, color: "hsl(var(--foreground))" };
+
+function Panel({ title, description, controls, children }: { title: string; description?: string; controls?: React.ReactNode; children: React.ReactNode }) {
+  return <article className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6"><div className="mb-5 flex flex-wrap items-start justify-between gap-4"><div><h3 className="text-base font-semibold">{title}</h3>{description && <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>}</div>{controls}</div>{children}</article>;
+}
+function Heading({ id, number, title, children }: { id: string; number: string; title: string; children: React.ReactNode }) {
+  return <div className="mb-5 flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs font-semibold text-primary">{number}</span><div><h2 id={`${id}-title`} className="text-xl font-semibold tracking-tight">{title}</h2><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">{children}</p></div></div>;
+}
+function ExactTable({ caption, headers, rows }: { caption: string; headers: string[]; rows: React.ReactNode[][] }) {
+  return <details className="mt-5 rounded-xl border border-border"><summary className="cursor-pointer rounded-xl px-4 py-3 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Valori e dettaglio · {caption}</summary><div className="overflow-x-auto px-4 pb-4"><table className="w-full text-left text-xs"><caption className="sr-only">{caption}</caption><thead><tr>{headers.map((h) => <th scope="col" key={h} className="whitespace-nowrap border-b border-border px-2 py-3 font-semibold">{h}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell, j) => j === 0 ? <th key={j} scope="row" className="border-b border-border/50 px-2 py-3 font-medium">{cell}</th> : <td key={j} className="whitespace-nowrap border-b border-border/50 px-2 py-3 tabular-nums">{cell}</td>)}</tr>)}</tbody></table></div></details>;
+}
+function Empty({ children }: { children: React.ReactNode }) { return <p role="status" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">{children}</p>; }
+
+// ---------------------------------------------------------------- blocks shared with the organisation-scoped workspace
+/** A review row of either reading mode. These blocks read values only, never an organisation key. */
+type Row<T> = Omit<T, "org"> & { org: string };
+type BudgetRow = Omit<CBudget, "org" | "basis"> & { org: string; basis: CBudget["basis"] };
+type CountRow = Row<CCount>;
+export type CReviewSpendView = "area" | "line" | "bar";
+type SpendView = CReviewSpendView;
+type SpendMonth = { month: number; amount: number | null; exact: string | null; rows: number; label: string };
+
+export function SpendKpis({ baseline, period, scope, monthly }: { baseline: Row<CBaseline>; period: CReviewFilters["period"]; scope: string; monthly: SpendMonth[] }) {
+  return <><div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label={`Spesa netta · ${C_PERIOD_LABELS[period]}`} value={eur(baseline.net)} detail={scope} icon={Wallet} accent /><KpiCard label="Importi positivi" value={eur(baseline.positive)} detail="Prima delle rettifiche negative" icon={ArrowDownUp} /><KpiCard label="Rettifiche negative" value={eur(baseline.negative)} detail="Incluse, non rimosse dal totale" icon={FileCheck2} /><KpiCard label="Mesi rappresentati" value={`${monthly.filter((r) => r.rows > 0).length} / ${monthly.length}`} detail="Non certifica la completezza degli invii" icon={CalendarRange} /></div></>;
+}
+export function SpendViewButtons({ spendView, setSpendView }: { spendView: SpendView; setSpendView: (view: SpendView) => void }) {
+  return <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Grafico della spesa">{([{id:'area',label:'Area',icon:ChartArea},{id:'line',label:'Linea',icon:ChartNoAxesCombined},{id:'bar',label:'Colonne',icon:BarChart3}] as const).map(({id,label,icon:Icon})=><button key={id} type="button" className={`${actionClass} ${spendView===id?'border-primary bg-primary/5 text-primary':''}`} aria-pressed={spendView===id} onClick={()=>setSpendView(id)}><Icon size={15} aria-hidden="true"/>{label}</button>)}</div>;
+}
+/** `spendGradient` comes from the caller's useId, so the chart's ids stay where they were in the page. */
+export function SpendChart({ monthly, spendView, spendGradient, divisor, trend }: { monthly: SpendMonth[]; spendView: SpendView; spendGradient: string; divisor: number; trend: CReviewFilters["trend"] }) {
+  return <div className="h-72 min-w-0" aria-hidden="true">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            {spendView === "area" ? <AreaChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
+              <defs><linearGradient id={spendGradient} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--viz-1)" stopOpacity={0.35}/><stop offset="100%" stopColor="var(--viz-1)" stopOpacity={0.02}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
+              <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
+              <Area dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={2.5} fill={`url(#${spendGradient})`} isAnimationActive={false}/>
+            </AreaChart> : spendView === "bar" ? <BarChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
+              <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
+              <Bar dataKey="amount" isAnimationActive={false} radius={[4, 4, 0, 0]}>{monthly.map((r) => <Cell key={r.month} fill={(r.amount ?? 0) < 0 ? "var(--viz-4)" : "var(--viz-1)"} />)}</Bar>
+            </BarChart> : <LineChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
+              <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
+              <Line dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={3} isAnimationActive={false} />
+            </LineChart>}
+          </ResponsiveContainer>
+        </div>;
+}
+export function BridgeValues({ left, right, bridge }: { left: Row<CBaseline>; right: Row<CBaseline>; bridge: Row<CBridge>[] }) {
+  return <><div className="mb-6 grid gap-3 sm:grid-cols-3">{[["Spesa iniziale", eur(left.net)], ["Variazione", signed(cMoneyDifference(right.net, left.net))], ["Spesa finale", eur(right.net)]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/50 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-lg font-semibold tabular-nums">{value}</p></div>)}</div><PillarCChangeBridge opening={left.net} closing={right.net} components={bridge}/><ExactTable caption="Componenti del ponte" headers={["Componente", "Contributo", "Celle prodotto"]} rows={bridge.map((r) => [C_COMPONENT_LABELS[r.component], signed(r.value), itNumber(r.cells)])} /></>;
+}
+/** Budget, both allocation keys and the neutral difference on one common scale; the first twelve areas are drawn. */
+export function BudgetRows({ budgets }: { budgets: BudgetRow[] }) {
+  const budgetValues = budgets.flatMap((r) => [Number(r.budget), Number(r.actual ?? 0), Number(r.alternative ?? 0)]);
+  const budgetMin = Math.min(0, ...budgetValues), budgetMax = Math.max(1, ...budgetValues);
+  const budgetPosition = (n: number) => (n - budgetMin) / (budgetMax - budgetMin) * 100;
+  return <>
+          <div className="mb-5 flex flex-wrap gap-4 text-xs text-muted-foreground"><span>● Chiave principale</span><span>◇ Chiave alternativa</span><span>│ Budget</span></div>
+          <div className="mb-3 flex justify-between gap-3 text-[10px] tabular-nums text-muted-foreground" aria-hidden="true"><span>{eur(budgetMin)}</span><span>Scala comune · euro</span><span>{eur(budgetMax)}</span></div>
+          <div className="space-y-5">{budgets.slice(0, 12).map((r) => <div key={r.id}>
+            <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{r.level} {r.area}</span><span className="font-semibold tabular-nums">{eur(r.actual)}</span></div>
+            {r.actual === null ? <p className="text-xs text-muted-foreground">Nessuna riga attribuita: nessun confronto con un consuntivo pari a zero.</p> : <div className="relative h-5 rounded bg-secondary" aria-hidden="true">
+              {budgetMin < 0 && <span className="absolute top-0 h-5 border-l border-border" style={{ left: `${budgetPosition(0)}%` }} />}
+              <span className="absolute top-2 h-1 bg-primary/35" style={{ left: `${budgetPosition(Math.min(Number(r.actual), Number(r.alternative)))}%`, width: `${Math.abs(Number(r.actual) - Number(r.alternative)) / (budgetMax - budgetMin) * 100}%` }} />
+              <span className="absolute top-1.5 size-2 rounded-full bg-primary" style={{ left: `calc(${budgetPosition(Number(r.actual))}% - 4px)` }} />
+              <span className="absolute top-1.5 size-2 rotate-45 border border-primary bg-card" style={{ left: `calc(${budgetPosition(Number(r.alternative))}% - 4px)` }} />
+              <span className="absolute top-0 h-5 border-l-2 border-foreground" style={{ left: `calc(${budgetPosition(Number(r.budget))}% - 2px)` }} />
+            </div>}
+          </div>)}</div>
+          {budgets.length > 12 && <p className="mt-4 text-xs text-muted-foreground">{`Prime 12 aree nel grafico; tutte le ${budgets.length} aree sono nella tabella.`}</p>}
+          <ExactTable caption="Budget, due chiavi e differenze neutrali" headers={["Area", "Fonte", "Budget", "Chiave principale", "Alternativa", "Differenza principale"]} rows={budgets.map((r) => [`${r.level} ${r.area}`, r.basis === "published" ? "Pubblicato" : "Modellato", eur(r.budget), eur(r.actual), eur(r.alternative), r.actual === null ? "Non confrontabile" : signed(cMoneyDifference(r.actual, r.budget))])} />
+        </>;
+}
+/** The wording of the CO count block: the scale's caption, the unit after each row's ratio, and the exact table's
+ * headers. The default is the reviewer view's wording, whose markup is pinned byte-identical; the organisation-scoped
+ * workspace passes its own (C_AUDIENCE_COPY.countsLabels), a ratio to the estimated count and never a per-person unit
+ * (review finding F-UI3-RES). */
+export type CCountLabels = { scale: string; unit: string; headers: readonly [string, string, string, string, string, string] };
+const C_REVIEW_COUNT_LABELS: CCountLabels = {
+  scale: "Euro / persona nello scenario",
+  unit: " / persona nello scenario",
+  headers: ["Portafoglio", "Numerosità base stimata", "Spesa CO attribuita tramite portafoglio", "Numerosità ridotta del 25%", "Numerosità di riferimento", "Numerosità aumentata del 25%"],
+};
+/** The calculated CO scenarios on one common scale, with the ±25% denominator range. */
+export function CountRows({ countRows, labels = C_REVIEW_COUNT_LABELS }: { countRows: CountRow[]; labels?: CCountLabels }) {
+  const countValues = countRows.flatMap((r) => [Number(r.lowCountCost), Number(r.highCountCost), Number(r.perPerson)]);
+  const countMin = Math.min(0, ...countValues), countMax = Math.max(1, ...countValues);
+  const countPosition = (n: number) => (n - countMin) / (countMax - countMin) * 100;
+  return <><div className="mb-3 flex justify-between gap-3 text-[10px] tabular-nums text-muted-foreground" aria-hidden="true"><span>{eur(countMin)}</span><span>{labels.scale}</span><span>{eur(countMax)}</span></div><div className="space-y-4">{countRows.map((r) => <div key={r.portfolio}>
+          <div className="mb-1.5 flex flex-wrap justify-between gap-2 text-xs"><span className="font-semibold">{r.portfolio}</span><span className="tabular-nums">{`${eur(r.perPerson)}${labels.unit}`}</span></div>
+          <div className="relative h-5 rounded bg-secondary" aria-hidden="true">
+            {countMin < 0 && <span className="absolute top-0 h-5 border-l border-border" style={{ left: `${countPosition(0)}%` }} />}
+            <span className="absolute top-2 h-1 bg-primary/35" style={{ left: `${countPosition(Math.min(Number(r.highCountCost), Number(r.lowCountCost)))}%`, width: `${Math.abs(Number(r.lowCountCost) - Number(r.highCountCost)) / (countMax - countMin) * 100}%` }} />
+            <span className="absolute top-1 size-3 rounded-full border-2 border-card bg-primary" style={{ left: `calc(${countPosition(Number(r.perPerson))}% - 6px)` }} />
+          </div>
+        </div>)}</div><ExactTable caption="Numerosità e sensibilità del denominatore" headers={[...labels.headers]} rows={countRows.map((r) => [r.portfolio, fmt(Number(r.persons)), eur(r.spend), eur(r.lowCountCost), eur(r.perPerson), eur(r.highCountCost)])} /></>;
+}
+export { Panel as CReviewPanel, Heading as CReviewHeading, ExactTable as CReviewExactTable, Empty as CReviewEmpty };
+export const C_REVIEW_UI = { selectClass, actionClass, monthNames } as const;

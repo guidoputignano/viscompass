@@ -4,7 +4,10 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefO
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Copy, Download, GitBranch, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { cAttrEntries } from "@/lib/dashboard-review/pillar-c/attribution-format";
-import { C_ORG_LABELS, C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
+import { C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
+import type { CClientAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
+import { C_AUDIENCE_COPY, cAudienceActVocabulary, cAudienceLabel, cAudiencePlanningFilters, isCScopedClientAudience } from "@/lib/dashboard-review/pillar-c/audience-view";
+import { usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 import { itNumber } from "@/lib/format/it-number";
 import { C_PLANNING_BPS_MAX, C_PLANNING_BPS_MIN, C_PLANNING_LABELS as L, C_PLANNING_MAX_GROUP, C_PLANNING_MAX_VARIANTS, C_PLANNING_PARAMS, C_PLANNING_READING, C_PLANNING_RULE_NOTES, C_PLANNING_RULES, C_PLANNING_SHARE_MAX, cPlanningAccept, cPlanningBpsToPercent, cPlanningCompare, cPlanningExport, cPlanningExportName, cPlanningFilters, cPlanningKnownIds, cPlanningMoney, cPlanningNumber, cPlanningOutside, cPlanningPartialText, cPlanningPercentLabel, cPlanningPercentToBps, cPlanningRegroup, cPlanningSearch, cPlanningShareText, cPlanningSplitStatus, cPlanningWorkspace, type CPlanningAmount, type CPlanningCrossingSet, type CPlanningPlan, type CPlanningRanking, type CPlanningResult, type CPlanningRule, type CPlanningSplit, type CPlanningSplitBand, type CPlanningState, type CPlanningVariant, type CPlanningVariantResult, type CPlanningView } from "@/lib/dashboard-review/pillar-c/planning";
 
@@ -320,25 +323,33 @@ function Ranking({ ranking, names, evidence }: { ranking: CPlanningRanking; name
   </article>;
 }
 
-/** Budget and regional context as status lines and links only: no amount, no modelled budget, no forecast figure. */
-function Outside({ scope, acts }: { scope: Pick<CPlanningState, "period" | "org" | "channel">; acts: readonly string[] }) {
+/** Budget and regional context as status lines and links only: no amount, no modelled budget, no forecast figure.
+ * Organisations are named only by the audience's own labels. */
+function Outside({ scope, acts, audience }: { scope: Pick<CPlanningState, "period" | "org" | "channel">; acts: readonly string[]; audience: CClientAudience }) {
   let o: ReturnType<typeof cPlanningOutside> | null = null;
-  try { o = cPlanningOutside(scope, acts); } catch { o = null; }
+  try { o = cPlanningOutside(scope, acts, cAudienceActVocabulary(audience)); } catch { o = null; }
   return <aside className="rounded-2xl border border-dashed border-border bg-card/60 p-4 md:p-5" aria-labelledby="scenari-outside-title">
     <h3 id="scenari-outside-title" className="text-sm font-semibold">{L.outside.title}</h3>
     <div className="mt-2 grid gap-3 text-xs leading-5 text-muted-foreground md:grid-cols-2">
-      <div>{o && <p key={o.key}>{o.status === "within" ? <><Live>{o.budget[0]}</Live> <Live>{`${o.orgs.map(c => C_ORG_LABELS[c]).join(", ")}.`}</Live> <Live>{o.budget[1]}</Live></> : <Live>{o.budget[0]}</Live>}</p>}
+      <div>{o && <p key={o.key}>{o.status === "within" ? <><Live>{o.budget[0]}</Live> <Live>{`${o.orgs.map(c => cAudienceLabel(audience, c) ?? "").join(", ")}.`}</Live> <Live>{o.budget[1]}</Live></> : <Live>{o.budget[0]}</Live>}</p>}
         {o && o.status !== "none" && <a href="#pianificazione" className={link}>{L.outside.actsLink}<ArrowRight size={13} aria-hidden="true"/></a>}</div>
       <div>{(o?.regional ?? [L.outside.regional, L.outside.noLocalForecast, L.outside.selection]).map(t => <p key={t}><Live>{t}</Live></p>)}<a href="#previsione" className={link}>{L.outside.regionalLink}<ArrowRight size={13} aria-hidden="true"/></a></div>
     </div>
   </aside>;
 }
 
+type CPlanningPanelProps = { search: string; load: CPlanningLoad; acts: readonly string[]; evidenceAnchor?: boolean; onSearch: (next: string, mode: Mode) => void; onRetry: () => void };
 /** Pure render of the workspace for one URL and one load (SSR-tested). The stale-scope guard lives here: a view is used
  * only under its own scope key, and a result only when its key starts with that scope; otherwise no figure is shown.
- * Controls come first (group, variants, rule), then the observed lane, the assumptions lane and the review order. */
-export function CPlanningPanel({ search, load, acts, evidenceAnchor = false, onSearch, onRetry }: { search: string; load: CPlanningLoad; acts: readonly string[]; evidenceAnchor?: boolean; onSearch: (next: string, mode: Mode) => void; onRetry: () => void }) {
-  const { state, invalid } = useMemo(() => cPlanningFilters(search), [search]);
+ * Controls come first (group, variants, rule), then the observed lane, the assumptions lane and the review order.
+ * The audience is mandatory: without one nothing renders. */
+export function CPlanningPanel(props: CPlanningPanelProps) {
+  const audience = usePillarCAudience();
+  return audience ? <PlanningPanel {...props} audience={audience}/> : null;
+}
+function PlanningPanel({ search, load, acts, evidenceAnchor = false, onSearch, onRetry, audience }: CPlanningPanelProps & { audience: CClientAudience }) {
+  // The dossier scope, with its organisation clamped to this audience's keys (the reviewer's parser, unchanged, for the reviewer).
+  const { state, invalid } = useMemo(() => cAudiencePlanningFilters(audience, search), [audience, search]);
   const scopeKey = `${state.period}|${state.org}|${state.channel}`;
   const view = load && load.key === scopeKey && "view" in load ? load.view : null;
   const error = load && load.key === scopeKey && "error" in load ? load.error : null;
@@ -381,48 +392,57 @@ export function CPlanningPanel({ search, load, acts, evidenceAnchor = false, onS
   const copy = async () => { try { await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}${window.location.search}#scenari`); setCopied(search); } catch { setCopied(null); } };
   const ready = outcome?.status === "ready" ? outcome : null;
   // The file is built from the newest committed address (R1): a value committed by the blur of the same tap is in it.
-  const exportJson = () => { try { const latest = cPlanningFilters(address.current()).state; if (!view || !ready) throw Error("C_PLANNING_EXPORT"); download(cPlanningExportName(latest), JSON.stringify(cPlanningExport(view, latest, new Date().toISOString()), null, 2)); setExportFailures(0); } catch { setExportFailures(n => n + 1); } };
+  // The file carries this audience's confidentiality label, the one printed beside the button.
+  const exportJson = () => { try { const latest = cAudiencePlanningFilters(audience, address.current()).state; if (!view || !ready) throw Error("C_PLANNING_EXPORT"); download(cPlanningExportName(latest), JSON.stringify(cPlanningExport(view, latest, new Date().toISOString(), audience.exportLabel), null, 2)); setExportFailures(0); } catch { setExportFailures(n => n + 1); } };
   // A pointer opens the reading block; once the open block has rendered, the page moves there and focus lands on its summary.
   const openReading = () => { setReadOpen(true); setReadJump(n => n + 1); };
   useEffect(() => { if (!readJump) return; const block = document.getElementById("scenari-reading"); block?.scrollIntoView({ block: "start" }); block?.querySelector("summary")?.focus({ preventScroll: true }); }, [readJump]);
   const partial = cPlanningPartialText(state.period);
+  // Constant for the page: a refused read is described in the audience's own words.
+  const forbidden = isCScopedClientAudience(audience) ? C_AUDIENCE_COPY.forbidden : L.section.forbidden;
   // One polite announcement per committed change, once the address it wrote has rendered. A later URL change made by
   // another section is not this workspace recalculating, so it announces nothing.
   const announcement = ready && announceAfter !== null && announceAfter === search.replace(/^\?/, "") ? `${L.section.updated}: ${[ready.r.ids.map(names).join(", "), ...ready.r.variants.map(v => `${v.name} ${cPlanningPercentLabel(v.assumption.bps)}`), ...(state.rule ? [`${L.split.rule}: ${L.split[state.rule]}`] : [])].join(" · ")}` : null;
   return <section id="scenari" aria-labelledby="scenari-title" className="scroll-mt-6 space-y-4 xl:scroll-mt-56" data-c-planning="v1">
     <div className="flex items-start gap-3"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary"><GitBranch size={21} aria-hidden="true"/></span><div className="min-w-0"><p className="text-xs font-medium text-primary">{L.section.eyebrow}</p><h2 id="scenari-title" tabIndex={-1} className="mt-1 text-xl font-semibold focus-visible:outline-2 focus-visible:outline-primary">{L.section.title}</h2><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">{L.section.lead}</p><p className="mt-1 max-w-4xl text-xs leading-5 text-muted-foreground">{L.section.separation}</p></div></div>
     <div className={card}>
-      <div className="min-w-0"><p className="text-xs text-muted-foreground">{L.section.scopeTitle}</p><p className="mt-0.5 text-sm font-semibold"><Live>{`${C_PERIOD_LABELS[state.period]} · ${C_ORG_LABELS[state.org]} · ${channelName(state.channel)}`}</Live></p>{partial && <p className="mt-1 text-xs font-medium leading-5"><Live>{partial}</Live></p>}<a href="#portafogli" className={link}>{L.section.dossierScope}<ArrowRight size={13} aria-hidden="true"/></a></div>
+      <div className="min-w-0"><p className="text-xs text-muted-foreground">{L.section.scopeTitle}</p><p className="mt-0.5 text-sm font-semibold"><Live>{`${C_PERIOD_LABELS[state.period]} · ${cAudienceLabel(audience, state.org) ?? ""} · ${channelName(state.channel)}`}</Live></p>{partial && <p className="mt-1 text-xs font-medium leading-5"><Live>{partial}</Live></p>}<a href="#portafogli" className={link}>{L.section.dossierScope}<ArrowRight size={13} aria-hidden="true"/></a></div>
       <div className="mt-3"><GroupPicker ids={state.ids} portfolios={view?.portfolios ?? null} names={names} headingRef={groupHeading} addRef={addRef} onAdd={addId} onRemove={removeId}/></div>
       <div className="mt-4 border-t border-border pt-3"><VariantControls variants={state.variants} keys={keys} ids={state.ids} names={names} heads={heads} inputs={inputs} addRef={addVariantRef} onChange={variant} onAdd={addVariant} onRemove={removeVariant}/></div>
       <div className="mt-4 border-t border-border pt-3"><RuleControls rule={state.rule} r={ready?.r ?? null} names={names} onRule={rule => apply(p => ({ ...p, rule }), "replace")} onShare={share}/></div>
       <div className="mt-4 border-t border-border pt-3">
         <div className="flex flex-wrap gap-1.5"><button type="button" className={action} onClick={copy}><Copy size={14} aria-hidden="true"/><Live>{copied === search ? L.section.copied : L.section.copyLink}</Live></button><button type="button" className={action} onClick={reset}><RotateCcw size={14} aria-hidden="true"/>{L.section.reset}</button><button type="button" className={action} disabled={!ready} aria-describedby="scenari-confidentiality" onClick={exportJson}><Download size={14} aria-hidden="true"/>{L.section.exportJson}</button></div>
-        <p id="scenari-confidentiality" className="mt-2 text-xs font-medium">{L.section.confidentiality}</p>
+        <p id="scenari-confidentiality" className="mt-2 text-xs font-medium">{audience.exportLabel}</p>
         <p className={`mt-1 ${note}`}>{L.section.draft}</p>
         <p role="status" className="text-xs text-destructive">{exportFailures > 0 && <Live key={exportFailures}>{L.section.exportFailed}</Live>}</p>
         {invalid.length > 0 && <p role="status" className="mt-1 text-xs text-destructive">{L.section.invalidUrl}</p>}
       </div>
     </div>
     <p className="sr-only" role="status">{announcement && <Live key={search}>{announcement}</Live>}</p>
-    {!view ? <div role="status" className={card}>{error ? <><p className="text-sm">{L.section.unavailable}</p>{error === "forbidden" ? <p className={`mt-2 ${note}`}>{L.section.forbidden}</p> : <button type="button" className={`${action} mt-3`} onClick={onRetry}>{L.section.retry}</button>}</> : <p className="text-sm text-muted-foreground">{L.section.loading}</p>}</div>
+    {!view ? <div role="status" className={card}>{error ? <><p className="text-sm">{L.section.unavailable}</p>{error === "forbidden" ? <p className={`mt-2 ${note}`}>{forbidden}</p> : <button type="button" className={`${action} mt-3`} onClick={onRetry}>{L.section.retry}</button>}</> : <p className="text-sm text-muted-foreground">{L.section.loading}</p>}</div>
       : !ready ? <div role="status" className={card}>{outcome?.status === "unknown" ? <><p className="text-sm">{L.section.unknownPortfolio}</p><button type="button" className={`${action} mt-3`} onClick={reset}><RotateCcw size={14} aria-hidden="true"/>{L.section.reset}</button></> : <p className="text-sm">{L.section.unavailable}</p>}</div>
       : <div key={ready.r.key} className="space-y-4" data-scope-key={ready.r.key}>
         <ObservedLane r={ready.r} matched={ready.matched} names={names} readOpen={readOpen} onRead={setReadOpen} onPointer={openReading}/>
         <AssumptionLane r={ready.r} keys={keys} names={names} onRead={openReading}/>
-        <Ranking ranking={ready.r.ranking} names={names} evidence={evidenceAnchor}/>
+        <Ranking ranking={ready.r.ranking} names={names} evidence={evidenceAnchor && audience.capabilities.evidence}/>
       </div>}
-    <Outside scope={state} acts={acts}/>
+    <Outside scope={state} acts={acts} audience={audience}/>
     <details className="rounded-xl border border-border bg-card"><summary className="cursor-pointer rounded-xl px-5 py-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary">{L.notComputed.title}</summary><ul className="list-disc space-y-2 pb-5 pl-9 pr-5 text-xs leading-5 text-muted-foreground">{L.notComputed.items.map(t => <li key={t}><Live>{t}</Live></li>)}</ul></details>
   </section>;
 }
 
-/** Reviewer-only planning workspace (PC-08-A12, A13). It inherits the dossier scope from the URL, reads the reviewer-gated
- * attribution view of that scope and computes every number with the planning engine. Nothing is stored or sent; the only
- * URL keys it writes are c_plan_*. */
-export function PillarCPlanningWorkspace({ publishedActs, evidenceAnchor = false }: { publishedActs: readonly string[]; evidenceAnchor?: boolean }) {
+type CPlanningWorkspaceProps = { publishedActs: readonly string[]; evidenceAnchor?: boolean };
+/** Planning workspace (PC-08-A12, A13). It inherits the dossier scope from the URL, reads the attribution view of that
+ * scope (reviewer-gated, or the organisation-scoped audience's own units under Storage RLS) and computes every number
+ * with the planning engine. Nothing is stored or sent; the only URL keys it writes are c_plan_*. The audience is
+ * mandatory: without one nothing renders and nothing is fetched. */
+export function PillarCPlanningWorkspace(props: CPlanningWorkspaceProps) {
+  const audience = usePillarCAudience();
+  return audience ? <PlanningWorkspace {...props} audience={audience}/> : null;
+}
+function PlanningWorkspace({ publishedActs, evidenceAnchor = false, audience }: CPlanningWorkspaceProps & { audience: CClientAudience }) {
   const search = useSearchParams().toString();
-  const { period, org, channel } = useMemo(() => cPlanningFilters(search).state, [search]), key = `${period}|${org}|${channel}`;
+  const { period, org, channel } = useMemo(() => cAudiencePlanningFilters(audience, search).state, [audience, search]), key = `${period}|${org}|${channel}`;
   const [load, setLoad] = useState<CPlanningLoad>(null), [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController(); let active = true;

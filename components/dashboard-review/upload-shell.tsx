@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { recordUpload } from "@/lib/dashboard-review/actions";
+import { cUploadStoragePath } from "@/lib/uploads/storage-path";
 
 const BUCKET = "uploads";
 
@@ -29,7 +30,9 @@ export function UploadShell({ orgCode }: { orgCode: string }) {
       // actually restricts writes to the caller's own org folder, the
       // same way the uploads table's own INSERT policy restricts the row
       // below. Nothing here re-implements that check.
-      const storagePath = `${orgCode}/${Date.now()}-${file.name}`;
+      // The object name keeps only characters the recorded-path rule admits (lib/uploads/storage-path.ts), so a
+      // file Storage accepted is never refused afterwards; the original name is recorded as file_name below.
+      const storagePath = cUploadStoragePath(orgCode, file.name, Date.now());
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)

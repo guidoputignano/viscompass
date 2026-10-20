@@ -225,6 +225,43 @@ test('nothing_to_reconcile is stored as uploaded, never as reconciled',async()=>
   assert.equal(summary(db).amounts.accepted,0);
 });
 
+// REC5-SEC-03: storage_path is client-supplied and this client is the service role, which bypasses Storage RLS.
+// A path outside the row's own organisation folder of 'uploads' is never downloaded, and every refusal reads the
+// same, so the row cannot be used to learn whether an object exists anywhere else.
+test('a path outside the row’s own organisation folder is refused without any read',async()=>{
+  const sha='b'.repeat(64);
+  for(const storage_path of [`../pillar-c-scoped/v1/asl-1/index-${sha}.json`,`201/../../pillar-c-scoped/v1/asl-1/index-${sha}.json`,
+    '201/%2e%2e/%2e%2e/pillar-c-review/r5/review.json','201\\..\\..\\pillar-c-evidence\\x.pdf','201/.\t./.\t./x.json','/201/file.xlsx',
+    '202/1729000000000-peer.xlsx','2010/file.xlsx','201/sub/file.xlsx','201/a..b.xlsx','201/','',null,42]){
+    const buf=await workbook();
+    const db=makeDb({upload:{data:{id:7,org_code:'201',storage_path},error:null},org:okOrg,download:()=>blob(buf)});
+    await assert.doesNotReject(()=>processUploadWith(db,7));
+    assert.equal(db.downloads.length,0,`${JSON.stringify(storage_path)}: never downloaded`);
+    assert.equal(db.updates.length,1,'only the refusal is written, not even a processing marker');
+    assert.deepEqual(db.updates[0].filters,[['id',7]]);
+    assert.equal(final(db).status,'uploaded');
+    assert.deepEqual(Object.keys(summary(db)).sort(),['at','message','ok']);
+    assert.equal(summary(db).ok,false);
+    assert.equal(summary(db).message,'Il percorso del file non è valido: il file non viene letto.');
+    assert.ok(!db.queries.some(q=>q.table==='canonical_fact'||q.table==='organizations'),'nothing else is read');
+  }
+  // The row's own organisation decides the folder: the same path is refused for another organisation's row.
+  const db=makeDb({upload:{data:{id:7,org_code:'202',storage_path:'201/file.xlsx'},error:null},org:okOrg,download:()=>blob(new ArrayBuffer(0))});
+  await processUploadWith(db,7);
+  assert.equal(db.downloads.length,0);
+});
+
+test('a path of the row’s own folder is read exactly as stored, from the uploads bucket',async()=>{
+  for(const storage_path of ['201/file.xlsx','201/1729000000000-DIR_OSP_TRA_003AS_SellInSellOut_nuova_estrazione_2025.xlsx','201/1729000000000-Spesa 2025 (v2).xlsx']){
+    const buf=await workbook();
+    const db=makeDb({upload:{data:{id:7,org_code:'201',storage_path},error:null},org:okOrg,download:()=>blob(buf)});
+    await processUploadWith(db,7);
+    assert.deepEqual(db.downloads,[{bucket:'uploads',path:storage_path}]);
+    assert.equal(db.updates[0].patch.status,'processing');
+    assert.equal(summary(db).ok,true);
+  }
+});
+
 test('incomplete_data is stored as uploaded, never as reconciled',async()=>{
   // An accepted row with no cost: the total is real but partial, and a partial
   // total must not be certified.

@@ -1,4 +1,4 @@
-/** Planning workspace engine for reviewers: the observed partition of one scope, the joint conditional interval of a
+/** Planning workspace engine (reviewers and organisation-scoped audiences): the observed partition of one scope, the joint conditional interval of a
  * group of portfolios (PC-08 §4.6 applied to a set), at most two declared variants and the labelled split scenarios
  * admitted by PC-08-A13. Pure and browser-safe. It never produces a forecast, a budget, a saving or a scope total
  * under assumption, and it never mutates the view it reads. */
@@ -7,6 +7,11 @@ import type { CAttrView } from "@/lib/dashboard-review/pillar-c/attribution-load
 import { cWorkbookDecimal } from "@/lib/dashboard-review/pillar-c/workbook";
 
 export type CPlanningView = CAttrView;
+/** The key of the organisation a plan reads: a reviewer key, or the unit key of an organisation-scoped audience
+ * (Pillar C recommendation 5; the same keys as C_SCOPED_UNITS, checked at compile time in audience-view.ts). The engine
+ * only compares it and writes it into keys and file names. */
+export type CPlanningOrg = CAttrOrg | "asl-1" | "asl-2" | "asl-3" | "asl-4" | "aggregato";
+export const C_PLANNING_ORGS: readonly CPlanningOrg[] = [...C_ATTR_ORGS, "asl-1", "asl-2", "asl-3", "asl-4", "aggregato"];
 export const C_PLANNING_RULES = ["eq", "prop", "user"] as const;
 export type CPlanningRule = typeof C_PLANNING_RULES[number];
 export const C_PLANNING_MAX_GROUP = 6, C_PLANNING_MAX_VARIANTS = 2, C_PLANNING_MAX_SHARES = 100;
@@ -23,7 +28,7 @@ export const cPlanningMonths = (period: CAttrPeriod): 12 | 5 => period.startsWit
 export type CPlanningAmount = string;
 export type CPlanningVariant = { bps: number; sharedBps: number | null; fixedBps: Record<string, number> };
 export type CPlanningPlan = { ids: string[]; variants: CPlanningVariant[]; rule: CPlanningRule | null; shares: Record<string, number> };
-export type CPlanningState = CPlanningPlan & { period: CAttrPeriod; org: CAttrOrg; channel: CAttrChannel };
+export type CPlanningState = CPlanningPlan & { period: CAttrPeriod; org: CPlanningOrg; channel: CAttrChannel };
 export type CPlanningPart = "fixed" | "inside" | "crossing" | "otherFixed" | "otherShared" | "unattributed";
 export type CPlanningPartRow = { key: string; part: CPlanningPart; id: string | null; label: string; value: CPlanningAmount; entries: number | null; zero: boolean };
 export type CPlanningPartition = { rows: CPlanningPartRow[]; total: CPlanningAmount; crossingAbs: CPlanningAmount; crossingEntries: number };
@@ -426,17 +431,19 @@ export function cPlanningBase(scope: CAttrScope, portfolios: readonly CAttrPortf
   }
 }
 /** Validates a fetched /api/pillar-c/attribution payload for the planning workspace: exact keys, echoed scope, matched
- * comparison, the packet parser's conservation guard and C1. Throws C_PLANNING_VIEW or C_PLANNING_BASE. */
-export function cPlanningAccept(raw: unknown, period: CAttrPeriod, org: CAttrOrg, channel: CAttrChannel): CPlanningView {
+ * comparison, the packet parser's conservation guard and C1. Throws C_PLANNING_VIEW or C_PLANNING_BASE. The view must
+ * echo the one organisation key that was requested, and that key must be in `orgs` (every reviewer and scoped key by
+ * default; the caller's own audience decided which one it requests, and the server which one it serves). */
+export function cPlanningAccept(raw: unknown, period: CAttrPeriod, org: CPlanningOrg, channel: CAttrChannel, orgs: readonly string[] = C_PLANNING_ORGS): CPlanningView {
   const keys = ["schema", "sourceSha256", "classificationSha256", "mappingVersion", "sourceSnapshot", "portfolios", "scope", "comparison"];
   need(record(raw) && Object.keys(raw).length === keys.length && keys.every(k => Object.hasOwn(raw, k)), "C_PLANNING_VIEW");
   const v = raw as Record<string, unknown>, hash = (h: unknown) => typeof h === "string" && /^[a-f0-9]{64}$/.test(h);
   need(v.schema === "pillar-c-attribution-view-v1" && hash(v.sourceSha256) && hash(v.classificationSha256) && hash(v.sourceSnapshot), "C_PLANNING_VIEW");
-  need(C_ATTR_PERIODS.includes(period) && C_ATTR_ORGS.includes(org) && C_ATTR_CHANNELS.includes(channel), "C_PLANNING_VIEW");
+  need(C_ATTR_PERIODS.includes(period) && orgs.includes(org) && C_ATTR_CHANNELS.includes(channel), "C_PLANNING_VIEW");
   const scope = v.scope as CAttrScope, comparison = v.comparison as CAttrScope | null;
   need(record(scope) && scope.period === period && scope.org === org && scope.channel === channel, "C_PLANNING_VIEW");
   need(comparison === null || (record(comparison) && comparison.period === C_PLANNING_MATCHED[period] && comparison.org === org && comparison.channel === channel), "C_PLANNING_VIEW");
-  try { parseCAttrPacket({ schema: "pillar-c-attribution-v1", sourceSha256: v.sourceSha256, classificationSha256: v.classificationSha256, mappingVersion: v.mappingVersion, precision: "exact-source-literals-21", portfolios: v.portfolios, scopes: comparison ? [scope, comparison] : [scope] }); }
+  try { parseCAttrPacket({ schema: "pillar-c-attribution-v1", sourceSha256: v.sourceSha256, classificationSha256: v.classificationSha256, mappingVersion: v.mappingVersion, precision: "exact-source-literals-21", portfolios: v.portfolios, scopes: comparison ? [scope, comparison] : [scope] }, [org]); }
   catch { fail("C_PLANNING_VIEW"); }
   const view = raw as unknown as CPlanningView; parsed(scope, view.portfolios); if (comparison) parsed(comparison, view.portfolios);
   return view;
@@ -626,12 +633,16 @@ export const cPlanningSplitStatus = (r: Pick<CPlanningResult, "split" | "partiti
   !r.split ? "off" : !r.partition.crossingEntries ? "nothing" : !r.split.observed.covered.entries ? "uncovered" : "shown";
 
 // ---------------------------------------------------------------- «Fuori da questa sezione»
-/** Budget and regional context strip, keyed on org|period|channel. `acts` holds "AQ|FY2024|CO"-style keys of published
- * departmental acts (Azienda, period, CO/DD/DPC); no amount ever enters. Regione and Tutti match any Azienda / channel. */
-export function cPlanningOutside(scope: { period: CAttrPeriod; org: CAttrOrg; channel: CAttrChannel }, acts: Iterable<string>) {
-  const parsed = [...acts].map(k => { const m = typeof k === "string" ? /^(AQ|CH|PE|TE)\|(FY2024|FY2025|JM2025|JM2026)\|(CO|DD|DPC)$/.exec(k) : null; return m ? { org: m[1], period: m[2], channel: m[3] } : fail("C_PLANNING_ACTS"); });
-  const match = parsed.filter(a => a.period === scope.period && (scope.channel === "Tutti" || a.channel === scope.channel) && (scope.org === "Regione" || a.org === scope.org));
-  const orgs = C_ATTR_ORGS.filter(o => match.some(a => a.org === o)), status: "none" | "act" | "within" = !orgs.length ? "none" : scope.org === "Regione" ? "within" : "act";
+/** The reviewer's vocabulary for the strip: the four Azienda keys and the aggregate key. */
+const C_PLANNING_ACT_VOCABULARY = { orgs: C_ATTR_ORGS.filter(o => o !== "Regione"), aggregate: "Regione" } as const;
+/** Budget and regional context strip, keyed on org|period|channel. `acts` holds "<Azienda key>|FY2024|CO"-style keys of
+ * published departmental acts (Azienda, period, CO/DD/DPC); no amount ever enters. The aggregate key and Tutti match any
+ * Azienda / channel. `vocabulary` names the Azienda keys and the aggregate key: the reviewer's by default, or an
+ * organisation-scoped audience's (its unit keys and `aggregato`). */
+export function cPlanningOutside(scope: { period: CAttrPeriod; org: string; channel: CAttrChannel }, acts: Iterable<string>, vocabulary: { orgs: readonly string[]; aggregate: string } = C_PLANNING_ACT_VOCABULARY) {
+  const parsed = [...acts].map(k => { const m = typeof k === "string" ? /^([a-z0-9-]{1,12}|[A-Z]{2})\|(FY2024|FY2025|JM2025|JM2026)\|(CO|DD|DPC)$/.exec(k) : null; return m && vocabulary.orgs.includes(m[1]) ? { org: m[1], period: m[2], channel: m[3] } : fail("C_PLANNING_ACTS"); });
+  const match = parsed.filter(a => a.period === scope.period && (scope.channel === "Tutti" || a.channel === scope.channel) && (scope.org === vocabulary.aggregate || a.org === scope.org));
+  const orgs = vocabulary.orgs.filter(o => match.some(a => a.org === o)), status: "none" | "act" | "within" = !orgs.length ? "none" : scope.org === vocabulary.aggregate ? "within" : "act";
   return { key: `${scope.org}|${scope.period}|${scope.channel}`, status, orgs,
     budget: status === "none" ? [L.outside.budgetNone] : status === "act" ? [L.outside.budgetAct] : [L.outside.budgetWithin, L.outside.budgetWithinNote],
     regional: [L.outside.regional, L.outside.noLocalForecast, L.outside.selection] };
@@ -714,7 +725,7 @@ export function cPlanningRegroup(plan: CPlanningPlan, ids: string[]): CPlanningP
     shares: Object.fromEntries(Object.entries(plan.shares).filter(([k]) => crosses(k.split("+"), group))) };
 }
 
-/// ---------------------------------------------------------------- 7. JSON export (local draft, reviewers only)
+/// ---------------------------------------------------------------- 7. JSON export (local draft, labelled for its audience)
 /** A labelled value as the page shows it. `value` is null exactly where the page reads `note` instead of a zero amount (A12 item 9). */
 export type CPlanningExportValue = { label: string; value: CPlanningAmount | null; note?: string };
 export type CPlanningExportRange = { label: string; lower: CPlanningAmount; upper: CPlanningAmount };
@@ -751,15 +762,18 @@ const splitRow = (b: CPlanningSplitBand): CPlanningExportSplitRow => ({ label: L
  * only the values the page shows: the observed partition and group interval, each variant's reference, interval, L2 line,
  * effect and members, and the split rows only when the page shows a split. Never the outside remainder of a split, the
  * uncovered envelopes, endpoint differences, product rows, or a scope total under assumption. Shown values can still add up to
- * one in particular cases (e.g. a split covering every crossing entry plus the observed parts outside the group), as on the page. */
-export function cPlanningExport(view: CPlanningView, state: CPlanningState, exportedAt: string): CPlanningExport {
+ * one in particular cases (e.g. a split covering every crossing entry plus the observed parts outside the group), as on the page.
+ * `confidentiality` is the label shown beside the export button: the reviewers' by default, or the label of an
+ * organisation-scoped audience. */
+export function cPlanningExport(view: CPlanningView, state: CPlanningState, exportedAt: string, confidentiality: string = L.section.confidentiality): CPlanningExport {
   need(typeof exportedAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(exportedAt), "C_PLANNING_EXPORT");
+  need(typeof confidentiality === "string" && confidentiality.trim().length > 0 && confidentiality.length <= 300 && !/[\u0000-\u001f\u007f]/.test(confidentiality), "C_PLANNING_EXPORT");
   need(state.period === view.scope.period && state.org === view.scope.org && state.channel === view.scope.channel, "C_PLANNING_EXPORT");
   need(/^[a-f0-9]{64}$/.test(view.sourceSnapshot ?? ""), "C_PLANNING_EXPORT");
   const r = cPlanningWorkspace(view, { ids: state.ids, variants: state.variants, rule: state.rule, shares: state.shares });
   const shares = state.rule === "user" ? state.shares : {}, o = r.observed, many = r.members.length > 1, split = cPlanningSplitStatus(r) === "shown" ? r.split : null;
   return {
-    schema: "pillar-c-planning-scenarios-v1", mode: "local-export-only", status: "bozza-locale", confidentiality: L.section.confidentiality, exportedAt,
+    schema: "pillar-c-planning-scenarios-v1", mode: "local-export-only", status: "bozza-locale", confidentiality, exportedAt,
     source: { sourceSha256: view.sourceSha256, classificationSha256: view.classificationSha256, mappingVersion: view.mappingVersion, mappingStatus: "bozza", sourceSnapshot: view.sourceSnapshot },
     scope: { period: r.scope.period, org: r.scope.org, channel: r.scope.channel, months: r.scope.months, duration: L.section.duration },
     group: r.members.map(m => ({ id: m.id, label: m.label })),

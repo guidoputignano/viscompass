@@ -1,12 +1,14 @@
 /** A local, exportable review worksheet; never a shared assignment or approval. */
 import { C_ATTR_CHANNELS, C_ATTR_ORGS, C_ATTR_PERIODS, cAttrAtoms, type CAttrChannel, type CAttrOrg, type CAttrPeriod } from "@/lib/dashboard-review/pillar-c/attribution";
+import { isCScopedUnit, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 
 export const C_REVIEW_TYPES = ["attribution", "product-change", "identifier", "budget-evidence"] as const;
 export const C_REVIEW_STATES = ["draft", "assigned", "in_review", "resolved"] as const;
 export type CReviewType = typeof C_REVIEW_TYPES[number];
 export type CReviewState = typeof C_REVIEW_STATES[number];
 export type CPortfolioReviewContext = {
-  period: CAttrPeriod; org: CAttrOrg; channel: CAttrChannel;
+  /** A reviewer key, or the unit key of an organisation-scoped audience (Pillar C recommendation 5). */
+  period: CAttrPeriod; org: CAttrOrg | CScopedUnit; channel: CAttrChannel;
   portfolioId: string; portfolioLabel: string;
   sourceSha256: string; classificationSha256: string; mappingVersion: string;
   sourceSnapshot?: string;
@@ -22,6 +24,8 @@ export type CReviewTask = CReviewInput & {
 export type CReviewPlan = {
   schema: "pillar-c-review-plan-v1";
   mode: "local-export-only";
+  /** The confidentiality label of an organisation-scoped audience's export; absent from the reviewers' plan (unchanged). */
+  confidentiality?: string;
   context: CPortfolioReviewContext;
   exportedAt: string;
   tasks: CReviewTask[];
@@ -36,7 +40,7 @@ const id = /^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$/;
 const token = (value: unknown, pattern: RegExp) => typeof value === "string" && pattern.test(value);
 const clean = (value: unknown, max: number) => typeof value === "string" && value.length <= max && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value);
 function contextCheck(context: CPortfolioReviewContext) {
-  if (!context || !C_ATTR_PERIODS.includes(context.period) || !C_ATTR_ORGS.includes(context.org) || !C_ATTR_CHANNELS.includes(context.channel)
+  if (!context || !C_ATTR_PERIODS.includes(context.period) || !(C_ATTR_ORGS.includes(context.org as CAttrOrg) || isCScopedUnit(context.org)) || !C_ATTR_CHANNELS.includes(context.channel)
     || !token(context.portfolioId, id) || !clean(context.portfolioLabel, 240) || !context.portfolioLabel.trim()
     || !token(context.sourceSha256, hash) || !token(context.classificationSha256, hash)
     || !clean(context.mappingVersion, 96) || !context.mappingVersion.trim()
@@ -94,9 +98,11 @@ export function cUpdateReviewTask(context: CPortfolioReviewContext, task: CRevie
   if (task.state === "resolved" && checked.state === "resolved") return { ...task };
   return { ...task, ...checked, updatedAt, resolvedAt: checked.state === "resolved" ? task.resolvedAt ?? updatedAt : null };
 }
-/** Explicit fields only; no caller-supplied patient/attachment payload is exported. */
-export function cReviewPlan(context: CPortfolioReviewContext, tasks: readonly CReviewTask[], now: string): CReviewPlan {
+/** Explicit fields only; no caller-supplied patient/attachment payload is exported. `confidentiality` is given only for
+ * an organisation-scoped audience; the reviewers' plan keeps its fields exactly. */
+export function cReviewPlan(context: CPortfolioReviewContext, tasks: readonly CReviewTask[], now: string, confidentiality?: string): CReviewPlan {
   const key = cReviewContextKey(context), seen = new Set<string>(), exportedAt = iso(now);
+  if (confidentiality !== undefined && (!clean(confidentiality, 300) || !confidentiality.trim())) fail("context");
   const safeTasks = tasks.map(task => {
     if (task.contextKey !== key || !token(task.id, id) || seen.has(task.id)) fail("task");
     seen.add(task.id);
@@ -113,14 +119,18 @@ export function cReviewPlan(context: CPortfolioReviewContext, tasks: readonly CR
     ...(context.fixedNet === undefined ? {} : { fixedNet: context.fixedNet }),
     ...(context.sharedAbs === undefined ? {} : { sharedAbs: context.sharedAbs }),
   };
-  return { schema: "pillar-c-review-plan-v1", mode: "local-export-only", context: safeContext, exportedAt, tasks: safeTasks };
+  return confidentiality === undefined
+    ? { schema: "pillar-c-review-plan-v1", mode: "local-export-only", context: safeContext, exportedAt, tasks: safeTasks }
+    : { schema: "pillar-c-review-plan-v1", mode: "local-export-only", confidentiality, context: safeContext, exportedAt, tasks: safeTasks };
 }
-export function cReviewJson(plan: CReviewPlan): string { return JSON.stringify(cReviewPlan(plan.context, plan.tasks, plan.exportedAt), null, 2); }
-/** Quoted CSV alone does not stop spreadsheet formulas. Neutralise every cell. */
+export function cReviewJson(plan: CReviewPlan): string { return JSON.stringify(cReviewPlan(plan.context, plan.tasks, plan.exportedAt, plan.confidentiality), null, 2); }
+/** Quoted CSV alone does not stop spreadsheet formulas. Neutralise every cell. A scoped audience's plan carries its
+ * confidentiality label in a last column; the reviewers' columns are unchanged. */
 export function cReviewCsv(plan: CReviewPlan): string {
-  const checked = cReviewPlan(plan.context, plan.tasks, plan.exportedAt), c = checked.context;
+  const checked = cReviewPlan(plan.context, plan.tasks, plan.exportedAt, plan.confidentiality), c = checked.context;
   const cell = (value: string) => `"${(/^[\s\u0000-\u001F\u007F\uFEFF]*[=+\-@]/.test(value) ? "'" : "") + value.replaceAll('"', '""')}"`;
-  const header = ["id", "period", "org", "channel", "portfolio_id", "portfolio", "type", "title", "role", "owner", "due_date", "state", "evidence_reference", "outcome", "source_sha256", "classification_sha256", "mapping_version", "source_snapshot", "fixed_net_eur", "shared_absolute_eur", "created_at", "updated_at", "resolved_at"];
-  const rows = checked.tasks.map(t => [t.id, c.period, c.org, c.channel, c.portfolioId, c.portfolioLabel, t.type, t.title, t.role, t.owner, t.dueDate, t.state, t.evidence, t.outcome, c.sourceSha256, c.classificationSha256, c.mappingVersion, c.sourceSnapshot ?? "", c.fixedNet ?? "", c.sharedAbs ?? "", t.createdAt, t.updatedAt, t.resolvedAt ?? ""]);
+  const label = checked.confidentiality === undefined ? [] : [checked.confidentiality];
+  const header = ["id", "period", "org", "channel", "portfolio_id", "portfolio", "type", "title", "role", "owner", "due_date", "state", "evidence_reference", "outcome", "source_sha256", "classification_sha256", "mapping_version", "source_snapshot", "fixed_net_eur", "shared_absolute_eur", "created_at", "updated_at", "resolved_at", ...(label.length ? ["confidentiality"] : [])];
+  const rows = checked.tasks.map(t => [t.id, c.period, c.org, c.channel, c.portfolioId, c.portfolioLabel, t.type, t.title, t.role, t.owner, t.dueDate, t.state, t.evidence, t.outcome, c.sourceSha256, c.classificationSha256, c.mappingVersion, c.sourceSnapshot ?? "", c.fixedNet ?? "", c.sharedAbs ?? "", t.createdAt, t.updatedAt, t.resolvedAt ?? "", ...label]);
   return "\uFEFF" + [header, ...rows].map(row => row.map(cell).join(",")).join("\r\n") + "\r\n";
 }

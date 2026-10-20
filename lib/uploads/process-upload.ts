@@ -1,6 +1,7 @@
 import { createServiceRoleClient, hasServiceRoleConfig } from "@/lib/supabase/service-role";
 import { parseGoldFile } from "@/lib/uploads/gold-file";
 import { reconcileRows, summariseReconciliation, type CanonicalTotals } from "@/lib/uploads/reconcile";
+import { isUploadStoragePath } from "@/lib/uploads/storage-path";
 
 // Turns a stored upload into a reconciliation result.
 //
@@ -118,6 +119,14 @@ export async function processUploadWith(db: ServiceClient, uploadId: number): Pr
       .eq("id", uploadId)
       .single();
     if (error || !upload) return;
+
+    // storage_path was supplied by the client, and this client bypasses RLS: read nothing outside the row's own
+    // organisation folder of 'uploads' (lib/uploads/storage-path.ts, review finding REC5-SEC-03). One message for
+    // every refused path, and no read at all, so the row cannot tell anything about objects elsewhere.
+    if (!isUploadStoragePath(upload.storage_path, upload.org_code)) {
+      await fail("Il percorso del file non è valido: il file non viene letto.");
+      return;
+    }
 
     await db.from("uploads").update({ status: "processing" satisfies UploadStatus }).eq("id", uploadId);
 

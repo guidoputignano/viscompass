@@ -101,8 +101,12 @@ function reconcile(total: CAttrStats, parts: CAttrStats[]) {
 function portfolio(raw: unknown): CAttrPortfolio {
   const p = record(raw); keys(p, ["id", "label", "kind"]); text(p.id, 12); text(p.label); text(p.kind, 80); check(/^[A-Z0-9]{2,12}$/.test(p.id)); return p as CAttrPortfolio;
 }
-/** Strict shape and conservation checks also prevent accidental private row metadata escaping. */
-export function parseCPortfolioPacket(raw: unknown): CPortfolioPacket {
+/** Strict shape and conservation checks also prevent accidental private row metadata escaping. `orgs` is the
+ * organisation vocabulary the scopes may carry: the reviewer's five keys by default, or exactly one scoped unit
+ * key for a scoped read (Pillar C recommendation 5), so a shard of another unit is refused. */
+export function parseCPortfolioPacket(raw: unknown): CPortfolioPacket;
+export function parseCPortfolioPacket<O extends string>(raw: unknown, orgs: readonly O[]): Omit<CPortfolioPacket, "scopes"> & { scopes: (Omit<CPortfolioScope, "org"> & { org: O })[] };
+export function parseCPortfolioPacket(raw: unknown, orgs: readonly string[] = C_ATTR_ORGS): Omit<CPortfolioPacket, "scopes"> & { scopes: (Omit<CPortfolioScope, "org"> & { org: string })[] } {
   const packet = record(raw); keys(packet, ["schema", "precision", "sourceSha256", "classificationSha256", "mappingVersion", "portfolios", "scopes"]);
   check(packet.schema === "pillar-c-portfolio-v1" && packet.precision === "exact-source-literals-21");
   for (const field of ["sourceSha256", "classificationSha256"]) check(typeof packet[field] === "string" && /^[a-f0-9]{64}$/.test(packet[field] as string));
@@ -112,7 +116,7 @@ export function parseCPortfolioPacket(raw: unknown): CPortfolioPacket {
   for (const value of packet.scopes) {
     const s = record(value); keys(s, ["period", "org", "channel", "total", "states", "dossiers"]);
     const identity = `${s.period}|${s.org}|${s.channel}`;
-    check(C_ATTR_PERIODS.includes(s.period as CAttrPeriod) && C_ATTR_ORGS.includes(s.org as CAttrOrg) && C_ATTR_CHANNELS.includes(s.channel as CAttrChannel) && !seen.has(identity)); seen.add(identity);
+    check(C_ATTR_PERIODS.includes(s.period as CAttrPeriod) && orgs.includes(s.org as string) && C_ATTR_CHANNELS.includes(s.channel as CAttrChannel) && !seen.has(identity)); seen.add(identity);
     const total = stats(s.total), status = record(s.states); keys(status, [...C_ATTR_STATES]); const statuses = C_ATTR_STATES.map(id => stats(status[id])); reconcile(total, statuses);
     check(Array.isArray(s.dossiers) && s.dossiers.length === vocabulary.size); const ids = new Set<string>(), fixedTotals: CAttrStats[] = [];
     for (const value of s.dossiers) {

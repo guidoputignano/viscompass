@@ -1,5 +1,6 @@
 /** Private reviewer inspection contract. Never an accepted production release. */
 import { itNumberFormat } from "@/lib/format/it-number";
+import type { CScopedBaseline, CScopedBridge, CScopedBudget, CScopedClientReview, CScopedCount, CScopedReviewFilters } from "@/lib/dashboard-review/pillar-c/scoped-review";
 export type COrg = "AQ" | "CH" | "PE" | "TE" | "Regione";
 export type CChannel = "CO" | "DD" | "DPC";
 export type CPeriod = "FY2024" | "FY2025" | "JM2025" | "JM2026";
@@ -66,7 +67,6 @@ export type CReviewPacket = {
 };
 export const C_ORGS: readonly COrg[] = ["Regione", "AQ", "CH", "PE", "TE"];
 export const C_PERIODS: readonly CPeriod[] = ["FY2024", "FY2025", "JM2025", "JM2026"];
-export const C_ORG_LABELS: Record<COrg, string> = { Regione: "Aggregato delle quattro Aziende", AQ: "ASL 1", CH: "ASL 2", PE: "ASL 3", TE: "ASL 4" };
 export const C_PERIOD_LABELS: Record<CPeriod, string> = { FY2024: "Anno 2024", FY2025: "Anno 2025", JM2025: "Gen–mag 2025", JM2026: "Gen–mag 2026" };
 export const C_COMPONENT_LABELS = { "B-C": "Prodotti presenti nei due periodi", "B-E": "Prodotti entrati nel perimetro locale", "B-X": "Prodotti usciti dal perimetro locale", "B-N": "Identificativi non AIC o senza ATC" };
 const HASH = /^[a-f0-9]{64}$/;
@@ -427,12 +427,34 @@ export function cReviewSearch(search: string, patch: Partial<CReviewFilters>, re
   }
   return params.size ? `?${params}` : "";
 }
-export function selectCReview(packet: CReviewPacket, f: CReviewFilters) {
+export type CReviewSelection<Baseline, Bridge, Budget, Count> = {
+  baseline: Baseline | null; months: { month: number; amount: number | null; exact: Money | null; rows: number }[];
+  bridge: Bridge[]; left: Baseline | null; right: Baseline | null; leftPeriod: string; rightPeriod: string;
+  budgets: Budget[]; availableBudgets: Budget[]; counts: Count[];
+};
+type CSelectableRows = {
+  monthly: readonly (Omit<CMonthly, "org"> & { org: string })[]; baseline: readonly (Omit<CBaseline, "org"> & { org: string })[];
+  bridges: readonly (Omit<CBridge, "org"> & { org: string })[]; budgets: readonly (Omit<CBudget, "org" | "basis"> & { org: string; basis: string })[];
+  counts: readonly (Omit<CCount, "org"> & { org: string })[];
+};
+/**
+ * Two reading modes, bound to the packet rather than chosen by the caller:
+ *   - the reviewer packet (summed): the aggregate key "Regione" sums the four Aziende's monthly rows, as before;
+ *   - a scoped client packet (monthlyMode "explicit"): every series comes from the rows carrying exactly the
+ *     selected key. The aggregate has its own rows, so nothing is ever summed across organisations here, and
+ *     an Azienda's rows are never added to the aggregate's.
+ */
+export function selectCReview(packet: CReviewPacket, f: CReviewFilters): CReviewSelection<CBaseline, CBridge, CBudget, CCount>;
+export function selectCReview(packet: CScopedClientReview, f: CScopedReviewFilters): CReviewSelection<CScopedBaseline, CScopedBridge, CScopedBudget, CScopedCount>;
+export function selectCReview(input: CReviewPacket | CScopedClientReview, f: CReviewFilters | CScopedReviewFilters): CReviewSelection<unknown, unknown, unknown, unknown> {
+  const packet: CSelectableRows = input;
+  const explicit = "monthlyMode" in input && input.monthlyMode === "explicit";
+  const aggregate = explicit ? f.org === "aggregato" : f.org === "Regione";
   const baseline = packet.baseline.find((r) => r.period === f.period && r.org === f.org && r.channel === f.channel) ?? null;
   const year = Number(f.period.slice(2)), cap = f.period.startsWith("JM") ? 5 : 12;
   let running: bigint | null = BigInt(0);
   const months = Array.from({ length: cap }, (_, i) => {
-    const rows = packet.monthly.filter((r) => r.year === year && r.month === i + 1 && (f.org === "Regione" || r.org === f.org) && (f.channel === "Tutti" || r.channel === f.channel));
+    const rows = packet.monthly.filter((r) => r.year === year && r.month === i + 1 && (explicit ? r.org === f.org : (f.org === "Regione" || r.org === f.org)) && (f.channel === "Tutti" || r.channel === f.channel));
     const value = rows.length ? rows.reduce((s, r) => s + scaled(r.net), BigInt(0)) : null;
     running = running !== null && value !== null ? running + value : null;
     const exact = f.trend === "cumulative" ? running : value;
@@ -443,7 +465,7 @@ export function selectCReview(packet: CReviewPacket, f: CReviewFilters) {
   const left = packet.baseline.find((r) => r.period === leftPeriod && r.org === f.org && r.channel === f.channel) ?? null;
   const right = packet.baseline.find((r) => r.period === rightPeriod && r.org === f.org && r.channel === f.channel) ?? null;
   // An aggregate filter is NOT permission to compare/sum all modelled areas.
-  const availableBudgets = f.org === "Regione" || f.channel === "Tutti" ? [] : packet.budgets.filter((r) => r.org === f.org && r.channel === f.channel && r.period === f.budgetPeriod && r.basis === f.budget && r.level === f.level);
+  const availableBudgets = aggregate || f.channel === "Tutti" ? [] : packet.budgets.filter((r) => r.org === f.org && r.channel === f.channel && r.period === f.budgetPeriod && r.basis === f.budget && r.level === f.level);
   const budgets = availableBudgets.filter((r) => f.area === "all" || r.area === f.area).sort((a, b) => {
     if (a.actual === null || b.actual === null) return a.actual === b.actual ? a.id.localeCompare(b.id) : a.actual === null ? 1 : -1;
     const aa = f.budgetOrder === "amount" ? Number(a.actual) : Math.abs(Number(cMoneyDifference(a.actual, a.budget)));

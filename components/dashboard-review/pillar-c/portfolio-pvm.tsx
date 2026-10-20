@@ -6,6 +6,8 @@ import { cPortfolioPvm, type CPortfolioPvm } from "@/lib/dashboard-review/pillar
 import type { CPortfolioView } from "@/lib/dashboard-review/pillar-c/portfolio";
 import { cAttrPercent } from "@/lib/dashboard-review/pillar-c/attribution-format";
 import { cWorkbookDecimal, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
+import { C_AUDIENCE_COPY } from "@/lib/dashboard-review/pillar-c/audience-view";
+import { usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 
 const money = (n:string)=>`${cWorkbookDecimal(n,2)} €`;
 const signed = (n:string)=>`${Number(n)>0?"+":""}${money(n)}`;
@@ -31,8 +33,15 @@ export function CPortfolioPvmReading({result}:{result:CPortfolioPvm}) {
   </div>;
 }
 
-/** Reuse the existing authenticated, hash-pinned snapshot; load only on request. */
+/** Mandatory audience. The decomposition stays in the project review: an audience without the capability gets one short
+ * note, with no fetch and no link to the workbook section; without an audience nothing renders. */
 export function CPortfolioPriceQuantityMix({view,workbook}:{view:CPortfolioView;workbook?:CWorkbookIndex|null}) {
+  const audience=usePillarCAudience();
+  if(!audience)return null;
+  if(!audience.capabilities.pvm)return <p className="rounded-xl border border-border bg-card px-5 py-4 text-sm leading-6 text-muted-foreground" data-c-portfolio-pvm="withheld">{C_AUDIENCE_COPY.pvm}</p>;
+  return <PriceQuantityMix view={view} workbook={workbook}/>;
+}
+function PriceQuantityMix({view,workbook}:{view:CPortfolioView;workbook?:CWorkbookIndex|null}) {
   const [open,setOpen]=useState(false),[section,setSection]=useState<CWorkbookSection|null>(null),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
   const supported=view.scope.org==="Regione"&&view.scope.channel==="Tutti"&&["FY2024","FY2025"].includes(view.scope.period);
   useEffect(()=>{

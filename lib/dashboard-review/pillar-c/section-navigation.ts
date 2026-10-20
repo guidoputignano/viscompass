@@ -19,6 +19,21 @@ export const PILLAR_C_ALL_SECTIONS: readonly PillarCNavSection[] = [{id:"portafo
   return id === "priorita" ? [section, { id: "evidence-workflow", label: "Verifiche", description: "Coda condivisa 2025", number: "" }] : [section];
 })];
 
+/** An organisation-scoped audience (Pillar C recommendation 5): the dossier and the planning workspace, then the
+ * review sections and the attribution analysis it can read, numbered in page order. No workbook section, no shared
+ * review queue: those stay in the project review. */
+export const PILLAR_C_SCOPED_SECTIONS: readonly PillarCNavSection[] = [
+  { id: "portafogli", label: "Dossier", description: "Portafogli e prossimi passi", number: "" },
+  { id: "scenari", label: "Scenari", description: "Ipotesi e intervalli per portafogli", number: "" },
+  { id: "spesa", number: "01", label: "Spesa", description: "Andamento e importi" },
+  { id: "attribuzione", number: "02", label: "Attribuzione", description: "Copertura e incertezza" },
+  { id: "cambiamento", number: "03", label: "Variazioni", description: "Confronti nel tempo" },
+  { id: "pianificazione", number: "04", label: "Budget", description: "Atti pubblicati e allocazioni" },
+  { id: "numerosita", number: "05", label: "Numerosità", description: "Scenari CO" },
+  { id: "previsione", number: "06", label: "Previsione", description: "Regionale, fonte pubblica" },
+  { id: "evidenza", number: "07", label: "Evidenza", description: "Fonti e metodo" },
+];
+
 /** The last section above the reading line, including long sections. Near the
  * document end the final short section must still be able to become current. */
 export function pillarCSectionAtViewport(

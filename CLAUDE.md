@@ -92,6 +92,55 @@ Practical rules:
   (SECURITY DEFINER, derives the caller's org from `auth.uid()`, never
   from a client parameter — `supabase_schema.sql` section 6). Do not
   reimplement this by fetching all rows and filtering client-side.
+- **Dated exception, Pillar C only (owner decisions O1, O5 and O6,
+  19 October 2026; recommendation 5, organisation-scoped delivery).**
+  It is an exception to the clause above (cross-ASL values) and, as
+  stated below for the regional forecast, to «with no Region named».
+  It changes nothing else.
+  - An enabled Azienda user sees its own Azienda by its real name, and
+    the four-Azienda aggregate («Aggregato delle quattro Aziende») as
+    reviewers see it, at every grain the delivery carries.
+  - The aggregate includes the biosimilar molecules that Pillar B's
+    PB-V5-01 comparator withholds from Aziende, and has no small-cell
+    suppression.
+  - So the aggregate minus the Azienda's own figures gives the other
+    three Aziende combined, and, where only one other Azienda dispenses
+    a product, that Azienda's exact figure. For rarely dispensed
+    products this can approach patient-level information.
+  - The owner accepted this for Pillar C only.
+  - The interface never computes the aggregate minus own figures,
+    never shows an «altre Aziende» series and never ranks Aziende.
+  - A Regione user sees the aggregate («Aggregato regionale») and
+    ASL 1–4 under opaque keys `asl-1`…`asl-4`. For every scoped
+    audience the aggregate's key is `aggregato`; `Regione` stays the
+    reviewer key.
+  - The province map lives only in the private builder and in
+    reviewer-only application code, loaded as a separate chunk for
+    reviewers. That static chunk is publicly fetchable, and ASL 1–4
+    follows the official regional numbering of the Abruzzo ASLs, so
+    anyone who knows the Region can reverse the pseudonyms (review
+    finding F-UI4-RES). The pseudonym protects labels in exports and
+    screens; it is not a secret.
+  - For every non-reviewer audience, identifier fields carry no
+    province key (AQ/CH/PE/TE) and no Azienda name: org values, scope
+    and index keys, budget ids, URL parameters, export file names and
+    Storage object names.
+  - Product labels and ATC codes are data, not identifiers. They may
+    contain the same letter pairs (a manufacturer suffix «TE», an ATC
+    code such as N05CH01) and are exempt from the province-key rule,
+    though not from the place-name rule.
+  - No other Azienda's real name reaches a non-reviewer payload, DOM,
+    URL or export. An Azienda user sees its own real name (O1), for
+    example in its scope line, its «Ambito» options and its export
+    label. A Regione user sees no real Azienda name.
+  - The Pillar C regional forecast (public AIFA data, shown to every
+    approved member since 16 October 2026) names the Region. That
+    departs from «with no Region named» above and is recorded here.
+  - Pillar B's PB-V5-01 rule is unchanged. Every other comparator
+    product stays bound by «at least three contributors, no
+    differencing».
+  - Recorded in the private contracts (PC-08-A14) and in
+    `docs/PILLAR_C_ORG_SCOPED_DELIVERY_20261020.md`.
 
 ### 4. Access control is RLS, not application code
 
@@ -111,10 +160,56 @@ without understanding them:
 - Approval, responses, and reconciliation results are written **only**
   via the service-role key server-side. There is deliberately no
   client-facing UPDATE policy on these tables.
+- **Pillar C organisation-scoped delivery is enforced by Storage RLS**
+  (owner decision O2, 19 October 2026).
+  - Per-unit copies live in the private bucket `pillar-c-scoped`.
+  - One SELECT policy on `storage.objects` reads the caller's units from
+    `public.pillar_c_scoped_units()`. The function takes no argument,
+    filters every read by `auth.uid()`, accepts exactly one approved
+    membership and can be executed by `authenticated` only.
+  - The two database rollout tables gate the units. Both are empty by
+    default, and no user session can read or write them. Deleting an
+    organisation's switch row is the kill switch for that organisation,
+    in either mode. Deleting a user's allow row turns that user off only
+    in `allowlist` mode; in `all` mode allow rows are ignored, so the
+    stop for one user is revoking the membership.
+  - The server reads with the user's own session client and verifies
+    the SHA-256 pin. It uses no service role and no cache.
+  - The reviewer path (service role, `REVIEWER_EMAILS`/`ADMIN_EMAILS`,
+    bucket `pillar-c-review`, process caches) is the documented
+    application-level exception, unchanged.
+  - Do not add a cache, the service role or an environment switch to
+    scoped reads. Do not widen the policy or the function without a
+    reviewed migration.
+  - The policy also refuses signing, copy and move on these objects, so
+    a switched-on user can create no signed link or Storage copy that
+    would outlive a revoke. Production must prove this in the live check
+    (L5, recorded privately) before any real member is enabled. A revoke
+    then ends every Storage read; the remaining residual is files
+    already downloaded. If a link or a copy may exist some other way,
+    offboarding includes the re-key in `docs/ACCESS_CONTROL.md` §8.
 
 ---
 
 ## Current state (update this section when it changes)
+
+**20 October 2026, Pillar C recommendation 5 (organisation-scoped
+delivery): designed, not live.**
+- Owner decisions O1–O6 of 19 October 2026 are recorded in the private
+  contracts and summarised in
+  `docs/PILLAR_C_ORG_SCOPED_DELIVERY_20261020.md`: Azienda and Regione
+  delivery, enforced by Storage RLS, with a database rollout that is off
+  by default.
+- The migration `20261020120000_pillar_c_scoped_storage.sql` is not
+  applied. Nothing is uploaded to `pillar-c-scoped`. No code for it is
+  deployed.
+- Production Pillar C still gives reviewers and administrators the
+  reviewer view (service role) and every other approved member only the
+  public regional forecast.
+- Owner approval points before anything changes in production: AP0
+  (read-only checks and the wording of these rules), AP1 (migration),
+  AP2 (upload), AP3 (deploy), AP4 (test accounts and rollout rows) and
+  AP5 (cleanup).
 
 **2 October 2026, Pillar B:** the private page `/dashboard-review/revisione-pillar-b`
 (Pillar A-style sections, panel-local controls, reviewer path) reads the live

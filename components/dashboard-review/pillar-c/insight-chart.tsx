@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { C_INSIGHT_CHARTS, type CInsightChart, type CInsightInterval, type CInsightPoint } from '@/lib/dashboard-review/pillar-c/insight-charts';
+import { C_INSIGHT_CHARTS, type CInsightChart, type CInsightInterval, type CInsightPoint } from '@/lib/dashboard-review/pillar-c/chart-kinds';
 
 type Props = {
   kind: CInsightChart; points: CInsightPoint[]; metric: number; comparison: number; xMetric: number;

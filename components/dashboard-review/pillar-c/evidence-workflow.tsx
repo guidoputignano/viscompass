@@ -5,6 +5,7 @@ import {Archive,ArrowRight,CheckCheck,ClipboardList,Clock3,FilePlus2,History,Pap
 import {cAttrSum,type CAttrProduct} from "@/lib/dashboard-review/pillar-c/attribution";
 import {cWorkbookDecimal} from "@/lib/dashboard-review/pillar-c/workbook";
 import {cAttrPercent} from "@/lib/dashboard-review/pillar-c/attribution-format";
+import {usePillarCAudience} from "@/components/dashboard-review/pillar-c/audience-context";
 import {cEvidenceFollowupInitial,cEvidenceFollowupSaved,C_EVIDENCE_MAX_FILE,C_EVIDENCE_STATES,C_EVIDENCE_DECISIONS,C_EVIDENCE_STATE_LABELS,C_EVIDENCE_DECISION_LABELS,type CEvidenceCase,type CEvidenceOwner,type CEvidenceAttachment,type CEvidenceEvent} from "@/lib/dashboard-review/pillar-c/evidence-priority";
 
 type Row=CAttrProduct&{group:string;rank:number;cumulative:string};
@@ -115,7 +116,13 @@ export function PillarCEvidenceCase({detail,row,owners,busy,headingRef,onSave,dr
   </div>;
 }
 
+/** The shared review queue is the project review's: it renders, and reads, only under an audience with the evidence
+ * capability (the reviewer's); otherwise nothing renders and nothing is fetched. */
 export function PillarCEvidenceWorkflow(){
+  const audience=usePillarCAudience();
+  return audience?.capabilities.evidence===true?<EvidenceWorkflow/>:null;
+}
+function EvidenceWorkflow(){
   const [workspace,setWorkspace]=useState<Workspace|null>(null),[detail,setDetail]=useState<CEvidenceDetail|null>(null),[busy,setBusy]=useState(false),[notice,setNotice]=useState<Notice|null>(null);
   const [query,setQuery]=useState(""),[state,setState]=useState("all"),[owner,setOwner]=useState("all"),[page,setPage]=useState(0),[focus,setFocus]=useState<{n:number;scroll:boolean}|null>(null),[drafts,setDrafts]=useState<Record<string,Drafts>>({});
   // selected: the case the editor shows; reads: only the latest read may land.

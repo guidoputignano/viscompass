@@ -3,7 +3,9 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight, GitCompareArrows } from "lucide-react";
 import { cPortfolioExplanation, cPortfolioExplanationSteps, C_CHANGE_KIND_LABELS } from "@/lib/dashboard-review/pillar-c/change-explanation";
 import type { CPortfolioProductChange, CPortfolioView } from "@/lib/dashboard-review/pillar-c/portfolio";
-import { C_PERIOD_LABELS, C_ORG_LABELS } from "@/lib/dashboard-review/pillar-c/review";
+import { C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
+import { cAudienceLabel } from "@/lib/dashboard-review/pillar-c/audience-view";
+import { usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 import { cWorkbookDecimal } from "@/lib/dashboard-review/pillar-c/workbook";
 import { itNumber } from "@/lib/format/it-number";
 
@@ -11,7 +13,10 @@ const money = (s:string) => `${cWorkbookDecimal(s,2)} €`;
 const signed = (s:string) => `${Number(s)>0?"+":""}${money(s)}`;
 const shortKind = {continuing:"Presenti nei due periodi",entry:"Entrati nel portafoglio",exit:"Usciti dal portafoglio"};
 
+/** The audience is mandatory: without one, or for a view of an organisation the audience does not hold, nothing renders. */
 export function CPortfolioChangeSummary({view,onPickProduct}:{view:CPortfolioView;onPickProduct?:(key:string)=>void}) {
+  const audience = usePillarCAudience(), orgLabel = audience ? cAudienceLabel(audience, view.scope.org) : null;
+  if (!audience || orgLabel === null) return null;
   const explanation = cPortfolioExplanation(view), steps = cPortfolioExplanationSteps(view);
   const from = C_PERIOD_LABELS[view.changePeriods.from], to = C_PERIOD_LABELS[view.changePeriods.to];
   const headline = explanation.direction === "increase" ? `La spesa aumenta di ${money(explanation.net!)}`
@@ -31,7 +36,7 @@ export function CPortfolioChangeSummary({view,onPickProduct}:{view:CPortfolioVie
     </div>;
   }
   return <article className="rounded-2xl border border-primary/20 bg-card p-5 shadow-sm md:p-6" aria-labelledby="portfolio-explanation-title" data-c-change-summary data-change={explanation.net??"unavailable"} data-increases={explanation.positive??"unavailable"} data-reductions={explanation.negative??"unavailable"}>
-    <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-medium text-primary">La lettura del cambiamento</p><h3 id="portfolio-explanation-title" className="mt-1 text-xl font-semibold">Che cosa spiega la variazione?</h3><p className="mt-2 text-xs text-muted-foreground">{`${from} → ${to} · ${C_ORG_LABELS[view.scope.org]} · ${view.scope.channel === "Tutti"?"tutti i canali":view.scope.channel} · parte a portafoglio singolo`}</p></div><GitCompareArrows size={23} className="shrink-0 text-primary" aria-hidden="true"/></div>
+    <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-medium text-primary">La lettura del cambiamento</p><h3 id="portfolio-explanation-title" className="mt-1 text-xl font-semibold">Che cosa spiega la variazione?</h3><p className="mt-2 text-xs text-muted-foreground">{`${from} → ${to} · ${orgLabel} · ${view.scope.channel === "Tutti"?"tutti i canali":view.scope.channel} · parte a portafoglio singolo`}</p></div><GitCompareArrows size={23} className="shrink-0 text-primary" aria-hidden="true"/></div>
     <p className="mt-5 text-lg font-semibold" data-c-change-headline>{headline}</p>
     {explanation.state === "available" ? <>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{explanation.dominant?`La componente netta di maggiore entità riguarda i ${C_CHANGE_KIND_LABELS[explanation.dominant.kind].toLocaleLowerCase('it')}: ${signed(explanation.dominant.value!)}.`:"Nessuna delle tre componenti presenta una variazione netta."} {explanation.direction==="unchanged"&&explanation.hasOffsets?"Il saldo zero nasconde aumenti e riduzioni che si compensano.":explanation.hasOffsets?"Gli aumenti sono compensati in parte da riduzioni su altri prodotti.":""}</p>

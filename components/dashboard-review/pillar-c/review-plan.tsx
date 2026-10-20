@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { ChevronDown, ClipboardList, Download, Plus, Save, Trash2 } from "lucide-react";
-import { C_ORG_LABELS, C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
+import { C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
+import type { CClientAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
+import { cAudienceLabel, isCScopedClientAudience } from "@/lib/dashboard-review/pillar-c/audience-view";
+import { usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 import {
   C_REVIEW_STATES, C_REVIEW_TYPES, CReviewValidationError, cCreateReviewTask, cReviewContextKey,
   cReviewCsv, cReviewJson, cReviewPlan, cUpdateReviewTask,
@@ -56,9 +59,16 @@ function TaskEditor({ task, onSave, onDelete }: { task: CReviewTask; onSave: (in
   </details>;
 }
 
-/** Only mount inside the existing reviewer-authorized workspace. No browser persistence or transport. */
+/** Only mount inside an authorized workspace, under its audience (mandatory: without one, or for a context of an
+ * organisation the audience does not hold, nothing renders). No browser persistence or transport. An
+ * organisation-scoped audience's exports carry its confidentiality label; the reviewers' are unchanged. */
 export function CPortfolioReviewPlan({ context }: { context: CPortfolioReviewContext }) {
+  const audience = usePillarCAudience(), orgLabel = audience ? cAudienceLabel(audience, context.org) : null;
+  return audience && orgLabel !== null ? <ReviewPlan context={context} audience={audience} orgLabel={orgLabel} /> : null;
+}
+function ReviewPlan({ context, audience, orgLabel }: { context: CPortfolioReviewContext; audience: CClientAudience; orgLabel: string }) {
   const key = cReviewContextKey(context);
+  const label = isCScopedClientAudience(audience) ? audience.exportLabel : undefined;
   const [plans, setPlans] = useState<Record<string, CReviewTask[]>>({});
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
   const [feedback, setFeedback] = useState<{ key: string; text: string } | null>(null);
@@ -73,7 +83,7 @@ export function CPortfolioReviewPlan({ context }: { context: CPortfolioReviewCon
   };
   const exportPlan = (kind: "json" | "csv") => {
     try {
-      const plan = cReviewPlan(context, tasks, new Date().toISOString());
+      const plan = cReviewPlan(context, tasks, new Date().toISOString(), label);
       const name = `VIS_PillarC_Revisione_${context.period}_${context.org}_${context.channel}_${context.portfolioId}.${kind}`;
       download(name, kind === "json" ? cReviewJson(plan) : cReviewCsv(plan), kind === "json" ? "application/json;charset=utf-8" : "text/csv;charset=utf-8");
       setError(null); setFeedback({ key, text: "Download richiesto. Conserva il file in un luogo riservato." });
@@ -83,8 +93,10 @@ export function CPortfolioReviewPlan({ context }: { context: CPortfolioReviewCon
     <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 p-4 text-sm font-semibold"><span className="inline-flex items-center gap-2"><ClipboardList className="text-primary" size={18} aria-hidden="true"/>Piano di revisione · bozza esportabile</span><span className="inline-flex items-center gap-2 text-xs font-normal text-muted-foreground">{tasks.length === 0 ? "Prepara il prossimo passo" : `${tasks.length} attività`}<ChevronDown size={15} aria-hidden="true"/></span></summary>
     <div className="space-y-4 border-t border-primary/15 p-4">
       <p className="text-xs leading-5 text-muted-foreground">Resta aperto in questa pagina; scarica per conservarlo. Nessun incarico o notifica viene inviato. Il piano è separato per portafoglio, periodo, Azienda e canale; ricaricare o chiudere la pagina lo cancella.</p>
-      <p className="text-xs font-medium">{context.portfolioLabel} · {C_PERIOD_LABELS[context.period]} · {C_ORG_LABELS[context.org]} · {context.channel === "Tutti" ? "Tutti i canali" : context.channel}</p>
+      {/* Keyed by its context: a new scope replaces the line whole, so page translation never leaves it stale. */}
+      <p key={key} className="text-xs font-medium">{context.portfolioLabel} · {C_PERIOD_LABELS[context.period]} · {orgLabel} · {context.channel === "Tutti" ? "Tutti i canali" : context.channel}</p>
       <div className="flex flex-wrap gap-2"><button type="button" className={`${buttonClass} bg-primary text-primary-foreground hover:bg-primary/90`} onClick={create}><Plus size={14} aria-hidden="true"/>Aggiungi attività</button><button type="button" className={buttonClass} disabled={tasks.length === 0} onClick={() => exportPlan("json")}><Download size={14} aria-hidden="true"/>Scarica piano JSON</button><button type="button" className={buttonClass} disabled={tasks.length === 0} onClick={() => exportPlan("csv")}><Download size={14} aria-hidden="true"/>Scarica tabella CSV</button></div>
+      {label === undefined ? null : <p className="text-xs font-medium" data-c-review-plan-confidentiality>{label}</p>}
       {error?.key === key && <p role="alert" className="text-xs text-destructive">{error.text}</p>}
       {feedback?.key === key && error?.key !== key && <p role="status" className="text-xs text-primary">{feedback.text}</p>}
       <div className="space-y-3">{tasks.map(task => <TaskEditor key={`${key}|${task.id}|${task.updatedAt}`} task={task} onSave={input => { try { const updated = cUpdateReviewTask(context, task, input, new Date().toISOString()); setTasks(tasks.map(row => row.id === updated.id ? updated : row), "Attività aggiornata nella bozza. Scarica di nuovo il piano per conservarla."); } catch (caught) { showError(caught); } }} onDelete={() => { if (window.confirm("Rimuovere questa attività dalla bozza aperta? Il file già scaricato non viene modificato.")) setTasks(tasks.filter(row => row.id !== task.id), "Attività rimossa da questa pagina."); }} />)}</div>

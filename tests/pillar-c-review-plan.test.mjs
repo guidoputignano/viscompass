@@ -105,7 +105,8 @@ test('review plan renders accessible controls, human-readable context and escape
   `), { data: { pkg: pathToFileURL(`${root}package.json`).href } });
   const req = createRequire(`${root}package.json`), React = req('react'), {renderToStaticMarkup} = req('react-dom/server');
   const {CPortfolioReviewPlan} = await import('../components/dashboard-review/pillar-c/review-plan.tsx');
-  const html = renderToStaticMarkup(React.createElement(CPortfolioReviewPlan,{context:{...context,portfolioLabel:'<script>prova</script>'}}));
+  const reviewer = await (await import('./helpers/pillar-c-audience.mjs')).reviewerAudience(React);
+  const html = renderToStaticMarkup(reviewer(React.createElement(CPortfolioReviewPlan,{context:{...context,portfolioLabel:'<script>prova</script>'}})));
   assert.match(html, /<summary/); assert.match(html, /Piano di revisione/);
   assert.match(html, /Anno 2025/); assert.match(html, /ASL 1/);
   assert.match(html, /&lt;script&gt;prova&lt;\/script&gt;/); assert.doesNotMatch(html, /<script>/);

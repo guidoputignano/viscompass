@@ -20,6 +20,7 @@ const req=createRequire(`${root}package.json`),React=req('react'),{renderToStati
 const {CPlanningPanel,cPlanningAddress,cPlanningFieldStep,cPlanningFieldSync,cPlanningFocusFirst,cPlanningNext}=await import('../components/dashboard-review/pillar-c/planning-workspace.tsx');
 const {CPortfolioDossierView,cPortfolioPlanningLink}=await import('../components/dashboard-review/pillar-c/portfolio-dossier.tsx');
 const {CAttributionView}=await import('../components/dashboard-review/pillar-c/attribution-analysis.tsx');
+const reviewer=await (await import('./helpers/pillar-c-audience.mjs')).reviewerAudience(React);
 const source=file=>fs.readFileSync(fileURLToPath(new URL(`../${file}`,import.meta.url)),'utf8').replace(/\r\n/g,'\n');
 const ui=source('components/dashboard-review/pillar-c/planning-workspace.tsx');
 
@@ -42,7 +43,7 @@ const views=new Map();
 const view=(period='FY2025',org='AQ',channel='CO')=>{const k=`${period}|${org}|${channel}`;if(!views.has(k))views.set(k,cPlanningAccept(rawOf(packet,period,org,channel),period,org,channel));return views.get(k);};
 const scope=(period='FY2025',org='AQ',channel='CO')=>`c_port_period=${period}&c_port_org=${org}&c_port_channel=${channel}`;
 const ready=(period,org,channel)=>({key:`${period??'FY2025'}|${org??'AQ'}|${channel??'CO'}`,view:view(period,org,channel)});
-const html=(search,load,{acts=[],evidence=false}={})=>renderToStaticMarkup(React.createElement(CPlanningPanel,{search,load,acts,evidenceAnchor:evidence,onSearch(){},onRetry(){}}));
+const html=(search,load,{acts=[],evidence=false}={})=>renderToStaticMarkup(reviewer(React.createElement(CPlanningPanel,{search,load,acts,evidenceAnchor:evidence,onSearch(){},onRetry(){}})));
 const text=h=>h.replace(/<[^>]*>/g,' ').replace(/&#x27;/g,'’').replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/\s+/g,' ');
 const count=(t,s)=>t.split(s).length-1;
 const EURO=/\d[\d.,]*\s?€|€\s?\d/;
@@ -374,7 +375,8 @@ test('translation safety: every changing text is its own keyed element; no mixed
     assert.doesNotMatch(h,/NaN|Infinity|undefined|\[object/,name);
   }
   // Source pins: a text expression that closes an element is either a constant label or rendered through <Live>.
-  const loose=[...ui.matchAll(/\{([^{}<>]+)\}<\/([A-Za-z]+)>/g)].filter(([,expr,tag])=>tag!=='Live'&&tag!=='option'&&!/^L\.[A-Za-z.]+$/.test(expr.trim())&&expr.trim()!=='children');
+  // The audience's export label and the refusal text chosen from the audience are constants of the page (recommendation 5).
+  const loose=[...ui.matchAll(/\{([^{}<>]+)\}<\/([A-Za-z]+)>/g)].filter(([,expr,tag])=>tag!=='Live'&&tag!=='option'&&!/^L\.[A-Za-z.]+$/.test(expr.trim())&&!['children','audience.exportLabel','forbidden'].includes(expr.trim()));
   assert.deepEqual(loose.map(m=>m[0]),[]);
   assert.match(ui,/function Live\(\{ children, className \}: \{ children: string; className\?: string \}\) \{ return <span key=\{children\} className=\{className\}>\{children\}<\/span>; \}/);
   assert.match(ui,/: <div key=\{ready\.r\.key\} className="space-y-4" data-scope-key=\{ready\.r\.key\}>/,'a new scope or group replaces the result block whole');
@@ -487,8 +489,9 @@ test('export: built from the newest address and the page’s view; every exporte
     walk(x.results,'results');assert.ok(amounts>=10,name);
     assert.deepEqual(x.group.map(g=>g.id),st.ids);assert.equal(cPlanningExportName(st),`vis-scenari-${st.period}-${st.org}-${st.channel}-${st.ids.join('-')}.json`);
   }
-  assert.ok(ui.includes('const latest = cPlanningFilters(address.current()).state;'),'the export reads the newest committed address');
-  assert.ok(ui.includes('download(cPlanningExportName(latest), JSON.stringify(cPlanningExport(view, latest, new Date().toISOString()), null, 2));'),'with the same view as the page');
+  // Read through the audience (recommendation 5): the reviewer's parser unchanged, a scoped audience's organisation clamped.
+  assert.ok(ui.includes('const latest = cAudiencePlanningFilters(audience, address.current()).state;'),'the export reads the newest committed address');
+  assert.ok(ui.includes('download(cPlanningExportName(latest), JSON.stringify(cPlanningExport(view, latest, new Date().toISOString(), audience.exportLabel), null, 2));'),'with the same view as the page, and the label printed beside the button');
   assert.match(ui,/if \(!view \|\| !ready\) throw Error\("C_PLANNING_EXPORT"\);/,'nothing is exported without a rendered result');
 });
 
@@ -545,7 +548,7 @@ test('O2/UI-16: the dossier keeps its slider card; its link carries the slider v
   const p=buildCPortfolioPacket(rows,portfolios,new Map([['900000001','Prodotto sintetico A']]),'1'.repeat(64),'2'.repeat(64),'fictional');
   const v=cPortfolioView(p,'FY2025','AQ','CO','AA','3'.repeat(64));
   const search='c_port_period=FY2025&c_port_org=AQ&c_port_channel=CO&c_port_id=AA&c_plan_ids=BB&c_plan_v1=300_BB.10&c_attr_org=CH';
-  const h=renderToStaticMarkup(React.createElement(CPortfolioDossierView,{view:v,search}));
+  const h=renderToStaticMarkup(reviewer(React.createElement(CPortfolioDossierView,{view:v,search})));
   const href=h.match(/<a class="[^"]*" href="([^"]+)" data-c-planning-link="true"><span>Pianifica questo portafoglio nello spazio scenari<\/span>/)[1].replace(/&amp;/g,'&');
   assert.ok(href.endsWith('#scenari'));const q=new URLSearchParams(href.slice(0,href.indexOf('#')));
   assert.equal(q.get('c_plan_ids'),'AA');assert.equal(q.get('c_plan_v1'),'300','at 0% the workspace keeps its own variant, without the other portfolio’s override');assert.equal(q.get('c_port_id'),'AA');assert.equal(q.get('c_attr_org'),'CH');
@@ -562,7 +565,7 @@ test('O2/UI-16: the dossier keeps its slider card; its link carries the slider v
   for(const bps of [-2000,-50,50,1000,3000]){const x=cPortfolioPlanningLink(search,'AA',bps);assert.equal(x.text,`Apri nello spazio scenari questo portafoglio con ${cPlanningPercentLabel(bps)} (sostituisce le varianti già presenti)`);assert.equal(x.href,cPlanningDossierHref(search,'AA',bps));assert.deepEqual(cPlanningCopyLint(x.text),[]);}
   assert.deepEqual(cPortfolioPlanningLink(search,'AA',0),{href:cPlanningDossierHref(search,'AA'),text:L.section.dossierLink});
   assert.deepEqual(cPortfolioPlanningLink(search,'aa',1000),{href:'#scenari',text:L.section.dossierLink},'an invalid portfolio falls back to the section anchor');
-  assert.match(renderToStaticMarkup(React.createElement(CPortfolioDossierView,{view:v})),/href="\?c_plan_ids=AA#scenari"/,'without other keys the link carries the portfolio only');
+  assert.match(renderToStaticMarkup(reviewer(React.createElement(CPortfolioDossierView,{view:v}))),/href="\?c_plan_ids=AA#scenari"/,'without other keys the link carries the portfolio only');
   // The engine helper: a slider value other than 0 becomes the only variant, on the single-portfolio part alone (shared at 0%).
   const ap=buildCAttrPacket(rows,portfolios,new Map(),'1'.repeat(64),'2'.repeat(64),'fictional'),av=cPlanningAccept(rawOf(ap,'FY2025','AQ','CO'),'FY2025','AQ','CO');
   for(const bps of [-2000,-50,50,1000,3000]){
@@ -580,7 +583,7 @@ test('O2/UI-16: the dossier keeps its slider card; its link carries the slider v
 
 test('the attribution analysis keeps «Nessuna ripartizione uguale o proporzionale viene assunta», scoped to itself',()=>{
   const fixture=buildCAttrPacket([r('100000001','5','S2',['AA']),r('200000001','6','S3',['AA','BB'])],V,new Map(),'1'.repeat(64),'2'.repeat(64),'t');
-  const h=renderToStaticMarkup(React.createElement(CAttributionView,{view:{schema:'pillar-c-attribution-view-v1',sourceSha256:'1'.repeat(64),classificationSha256:'2'.repeat(64),mappingVersion:'t',sourceSnapshot:'3'.repeat(64),portfolios:fixture.portfolios,scope:fixture.scopes.find(s=>s.period==='FY2025'&&s.org==='AQ'&&s.channel==='CO'),comparison:null}}));
+  const h=renderToStaticMarkup(reviewer(React.createElement(CAttributionView,{view:{schema:'pillar-c-attribution-view-v1',sourceSha256:'1'.repeat(64),classificationSha256:'2'.repeat(64),mappingVersion:'t',sourceSnapshot:'3'.repeat(64),portfolios:fixture.portfolios,scope:fixture.scopes.find(s=>s.period==='FY2025'&&s.org==='AQ'&&s.channel==='CO'),comparison:null}})));
   assert.match(h,/Nessuna ripartizione uguale o proporzionale viene assunta\. Le ripartizioni dichiarate dello spazio scenari restano ipotesi di quella sezione e non modificano questi intervalli\./);
 });
 

@@ -114,8 +114,12 @@ function statsCheck(value: unknown): CAttrStats {
   requireValue(s.n !== 0 || (net === BigInt(0) && abs === BigInt(0)));
   return s as CAttrStats;
 }
-/** Validate pinned private aggregates before returning them through a reviewer API. */
-export function parseCAttrPacket(raw: unknown): CAttrPacket {
+/** Validate pinned private aggregates before returning them through a reviewer API. `orgs` is the organisation
+ * vocabulary the scopes may carry: the reviewer's five keys by default, or exactly one scoped unit key for a
+ * scoped read (Pillar C recommendation 5), so a shard of another unit is refused. */
+export function parseCAttrPacket(raw: unknown): CAttrPacket;
+export function parseCAttrPacket<O extends string>(raw: unknown, orgs: readonly O[]): Omit<CAttrPacket, "scopes"> & { scopes: (Omit<CAttrScope, "org"> & { org: O })[] };
+export function parseCAttrPacket(raw: unknown, orgs: readonly string[] = C_ATTR_ORGS): Omit<CAttrPacket, "scopes"> & { scopes: (Omit<CAttrScope, "org"> & { org: string })[] } {
   const p = record(raw);
   requireValue(p.schema === "pillar-c-attribution-v1" && p.precision === "exact-source-literals-21" && Object.keys(p).length === 7);
   for (const k of ["sourceSha256", "classificationSha256"]) requireValue(typeof p[k] === "string" && /^[a-f0-9]{64}$/.test(p[k] as string));
@@ -126,7 +130,7 @@ export function parseCAttrPacket(raw: unknown): CAttrPacket {
   for (const value of p.scopes) {
     const s = record(value), key = `${s.period}|${s.org}|${s.channel}`;
     exact(s,["period","org","channel","total","states","observedAllocation","bounds","products"]);
-    requireValue(C_ATTR_PERIODS.includes(s.period as CAttrPeriod) && C_ATTR_ORGS.includes(s.org as CAttrOrg) && C_ATTR_CHANNELS.includes(s.channel as CAttrChannel) && !seen.has(key) && s.observedAllocation === null); seen.add(key);
+    requireValue(C_ATTR_PERIODS.includes(s.period as CAttrPeriod) && orgs.includes(s.org as string) && C_ATTR_CHANNELS.includes(s.channel as CAttrChannel) && !seen.has(key) && s.observedAllocation === null); seen.add(key);
     const total = statsCheck(s.total), states = record(s.states);
     requireValue(Object.keys(states).length === 4); const status = C_ATTR_STATES.map(id => statsCheck(states[id]));
     requireValue(total.n === status.reduce((sum, r) => sum + r.n, 0));

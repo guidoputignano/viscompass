@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChartNoAxesCombined, CircleDot } from 'lucide-react';
-import { cInsightWaterfall } from '@/lib/dashboard-review/pillar-c/insight-charts';
+import { cInsightWaterfall } from '@/lib/dashboard-review/pillar-c/chart-kinds';
 import { C_COMPONENT_LABELS, cMoneyLabel, type CBridge } from '@/lib/dashboard-review/pillar-c/review';
 import { PillarCInsightChart } from '@/components/dashboard-review/pillar-c/insight-chart';
 
@@ -16,7 +16,8 @@ function wrap(s: string) {
   }, [[]]);
 }
 
-export function PillarCChangeBridge({ opening, closing, components }: { opening: string; closing: string; components: CBridge[] }) {
+/** Reads only each component's id and value, so the reviewer's and an organisation-scoped audience's rows both fit. */
+export function PillarCChangeBridge({ opening, closing, components }: { opening: string; closing: string; components: Pick<CBridge, "component" | "value">[] }) {
   const [view, setView] = useState<'waterfall' | 'contributions'>('waterfall');
   const [selected, setSelected] = useState<string | null>(null);
   const steps = cInsightWaterfall(opening, closing, components);

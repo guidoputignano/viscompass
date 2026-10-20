@@ -4,12 +4,15 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowDownUp, ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleDot, Layers3, Search, SlidersHorizontal, Target } from "lucide-react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { cAttrAtoms, cAttrPriority, cAttrShare, cAttrUncertain, C_ATTR_CHANNELS, C_ATTR_ORGS, C_ATTR_PERIODS, C_ATTR_STATES, type CAttrChannel, type CAttrOrg, type CAttrPeriod, type CAttrScope, type CAttrState } from "@/lib/dashboard-review/pillar-c/attribution";
+import { cAttrAtoms, cAttrPriority, cAttrShare, cAttrUncertain, C_ATTR_CHANNELS, C_ATTR_PERIODS, C_ATTR_STATES, type CAttrScope, type CAttrState } from "@/lib/dashboard-review/pillar-c/attribution";
 import type { CAttrView } from "@/lib/dashboard-review/pillar-c/attribution-loader";
 import { cWorkbookDecimal } from "@/lib/dashboard-review/pillar-c/workbook";
-import { C_ORG_LABELS, C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
+import { C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
 import { itNumber } from "@/lib/format/it-number";
 import { cAttrAxis, cAttrEntries, cAttrPercent } from "@/lib/dashboard-review/pillar-c/attribution-format";
+import type { CClientAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
+import { C_AUDIENCE_COPY, cAudienceLabel, cAudienceScope, isCScopedClientAudience } from "@/lib/dashboard-review/pillar-c/audience-view";
+import { usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 
 const money = (v: string, digits = 0) => `${cWorkbookDecimal(v,digits)} €`;
 const pct = cAttrPercent;
@@ -25,7 +28,12 @@ function PercentComposition({scope}:{scope:CAttrScope}) {
   return <div className="flex h-6 overflow-hidden rounded-full" role="img" aria-label={C_ATTR_STATES.map(s=>`${labels[s]} ${pct(cAttrShare(scope.states[s].abs,scope.total.abs))}`).join(", ")}>{C_ATTR_STATES.map(s=><span key={s} style={{width:`${(cAttrShare(scope.states[s].abs,scope.total.abs)??0)*100}%`,backgroundColor:colors[s]}}/>)}</div>;
 }
 
+/** The audience is mandatory: without one, or for a view of an organisation the audience does not hold, nothing renders. */
 export function CAttributionView({view}:{view:CAttrView}) {
+  const audience=usePillarCAudience(), orgLabel=audience?cAudienceLabel(audience,view.scope.org):null;
+  return audience&&orgLabel!==null?<AttributionValues view={view} audience={audience} orgLabel={orgLabel}/>:null;
+}
+function AttributionValues({view,audience,orgLabel}:{view:CAttrView;audience:CClientAudience;orgLabel:string}) {
   const {scope,comparison}=view, uncertain=cAttrUncertain(scope);
   const [composition,setComposition]=useState<"donut"|"comparison">("donut");
   const [pool,setPool]=useState<Parameters<typeof cAttrPriority>[1]>("therapeutic");
@@ -45,7 +53,7 @@ export function CAttributionView({view}:{view:CAttrView}) {
   const minima=bounds.map(b=>Number(layer===1?b.lower1:b.lower2)),maxima=bounds.map(b=>Number(layer===1?b.upper1:b.upper2));
   const lower=Math.min(0,...minima),upper=Math.max(1,...maxima),position=(v:string)=>210+(Number(v)-lower)/(upper-lower)*650;
   const currentPage=Math.min(page,Math.max(0,Math.ceil(priority.rows.length/12)-1));
-  const scopeText=`${C_ORG_LABELS[scope.org]} · ${scope.channel==="Tutti"?"Tutti i canali":scope.channel}`;
+  const scopeText=`${orgLabel} · ${scope.channel==="Tutti"?"Tutti i canali":scope.channel}`;
   return <div className="space-y-5" data-c-attribution-values data-period={scope.period} data-org={scope.org} data-channel={scope.channel} data-uncertain-abs={uncertain.abs} data-total-abs={scope.total.abs} data-shared-abs={scope.states.S3.abs}>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Tile label="Esposizione condivisa o non classificata" value={money(uncertain.abs)} detail="Condivisa, evidenza insufficiente e identificativi da risolvere"/>
@@ -64,7 +72,8 @@ export function CAttributionView({view}:{view:CAttrView}) {
         <label className="mt-4 block text-xs font-medium">Casi inclusi nella priorità<select className={select} aria-label="Casi inclusi nella priorità" value={pool} onChange={e=>{setPool(e.target.value as typeof pool);setPage(0);}}><option value="therapeutic">Condivisi ed evidenza insufficiente</option><option value="all">Tutti i casi incerti</option><option value="S3">Solo condivisi</option><option value="S4">Solo evidenza insufficiente</option><option value="S5">Identificativi da risolvere</option></select></label>
         <div className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1"><strong className="text-2xl tabular-nums" data-c-attribution-n80={priority.n80??"unavailable"}>{priority.n80===null?"Nessun importo positivo":cAttrEntries(priority.n80)}</strong><span className="text-sm text-muted-foreground">{priority.n80===null?"nel perimetro selezionato":priority.n80===1?"copre almeno l’80% dell’esposizione selezionata":"coprono almeno l’80% dell’esposizione selezionata"}</span></div>
         <p className="mt-2 text-xs text-muted-foreground">{`${cAttrEntries(priority.count)} con esposizione positiva · base ${money(priority.total)}. Non è una graduatoria clinica o di performance.`}</p>
-        {scope.period==="FY2025"&&scope.org==="Regione"&&scope.channel==="Tutti"&&pool==="therapeutic"&&query.trim()===""?<a key="queue" href="#evidence-workflow" className="mt-3 inline-flex min-h-10 items-center gap-2 text-xs font-medium text-primary">Assegna le verifiche nella coda condivisa · priorità fissa: anno 2025, aggregato regionale, tutti i canali →</a>:<p key="fixed" className="mt-3 text-xs leading-5 text-muted-foreground">La coda condivisa delle verifiche usa una priorità fissa (anno 2025, aggregato regionale, tutti i canali, condivisi ed evidenza insufficiente) e non segue questa selezione. <a href="#evidence-workflow" className="font-medium text-primary underline underline-offset-4">Apri la coda condivisa →</a></p>}
+        {/* The shared review queue is the project review's: an audience without the evidence capability gets no link to it. */}
+        {!audience.capabilities.evidence?null:scope.period==="FY2025"&&scope.org==="Regione"&&scope.channel==="Tutti"&&pool==="therapeutic"&&query.trim()===""?<a key="queue" href="#evidence-workflow" className="mt-3 inline-flex min-h-10 items-center gap-2 text-xs font-medium text-primary">Assegna le verifiche nella coda condivisa · priorità fissa: anno 2025, aggregato regionale, tutti i canali →</a>:<p key="fixed" className="mt-3 text-xs leading-5 text-muted-foreground">La coda condivisa delle verifiche usa una priorità fissa (anno 2025, aggregato regionale, tutti i canali, condivisi ed evidenza insufficiente) e non segue questa selezione. <a href="#evidence-workflow" className="font-medium text-primary underline underline-offset-4">Apri la coda condivisa →</a></p>}
         {plotted.length>0?<><div className="mt-4 h-64" role="img" aria-label="Pareto dei prodotti per esposizione con quota cumulata"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={plotted} margin={{left:0,right:0,top:8,bottom:5}}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)"/><XAxis dataKey="rank" tick={{fontSize:10}} tickLine={false} axisLine={false}/><YAxis yAxisId="amount" tick={{fontSize:10}} tickLine={false} axisLine={false} width={55} tickFormatter={v=>cAttrAxis(Number(v),Math.max(0,...plotted.map(r=>r.amount)))}/><YAxis yAxisId="share" orientation="right" domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false} width={40} tickFormatter={v=>`${v}%`}/><Tooltip labelFormatter={label=>`Posizione ${label}`} formatter={(_value,name,entry)=>name==="Quota cumulata"?[pct(cAttrShare(entry.payload.cumulative,priority.total)),String(name)]:[money(entry.payload.abs,2),entry.payload.label]}/><ReferenceLine yAxisId="share" y={80} stroke="#8672ba" strokeDasharray="4 4"/><Bar yAxisId="amount" dataKey="amount" name="Esposizione assoluta" fill="#19998f" radius={[4,4,0,0]} isAnimationActive={false}/><Line yAxisId="share" dataKey="cumulativeShare" name="Quota cumulata" stroke="#d89b38" strokeWidth={2} dot={{r:2}} isAnimationActive={false}/></ComposedChart></ResponsiveContainer></div><label className="mt-2 block text-xs">Voci prodotto nel grafico<select className="ml-2 h-9 rounded-lg border border-border bg-background px-2" value={top} onChange={e=>setTop(Number(e.target.value))}>{[10,15,25,50].map(n=><option key={n} value={n}>{n}</option>)}</select></label></>:<p role="status" className="mt-5 text-sm text-muted-foreground">Nessun prodotto con esposizione positiva per questa selezione.</p>}
         <p className="mt-3 text-xs leading-5 text-muted-foreground">La linea cumulata usa l’intero insieme selezionato, non soltanto i prodotti visibili. Le voci senza record nel periodo non vengono trasformate in zeri. Un prodotto con classificazioni diverse è mantenuto in voci distinte.</p>
       </article>
@@ -82,11 +91,15 @@ export function CAttributionView({view}:{view:CAttrView}) {
   </div>;
 }
 
-export function PillarCAttributionAnalysis() {
+/** Mandatory audience: without one nothing renders and nothing is fetched. `number` is the section's place in the page. */
+export function PillarCAttributionAnalysis({number="03"}:{number?:string}) {
+  const audience=usePillarCAudience();
+  return audience?<AttributionAnalysis audience={audience} number={number}/>:null;
+}
+function AttributionAnalysis({audience,number}:{audience:CClientAudience;number:string}) {
   const params=useSearchParams();
-  const period=C_ATTR_PERIODS.includes(params.get("c_attr_period") as CAttrPeriod)?params.get("c_attr_period") as CAttrPeriod:"FY2025";
-  const org=C_ATTR_ORGS.includes(params.get("c_attr_org") as CAttrOrg)?params.get("c_attr_org") as CAttrOrg:"Regione";
-  const channel=C_ATTR_CHANNELS.includes(params.get("c_attr_channel") as CAttrChannel)?params.get("c_attr_channel") as CAttrChannel:"Tutti";
+  // The organisation is one of the audience's own keys (exact match); any other value falls back to its default.
+  const {period,org,channel,tampered}=cAudienceScope(audience,params,"c_attr");
   const key=`${period}|${org}|${channel}`;
   const [result,setResult]=useState<{key:string;view:CAttrView}|null>(null),[failure,setFailure]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   useEffect(()=>{
@@ -100,8 +113,8 @@ export function PillarCAttributionAnalysis() {
   },[period,org,channel,key,attempt]);
   const update=(name:string,value:string)=>{const next=new URLSearchParams(window.location.search);next.set(name,value);window.history.pushState(null,"",`${window.location.pathname}?${next}${window.location.hash}`);};
   return <section id="attribuzione" aria-labelledby="attribuzione-title" className="scroll-mt-6 space-y-5 xl:scroll-mt-56" data-c-attribution="v1">
-    <div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs text-primary">03</span><div><h2 id="attribuzione-title" className="text-xl font-semibold">Dove è incerta l’attribuzione della spesa?</h2><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">Misuriamo importi, prodotti e aree possibili. Un raggruppamento terapeutico non identifica il reparto che ha sostenuto il costo.</p></div></div>
-    <div className={card}><div className="mb-3 flex items-center gap-2 text-xs font-medium text-primary"><SlidersHorizontal size={15}/>Ambito di questa analisi</div><div className="grid gap-4 md:grid-cols-3"><label className="text-xs font-medium">Periodo<select aria-label="Periodo dell’attribuzione" className={select} value={period} onChange={e=>update("c_attr_period",e.target.value)}>{C_ATTR_PERIODS.map(p=><option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label><label className="text-xs font-medium">Organizzazione<select aria-label="Organizzazione dell’attribuzione" className={select} value={org} onChange={e=>update("c_attr_org",e.target.value)}>{C_ATTR_ORGS.map(o=><option key={o} value={o}>{C_ORG_LABELS[o]}</option>)}</select></label><label className="text-xs font-medium">Canale<select aria-label="Canale dell’attribuzione" className={select} value={channel} onChange={e=>update("c_attr_channel",e.target.value)}>{C_ATTR_CHANNELS.map(c=><option key={c} value={c}>{c==="Tutti"?"Tutti i canali":c}</option>)}</select></label></div><p className="mt-3 text-xs text-muted-foreground">Questi controlli aggiornano tutte le analisi di attribuzione qui sotto, senza modificare gli altri moduli.</p></div>
+    <div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs text-primary">{number}</span><div><h2 id="attribuzione-title" className="text-xl font-semibold">Dove è incerta l’attribuzione della spesa?</h2><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">Misuriamo importi, prodotti e aree possibili. Un raggruppamento terapeutico non identifica il reparto che ha sostenuto il costo.</p></div></div>
+    <div className={card}><div className="mb-3 flex items-center gap-2 text-xs font-medium text-primary"><SlidersHorizontal size={15}/>Ambito di questa analisi</div><div className="grid gap-4 md:grid-cols-3"><label className="text-xs font-medium">Periodo<select aria-label="Periodo dell’attribuzione" className={select} value={period} onChange={e=>update("c_attr_period",e.target.value)}>{C_ATTR_PERIODS.map(p=><option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label><label className="text-xs font-medium">Organizzazione<select aria-label="Organizzazione dell’attribuzione" className={select} value={org} onChange={e=>update("c_attr_org",e.target.value)}>{audience.orgs.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}</select></label><label className="text-xs font-medium">Canale<select aria-label="Canale dell’attribuzione" className={select} value={channel} onChange={e=>update("c_attr_channel",e.target.value)}>{C_ATTR_CHANNELS.map(c=><option key={c} value={c}>{c==="Tutti"?"Tutti i canali":c}</option>)}</select></label></div><p className="mt-3 text-xs text-muted-foreground">Questi controlli aggiornano tutte le analisi di attribuzione qui sotto, senza modificare gli altri moduli.</p>{tampered&&isCScopedClientAudience(audience)?<p role="note" className="mt-2 text-xs font-medium">{C_AUDIENCE_COPY.tampered}</p>:null}</div>
     {result?.key===key?<CAttributionView key={key} view={result.view}/>:<div role="status" className={card}>{failure===`${key}|${attempt}`?<><p className="text-sm">L’analisi non è disponibile in questo momento. Nessun valore viene sostituito con zero.</p><button type="button" className={`${button} mt-3`} onClick={()=>setAttempt(attempt+1)}>Riprova</button></>:<p className="text-sm text-muted-foreground">Caricamento dell’ambito selezionato…</p>}</div>}
   </section>;
 }

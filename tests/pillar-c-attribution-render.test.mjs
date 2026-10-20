@@ -17,10 +17,11 @@ export async function load(url,context,next){
 }`),{data:{pkg:pathToFileURL(`${root}package.json`).href}});
 const req=createRequire(`${root}package.json`),React=req('react'),{renderToStaticMarkup}=req('react-dom/server');
 const {CAttributionView}=await import('../components/dashboard-review/pillar-c/attribution-analysis.tsx');
+const reviewer=await (await import('./helpers/pillar-c-audience.mjs')).reviewerAudience(React);
 const packet=attributionFixture();
 const view=(org,channel)=>({schema:'pillar-c-attribution-view-v1',mappingVersion:packet.mappingVersion,portfolios:packet.portfolios,scope:packet.scopes.find(s=>s.period==='FY2025'&&s.org===org&&s.channel===channel),comparison:packet.scopes.find(s=>s.period==='FY2024'&&s.org===org&&s.channel===channel)??null});
 test('attribution renders exact scope, accessible conditional ranges and no invented observed allocation',()=>{
- const html=renderToStaticMarkup(React.createElement(CAttributionView,{view:view('AQ','CO')}));
+ const html=renderToStaticMarkup(reviewer(React.createElement(CAttributionView,{view:view('AQ','CO')})));
  assert.match(html,/data-period="FY2025" data-org="AQ" data-channel="CO"/);
  assert.match(html,/data-uncertain-abs="302"/);assert.match(html,/data-c-attribution-n80="1"/);
  assert.match(html,/tabindex="0" aria-label="Area sintetica A: 2,00 € – 112,00 €/);
@@ -29,7 +30,7 @@ test('attribution renders exact scope, accessible conditional ranges and no inve
  assert.doesNotMatch(html,/NaN|Infinity|undefined|<form|<iframe/);
 });
 test('an empty uncertain pool is not a fabricated positive priority and remains finite',()=>{
- const html=renderToStaticMarkup(React.createElement(CAttributionView,{view:view('CH','DD')}));
+ const html=renderToStaticMarkup(reviewer(React.createElement(CAttributionView,{view:view('CH','DD')})));
  assert.match(html,/data-c-attribution-n80="unavailable"/);
  assert.match(html,/Nessun prodotto con esposizione positiva/);
  assert.doesNotMatch(html,/NaN|Infinity|undefined/);
