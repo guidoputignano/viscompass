@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleConfig } from "@/lib/supabase/service-role";
+import { parseRequestedAccountType } from "@/lib/access/account-onboarding";
 
 const CONSENT_VERSION = "2026-09-02.v1";
 
@@ -27,7 +28,12 @@ export async function registerUser(input: {
   password: string;
   visNewsletter: boolean;
   partnerNewsletter: boolean;
+  requestedAccountType?: unknown;
 }): Promise<RegistrationResult> {
+  const requestedAccountType = parseRequestedAccountType(input.requestedAccountType);
+  if (input.requestedAccountType !== undefined && requestedAccountType === null) {
+    return { ok: false, message: "Seleziona il tipo di account: Regione o Azienda sanitaria." };
+  }
   const fullName = input.fullName.trim().replace(/\s+/g, " ").slice(0, 160);
   const email = input.email.trim().toLowerCase().slice(0, 320);
   const recordedAt = new Date().toISOString();
@@ -49,6 +55,8 @@ export async function registerUser(input: {
       emailRedirectTo: `${siteOrigin()}/auth/confirm?next=/access`,
       data: {
         full_name: fullName,
+        // A self-declared preference, never an authorization claim or membership.
+        ...(requestedAccountType ? { requested_account_type: requestedAccountType } : {}),
         vis_newsletter_opt_in: Boolean(input.visNewsletter),
         partner_newsletter_opt_in: Boolean(input.partnerNewsletter),
         consent_version: CONSENT_VERSION,

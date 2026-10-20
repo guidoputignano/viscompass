@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { parseRequestedAccountType } from "@/lib/access/account-onboarding";
 import type { Organization } from "@/lib/dashboard-review/types";
 import type {
   AccessMembership,
@@ -86,6 +87,8 @@ export async function getAccessOverview(): Promise<AccessOverview | null> {
   return {
     userId: claims.sub,
     email: String(claims.email),
+    // User-editable metadata may select the form type, never the data scope.
+    requestedAccountType: parseRequestedAccountType(claims.user_metadata?.requested_account_type),
     organizations: (organizationsResult.data ?? []) as Organization[],
     memberships: (memberships ?? []) as unknown as AccessMembership[],
     invitations: (invitationsResult.data ?? []) as unknown as OrganizationInvitation[],

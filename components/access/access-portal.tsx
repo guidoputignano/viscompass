@@ -10,6 +10,7 @@ import {
   Clock3,
   Inbox,
   KeyRound,
+  Landmark,
   MailCheck,
   ShieldCheck,
   UserRoundCheck,
@@ -29,6 +30,7 @@ import {
   respondToOrganizationInvitation,
 } from "@/app/access/actions";
 import type { AccessOverview, OrganizationInvitation } from "@/lib/access/types";
+import { ACCOUNT_TYPE_OPTIONS, accountOrganizations, accountRegions, parseRequestedAccountType, type RequestedAccountType } from "@/lib/access/account-onboarding";
 
 const STATUS_LABEL = {
   pending: "In verifica",
@@ -135,7 +137,9 @@ export function AccessPortal({
   isReviewer?: boolean;
 }) {
   const router = useRouter();
-  const [orgCode, setOrgCode] = useState(overview.organizations[0]?.org_code ?? "");
+  const [accountType, setAccountType] = useState<RequestedAccountType | "">(() => parseRequestedAccountType(overview.requestedAccountType) ?? "");
+  const [regionCode, setRegionCode] = useState("");
+  const [orgCode, setOrgCode] = useState("");
   const [role, setRole] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
   const [submission, setSubmission] = useState<{
@@ -148,14 +152,23 @@ export function AccessPortal({
     [overview.invitations],
   );
   const applications = overview.memberships.filter((membership) => membership.status !== "approved");
+  const regions = accountRegions(overview.organizations);
+  const organizations = accountOrganizations(overview.organizations, accountType, regionCode);
+  const selectedOrganization = organizations.find((organization) => organization.org_code === orgCode);
 
   async function submitApplication(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!accountType || !selectedOrganization) {
+      setSubmission({ state: "error", message: "Scegli il tipo di account e seleziona la tua organizzazione." });
+      return;
+    }
     setSubmission({ state: "submitting", message: "" });
     const result = await requestOrganizationAccess({
       orgCode,
       requestedRole: role,
       message: requestMessage,
+      requestedAccountType: accountType,
+      ...(accountType === "organization" ? { requestedRegionCode: regionCode } : {}),
     });
     setSubmission({ state: result.ok ? "success" : "error", message: result.message });
     if (result.ok) {
@@ -202,7 +215,7 @@ export function AccessPortal({
               Richiedi l&apos;accesso ai dati della tua organizzazione.
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
-              Scegli organizzazione e ruolo. Un amministratore verifica la richiesta.
+              Scegli il tipo di account, la tua organizzazione e il ruolo. Un amministratore verifica la richiesta prima di abilitare i dati riservati.
             </p>
           </div>
 
@@ -261,24 +274,43 @@ export function AccessPortal({
             </CardHeader>
             <CardContent className="p-5 md:p-6">
               <form onSubmit={submitApplication} className="grid gap-5">
+                <fieldset className="grid gap-3">
+                  <legend className="mb-2 text-sm font-medium">Tipo di account richiesto</legend>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {ACCOUNT_TYPE_OPTIONS.map((option) => {
+                      const Icon = option.value === "regione" ? Landmark : Building2;
+                      return <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors focus-within:ring-2 focus-within:ring-ring ${accountType === option.value ? "border-primary bg-primary/5" : "border-border hover:bg-secondary/40"}`}>
+                        <input type="radio" name="requested-account-type" value={option.value} checked={accountType === option.value} required className="mt-1 accent-primary" onChange={() => { setAccountType(option.value); setRegionCode(""); setOrgCode(""); setSubmission({ state: "idle", message: "" }); }} />
+                        <span><span className="flex items-center gap-2 text-sm font-semibold"><Icon size={16} aria-hidden="true" />{option.label}</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">{option.description}</span></span>
+                      </label>;
+                    })}
+                  </div>
+                </fieldset>
+                {accountType === "organization" && <div className="grid gap-2">
+                  <Label htmlFor="access-region">Regione dell’organizzazione</Label>
+                  <select id="access-region" value={regionCode} required onChange={(event) => { setRegionCode(event.target.value); setOrgCode(""); setSubmission({ state: "idle", message: "" }); }} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                    <option value="">Seleziona la regione</option>
+                    {regions.map((region) => <option key={region.code} value={region.code}>{region.label}</option>)}
+                  </select>
+                </div>}
                 <div className="grid gap-2">
-                  <Label htmlFor="access-organization">Organizzazione</Label>
+                  <Label htmlFor="access-organization">{accountType === "regione" ? "Amministrazione regionale" : "Organizzazione"}</Label>
                   <select
                     id="access-organization"
                     required
                     value={orgCode}
-                    onChange={(event) => setOrgCode(event.target.value)}
+                    disabled={!accountType || (accountType === "organization" && !regionCode)}
+                    onChange={(event) => { setOrgCode(event.target.value); setSubmission({ state: "idle", message: "" }); }}
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    {overview.organizations.length === 0 && (
-                      <option value="">Nessuna organizzazione configurata</option>
-                    )}
-                    {overview.organizations.map((organization) => (
+                    <option value="">{!accountType ? "Scegli prima il tipo di account" : accountType === "organization" && !regionCode ? "Scegli prima la regione" : organizations.length === 0 ? "Nessuna organizzazione configurata in questo ambito" : "Seleziona la tua organizzazione"}</option>
+                    {organizations.map((organization) => (
                       <option key={organization.org_code} value={organization.org_code}>
-                        {organization.org_name} · {organization.org_type === "regione" ? "Regione" : "ASL"}
+                        {organization.org_name}
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs leading-5 text-muted-foreground">Sono elencate le organizzazioni configurate. Se la tua non compare, chiedi all’amministratore di aggiungerla al registro.</p>
                 </div>
 
                 <div className="grid gap-2">
@@ -323,7 +355,7 @@ export function AccessPortal({
                   className="w-full md:w-fit"
                   disabled={
                     overview.setupRequired ||
-                    overview.organizations.length === 0 ||
+                    !selectedOrganization ||
                     submission.state === "submitting"
                   }
                 >
@@ -331,6 +363,10 @@ export function AccessPortal({
                   <ArrowRight className="ml-2" size={15} />
                 </Button>
               </form>
+              <div className="mt-6 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
+                <p>Puoi consultare le analisi pubbliche senza attendere l’accesso ai dati riservati.</p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2"><Link href="/pillar-a" className="font-medium text-primary hover:underline">Pillar A · dati pubblici</Link><Link href="/pillar-b" className="font-medium text-primary hover:underline">Pillar B · dati pubblici</Link></div>
+              </div>
             </CardContent>
           </Card>
 
