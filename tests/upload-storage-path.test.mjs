@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {register} from 'node:module';
-import {isUploadStoragePath,C_UPLOAD_PATH_MAX} from '../lib/uploads/storage-path.ts';
+import {isUploadStoragePath,cUploadStoragePath,C_UPLOAD_PATH_MAX} from '../lib/uploads/storage-path.ts';
 
 const STUBS={
   'next/cache':`export function revalidatePath(p){globalThis.__up.revalidated.push(p);}`,
@@ -122,4 +122,19 @@ test('recordUpload refuses any other path before writing a row or reading a file
   // The session checks come first, unchanged.
   session(null);await assert.rejects(()=>recordUpload(input('201/x.xlsx')),/Nessuna organizzazione approvata/);
   session(ORG,{claims:null});await assert.rejects(()=>recordUpload(input('201/x.xlsx')),/Devi essere autenticato/);
+});
+
+test('the upload shell writes a path the recorded-path rule always accepts, keeping safe names unchanged',()=>{
+  const T=1729000000000,C=String.fromCharCode,BSL=C(92),TAB=C(9),NL=C(10),NUL=C(0);
+  for(const name of ['DIR_OSP_TRA_003AS_SellInSellOut_nuova_estrazione_2025.xlsx','Spesa 2025 (v2).xlsx',"a!b*c'd&e$f=g@h;i:j+k,l?m-n_o.csv"])
+    assert.equal(cUploadStoragePath('201',name,T),`201/${T}-${name}`,name);
+  const hostile=['Spesa..2025.xlsx','report#1.xlsx','Città è più.xlsx','../../pillar-c-scoped/x.json','a/b/c.xlsx',`a${BSL}b.xlsx`,'50%.xlsx','%2e%2e.xlsx',`x${TAB}y${NL}z.xlsx`,'...','','~[x]{y}.csv','emoji 😀.xlsx','.hidden',`a${NUL}b.xlsx`,'x'.repeat(5000)];
+  for(const name of hostile){const path=cUploadStoragePath('201',name,T);assert.equal(isUploadStoragePath(path,'201'),true,JSON.stringify(name).slice(0,60));assert.ok(path.length<=C_UPLOAD_PATH_MAX);}
+  assert.equal(cUploadStoragePath('201','Spesa..2025.xlsx',T),`201/${T}-Spesa.2025.xlsx`);
+  assert.equal(cUploadStoragePath('201','report#1.xlsx',T),`201/${T}-report_1.xlsx`);
+  assert.equal(cUploadStoragePath('201','',T),`201/${T}-file`);
+  // A deterministic sweep: whatever the browser hands over, the recorded path is accepted.
+  let seed=20261020;const rand=n=>{seed=(seed*1103515245+12345)%2147483648;return seed%n;};
+  const alphabet=['a','Z','0','.','..','/',BSL,'%','#',C(232),'~',' ',TAB,'-','_','(',C(0xd83d,0xde00)];
+  for(let i=0;i<5000;i++){const name=Array.from({length:rand(12)},()=>alphabet[rand(alphabet.length)]).join('');assert.equal(isUploadStoragePath(cUploadStoragePath('204',name,T),'204'),true,JSON.stringify(name));}
 });

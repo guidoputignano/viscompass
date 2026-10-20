@@ -31,3 +31,16 @@ export function isUploadStoragePath(path: unknown, orgCode: unknown): path is st
   const segment = path.slice(orgCode.length + 1);
   return SEGMENT.test(segment) && !segment.includes("..");
 }
+
+/**
+ * The object path the upload shell writes for a file: `<orgCode>/<timestamp>-<name>`, where the name keeps every
+ * character the rule above admits and replaces any other (accents, "#", "/", "%", a backslash, a control character)
+ * with "_", and a run of dots with one dot, so a file Storage accepts is never refused afterwards when its row is
+ * recorded. The original file name is still recorded as file_name. Always passes isUploadStoragePath.
+ */
+export function cUploadStoragePath(orgCode: string, fileName: string, timestamp: number): string {
+  const prefix = `${orgCode}/${Math.trunc(timestamp)}-`;
+  const name = (fileName.normalize("NFC").replace(/[^A-Za-z0-9_!.*'() &$=@;:+,?-]/g, "_").replace(/[.]{2,}/g, ".") || "file")
+    .slice(0, C_UPLOAD_PATH_MAX - prefix.length);
+  return `${prefix}${name}`;
+}
