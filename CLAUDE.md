@@ -206,8 +206,12 @@ delivery): implemented and integrated locally, production rollout not live.**
   by default.
 - The owner-approved migration `20261020120000_pillar_c_scoped_storage.sql`
   was applied on 20 October and verified with rollout off. The rollout
-  tables and `pillar-c-scoped` bucket are empty. Existing Storage rules
-  and functions were unchanged. No scoped application code is deployed.
+  tables were empty at that checkpoint. Existing Storage rules and
+  functions were unchanged. The owner subsequently approved and ran the
+  private upload; integrity readback did not fully pass, so upload
+  acceptance, deployment and activation are held. Read-only verification
+  and a fresh post-upload default-off check remain mandatory. No scoped
+  application code is deployed.
   See `docs/PILLAR_C_REC5_DORMANT_MIGRATION_20261020.md`.
 - Production Pillar C still gives reviewers and administrators the
   reviewer view (service role) and every other approved member only the
@@ -215,8 +219,8 @@ delivery): implemented and integrated locally, production rollout not live.**
 - AP0 (read-only checks) and AP1 (dormant migration) have been completed.
   The approval covered the default-off migration only, not data upload,
   user enablement or reviewer changes. The remaining owner approval
-  points are AP2 (owner-controlled upload), AP3 (deploy), AP4 (test
-  accounts and rollout rows) and AP5 (cleanup).
+  points are AP2 acceptance (owner upload authorized, readback pending),
+  AP3 (deploy), AP4 (test accounts and rollout rows) and AP5 (cleanup).
 
 **2 October 2026, Pillar B:** the private page `/dashboard-review/revisione-pillar-b`
 (Pillar A-style sections, panel-local controls, reviewer path) reads the live

@@ -31,7 +31,9 @@ The build emitted `dashboard_fact_prefetch_error` notices but completed successf
 
 ## Production state and remaining gates
 
-The application deployment remains unchanged by this integration. After the combined-code verification, browser access recovered and the owner explicitly approved the dormant migration only. Migration `20261020120000` was applied and post-apply verified on 20 October. The scoped bucket and rollout tables remain empty; no upload, user enablement, membership or reviewer configuration changed. See `PILLAR_C_REC5_DORMANT_MIGRATION_20261020.md`.
+The application deployment remains unchanged by this integration. After the combined-code verification, browser access recovered and the owner explicitly approved the dormant migration only. Migration `20261020120000` was applied and post-apply verified on 20 October with an empty bucket and rollout tables. See `PILLAR_C_REC5_DORMANT_MIGRATION_20261020.md` for that checkpoint.
+
+The owner subsequently authorized and ran the separate private upload. Its first readback did not fully verify every object; acceptance, deployment and activation remain held. The initial verifier conflated failed downloads with actual hash mismatch. A repaired read-only verifier preserves strict integrity checks, adds bounded transient retries and separate safe diagnostics, and writes a new receipt without overwriting the failed upload evidence. A successful owner verification-only run and fresh post-upload metadata/default-off checks are required next. No object re-upload, deletion, membership, rollout or reviewer change is authorized by this diagnosis.
 
 The fresh precheck, exact migration, post-apply verification and default-off rollback-only role sweep are saved privately. Existing Storage rules and functions matched the fresh precheck. The intentional exception that ends the sweep is its rollback mechanism, not an apply failure. This proves database-side default-off behavior, not enabled-account Storage HTTP behavior.
 
@@ -39,7 +41,7 @@ Reviewer live checks also covered dossier selectors, chronological change, the s
 
 Next, in the order of the reviewed operator plan:
 
-1. Run the separately approved, owner-controlled pinned upload and verify every object and default-off behavior. Do not read, extract or store the owner's privileged key for the agent.
+1. Complete the already-approved owner-controlled upload's read-only integrity verification, then verify every object and default-off behavior. Do not re-upload or overwrite an unverified object, and do not read, extract or store the owner's privileged key for the agent.
 2. Deploy the integrated application after the deployment approval and verify reviewer and forecast-only regression.
 3. Complete the approved controlled-account tests, including scope isolation, direct Storage operation refusals, exports, revocation and kill switch.
 4. Enable a real production audience only after the documented acceptance and governance prerequisites. No broad `all`-mode activation is implied by this code integration or the migration approval.
