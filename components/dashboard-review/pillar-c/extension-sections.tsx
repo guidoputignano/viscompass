@@ -10,11 +10,10 @@ import { CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading 
 import { C_EXT_SOURCE, type CExtDist, type CExtensionView, type CExtUnitPacket } from "@/lib/dashboard-review/pillar-c/extension";
 
 type Unit = CExtensionView["units"][number];
-const pct = (v: number | null, digits = 1) => (v === null ? "—" : `${itNumber(v * 100, { minimumFractionDigits: digits, maximumFractionDigits: digits })} %`);
+const pct = (v: number | null, digits = 1) => (v === null ? "—" : `${itNumber(v * 100, { minimumFractionDigits: digits, maximumFractionDigits: digits })}\u00a0%`);
 const num = (v: number | null, digits = 0) => (v === null ? "—" : itNumber(v, { minimumFractionDigits: digits, maximumFractionDigits: digits }));
 const eur = (v: number | null) => (v === null ? "—" : cMoneyLabel(v));
 const eur0 = (v: number) => itNumber(v, { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
-const signedEur = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${eur0(Math.abs(v))}`;
 const MONTHS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 const th = "whitespace-nowrap border-b border-border px-2 py-3 text-right font-semibold first:text-left";
 const thUnit = "border-b border-border px-2 py-3 text-right align-bottom font-semibold";
@@ -59,7 +58,7 @@ export function PillarCRecipientsSection({ view }: { view: CExtensionView }) {
         { label: "Donne (sul sesso noto)", values: units.map((u) => pct(u.data.january.sex.female)) },
         { label: "Costo per destinatario, mediana", values: units.map((u) => eur(u.data.january.cost.quartiles?.median ?? null)) },
         { label: "Costo per destinatario, 1° – 3° quartile", values: units.map((u) => u.data.january.cost.quartiles ? `${eur0(u.data.january.cost.quartiles.q1)} – ${eur0(u.data.january.cost.quartiles.q3)}` : "—") },
-        { label: "Quota di costo del 10 % con costo maggiore", values: units.map((u) => pct(u.data.january.cost.top10)) },
+        { label: "Quota di costo del 10\u00a0% con costo maggiore", values: units.map((u) => pct(u.data.january.cost.top10)) },
         { label: "Indice di Gini", values: units.map((u) => num(u.data.january.cost.gini, 2)) },
       ]} />
       <p className="mt-4 text-xs leading-5 text-muted-foreground">Costo registrato nel flusso: acquisto più compenso di servizio. Età raggiunta nel 2026, ricavata dall’anno di nascita; fasce OsMed.</p>
@@ -76,30 +75,30 @@ export function PillarCRecipientsSection({ view }: { view: CExtensionView }) {
       <Matrix caption="Servizio di distribuzione e tempi" units={units} rows={[
         { label: "Quota del servizio sul costo", values: units.map((u) => pct(u.data.january.services.serviceShare)) },
         { label: "Servizio per confezione", values: units.map((u) => eur(u.data.january.services.servicePerPack)) },
-        { label: "Confezioni sotto 10 € di acquisto", values: units.map((u) => pct(u.data.january.services.under10Packs)) },
+        { label: "Confezioni sotto 10\u00a0€ di acquisto", values: units.map((u) => pct(u.data.january.services.under10Packs)) },
         { label: "… quota del servizio sul loro costo", values: units.map((u) => pct(u.data.january.services.under10Service)) },
         { label: "Farmacie che erogano", values: units.map((u) => num(u.data.january.services.pharmacies)) },
         { label: "Giorni fra prescrizione ed erogazione, mediana", values: units.map((u) => num(u.data.january.services.intervalMedian)) },
         { label: "Erogato entro 7 giorni", values: units.map((u) => pct(u.data.january.services.within7)) },
       ]} />
-      <p className="mt-4 text-xs leading-5 text-muted-foreground">Per i prodotti economici il compenso di distribuzione supera il costo del medicinale: è un tema di revisione dell’elenco DPC, non una misura di inefficienza. Nessuna farmacia è indicata.</p>
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${units.some((u) => (u.data.january.services.under10Service ?? 0) > 0.5) ? "Dove la quota del servizio supera la metà del costo, il compenso di distribuzione pesa più del medicinale: è un tema di scelta del canale, non una misura di inefficienza. " : ""}Nessuna farmacia è indicata.`}</p>
     </Panel>
-    {fileF && <FileFRecipients fileF={fileF} />}
+    {fileF && <FileFRecipients fileF={fileF} unitLabel={units.find((u) => u.data.fileF)?.label ?? ""} januaryTop10={units.find((u) => u.data.fileF)?.data.january.cost.top10 ?? null} />}
     {asl.length === 0 && <Empty>Nessuna ASL in questa vista.</Empty>}
   </div>;
 }
 
-function FileFRecipients({ fileF }: { fileF: NonNullable<CExtUnitPacket["fileF"]> }) {
+function FileFRecipients({ fileF, unitLabel, januaryTop10 }: { fileF: NonNullable<CExtUnitPacket["fileF"]>; unitLabel: string; januaryTop10: number | null }) {
   const c = fileF.concentration;
-  return <Panel title="File F 2025 · ASL 3: identificativi, concentrazione e frequenza" description={`${C_EXT_SOURCE.fileF}. Identificativi distinti nel flusso, non pazienti certificati; nessun confronto con le altre ASL.`}>
+  return <Panel title={`File F 2025 · ${unitLabel}: identificativi, concentrazione e frequenza`} description={`${C_EXT_SOURCE.fileF}. Identificativi distinti nel flusso, non pazienti certificati; nessun confronto con le altre ASL.`}>
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {[["Identificativi distinti nell’anno", num(fileF.identifiers)], ["65 anni e oltre", pct(over65(fileF.age))], ["Importo per identificativo, mediana", eur0(c.median)], ["Quota del 10 % con importo maggiore", pct(c.top10)],
-        ["Quota dell’1 % con importo maggiore", pct(c.top1)], ["Senza modalità 09: quota del 10 %", pct(c.top10WithoutMode09)], ["Contatti per identificativo, mediana", num(fileF.medianContacts)], ["Mesi attivi, mediana", num(fileF.medianMonths)]]
+      {[["Identificativi distinti nell’anno", num(fileF.identifiers)], ["65 anni e oltre", pct(over65(fileF.age))], ["Importo per identificativo, mediana", eur0(c.median)], ["Quota del 10\u00a0% con importo maggiore", pct(c.top10)],
+        ["Quota dell’1\u00a0% con importo maggiore", pct(c.top1)], ["Senza modalità 09: quota del 10\u00a0%", pct(c.top10WithoutMode09)], ["Contatti per identificativo, mediana", num(fileF.medianContacts)], ["Mesi attivi, mediana", num(fileF.medianMonths)]]
         .map(([k, v]) => <div key={k} className="rounded-xl border border-border p-3"><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{v}</dd></div>)}
     </dl>
     <ExactTable caption="Contatti e mesi attivi per identificativo" headers={["Classe", "Contatti: quota", "Classe", "Mesi attivi: quota"]}
       rows={fileF.contacts.cells.map((cell, i) => [cell.label, pct(cell.share), fileF.monthsActive.cells[i]?.label ?? "", fileF.monthsActive.cells[i] ? pct(fileF.monthsActive.cells[i].share) : ""])} />
-    <p className="mt-4 text-xs leading-5 text-muted-foreground">La distribuzione diretta concentra le terapie ad alto costo: l’importo è molto più concentrato che nella DPC. Un solo anno di una sola Azienda.</p>
+    <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${januaryTop10 === null ? "" : `L’importo per identificativo è ${c.top10 > januaryTop10 ? "più" : "meno"} concentrato che nella DPC di gennaio della stessa ASL (quota del 10\u00a0% con importo maggiore: ${pct(c.top10)} contro ${pct(januaryTop10)}). `}Un solo anno di una sola Azienda.`}</p>
   </Panel>;
 }
 
@@ -131,18 +130,19 @@ export function PillarCAttributionEvidence({ view }: { view: CExtensionView }) {
       ...SEGMENTS.map((s) => [s.label, ...units.map((u) => pct(u.data.january.attribution[s.key]))]),
       ["Accordo esenzione–portafoglio sui prodotti a candidato singolo", ...units.map((u) => pct(u.data.january.attribution.agreementLines))],
     ]} />
-    {agreement.length > 0 && <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Sui prodotti a un solo candidato l’esenzione coerente indica la stessa area nel ${agreement.length > 1 && Math.min(...agreement) !== Math.max(...agreement) ? `${pct(Math.min(...agreement))} – ${pct(Math.max(...agreement))}` : pct(agreement[0])} delle righe: la mappatura regge al confronto con un segnale clinico indipendente. Resta una bozza farmacologica, non un’attribuzione clinica.`}</p>}
+    {agreement.length > 0 && <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Sui prodotti a un solo candidato l’esenzione coerente indica la stessa area nel ${agreement.length > 1 && Math.min(...agreement) !== Math.max(...agreement) ? `${pct(Math.min(...agreement))} – ${pct(Math.max(...agreement))}` : pct(agreement[0])} delle righe${Math.min(...agreement) >= 0.99 ? ": la mappatura regge al confronto con un segnale clinico indipendente" : ""}. Resta una bozza farmacologica, non un’attribuzione clinica.`}</p>}
   </Panel>;
 }
 
 /** Section 4 addition: File F monthly reported amount, with dispensing mode 09 pooled and shown apart. */
 export function PillarCFileFMonthly({ view }: { view: CExtensionView }) {
-  const f = view.units.find((u) => u.data.fileF)?.data.fileF;
+  const holder = view.units.find((u) => u.data.fileF), f = holder?.data.fileF, note = holder?.data.notes.fileFMode09 ?? "";
   if (!f) return null;
   const max = Math.max(1, ...f.months.map((m) => m.amount));
   const mean = f.months.reduce((a, m) => a + m.withoutMode09, 0) / f.months.length;
   const lowestWithout = f.months.reduce((low, m, i) => (m.withoutMode09 < f.months[low].withoutMode09 ? i : low), 0);
-  return <Panel title="File F 2025 · ASL 3: importo mensile" description={`${C_EXT_SOURCE.fileF}. In arancione le righe in modalità di erogazione 09 («Terapie CAR-T» nella specifica 2025), registrate solo a dicembre.`}>
+  const withMode09 = f.months.flatMap((m, i) => (m.mode09 ? [MONTHS[i]] : []));
+  return <Panel title={`File F 2025 · ${holder?.label ?? ""}: importo mensile`} description={`${C_EXT_SOURCE.fileF}. In arancione le righe in modalità di erogazione 09 («Terapie CAR-T» nella specifica 2025)${withMode09.length ? `, presenti in: ${withMode09.join(", ")}` : ", assenti in questo anno"}.`}>
     <div role="img" aria-label={`Importo mensile: ${f.months.map((m, i) => `${MONTHS[i]} ${eur0(m.amount)}`).join("; ")}`}>
       <div className="flex h-44 items-end gap-1.5 border-b border-border">{f.months.map((m) => <div key={m.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
         <span className="block rounded-t bg-amber-500/80" style={{ height: `${(m.mode09 / max) * 100}%` }} />
@@ -153,30 +153,7 @@ export function PillarCFileFMonthly({ view }: { view: CExtensionView }) {
     <ul className="mt-3 flex flex-wrap gap-4 text-xs"><li className="flex items-center gap-2"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-sm bg-primary" />Altri medicinali</li><li className="flex items-center gap-2"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-sm bg-amber-500/80" />Modalità 09</li></ul>
     <ExactTable caption="Importo mensile e identificativi" headers={["Mese", "Importo riportato", "Modalità 09", "Senza modalità 09", "Indice senza 09 (media = 100)", "Identificativi distinti"]}
       rows={f.months.map((m, i) => [MONTHS[i], eur0(m.amount), m.mode09 ? eur0(m.mode09) : "—", eur0(m.withoutMode09), num((m.withoutMode09 / mean) * 100, 1), num(f.identifiersByMonth[i]?.count ?? null)])} />
-    <p className="mt-4 text-xs leading-5 text-muted-foreground">{`La modalità 09 comprende due prodotti CAR-T e due altri medicinali: è una classificazione amministrativa, mostrata solo in forma aggregata. ${lowestWithout === f.months.length - 1 ? "Senza di essa dicembre è il mese più basso. " : ""}Le variazioni mensili coinvolgono oltre mille prodotti; un solo anno non stabilisce stagionalità né crescita.`}</p>
+    <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${lowestWithout === f.months.length - 1 && withMode09.includes(MONTHS[f.months.length - 1]) ? "Senza la modalità 09 l’ultimo mese è il più basso. " : ""}${note}`}</p>
     <ExactTable caption="Modalità di erogazione" headers={["Modalità", "Quota delle righe", "Quota dell’importo"]} rows={f.modes.map((m) => [m.label, pct(m.rowsShare), pct(m.amountShare)])} />
-  </Panel>;
-}
-
-const FACTORS = [["reach", "Destinatari per 1.000 residenti"], ["intensity", "Confezioni per destinatario"], ["mix", "Composizione dei prodotti"], ["acquisition", "Costo di acquisto per confezione"], ["service", "Servizio per confezione"]] as const;
-
-/** Section 4, reviewer only (owner decision O1): why DPC spending per resident differs, exact Shapley decomposition. */
-export function PillarCResidentDrivers({ view }: { view: CExtensionView }) {
-  const d = view.drivers;
-  if (!d) return null;
-  const label = (key: string) => view.units.find((u) => u.key === key)?.label ?? key;
-  const max = Math.max(1, ...d.units.flatMap((u) => FACTORS.map(([k]) => Math.abs(u[k]))));
-  return <Panel title="Perché la spesa DPC per residente differisce fra le ASL? · gennaio 2026" description={`Euro per 1.000 residenti sui ${d.supportProducts} prodotti identici presenti in tutte le ASL, rispetto al riferimento delle quattro ASL (${eur0(d.referencePer1000)}). Scomposizione esatta: i cinque contributi sommano la differenza. Solo revisori.`}>
-    <div className="grid gap-5 lg:grid-cols-2">{d.units.map((u) => <div key={u.unit} className="rounded-xl border border-border p-4">
-      <p className="text-sm font-semibold">{label(u.unit)}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{`Differenza ${signedEur(u.difference)} per 1.000 residenti · ${num(u.reachPer1000, 1)} destinatari per 1.000 · ${num(u.packsPerRecipient, 2)} confezioni ciascuno`}</p>
-      <ul className="mt-3 space-y-1.5">{FACTORS.map(([k, text]) => <li key={k} className="grid grid-cols-[minmax(0,11rem)_1fr_4.5rem] items-center gap-2 text-xs">
-        <span>{text}</span>
-        <span aria-hidden="true" className="relative h-2.5 rounded-full bg-secondary"><span className={`absolute top-0 h-2.5 rounded-full ${u[k] >= 0 ? "left-1/2 bg-primary" : "right-1/2 bg-amber-500/80"}`} style={{ width: `${(Math.abs(u[k]) / max) * 50}%` }} /></span>
-        <span className="text-right tabular-nums">{signedEur(u[k])}</span>
-      </li>)}</ul>
-    </div>)}</div>
-    {view.baskets && <ExactTable caption="Indici del paniere comune" headers={["Indice (riferimento = 100)", ...view.baskets.units.map((u) => label(u.unit))]} rows={(["acquisition", "service", "combined"] as const).map((k) => [k === "acquisition" ? "Acquisto" : k === "service" ? "Servizio" : "Combinato", ...view.baskets!.units.map((u) => num(u[k], 2))])} />}
-    <p className="mt-4 text-xs leading-5 text-muted-foreground">Contributi contabili, non cause cliniche né risparmi. Destinatari e confezioni per destinatario dipendono dalla cadenza di dispensazione e vanno letti insieme. Sul paniere, il costo per confezione sposta la spesa di poco; il confronto è descrittivo, non standardizzato per età. Residenti al 31/12/2024 (Ministero della Salute, dati ISTAT).</p>
   </Panel>;
 }

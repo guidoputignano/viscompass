@@ -14,7 +14,8 @@ import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
-import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCResidentDrivers, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import type { CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { PillarCAudienceProvider, usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 import { cBudgetFilters, cBudgetSearch, cDecisionAnswer, cInsightResetSearch } from "@/lib/dashboard-review/pillar-c/insights";

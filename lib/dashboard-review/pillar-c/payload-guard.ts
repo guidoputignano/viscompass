@@ -77,7 +77,9 @@ const EXT_FILEF: Spec = { nullable: { obj: {
   modes: { list: { obj: { id: "id", label: "desc", rowsShare: "share", amountShare: "share" } }, max: 8 },
   basket: { list: { obj: { quarter: "id", index: "num", coverage: "share" } }, max: 4 }, basketProducts: "int",
 } } };
-const EXT_UNIT: Spec = { obj: { schema: { lit: ["pillar-c-extension-unit-v1"] }, unit: "org", period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, january: EXT_JANUARY, fileF: EXT_FILEF } };
+const EXT_UNIT: Spec = { obj: { schema: { lit: ["pillar-c-extension-unit-v1"] }, unit: "org", period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, january: EXT_JANUARY, fileF: EXT_FILEF,
+  notes: { obj: { fileFMode09: { nullable: "text" } } } } };
+const EXT_FINDING: Spec = { obj: { id: "id", title: "text", scope: "text", source: "text", detail: "text", action: "text" } };
 
 export const C_SCOPED_PAYLOAD_SPECS = {
   extension: EXT_UNIT,
@@ -86,6 +88,7 @@ export const C_SCOPED_PAYLOAD_SPECS = {
     drivers: { obj: { supportProducts: "int", referencePer1000: "num", units: { list: { obj: { unit: "org", per1000: "num", difference: "num", reach: "num", intensity: "num", mix: "num",
       acquisition: "num", service: "num", reachPer1000: "num", packsPerRecipient: "num", coverage: "share" } }, max: 4 } } },
     baskets: { obj: { products: "int", units: { list: { obj: { unit: "org", acquisition: "num", service: "num", combined: "num" } }, max: 4 } } },
+    findings: { obj: { version: { lit: ["ext-v1"] }, rows: { list: EXT_FINDING, max: 20 } } },
   } },
   attribution: { obj: {
     schema: { lit: ["pillar-c-attribution-view-v1"] }, sourceSha256: "hash", classificationSha256: "hash", mappingVersion: "text", sourceSnapshot: "hash",

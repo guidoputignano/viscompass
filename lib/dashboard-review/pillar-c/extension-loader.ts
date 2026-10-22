@@ -1,7 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { C_EXTENSION_MAX_BYTES, C_EXTENSION_STORAGE } from "@/lib/dashboard-review/pillar-c/extension-storage";
-import { C_EXT_UNIT_LABELS, parseCExtensionReviewer, parseCExtensionUnit, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
+import { C_EXT_UNIT_LABELS, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
+import { cExtComplementCheck, parseCExtensionReviewer, parseCExtensionUnit } from "@/lib/dashboard-review/pillar-c/extension-parse";
 import { cScopedKeyAllowed, type PillarCScopedAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
 import { pcsLog, readCScopedObject, type CScopedStorageClient } from "@/lib/dashboard-review/pillar-c/scoped-transport";
 import { C_SCOPED_UNITS, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
@@ -24,8 +25,12 @@ async function readReviewerObject(): Promise<{ state: "ready"; bytes: Uint8Array
     const response = await fetch(`${origin}/storage/v1/object/authenticated/${pin.bucket}/${pin.object}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8_000),
     });
-    if (!response.ok || Number(response.headers.get("content-length") ?? 0) > C_EXTENSION_MAX_BYTES) return { state: "invalid" };
-    return { state: "ready", bytes: new Uint8Array(await response.arrayBuffer()) };
+    if (!response.ok || !response.body || Number(response.headers.get("content-length") ?? 0) > C_EXTENSION_MAX_BYTES) return { state: "invalid" };
+    // Counted while streaming: a response without Content-Length is still cut at the cap.
+    const reader = response.body.getReader(), chunks: Uint8Array[] = []; let length = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; length += value.length; if (length > C_EXTENSION_MAX_BYTES) { await reader.cancel(); return { state: "invalid" }; } chunks.push(value); }
+    const bytes = new Uint8Array(length); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    return { state: "ready", bytes };
   } catch { return { state: "invalid" }; }
 }
 
@@ -43,7 +48,7 @@ export async function loadCExtensionReviewer(approved: boolean, projectReviewer:
     const p = parseCExtensionReviewer(decode(read.bytes));
     const order: CScopedUnit[] = ["aggregato", "asl-1", "asl-2", "asl-3", "asl-4"];
     const units = order.map((key) => ({ key, label: C_EXT_UNIT_LABELS[key], data: p.units.find((u) => u.unit === key)! }));
-    return { state: "ready", view: { units, drivers: p.drivers, baskets: p.baskets } };
+    return { state: "ready", view: { units, drivers: p.drivers, baskets: p.baskets, findings: p.findings } };
   } catch { return { state: "unavailable" }; }
 }
 
@@ -61,7 +66,8 @@ export async function loadCExtensionScoped(audience: PillarCScopedAudience, db: 
       if (!label) throw new Error("PCS-MISMATCH");
       return { key: unit, label, data: parseCExtensionUnit(decode(read.bytes), unit, units) };
     }));
-    return { state: "ready", view: { units: out, drivers: null, baskets: null } };
+    cExtComplementCheck(out.map((u) => u.data));
+    return { state: "ready", view: { units: out, drivers: null, baskets: null, findings: null } };
   } catch (error) {
     pcsLog(error instanceof Error && error.message === "PCS-ABSENT" ? "PCS-ABSENT" : "PCS-GUARD");
     return { state: "unavailable" };

@@ -115,7 +115,7 @@ function ScopedGate({ packet, forecast, extension }: { packet: CScopedClientRevi
 }
 /** The extension is shown only when it holds exactly the audience's units, in its order, with no reviewer-only block. */
 export function cScopedExtensionFor(audience: CClientAudience, extension: CExtensionView | null): CExtensionView | null {
-  if (!extension || extension.drivers || extension.baskets) return null;
+  if (!extension || extension.drivers || extension.baskets || extension.findings) return null;
   const keys = audience.orgs.map((o) => o.key);
   return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;
 }

@@ -167,6 +167,15 @@ test('UI-4: no module of the route’s entry chunks carries a province key or it
   assert.deepEqual(found,[],'province keys or pseudonym pairs in the entry chunks');
 });
 
+test('points 15-16: the guard vocabulary and the extension parsers stay on the server',()=>{
+  // payload-guard.ts holds the place names, Azienda codes and reviewer-only key names; extension-parse.ts imports it.
+  const graph=routeClientGraph();
+  assert.ok(graph.entry.includes('components/dashboard-review/pillar-c/extension-sections.tsx'),'the extension blocks are client modules');
+  assert.ok(graph.entry.includes('lib/dashboard-review/pillar-c/extension.ts'),'their browser-safe types and labels');
+  for(const m of ['components/dashboard-review/pillar-c/extension-reviewer.tsx','lib/dashboard-review/pillar-c/payload-guard.ts','lib/dashboard-review/pillar-c/extension-parse.ts','lib/dashboard-review/pillar-c/extension-loader.ts','lib/dashboard-review/pillar-c/extension-storage.ts'])
+    assert.ok(!graph.entry.includes(m),`${m} is in the route's client entry`);
+});
+
 test('UI-4: the scoped workspace names organisations only through the audience the server sends',()=>{
   const source=readFileSync(abs('components/dashboard-review/pillar-c/scoped-workspace.tsx'),'utf8');
   assert.match(source,/from "@\/components\/dashboard-review\/pillar-c\/review-blocks"/);

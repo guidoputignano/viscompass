@@ -16,9 +16,11 @@ registerPillarCStubs({...IDENTITY_STUBS,
 register('data:text/javascript,'+encodeURIComponent(`export async function resolve(s,c,n){return n(s==='next/link'?'next/link.js':s,c);}`),import.meta.url);
 const root=fileURLToPath(new URL('..',import.meta.url));
 const req=createRequire(`${root}package.json`),React=req('react'),{renderToStaticMarkup}=req('react-dom/server');
-const {parseCExtensionUnit,parseCExtensionReviewer,C_EXT_UNIT_LABELS}=await import('../lib/dashboard-review/pillar-c/extension.ts');
+const {parseCExtensionUnit,parseCExtensionReviewer,cExtComplementCheck}=await import('../lib/dashboard-review/pillar-c/extension-parse.ts');
+const {C_EXT_UNIT_LABELS}=await import('../lib/dashboard-review/pillar-c/extension.ts');
 const {loadCExtensionReviewer,loadCExtensionScoped}=await import('../lib/dashboard-review/pillar-c/extension-loader.ts');
-const {PillarCRecipientsSection,PillarCAttributionEvidence,PillarCFileFMonthly,PillarCResidentDrivers,cExtensionRecipientsCard}=await import('../components/dashboard-review/pillar-c/extension-sections.tsx');
+const {PillarCRecipientsSection,PillarCAttributionEvidence,PillarCFileFMonthly,cExtensionRecipientsCard}=await import('../components/dashboard-review/pillar-c/extension-sections.tsx');
+const {PillarCResidentDrivers}=await import('../components/dashboard-review/pillar-c/extension-reviewer.tsx');
 const {cScopedExtensionFor}=await import('../components/dashboard-review/pillar-c/scoped-workspace.tsx');
 
 const AZ=['asl-3','aggregato'],ALL=['aggregato','asl-1','asl-2','asl-3','asl-4'];
@@ -61,6 +63,12 @@ test('semantic checks: File F only in asl-3, sums equal totals, additivity of th
   refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{p.fileF.months[11].mode09=100;}),'asl-3',ALL),'PCE_FILEF_MODE09');
   const r=extReviewer();r.units[1]=structuredClone(r.units[2]);refuse(()=>parseCExtensionReviewer(r),'PCE_UNITS');
   const d=extReviewer();d.drivers.units[0].unit='aggregato';refuse(()=>parseCExtensionReviewer(d),'PCE_REVIEWER_UNITS');
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.notes.fileFMode09='x';}),'asl-1',ALL),'PCE_NOTES');
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{p.notes.fileFMode09=null;}),'asl-3',ALL),'PCE_NOTES');
+  const f=extReviewer();f.findings.rows[1].id='F01';refuse(()=>parseCExtensionReviewer(f),'PCE_FINDINGS');
+  const g=extReviewer();g.findings.rows[0].id='X1';refuse(()=>parseCExtensionReviewer(g),'PCE_FINDINGS');
+  const h=extReviewer();h.findings.rows[0].detail='Teramo';refuse(()=>parseCExtensionReviewer(h),'PCS_GUARD_PLACE');
+  assert.equal(parseCExtensionReviewer(extReviewer()).findings.rows.length,2);
 });
 
 test('reviewer loader: gated, pinned by size and hash, fails closed',async()=>{
@@ -95,7 +103,24 @@ test('scoped loader: only the audience units, under the session, labelled by the
   assert.equal((await loadCExtensionScoped(AZIENDA,fakeSessionClient(fx,{visible:AZ}).client,()=>null)).state,'unavailable');
 });
 
-const viewOf=(units,extras=false)=>({units:units.map(u=>({key:u,label:u==='aggregato'?'Aggregato delle quattro Aziende':`Unità ${u.slice(4)}`,data:extUnit(u,u==='aggregato'?4000:1000)})),drivers:extras?extReviewer().drivers:null,baskets:extras?extReviewer().baskets:null});
+test('no small cell is recoverable by subtraction across the units one audience receives',()=>{
+  const four=['asl-1','asl-2','asl-3','asl-4'].map(u=>extUnit(u,1000)),agg=extUnit('aggregato',4000);
+  cExtComplementCheck([agg,...four]);cExtComplementCheck([four[2],agg]);
+  // Regione: the aggregate exceeds the four ASLs by 3 in one class.
+  const off=structuredClone(agg);off.january.age.cells[0].count+=3;off.january.age.cells[1].count-=3;
+  refuse(()=>cExtComplementCheck([off,...four]),'PCE_COMPLEMENT');
+  // Azienda: aggregate minus its own unit leaves 2 in a class for the other three.
+  const own=structuredClone(four[2]),agg2=structuredClone(agg);agg2.january.ingredients.cells[2].count=own.january.ingredients.cells[2].count+2;agg2.january.ingredients.cells[0].count-=agg2.january.ingredients.cells[2].count-agg.january.ingredients.cells[2].count;
+  refuse(()=>cExtComplementCheck([own,agg2]),'PCE_COMPLEMENT');
+  // A class withheld for one ASL while the aggregate is released would be recovered by a Regione.
+  const held=structuredClone(four[0]);held.january.age={status:'withheld',total:null,cells:[]};
+  refuse(()=>cExtComplementCheck([agg,held,...four.slice(1)]),'PCE_COMPLEMENT_WITHHELD');
+  // Recipients: a gap of 1 to 4 between the aggregate and the visible ASLs.
+  const gap=structuredClone(agg);gap.january.recipients=4004;
+  refuse(()=>cExtComplementCheck([gap,...four]),'PCE_COMPLEMENT');
+});
+
+const viewOf=(units,extras=false)=>({units:units.map(u=>({key:u,label:u==='aggregato'?'Aggregato delle quattro Aziende':`Unità ${u.slice(4)}`,data:extUnit(u,u==='aggregato'?4000:1000)})),drivers:extras?extReviewer().drivers:null,baskets:extras?extReviewer().baskets:null,findings:extras?extReviewer().findings:null});
 const audienceOf=(keys)=>({schema:'pillar-c-client-audience-v1',kind:'azienda',monthlyMode:'explicit',aggregateKey:'aggregato',orgs:keys.map(k=>({key:k,label:k})),defaultOrg:keys[0],budgetOrgs:[],capabilities:{},scopeLine:'x',exportLabel:'x'});
 
 test('the scoped workspace shows the extension only for exactly its units, in order, and never a reviewer-only block',()=>{
@@ -103,6 +128,7 @@ test('the scoped workspace shows the extension only for exactly its units, in or
   assert.equal(cScopedExtensionFor(audienceOf(AZ),viewOf(['aggregato','asl-3'])),null);
   assert.equal(cScopedExtensionFor(audienceOf(AZ),viewOf(['asl-1','aggregato'])),null);
   assert.equal(cScopedExtensionFor(audienceOf(AZ),viewOf(AZ,true)),null);
+  assert.equal(cScopedExtensionFor(audienceOf(AZ),{...viewOf(AZ),findings:extReviewer().findings}),null);
   assert.equal(cScopedExtensionFor(audienceOf(AZ),null),null);
 });
 
@@ -115,7 +141,7 @@ test('rendered blocks: units in the given order, File F only with asl-3, drivers
   assert.doesNotMatch(one,/File F 2025/);
   assert.equal(renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:viewOf(['asl-1','aggregato'])})),'');
   const monthly=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:viewOf(AZ)}));
-  assert.match(monthly,/Modalità 09/);assert.match(monthly,/dicembre è il mese più basso/);
+  assert.match(monthly,/Modalità 09/);assert.match(monthly,/l’ultimo mese è il più basso/);assert.match(monthly,/presenti in: Dic/);assert.match(monthly,/Nota sintetica sulla modalità 09\./);
   assert.equal(renderToStaticMarkup(React.createElement(PillarCResidentDrivers,{view:viewOf(AZ)})),'');
   assert.match(renderToStaticMarkup(React.createElement(PillarCResidentDrivers,{view:viewOf(['aggregato','asl-1','asl-2','asl-3','asl-4'],true)})),/Solo revisori/);
   const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));

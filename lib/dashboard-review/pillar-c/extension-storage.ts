@@ -13,17 +13,17 @@ import type { CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 export const C_EXTENSION_STORAGE = {
   build: "ext-v1",
   scoped: {
-    "asl-1": { name: "estensione-b5ae7a802abd3bf8160fd25dba995aa3bc0d9624c2984926d14dbe1616ec929a.json", sha256: "b5ae7a802abd3bf8160fd25dba995aa3bc0d9624c2984926d14dbe1616ec929a", bytes: 4461 },
-    "asl-2": { name: "estensione-9c7212ecb2ef5681a1f4d0552147b42c176660907f5fa2078dcfcd3160e2d158.json", sha256: "9c7212ecb2ef5681a1f4d0552147b42c176660907f5fa2078dcfcd3160e2d158", bytes: 4463 },
-    "asl-3": { name: "estensione-2db6607ae60f8266d2ad734075824e43bc1d0ae3ea4beaa3d93baaa8acb66d18.json", sha256: "2db6607ae60f8266d2ad734075824e43bc1d0ae3ea4beaa3d93baaa8acb66d18", bytes: 8693 },
-    "asl-4": { name: "estensione-b7b21d37e839ceec42d652e918d9067d4160225d6c3677a1aec7d01d01e3c7de.json", sha256: "b7b21d37e839ceec42d652e918d9067d4160225d6c3677a1aec7d01d01e3c7de", bytes: 4462 },
-    aggregato: { name: "estensione-3c0a2ed51f4690171c5c885a73d4cd8b1c6ec2a8a6003240a4d36afd05c3681e.json", sha256: "3c0a2ed51f4690171c5c885a73d4cd8b1c6ec2a8a6003240a4d36afd05c3681e", bytes: 4369 },
+    "asl-1": { name: "estensione-8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a.json", sha256: "8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a", bytes: 4490 },
+    "asl-2": { name: "estensione-1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818.json", sha256: "1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818", bytes: 4492 },
+    "asl-3": { name: "estensione-d9789a0e61fd2068e8294a582e22e30ffc5cce477d3a951789a54db56110c1fa.json", sha256: "d9789a0e61fd2068e8294a582e22e30ffc5cce477d3a951789a54db56110c1fa", bytes: 9006 },
+    "asl-4": { name: "estensione-7c9b9d4a76394e5c734b4d70a0d1ac28a5abaa079877fe7f5013cb2e8810ac0c.json", sha256: "7c9b9d4a76394e5c734b4d70a0d1ac28a5abaa079877fe7f5013cb2e8810ac0c", bytes: 4491 },
+    aggregato: { name: "estensione-c81948a7c2a72bdd2e94f3fc24864a8324bcd54747125fc71caffa8edb8993d9.json", sha256: "c81948a7c2a72bdd2e94f3fc24864a8324bcd54747125fc71caffa8edb8993d9", bytes: 4398 },
   } satisfies Record<CScopedUnit, { name: string; sha256: string; bytes: number }>,
   reviewer: {
     bucket: "pillar-c-review",
-    object: "ext1/efb19a4c65ae7e59b1e35121af4c55229b439c962c826be3c8ba537e3eff8736.json",
-    sha256: "efb19a4c65ae7e59b1e35121af4c55229b439c962c826be3c8ba537e3eff8736",
-    bytes: 27703,
+    object: "ext1/59ad3da74072ac52476492639aca142352d75746162455ee8ed6a873eb9cfa54.json",
+    sha256: "59ad3da74072ac52476492639aca142352d75746162455ee8ed6a873eb9cfa54",
+    bytes: 31605,
   },
 } as const;
 export const C_EXTENSION_MAX_BYTES = 200_000;

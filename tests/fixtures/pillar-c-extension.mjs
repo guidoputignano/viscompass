@@ -1,5 +1,6 @@
 // Synthetic Pillar C extension packets (January DPC and File F shapes). Invented numbers only: no figure of any
-// real Azienda, no real organisation name.
+// real Azienda, no real organisation name. Every count is proportional to n, so the aggregate (n=4000) is exactly
+// the sum of four ASLs (n=1000 each).
 import {createHash} from 'node:crypto';
 
 export const EXT_UNITS=['asl-1','asl-2','asl-3','asl-4','aggregato'];
@@ -11,17 +12,17 @@ export function extUnit(unit,n=1000){
   const q=aggregate?null:{q1:1,median:2,q3:3};
   return {schema:'pillar-c-extension-unit-v1',unit,period:'2026-01',channel:'DPC',january:{
     recipients:n,recipientsAreSum:aggregate,
-    age:dist(n,[['0-64','0-64',n-600],['65-74','65-74',300],['75-84','75-84',200],['85+','85+',100]]),
+    age:dist(n,[['0-64','0-64',n*0.4],['65-74','65-74',n*0.3],['75-84','75-84',n*0.2],['85+','85+',n*0.1]]),
     sex:{female:0.52,male:0.48,unknownLeftOut:false},
-    cost:{quartiles:aggregate?null:{q1:40,median:80,q3:120},bins:dist(n,[['low','0–<50 €',n-400],['mid','50–<100 €',300],['high','≥100 €',100]]),top10:aggregate?null:0.4,top20:aggregate?null:0.55,gini:aggregate?null:0.48},
-    use:{packs:{quartiles:q,bins:dist(n,[['one','1–<2',n-200],['two','2+',200]])},prescriptions:{quartiles:q,bins:dist(n,[['one','1',n-100],['more','2+',100]])},distinctAICs:{quartiles:q,bins:dist(n,[['one','1',n-50],['more','2+',50]])}},
-    ingredients:dist(n,[['one','1',n-60],['two','2',50],['three_plus','3+',10]]),
-    portfolioStatus:[cell('single_portfolio_proxy','Un solo portafoglio candidato',600,n),cell('shared','Più portafogli candidati',500,n)],
-    singleCandidateReach:[cell('cardio_blood','Cardiovascolare',100,n),cell('oncology','Oncologia',0,n)],
+    cost:{quartiles:aggregate?null:{q1:40,median:80,q3:120},bins:dist(n,[['low','0–<50 €',n*0.6],['mid','50–<100 €',n*0.3],['high','≥100 €',n*0.1]]),top10:aggregate?null:0.4,top20:aggregate?null:0.55,gini:aggregate?null:0.48},
+    use:{packs:{quartiles:q,bins:dist(n,[['one','1–<2',n*0.8],['two','2+',n*0.2]])},prescriptions:{quartiles:q,bins:dist(n,[['one','1',n*0.9],['more','2+',n*0.1]])},distinctAICs:{quartiles:q,bins:dist(n,[['one','1',n*0.95],['more','2+',n*0.05]])}},
+    ingredients:dist(n,[['one','1',n*0.94],['two','2',n*0.05],['three_plus','3+',n*0.01]]),
+    portfolioStatus:[cell('single_portfolio_proxy','Un solo portafoglio candidato',n*0.6,n),cell('shared','Più portafogli candidati',n*0.5,n)],
+    singleCandidateReach:[cell('cardio_blood','Cardiovascolare',n*0.1,n),cell('oncology','Oncologia',0,n)],
     attribution:{single:0.5,narrowed:0.06,indicative:0.05,notInformative:0.39,agreementLines:aggregate?null:0.998,sharedRecipientsNarrowed:aggregate?null:0.15},
     services:{serviceShare:0.12,servicePerPack:8.1,under10Packs:aggregate?null:0.11,under10Service:aggregate?null:0.63,pharmacies:aggregate?null:120,pharmacyTop10:aggregate?null:0.25,
       intervalQ1:aggregate?null:1,intervalMedian:aggregate?null:2,intervalQ3:aggregate?null:4,within7:aggregate?null:0.9,sameDay:aggregate?null:0.12},
-  },fileF:unit==='asl-3'?extFileF():null};
+  },fileF:unit==='asl-3'?extFileF():null,notes:{fileFMode09:unit==='asl-3'?'Nota sintetica sulla modalità 09.':null}};
 }
 
 export function extFileF(){
@@ -39,7 +40,8 @@ export function extFileF(){
 export function extReviewer(){
   return {schema:'pillar-c-extension-reviewer-v1',units:['aggregato','asl-1','asl-2','asl-3','asl-4'].map(u=>extUnit(u,u==='aggregato'?4000:1000)),
     drivers:{supportProducts:100,referencePer1000:5000,units:['asl-1','asl-2','asl-3','asl-4'].map((unit,i)=>({unit,per1000:5000+i,difference:i,reach:10*i,intensity:-10*i,mix:i,acquisition:0,service:0,reachPer1000:50,packsPerRecipient:1.5,coverage:0.97}))},
-    baskets:{products:40,units:['asl-1','asl-2','asl-3','asl-4'].map(unit=>({unit,acquisition:100,service:100,combined:100}))}};
+    baskets:{products:40,units:['asl-1','asl-2','asl-3','asl-4'].map(unit=>({unit,acquisition:100,service:100,combined:100}))},
+    findings:{version:'ext-v1',rows:[{id:'F01',title:'Rilievo sintetico',scope:'Ambito sintetico',source:'Punto sintetico',detail:'Dettaglio sintetico.',action:'Azione sintetica.'},{id:'F02',title:'Secondo rilievo',scope:'Ambito',source:'Punto',detail:'Dettaglio.',action:'Azione.'}]}};
 }
 
 export const sha256=b=>createHash('sha256').update(b).digest('hex');
