@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from 'react';
-import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import dynamic from "next/dynamic";
 import { C_INSIGHT_CHARTS, type CInsightChart, type CInsightInterval, type CInsightPoint } from '@/lib/dashboard-review/pillar-c/chart-kinds';
 
 type Props = {
@@ -16,6 +16,7 @@ function extent(values: (number | null | undefined)[]): [number, number] {
   return lo === hi ? [lo - 1, hi + 1] : [lo, hi];
 }
 const number = (p: CInsightPoint, c: number) => p.values[c]?.value;
+const InsightLineCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.InsightLineCanvas), { ssr: false });
 
 /** Shared exact-value interaction; visual scales never replace source labels. */
 export function PillarCInsightChart({ kind, points, metric, comparison, xMetric, matrix, interval, heading, axis, title }: Props) {
@@ -39,11 +40,7 @@ export function PillarCInsightChart({ kind, points, metric, comparison, xMetric,
 
   if (kind === 'line' || kind === 'area') {
     const data = points.map(p => ({ ...p, value: number(p, metric), other: comparison >= 0 ? number(p, comparison) : null }));
-    const shared = <><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))"/><XAxis dataKey="name" minTickGap={35} tick={{ fontSize: 10 }} tickFormatter={v => short(String(v), 18)}/><YAxis tick={{ fontSize: 10 }} tickFormatter={v => axis(v, metric)}/><Tooltip content={({ active: shown, payload }) => {
-      const p = payload?.[0]?.payload as CInsightPoint | undefined;
-      return shown && p ? <div className="max-w-sm rounded-xl border border-border bg-card p-3 text-xs shadow-lg"><p className="font-medium">{p.name}</p><p className="mt-2">{heading(metric)}: {p.values[metric]?.exact}</p>{comparison >= 0 && <p>{heading(comparison)}: {p.values[comparison]?.exact}</p>}</div> : null;
-    }}/></>;
-    return <div><div className="h-80 min-w-0"><ResponsiveContainer width="100%" height="100%">{kind === 'area' ? <AreaChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 8 }}><defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--viz-1)" stopOpacity={0.3}/><stop offset="100%" stopColor="var(--viz-1)" stopOpacity={0.02}/></linearGradient></defs>{shared}<Area type="linear" dataKey="value" fill={`url(#${id})`} stroke="var(--viz-1)" strokeWidth={2.5} connectNulls={false} isAnimationActive={false}/>{comparison >= 0 && <Area type="linear" dataKey="other" fill="transparent" stroke="var(--viz-2)" strokeWidth={2} strokeDasharray="5 4" connectNulls={false} isAnimationActive={false}/>}</AreaChart> : <LineChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 8 }}>{shared}<Line type="linear" dataKey="value" stroke="var(--viz-1)" strokeWidth={2.5} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false}/>{comparison >= 0 && <Line type="linear" dataKey="other" stroke="var(--viz-2)" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} connectNulls={false} isAnimationActive={false}/>}</LineChart>}</ResponsiveContainer></div><p className="mt-3 text-xs text-muted-foreground">{C_INSIGHT_CHARTS[kind].description}</p></div>;
+    return <div><div className="h-80 min-w-0" data-chart-slot="insight"><InsightLineCanvas kind={kind} data={data} id={id} metric={metric} comparison={comparison} heading={heading} axis={axis}/></div><p className="mt-3 text-xs text-muted-foreground">{C_INSIGHT_CHARTS[kind].description}</p></div>;
   }
 
   const scatter = kind === 'scatter';

@@ -443,19 +443,21 @@ test('9. each chart block carries its exact values: spend, bridge, budget and co
   const ALT=caption=>`Valori e dettaglio · ${caption}</summary>`;
   for(const {label,html,forecast:f} of [...SCOPED_RENDERS]){
     const block=id=>between(html,`<section id="${id}"`,'</section>');
-    assert.equal(count(block('spesa'),'recharts-responsive-container'),1,label);assert.equal(count(block('spesa'),ALT('Spesa e righe per mese')),1,label);
+    // Point 19: the drawing loads after hydration; the server renders the chart slot, counted here.
+    assert.equal(count(block('spesa'),'data-chart-slot="spend"'),1,label);assert.equal(count(block('spesa'),ALT('Spesa e righe per mese')),1,label);
     assert.equal(count(block('cambiamento'),'role="img"')>0,count(block('cambiamento'),ALT('Componenti del ponte'))===1,label);
     const budgetRows=count(block('pianificazione'),'Scala comune · euro')>0;
     assert.equal(count(block('pianificazione'),ALT('Budget, due chiavi e differenze neutrali')),budgetRows?1:0,label);
     const countRows=text(block('numerosita')).includes(C_AUDIENCE_COPY.countsLabels.scale);
     assert.equal(count(block('numerosita'),ALT('Numerosità e sensibilità del denominatore')),countRows?1:0,label);
     const prev=html.slice(html.indexOf('<section id="previsione"'),html.indexOf('<section id="priorita-evidenza"'));
-    assert.equal(count(prev,'recharts-responsive-container'),f?1:0,label);
+    assert.equal(count(prev,'data-chart-slot="forecast"'),f?1:0,label);
     assert.equal(count(prev,'Valori esatti · previsione regionale mensile 2026 e osservato 2025'),f?1:0,label);
-    assert.equal(count(html,'recharts-responsive-container'),f?2:1,`${label}: no other chart`);
+    assert.equal(count(html,'data-chart-slot='),f?2:1,`${label}: no other chart`);
+    assert.equal(count(html,'recharts-responsive-container')+count(html,'recharts-wrapper'),0,`${label}: no chart library markup on the server`);
   }
   for(const {label,html} of REGIONAL_RENDERS){
-    assert.equal(count(html,'recharts-responsive-container'),1,label);
+    assert.equal(count(html,'data-chart-slot="forecast"'),1,label);assert.equal(count(html,'recharts-responsive-container')+count(html,'recharts-wrapper'),0,label);
     assert.equal(count(html,'Valori esatti · previsione regionale mensile 2026 e osservato 2025'),1,label);
   }
 });

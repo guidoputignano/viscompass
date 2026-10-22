@@ -5,7 +5,7 @@
  * label, and import nothing reviewer-only: the scoped workspace reaches this module, and its bundle must carry no
  * province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs). */
 import { ArrowDownUp, Wallet, FileCheck2 } from "lucide-react";
-import { BarChart, Bar, Cell, CartesianGrid, LineChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import dynamic from "next/dynamic";
 import { KpiCard } from "@/components/dashboard-review/analytics-ui";
 import { PillarCChangeBridge } from "@/components/dashboard-review/pillar-c/change-bridge";
 import { itNumber } from "@/lib/format/it-number";
@@ -14,11 +14,10 @@ import { C_COMPONENT_LABELS, C_PERIOD_LABELS, cMoneyDifference, cMoneyLabel, typ
 const eur = cMoneyLabel;
 const signed = (value: string | number) => `${Number(value) > 0 ? "+" : ""}${eur(value)}`;
 const fmt = (value: number) => itNumber(value, { maximumFractionDigits: 1 });
+const SpendCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.SpendCanvas), { ssr: false });
 const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 const selectClass = "mt-2 h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 const actionClass = "inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
-const chartTick = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
-const tooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 10, color: "hsl(var(--foreground))" };
 
 function Panel({ title, description, controls, children }: { title: string; description?: string; controls?: React.ReactNode; children: React.ReactNode }) {
   return <article className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6"><div className="mb-5 flex flex-wrap items-start justify-between gap-4"><div><h3 className="text-base font-semibold">{title}</h3>{description && <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>}</div>{controls}</div>{children}</article>;
@@ -49,26 +48,7 @@ export function SpendKpis({ baseline, period, scope }: { baseline: Row<CBaseline
  * below the zero line), the cumulative spend as a line with a dot per month that breaks where a month has no row. The
  * exact values are in the table beneath, so the chart is hidden from assistive technology. */
 export function SpendChart({ monthly, divisor, trend }: { monthly: SpendMonth[]; divisor: number; trend: CReviewFilters["trend"] }) {
-  const label = trend === "monthly" ? "Spesa netta" : "Spesa cumulata";
-  const value = (v: number, item: { payload?: SpendMonth }) => item.payload?.exact == null ? "Non disponibile" : eur(item.payload.exact ?? v);
-  return <div className="h-72 min-w-0" aria-hidden="true">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            {trend === "monthly" ? <BarChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
-              <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-              <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [value(v, item), label]} />
-              <Bar dataKey="amount" isAnimationActive={false} radius={[4, 4, 0, 0]}>{monthly.map((r) => <Cell key={r.month} fill={(r.amount ?? 0) < 0 ? "var(--viz-4)" : "var(--viz-1)"} />)}</Bar>
-            </BarChart> : <LineChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
-              <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [value(v, item), label]} />
-              <Line dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={2.5} dot={{ r: 3, fill: "var(--viz-1)" }} isAnimationActive={false} />
-            </LineChart>}
-          </ResponsiveContainer>
-        </div>;
+  return <div className="h-72 min-w-0" aria-hidden="true" data-chart-slot="spend"><SpendCanvas monthly={monthly} divisor={divisor} trend={trend} /></div>;
 }
 /** How many months of the period hold at least one row: a coverage fact under the chart, not a figure of the period. */
 export function SpendCoverage({ monthly }: { monthly: SpendMonth[] }) {

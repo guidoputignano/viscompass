@@ -4,21 +4,20 @@
 // the evidence packet, not in the dashboard. Forecast amounts are unchanged.
 
 import { useId } from "react";
-import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import dynamic from "next/dynamic";
 import { LocalToggle } from "@/components/dashboard-review/pillar-b-local-toggle";
 import { itNumber } from "@/lib/format/it-number";
 import { C_FORECAST_LABEL, C_FORECAST_SELECTABLE, cMoneyLabel, selectCForecast, type CForecast, type CForecastChartRow, type CForecastSelectable, type CForecastSeries } from "@/lib/dashboard-review/pillar-c/review";
 import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-decision";
 
 const eur = cMoneyLabel;
+const ForecastCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.ForecastCanvas), { ssr: false });
 const range = (low: string | null, high: string | null) => `${eur(low)} – ${eur(high)}`;
 /** Display only: a no-break space between a number and «%» in packet copy, so the sign never wraps onto its own line. Fixed copy writes the escape itself. */
 const typeset = (text: string) => text.replace(/(\d) %/g, "$1\u00a0%");
 const monthShort = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 const monthLong = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 const SERIES_SHORT: Record<CForecastSeries, string> = { TOT: "Totale", A: "Classe A", H: "Classe H", C: "Classe C" };
-const chartTick = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
-const tooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 10, color: "hsl(var(--foreground))" };
 const panelClass = "min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6";
 const summaryClass = "cursor-pointer rounded-xl px-4 py-3 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 const cardClass = "rounded-xl bg-secondary/50 p-4";
@@ -42,13 +41,6 @@ function SeriesView({ series, className, children }: { series: CForecastSelectab
   return <div><div key={series} className={className}>{children}</div></div>;
 }
 
-function ForecastTooltip({ row }: { row?: CForecastChartRow }) {
-  if (!row) return null;
-  const lines = row.year === 2025
-    ? [["Osservato (provvisorio)", eur(row.exact.observed)], ["Righe valorizzate", row.rows ? `${itNumber(row.rows.valued)} di ${itNumber(row.rows.source)}` : "Non disponibile"]]
-    : [["Previsione regionale", eur(row.exact.point)], ["Intervallo 80\u00a0%", range(row.exact.low80, row.exact.high80)], ["Intervallo 95\u00a0%", range(row.exact.low95, row.exact.high95)]];
-  return <div key={row.key} style={tooltipStyle} className="px-3 py-2 text-xs shadow-sm"><p className="font-semibold">{`${monthLong[row.month - 1]} ${String(row.year)}`}</p>{lines.map(([label, value]) => <p key={label} className="mt-1 tabular-nums">{`${label}: ${value}`}</p>)}</div>;
-}
 
 export function PillarCForecastPanel({ forecast, series, onSeries, published = false }: { forecast: CForecast | undefined; series: CForecastSelectable; onSeries: (series: CForecastSelectable) => void; published?: boolean }) {
   const caption = useId();
@@ -89,22 +81,8 @@ export function PillarCForecastPanel({ forecast, series, onSeries, published = f
               <span className="flex items-center gap-2"><span className="h-3 w-5 rounded-sm bg-[var(--viz-1)] opacity-[var(--fc-band-95)]" /><span>{"Intervallo 95\u00a0%"}</span></span>
               <span className="ml-auto">{axisUnit}</span>
             </div>
-            <div className={`h-72 min-w-0 ${BAND_FILL}`} aria-hidden="true">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <ComposedChart data={view.chart} margin={{ top: 16, right: 10, left: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="key" ticks={ticks} tickFormatter={tick} interval="preserveStartEnd" minTickGap={6} axisLine={false} tickLine={false} tick={chartTick} />
-                  <YAxis tickFormatter={(n) => itNumber(Number(n) / divisor, { maximumFractionDigits: 1 })} domain={[0, "auto"]} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-                  <Tooltip cursor={{ stroke: "hsl(var(--muted-foreground))", strokeDasharray: "3 3" }} content={({ active, payload }) => <ForecastTooltip row={active ? payload?.[0]?.payload as CForecastChartRow | undefined : undefined} />} />
-                  {firstForecast && <ReferenceLine x={firstForecast} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 4" label={{ value: "Previsione", position: "insideTopLeft", fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />}
-                  <Area className="fc-band-95" dataKey="band95" type="linear" stroke="none" fill="var(--viz-1)" fillOpacity={0.14} connectNulls={false} dot={false} activeDot={false} legendType="none" isAnimationActive={false} />
-                  <Area className="fc-band-80" dataKey="band80" type="linear" stroke="none" fill="var(--viz-1)" fillOpacity={0.24} connectNulls={false} dot={false} activeDot={false} legendType="none" isAnimationActive={false} />
-                  <Line dataKey="observed" type="linear" stroke="hsl(var(--foreground))" strokeWidth={2} connectNulls={false} dot={{ r: 2.5, strokeWidth: 0, fill: "hsl(var(--foreground))" }} activeDot={{ r: 4 }} isAnimationActive={false} />
-                  {/* A 1px card-coloured halo under the dashed point line keeps it apart from the band of the same hue. */}
-                  <Line dataKey="point" type="linear" stroke="hsl(var(--card))" strokeWidth={4} strokeDasharray="6 4" connectNulls={false} dot={false} activeDot={false} legendType="none" tooltipType="none" isAnimationActive={false} />
-                  <Line dataKey="point" type="linear" stroke="var(--viz-1)" strokeWidth={2} strokeDasharray="6 4" connectNulls={false} dot={{ r: 2.5, strokeWidth: 0, fill: "var(--viz-1)" }} activeDot={{ r: 4 }} isAnimationActive={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
+            <div className={`h-72 min-w-0 ${BAND_FILL}`} aria-hidden="true" data-chart-slot="forecast">
+              <ForecastCanvas chart={view.chart} ticks={ticks} tick={tick} divisor={divisor} firstForecast={firstForecast} />
             </div>
           </figure>
           <div className="border-t border-border pt-5"><h4 className="text-sm font-semibold">In breve · riferimenti per la pianificazione</h4><p className="mt-1 text-xs leading-5 text-muted-foreground">Stime regionali indicative: affiancale agli importi osservati e alle disponibilità approvate prima di prendere decisioni di budget. Il riepilogo annuo e le sue fasce non hanno una verifica storica dedicata.</p></div>

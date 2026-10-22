@@ -36,6 +36,11 @@ export function resolve(specifier, context, nextResolve) {
   if (specifier === 'server-only') {
     return {url: 'data:text/javascript,export%20%7B%7D', shortCircuit: true};
   }
+  // next/dynamic is a CommonJS entry without an exports map: resolve it by its file name, so the real implementation
+  // runs (with ssr:false it renders nothing on the server, as in the build; point 19 lazy charts).
+  if (specifier === 'next/dynamic') {
+    return nextResolve('next/dynamic.js', context);
+  }
   if (specifier.startsWith('@/')) {
     const found = locate(path.join(ROOT, specifier.slice(2)));
     if (!found) {

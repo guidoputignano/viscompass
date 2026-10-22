@@ -412,10 +412,13 @@ test('loader verifies raw bytes and external location; no malformed packet becom
 // SeriesView, a keyed element that is the only child of its wrapper, replaced
 // whole on each change; the selector itself sits outside it.
 const forecastSource = fs.readFileSync(fileURLToPath(new URL('../components/dashboard-review/pillar-c/forecast-section.tsx', import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
+// Point 19: the chart drawing and its tooltip live in the lazily loaded chart-canvases.tsx; the panel keeps the wrapper.
+const canvasSource = fs.readFileSync(fileURLToPath(new URL('../components/dashboard-review/pillar-c/chart-canvases.tsx', import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
 test('forecast panel: SeriesView is the keyed only child of its wrapper, and the tooltip is replaced whole', () => {
   assert.match(forecastSource, /function SeriesView\(\{ series, className, children \}[^)]*\) \{\n\s*return <div><div key=\{series\} className=\{className\}>\{children\}<\/div><\/div>;\n\}/);
-  assert.match(forecastSource, /return <div key=\{row\.key\} style=\{tooltipStyle\}/);
+  assert.match(canvasSource, /return <div key=\{row\.key\} style=\{tooltipStyle\}/);
+  assert.match(forecastSource, /const ForecastCanvas = dynamic\(\(\) => import\("@\/components\/dashboard-review\/pillar-c\/chart-canvases"\)\.then\(\(m\) => m\.ForecastCanvas\), \{ ssr: false \}\);/);
 });
 
 test('forecast panel: every series-dependent value renders inside SeriesView; the selector and fixed labels sit outside', () => {
@@ -424,7 +427,7 @@ test('forecast panel: every series-dependent value renders inside SeriesView; th
   const REGION = /<SeriesView series=\{series\}[^>]*>[\s\S]*?<\/SeriesView>/g;
   const regions = jsx.match(REGION) ?? [];
   assert.equal(regions.length, 2, 'the chart region and the exact table');
-  for (const expr of ['eur(annual.total)', 'range(annual.low80, annual.high80)', 'range(annual.low95, annual.high95)', '{axisUnit}', 'data={view.chart}', 'view.rows.map', 'eur(annual.monthlyPointsSum)', 'decision.largestMonth', 'decision.delta', 'decision.observed2025Annual']) {
+  for (const expr of ['eur(annual.total)', 'range(annual.low80, annual.high80)', 'range(annual.low95, annual.high95)', '{axisUnit}', 'chart={view.chart}', 'view.rows.map', 'eur(annual.monthlyPointsSum)', 'decision.largestMonth', 'decision.delta', 'decision.observed2025Annual']) {
     assert.ok(regions.some(r => r.includes(expr)), expr);
   }
   const outside = jsx.replace(REGION, '');
@@ -459,7 +462,7 @@ test('forecast copy: observed 2025 is provisional and sums valued rows only; the
   const outside = panelJsx.replace(/<SeriesView series=\{series\}[^>]*>[\s\S]*?<\/SeriesView>/g, '');
   assert.ok(outside.includes('Osservato 2025 provvisorio: sono sommati solo gli importi valorizzati, senza sostituire i dati mancanti con zero.'), 'provisional observed values and missing-never-zero remain visible');
   assert.ok(forecastSource.includes('<span>Osservato 2025 (provvisorio)</span>') && forecastSource.includes('"Osservato 2025 (provvisorio)"'), 'legend and table header');
-  assert.match(forecastSource, /\["Righe valorizzate", row\.rows \? `\$\{itNumber\(row\.rows\.valued\)\} di \$\{itNumber\(row\.rows\.source\)\}`/, 'the 2025 tooltip gives the valued rows');
+  assert.match(canvasSource, /\["Righe valorizzate", row\.rows \? `\$\{itNumber\(row\.rows\.valued\)\} di \$\{itNumber\(row\.rows\.source\)\}`/, 'the 2025 tooltip gives the valued rows');
   assert.ok(forecastSource.includes('Previsione formulata con dati fino a dicembre 2025; non include dati osservati del 2026.'));
   assert.ok(outside.includes('Non è disponibile una previsione per la classe C; non si ricava sottraendo A e H dal totale.'));
   assert.ok(outside.indexOf('<LocalToggle ') < outside.indexOf('Non è disponibile una previsione per la classe C'), 'the C line sits right after the selector');
@@ -500,12 +503,15 @@ test('forecast copy: a number and its «%» never wrap apart in either component
 test('forecast chart: band opacities rise on the dark card, the legend reads the same values, and a halo separates the point line', () => {
   assert.ok(forecastSource.includes('const BAND_VARS = "[--fc-band-95:0.14] [--fc-band-80:0.24] [--fc-swatch-80:0.34] dark:[--fc-band-95:0.24] dark:[--fc-band-80:0.28] dark:[--fc-swatch-80:0.45]";'));
   assert.ok(forecastSource.includes('const BAND_FILL = "[&_.fc-band-95_.recharts-area-area]:[fill-opacity:var(--fc-band-95)] [&_.fc-band-80_.recharts-area-area]:[fill-opacity:var(--fc-band-80)]";'));
-  assert.ok(panelJsx.includes('<figure aria-labelledby={caption} className={`min-w-0 ${BAND_VARS}`}>') && panelJsx.includes('<div className={`h-72 min-w-0 ${BAND_FILL}`} aria-hidden="true">'));
+  assert.ok(panelJsx.includes('<figure aria-labelledby={caption} className={`min-w-0 ${BAND_VARS}`}>') && panelJsx.includes('<div className={`h-72 min-w-0 ${BAND_FILL}`} aria-hidden="true" data-chart-slot="forecast">'));
   assert.ok(panelJsx.includes('opacity-[var(--fc-swatch-80)]') && panelJsx.includes('opacity-[var(--fc-band-95)]'), 'legend swatches follow the chart');
-  assert.ok(panelJsx.includes('<Area className="fc-band-95" dataKey="band95"') && panelJsx.includes('<Area className="fc-band-80" dataKey="band80"'));
-  const halo = panelJsx.indexOf('<Line dataKey="point" type="linear" stroke="hsl(var(--card))" strokeWidth={4} strokeDasharray="6 4"'), line = panelJsx.indexOf('<Line dataKey="point" type="linear" stroke="var(--viz-1)"');
+  // The bands and lines are drawn by the lazily loaded canvas, inside the wrapper whose BAND_FILL classes reach them.
+  assert.ok(panelJsx.includes('<ForecastCanvas chart={view.chart} ticks={ticks} tick={tick} divisor={divisor} firstForecast={firstForecast} />'));
+  const canvas = canvasSource.slice(canvasSource.indexOf('export function ForecastCanvas('));
+  assert.ok(canvas.includes('<Area className="fc-band-95" dataKey="band95"') && canvas.includes('<Area className="fc-band-80" dataKey="band80"'));
+  const halo = canvas.indexOf('<Line dataKey="point" type="linear" stroke="hsl(var(--card))" strokeWidth={4} strokeDasharray="6 4"'), line = canvas.indexOf('<Line dataKey="point" type="linear" stroke="var(--viz-1)"');
   assert.ok(halo > 0 && halo < line, 'the halo is drawn first, under the point line');
-  assert.match(panelJsx.slice(halo, line), /dot=\{false\} activeDot=\{false\} legendType="none" tooltipType="none"/);
+  assert.match(canvas.slice(halo, line), /dot=\{false\} activeDot=\{false\} legendType="none" tooltipType="none"/);
 });
 
 // The workspace's own copy that follows a filter. React updates ADJACENT text
