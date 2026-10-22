@@ -27,18 +27,18 @@ export function pcsLog(code: PCSCode, unit?: CScopedUnit): void {
 export const C_SCOPED_POLICY_NAME = /^v[1-9][0-9]{0,2}\/(asl-[1-4]|aggregato)\/[A-Za-z0-9]+(-[A-Za-z0-9]+)*-[0-9a-f]{64}[.]json$/;
 const FILE_NAME = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*-([0-9a-f]{64})\.json$/;
 
-/** Builds an object path from the pinned root, a validated unit and a pinned file name, or null. */
-export function cScopedObjectPath(unit: CScopedUnit, name: string, sha256: string): string | null {
-  if (!isCScopedUnit(unit) || typeof name !== "string" || typeof sha256 !== "string" || !/^[0-9a-f]{64}$/.test(sha256)) return null;
+/** Builds an object path from a pinned root (the rec5 root by default), a validated unit and a pinned file name, or null. */
+export function cScopedObjectPath(unit: CScopedUnit, name: string, sha256: string, root: string = C_SCOPED_STORAGE.root): string | null {
+  if (!isCScopedUnit(unit) || typeof name !== "string" || typeof sha256 !== "string" || !/^[0-9a-f]{64}$/.test(sha256) || typeof root !== "string" || !/^v[1-9][0-9]{0,2}$/.test(root)) return null;
   const match = FILE_NAME.exec(name);
   if (!match || match[1] !== sha256) return null;
-  const path = `${C_SCOPED_STORAGE.root}/${unit}/${name}`;
+  const path = `${root}/${unit}/${name}`;
   return C_SCOPED_POLICY_NAME.test(path) ? path : null;
 }
 
 export async function readCScopedObject(db: CScopedStorageClient, unit: CScopedUnit, name: string,
-  expected: { sha256: string; maxBytes: number; bytes?: number }, timeoutMs = 12_000): Promise<CScopedRead> {
-  const path = cScopedObjectPath(unit, name, expected.sha256);
+  expected: { sha256: string; maxBytes: number; bytes?: number; root?: string }, timeoutMs = 12_000): Promise<CScopedRead> {
+  const path = cScopedObjectPath(unit, name, expected.sha256, expected.root);
   if (!path || !Number.isSafeInteger(expected.maxBytes) || expected.maxBytes < 2) return { state: "invalid" };
   if (expected.bytes !== undefined && (!Number.isSafeInteger(expected.bytes) || expected.bytes < 2 || expected.bytes > expected.maxBytes)) return { state: "invalid" };
   let blob: Blob;

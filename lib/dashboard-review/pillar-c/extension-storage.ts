@@ -5,13 +5,14 @@ import type { CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
  * Pillar C extension objects (points 15-16): January 2026 DPC and File F 2025, built privately (build ext-v1,
  * outputs/pillar-c/extension-release-20261022/PINS.json). Hashes and sizes only: no figure.
  *
- *   - scoped: one object per unit under the existing scoped root (v1/<unit>/estensione-<sha>.json in bucket
- *     pillar-c-scoped). The storage.objects policy of migration 20261020120000 admits the name pattern, so every read
- *     goes through the request's own session and Storage RLS decides it, exactly as for the rec5 objects.
+ *   - scoped: one object per unit in bucket pillar-c-scoped under its own root v9 (v9/<unit>/estensione-<sha>.json), so
+ *     the rec5 root v1 keeps exactly its manifest. The storage.objects policy of migration 20261020120000 admits every
+ *     v-root, so each read goes through the request's own session and Storage RLS decides it, as for the rec5 objects.
  *   - reviewer: one object in the private review bucket, read only by the reviewer gate (service role), as the R5 packet.
  */
 export const C_EXTENSION_STORAGE = {
   build: "ext-v1",
+  root: "v9",
   scoped: {
     "asl-1": { name: "estensione-8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a.json", sha256: "8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a", bytes: 4490 },
     "asl-2": { name: "estensione-1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818.json", sha256: "1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818", bytes: 4492 },

@@ -60,7 +60,7 @@ export async function loadCExtensionScoped(audience: PillarCScopedAudience, db: 
   try {
     const out = await Promise.all(units.map(async (unit) => {
       const pin = C_EXTENSION_STORAGE.scoped[unit];
-      const read = await readCScopedObject(db, unit, pin.name, { sha256: pin.sha256, maxBytes: C_EXTENSION_MAX_BYTES, bytes: pin.bytes });
+      const read = await readCScopedObject(db, unit, pin.name, { sha256: pin.sha256, maxBytes: C_EXTENSION_MAX_BYTES, bytes: pin.bytes, root: C_EXTENSION_STORAGE.root });
       if (read.state !== "ready") throw new Error(read.state === "absent" ? "PCS-ABSENT" : "PCS-TRANSPORT");
       const label = labels(unit);
       if (!label) throw new Error("PCS-MISMATCH");

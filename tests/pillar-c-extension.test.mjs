@@ -91,7 +91,7 @@ test('scoped loader: only the audience units, under the session, labelled by the
   const r=await loadCExtensionScoped(AZIENDA,client,labels);
   assert.equal(r.state,'ready');assert.deepEqual(r.view.units.map(u=>[u.key,u.label]),[['asl-3','Azienda sintetica Tre'],['aggregato','Aggregato delle quattro Aziende']]);
   assert.equal(r.view.drivers,null);assert.equal(r.view.baskets,null);
-  assert.deepEqual(calls.downloads.map(d=>[d.bucket,d.path.split('/')[1]]),[['pillar-c-scoped','asl-3'],['pillar-c-scoped','aggregato']]);
+  assert.deepEqual(calls.downloads.map(d=>[d.bucket,d.path.split('/')[0],d.path.split('/')[1]]),[['pillar-c-scoped','v9','asl-3'],['pillar-c-scoped','v9','aggregato']],'the extension root, never the rec5 root v1');
   // Storage refuses the own unit (RLS): the whole extension is unavailable, never partial.
   const refused=fakeSessionClient(fx,{visible:['aggregato']});
   assert.equal((await loadCExtensionScoped(AZIENDA,refused.client,labels)).state,'unavailable');
@@ -153,4 +153,13 @@ test('the decision card counts recipients only when the extension is present, an
   assert.equal(cExtensionRecipientsCard(null).value,'Non disponibili');
   const c=cExtensionRecipientsCard(viewOf(['aggregato','asl-1']));
   assert.match(c.title,/Aggregato delle quattro Aziende/);assert.match(c.detail,/somma delle quattro ASL/);assert.match(c.detail,/nessuna variazione nel tempo/);
+});
+
+test('the extension root is a policy root of its own; any other root string is refused before a read',async()=>{
+  const {cScopedObjectPath}=await import('../lib/dashboard-review/pillar-c/scoped-transport.ts');
+  as({pins:{root:'v1',bucket:'pillar-c-scoped'},client:()=>null});
+  const sha='a'.repeat(64),name=`estensione-${sha}.json`;
+  assert.equal(cScopedObjectPath('asl-2',name,sha,'v9'),`v9/asl-2/${name}`);
+  assert.equal(cScopedObjectPath('asl-2',name,sha),`v1/asl-2/${name}`,'the rec5 default is unchanged');
+  for(const root of ['x9','v0','v1000','v9/asl-1','../v9','',null])assert.equal(cScopedObjectPath('asl-2',name,sha,root),null,String(root));
 });
