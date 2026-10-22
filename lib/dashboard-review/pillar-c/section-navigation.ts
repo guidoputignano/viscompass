@@ -10,7 +10,19 @@ export const PILLAR_C_SECTIONS = [
   { id: "evidenza", number: "06", label: "Evidenza", description: "Fonti e metodo" },
 ] as const;
 
-export type PillarCSectionId = CWorkbookSectionId | "portafogli" | "scenari" | "evidence-workflow";
+// The six sections of the redesign (docs/PILLAR_C_SIX_SECTIONS_20261022.md §1); nothing reads them before 1.2b.
+export const PILLAR_C_SIX_SECTIONS = [
+  { id: "quadro", number: "1", label: "Quadro decisionale", question: "La spesa è cambiata perché più persone sono state trattate o perché i prodotti costano di più, e di quanto?" },
+  { id: "destinatari", number: "2", label: "Destinatari e utilizzo", question: "Quante persone trattate raggiunge la spesa e con quale utilizzo?" },
+  { id: "portafogli-attribuzione", number: "3", label: "Portafogli e attribuzione", question: "Quanto spende ciascun raggruppamento terapeutico e quanta spesa resta condivisa o incerta?" },
+  { id: "fattori", number: "4", label: "Fattori di spesa", question: "Come cambia la spesa nel tempo e quali prodotti spiegano la variazione?" },
+  { id: "budget-scenari", number: "5", label: "Budget e scenari", question: "Che cosa dicono gli atti di budget, le ipotesi dichiarate e la previsione regionale?" },
+  { id: "priorita-evidenza", number: "6", label: "Priorità ed evidenza", question: "Che cosa verificare per primo e su quali fonti si basano le analisi?" },
+] as const;
+export type PillarCSixSectionId = (typeof PILLAR_C_SIX_SECTIONS)[number]["id"];
+export type PillarCSixSection = { id: PillarCSixSectionId; number: string; label: string; question: string };
+
+export type PillarCSectionId = CWorkbookSectionId | "portafogli" | "scenari" | "evidence-workflow" | PillarCSixSectionId;
 export type PillarCNavSection = { id: PillarCSectionId; label: string; description: string; number: string };
 /** Workbook sections keep their 01–14 numbers. The three working areas, the dossier, the planning workspace that
  * follows it and the shared review queue, are unnumbered; the queue follows Priorità, whose review questions it turns into cases. */
