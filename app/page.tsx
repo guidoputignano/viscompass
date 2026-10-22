@@ -11,6 +11,8 @@ import {
   FileCheck2,
   FlaskConical,
   LineChart,
+  Lock,
+  PanelsTopLeft,
   Radar,
   ReceiptText,
   Route,
@@ -23,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { AccessPrompt } from "@/components/access-prompt";
 import { SignalExplorer } from "@/components/home/signal-explorer";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { VisLogo } from "@/components/vis-logo";
+import { VisLogoLink } from "@/components/vis-logo";
 
 const PROOF_STATS = [
   { value: "€29,7 mld", label: "spesa nazionale 2025" },
@@ -263,24 +265,33 @@ function BenefitVisual({ type }: { type: (typeof BENEFITS)[number]["visual"] }) 
   );
 }
 
+// The three pillar links of the sticky nav share one pill. The ::before box
+// extends the 32 px pill to a 44 px touch target without changing its look;
+// the name is visible from lg, the subtitle only to screen readers.
+const PILLAR_LINK_CLASS =
+  "group relative shrink-0 rounded-full border-primary/30 px-2 text-primary lg:px-3 before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
+const PILLAR_ARROW_CLASS =
+  "ml-1 hidden size-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none lg:block";
+
 export default function Home() {
   return (
     <div className="min-h-svh overflow-hidden bg-background">
       <AccessPrompt />
 
       <nav className="sticky top-0 z-30 border-b border-border/80 bg-white/90 backdrop-blur-xl dark:bg-background/90">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-5 py-3.5 md:px-8">
-          <VisLogo size="sm" />
-          <div className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:gap-5 sm:px-5 md:px-8">
+          <VisLogoLink size="sm" />
+          <div className="hidden items-center gap-7 text-sm text-muted-foreground xl:flex">
             <a href="#benefici" className="hover:text-foreground">Benefici</a>
             <a href="#percorso" className="hover:text-foreground">Percorso</a>
             <a href="#moduli" className="hover:text-foreground">Moduli</a>
             <a href="#come-funziona" className="hover:text-foreground">Come funziona</a>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button asChild size="sm" className="group shrink-0 rounded-full border border-primary/25 bg-primary px-3 text-primary-foreground shadow-sm transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none"><Link href="/pillar-a"><BarChart3 aria-hidden="true" className="mr-1.5 size-4" />Pillar A<ArrowRight aria-hidden="true" className="ml-1 hidden size-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none sm:block" /></Link></Button>
-            <Button asChild size="sm" variant="outline" className="group shrink-0 rounded-full border-primary/30 px-3 text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"><Link href="/pillar-b"><LineChart aria-hidden="true" className="mr-1.5 size-4" />Pillar B<span className="hidden xl:inline"> · Biosimilari ed esclusività</span><span className="sr-only xl:hidden"> · Biosimilari ed esclusività</span><ArrowRight aria-hidden="true" className="ml-1 hidden size-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none sm:block" /></Link></Button>
-            <ThemeSwitcher />
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <Button asChild size="sm" variant="outline" className={PILLAR_LINK_CLASS}><Link href="/pillar-a"><BarChart3 aria-hidden="true" className="size-4 lg:mr-1.5" /><span className="sr-only lg:not-sr-only">Pillar A</span><span className="sr-only"> · Fonti pubbliche</span><ArrowRight aria-hidden="true" className={PILLAR_ARROW_CLASS} /></Link></Button>
+            <Button asChild size="sm" variant="outline" className={PILLAR_LINK_CLASS}><Link href="/pillar-b"><LineChart aria-hidden="true" className="size-4 lg:mr-1.5" /><span className="sr-only lg:not-sr-only">Pillar B</span><span className="sr-only"> · Biosimilari ed esclusività</span><ArrowRight aria-hidden="true" className={PILLAR_ARROW_CLASS} /></Link></Button>
+            <Button asChild size="sm" variant="outline" className={PILLAR_LINK_CLASS}><Link href="/dashboard-review/pillar-c"><PanelsTopLeft aria-hidden="true" className="size-4 lg:mr-1.5" /><span className="sr-only lg:not-sr-only">Pillar C</span><span className="sr-only"> · Aree cliniche e budget · accesso riservato</span><Lock aria-hidden="true" className="ml-1 size-3.5" /></Link></Button>
+            <div className="hidden sm:flex"><ThemeSwitcher /></div>
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link href="/auth/login">Accedi</Link></Button>
             <Button asChild size="sm"><Link href="/auth/sign-up">Registrati</Link></Button>
           </div>
@@ -469,7 +480,7 @@ export default function Home() {
 
       <footer className="border-t border-border bg-white px-5 py-7 dark:bg-card md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <VisLogo size="sm" />
+          <VisLogoLink size="sm" />
           <p>Governance organizzativa · dati aggregati · nessuna raccomandazione clinica</p>
         </div>
       </footer>

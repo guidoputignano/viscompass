@@ -1,5 +1,5 @@
 import { DashboardReviewNav } from "@/components/dashboard-review/nav";
-import { VisLogo } from "@/components/vis-logo";
+import { VisLogoLink } from "@/components/vis-logo";
 import { AccessPortal } from "@/components/access/access-portal";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { getAccessOverview } from "@/lib/access/queries";
@@ -25,7 +25,7 @@ export default async function DashboardReviewLayout({
     if (!overview) {
       return (
         <div className="flex min-h-svh items-center justify-center">
-          <VisLogo size="sm" />
+          <VisLogoLink size="sm" />
         </div>
       );
     }

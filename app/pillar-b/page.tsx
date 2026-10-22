@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { VisLogo } from "@/components/vis-logo";
+import { VisLogoLink } from "@/components/vis-logo";
 import { PillarBPublic } from "@/components/pillar-b-public";
 import { getPublicEvSc } from "@/lib/pillar-b-public/server-data";
 import { parseSelection } from "@/lib/pillar-b-public/ev-sc-view";
@@ -30,11 +30,11 @@ export default function PillarBPage({ searchParams }: {
   return <main className="min-h-screen bg-background">
     <header className="border-b bg-card">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5">
-        <Link href="/" aria-label="VIS Pharma Compass, home"><VisLogo size="sm" /></Link>
+        <VisLogoLink size="sm" />
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm" aria-label="Navigazione pubblica">
-          <Link href="/" className="text-muted-foreground hover:text-primary">Home</Link>
-          <Link href="/pillar-a" className="text-muted-foreground hover:text-primary">Pillar A</Link>
-          <Link href="/dashboard-review/revisione-pillar-b" className="font-semibold text-primary">Area riservata →</Link>
+          <Link href="/" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-primary">Home</Link>
+          <Link href="/pillar-a" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-primary">Pillar A · Fonti pubbliche</Link>
+          <Link href="/dashboard-review/revisione-pillar-b" className="inline-flex min-h-11 items-center font-semibold text-primary">Area riservata →</Link>
         </nav>
       </div>
     </header>

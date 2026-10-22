@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const ICON_SIZE = {
@@ -73,7 +74,7 @@ export function VisLogo({
   return (
     <div className={cn("inline-flex items-center", GAP[size], className)}>
       <CompassIcon size={ICON_SIZE[size]} />
-      <div className="flex flex-col leading-tight">
+      <div className="flex flex-col whitespace-nowrap leading-tight">
         <span className={cn("font-bold tracking-tight", TEXT_SIZE[size])}>
           VIS PHARMA
         </span>
@@ -87,5 +88,33 @@ export function VisLogo({
         </span>
       </div>
     </div>
+  );
+}
+
+/**
+ * The logo as the way home. Every placement of the wordmark that acts as a
+ * link uses this one definition, so the destination and the accessible name
+ * cannot drift between the sidebar, the public headers, the portals and the
+ * auth pages. The minimum height is the 44 px touch target; the colours are
+ * inherited, as they are for the bare VisLogo.
+ */
+export function VisLogoLink({
+  size = "md",
+  className,
+}: {
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  return (
+    <Link
+      href="/"
+      aria-label="VIS Pharma Compass · torna alla home"
+      className={cn(
+        "inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        className,
+      )}
+    >
+      <VisLogo size={size} />
+    </Link>
   );
 }

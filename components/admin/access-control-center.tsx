@@ -17,7 +17,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { VisLogo } from "@/components/vis-logo";
+import { VisLogoLink } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
@@ -446,7 +446,7 @@ export function AccessControlCenter({
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-8">
           <div className="flex items-center gap-5">
-            <VisLogo size="sm" />
+            <VisLogoLink size="sm" />
             <div className="hidden h-8 w-px bg-border sm:block" />
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Admin</p>

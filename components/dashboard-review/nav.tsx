@@ -13,7 +13,7 @@ import {
   ShieldPlus,
   PanelsTopLeft,
 } from "lucide-react";
-import { VisLogo } from "@/components/vis-logo";
+import { VisLogoLink } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import type { Organization } from "@/lib/dashboard-review/types";
@@ -27,9 +27,11 @@ const NAV_GROUPS = [
     ],
   },
   {
+    // One label per pillar, repeated verbatim on the homepage, in the public
+    // header and in the access portal (tests/shell-navigation.test.mjs).
     label: "Pilastri",
     items: [
-      { href: "/pillar-a", label: "Pillar A · fonti pubbliche", icon: ChartSpline },
+      { href: "/pillar-a", label: "Pillar A · Fonti pubbliche", icon: ChartSpline },
       { href: "/dashboard-review/revisione-pillar-b", label: "Pillar B · Biosimilari ed esclusività", icon: ClipboardList },
       { href: "/dashboard-review/pillar-c", label: "Pillar C · Aree cliniche e budget", icon: PanelsTopLeft, previewOnly: false },
     ],
@@ -72,9 +74,7 @@ export function DashboardReviewNav({
     <div className={`flex min-h-svh w-full max-w-full flex-col ${contentOverflow} md:flex-row`}>
       <aside className="flex w-full flex-col gap-6 border-b border-border bg-card px-5 py-5 md:sticky md:top-0 md:min-h-svh md:w-64 md:self-start md:border-b-0 md:border-r md:px-6 md:py-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/dashboard-review/spend" aria-label="Vai alla panoramica della spesa">
-            <VisLogo size="sm" />
-          </Link>
+          <VisLogoLink size="sm" />
           <ThemeSwitcher />
         </div>
 
@@ -170,8 +170,10 @@ export function DashboardReviewNav({
           </div>
         )}
 
-        <div className="mt-auto hidden md:block">
-          <LogoutButton label="Esci" className="w-full text-muted-foreground hover:text-foreground" />
+        {/* Sign-out at every width: below md the sidebar stacks above the
+            content and a shared device had no other way out (XC-X6.2). */}
+        <div className="mt-auto">
+          <LogoutButton label="Esci" className="min-h-11 w-full text-muted-foreground hover:text-foreground" />
         </div>
       </aside>
 

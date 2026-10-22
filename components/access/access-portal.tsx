@@ -16,7 +16,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { VisLogo } from "@/components/vis-logo";
+import { VisLogoLink } from "@/components/vis-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
@@ -181,7 +181,7 @@ export function AccessPortal({
     <div className="min-h-svh bg-background">
       <header className="border-b border-border bg-card/90">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 md:px-8">
-          <VisLogo size="sm" />
+          <VisLogoLink size="sm" />
           <div className="flex items-center gap-2">
             <ThemeSwitcher />
             {isAdmin && (
@@ -365,7 +365,7 @@ export function AccessPortal({
               </form>
               <div className="mt-6 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
                 <p>Puoi consultare le analisi pubbliche senza attendere l’accesso ai dati riservati.</p>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2"><Link href="/pillar-a" className="font-medium text-primary hover:underline">Pillar A · dati pubblici</Link><Link href="/pillar-b" className="font-medium text-primary hover:underline">Pillar B · dati pubblici</Link></div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2"><Link href="/pillar-a" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Pillar A · Fonti pubbliche</Link><Link href="/pillar-b" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Pillar B · Biosimilari ed esclusività</Link></div>
               </div>
             </CardContent>
           </Card>

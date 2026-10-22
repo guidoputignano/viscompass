@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AccessControlCenter } from "@/components/admin/access-control-center";
-import { VisLogo } from "@/components/vis-logo";
+import { VisLogoLink } from "@/components/vis-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAdminControlCenterData } from "@/lib/access/admin";
@@ -12,7 +12,7 @@ export const instant = false;
 function Restricted() {
   return (
     <div className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-      <VisLogo size="sm" />
+      <VisLogoLink size="sm" />
       <h1 className="font-display text-2xl">Accesso riservato</h1>
       <p className="text-sm leading-6 text-muted-foreground">
         Il Control Center è visibile solo agli indirizzi autorizzati nella variabile server
@@ -26,7 +26,7 @@ function Restricted() {
 function SetupRequired({ detail }: { detail?: string }) {
   return (
     <div className="mx-auto flex min-h-svh max-w-2xl flex-col justify-center gap-5 px-6 py-12">
-      <VisLogo size="sm" />
+      <VisLogoLink size="sm" className="self-start" />
       <Card>
         <CardHeader>
           <CardTitle className="font-display text-2xl">Attivazione Control Center richiesta</CardTitle>
