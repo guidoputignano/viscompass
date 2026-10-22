@@ -4,13 +4,15 @@
 export const PAGE_STUBS={
   'lib/dashboard-review/pillar-c/review-loader.ts':`export async function loadCReviewPacket(approved,reviewer){globalThis.__pcs.reads.push(['review',approved,reviewer]);return globalThis.__pcs.review;}`,
   'lib/dashboard-review/pillar-c/workbook-loader.ts':`export async function loadCWorkbookIndex(approved,reviewer){globalThis.__pcs.reads.push(['workbook-index',approved,reviewer]);return globalThis.__pcs.workbook;}`,
+  // The extension loaders (January DPC, File F) are recorded apart, so the rest of each branch is still compared as before.
+  'lib/dashboard-review/pillar-c/extension-loader.ts':`export async function loadCExtensionReviewer(approved,reviewer){(globalThis.__pcs.extReads??=[]).push(['extension-reviewer',approved,reviewer]);return globalThis.__pcs.extension??{state:'unavailable'};}export async function loadCExtensionScoped(audience,db,labels){(globalThis.__pcs.extReads??=[]).push(['extension-scoped',[...audience.units],audience.units.map(labels)]);return globalThis.__pcs.extension??{state:'unavailable'};}`,
   'lib/dashboard-review/pillar-c/regional-forecast-loader.ts':`export async function loadCRegionalForecast(approved){globalThis.__pcs.reads.push(['forecast',approved]);return globalThis.__pcs.forecast;}`,
   // The reviewer workspace's mandatory audience (interface step) is recorded apart, so the rest of the branch is still
   // compared with the page before recommendation 5. The page imports it through its dynamic wrapper
   // (reviewer-workspace.tsx, review finding UI-4), which exports the same component name.
-  'components/dashboard-review/pillar-c/reviewer-workspace.tsx':`export function PillarCAnalyticalWorkspace({audience,...props}){globalThis.__pcs.rendered.push(['PillarCAnalyticalWorkspace',props]);(globalThis.__pcs.audiences??=[]).push(audience);return null;}`,
+  'components/dashboard-review/pillar-c/reviewer-workspace.tsx':`export function PillarCAnalyticalWorkspace({audience,extension,...props}){globalThis.__pcs.rendered.push(['PillarCAnalyticalWorkspace',props]);(globalThis.__pcs.audiences??=[]).push(audience);(globalThis.__pcs.extensions??=[]).push(extension);return null;}`,
   'components/dashboard-review/pillar-c/regional-forecast-workspace.tsx':`export function PillarCRegionalForecastWorkspace(props){globalThis.__pcs.rendered.push(['PillarCRegionalForecastWorkspace',props]);return null;}`,
-  'components/dashboard-review/pillar-c/scoped-workspace.tsx':`export function PillarCScopedWorkspace(props){globalThis.__pcs.rendered.push(['PillarCScopedWorkspace',props]);return null;}`,
+  'components/dashboard-review/pillar-c/scoped-workspace.tsx':`export function PillarCScopedWorkspace({extension,...props}){globalThis.__pcs.rendered.push(['PillarCScopedWorkspace',props]);(globalThis.__pcs.extensions??=[]).push(extension);return null;}`,
 };
 
 /** Renders the page for every reviewer-path and no-membership identity; returns one canonical JSON string. */

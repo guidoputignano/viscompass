@@ -41,6 +41,11 @@ test('reviewer and no-membership branches are byte-identical to the page before 
   // Interface step: the reviewer branch passes the reviewer audience explicitly (the audience is mandatory), and only it.
   const {C_REVIEWER_CLIENT_AUDIENCE}=await import('../lib/dashboard-review/pillar-c/audience-rules.ts');
   assert.deepEqual(state.audiences,[C_REVIEWER_CLIENT_AUDIENCE]);assert.equal(state.audiences[0].kind,'reviewer');
+  // Extension (points 15-16): read through the reviewer gate with the same arguments; an unavailable extension is passed as null.
+  assert.deepEqual(state.extReads,[['extension-reviewer',true,true]]);assert.deepEqual(state.extensions,[null]);
+  const ready={state:'ready',view:{units:[],drivers:null,baskets:null}};
+  const again=reviewerPageCases({as,ORGS,viewer,packet})[3][1]();again.rendered=[];again.extension=ready;
+  await withProduction(render);assert.equal(again.extensions[0],ready.view,'the loaded view, not a copy');
 });
 
 test('an approved member who is not enabled keeps the public forecast, with the not-active line, and no private read',async()=>{
@@ -111,6 +116,9 @@ test('an enabled Azienda receives its own unit and the aggregate, its client aud
   assert.doesNotMatch(json,/"(asl-1|asl-2|asl-4|Regione|AQ|CH|PE|TE)"|"lineage":\[|"evidence":\{|workbookSha256|"synthetic"/);
   assert.deepEqual(state.reads,[['forecast',true]],'never the reviewer packet or workbook');assert.equal(state.serviceRole,0);
   assert.ok(calls.downloads.every(d=>/^v1\/(asl-3|aggregato)\//.test(d.path)&&d.params.cache==='no-store'));
+  // Extension: the audience's own units, labelled by its client audience, under the same session; never the reviewer read.
+  assert.deepEqual(state.extReads,[['extension-scoped',['asl-3','aggregato'],['Azienda sintetica Tre','Aggregato delle quattro Aziende']]]);
+  assert.deepEqual(state.extensions,[null]);
 });
 
 test('an enabled Regione receives the aggregate and ASL 1–4 under opaque keys, with no province key anywhere',async()=>{

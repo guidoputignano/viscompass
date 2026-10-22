@@ -14,7 +14,9 @@ import { C_COMPONENT_LABELS, C_PERIODS } from "@/lib/dashboard-review/pillar-c/r
 import { isCScopedUnit, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 import type { PillarCScopedAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
 
-type Leaf = "org" | "id" | "text" | "desc" | "hash" | "int" | "money" | "null";
+/** count: a person or identifier count, 0 or at least 5 (the small-cell rule of the January DPC and File F extension);
+ * share: a proportion in [0, 1]; num: a finite number; bool: true or false. */
+type Leaf = "org" | "id" | "text" | "desc" | "hash" | "int" | "money" | "null" | "count" | "share" | "num" | "bool";
 type Spec = Leaf | { lit: readonly (string | number)[] } | { nullable: Spec } | { list: Spec; max: number } | { obj: Readonly<Record<string, Spec>> };
 
 /** A province key standing alone (not inside a word): AQ, CH, PE or TE. */
@@ -48,8 +50,43 @@ const MONTH: Spec = { obj: { month: "int", fixed: { nullable: STATS }, shared: {
 const DOSSIER: Spec = { obj: { ...SUMMARY_FIELDS, observedAllocation: "null", monthly: { list: MONTH, max: 12 }, products: { list: PORT_PRODUCT, max: 6500 }, sharedProducts: { list: PORT_PRODUCT, max: 6500 } } };
 const SCOPE_SUMMARY: Spec = { obj: { period: PERIOD, org: "org", channel: CHANNEL, total: STATS, states: STATES } };
 const CHANGE: Spec = { obj: { key: "id", label: "desc", atc: "desc", current: { nullable: STATS }, previous: { nullable: STATS }, delta: "money", kind: { lit: ["continuing", "entry", "exit"] } } };
+// January 2026 DPC and File F 2025 extension (points 15-16): one closed shape for every unit; non-additive aggregate fields are null.
+const EXT_CELL: Spec = { obj: { id: "id", label: "desc", count: "count", share: "share" } };
+const EXT_DIST: Spec = { obj: { status: { lit: ["released", "withheld"] }, total: { nullable: "count" }, cells: { list: EXT_CELL, max: 12 } } };
+const EXT_QUART: Spec = { nullable: { obj: { q1: "num", median: "num", q3: "num" } } };
+const EXT_SEX: Spec = { obj: { female: "share", male: "share", unknownLeftOut: "bool" } };
+const EXT_USE: Spec = { obj: { quartiles: EXT_QUART, bins: EXT_DIST } };
+const N_SHARE: Spec = { nullable: "share" }, N_NUM: Spec = { nullable: "num" };
+const EXT_JANUARY: Spec = { obj: {
+  recipients: "count", recipientsAreSum: "bool", age: EXT_DIST, sex: EXT_SEX,
+  cost: { obj: { quartiles: EXT_QUART, bins: EXT_DIST, top10: N_SHARE, top20: N_SHARE, gini: N_SHARE } },
+  use: { obj: { packs: EXT_USE, prescriptions: EXT_USE, distinctAICs: EXT_USE } },
+  ingredients: EXT_DIST, portfolioStatus: { list: EXT_CELL, max: 8 }, singleCandidateReach: { list: EXT_CELL, max: 12 },
+  attribution: { obj: { single: "share", narrowed: "share", indicative: "share", notInformative: "share", agreementLines: N_SHARE, sharedRecipientsNarrowed: N_SHARE } },
+  services: { obj: { serviceShare: "share", servicePerPack: "num", under10Packs: N_SHARE, under10Service: N_SHARE, pharmacies: { nullable: "int" }, pharmacyTop10: N_SHARE,
+    intervalQ1: N_NUM, intervalMedian: N_NUM, intervalQ3: N_NUM, within7: N_SHARE, sameDay: N_SHARE } },
+} };
+const EXT_FILEF: Spec = { nullable: { obj: {
+  year: { lit: [2025] }, identifiers: "count", identifiersByMonth: { list: { obj: { month: "id", count: "count" } }, max: 12 },
+  age: EXT_DIST, sex: EXT_SEX,
+  concentration: { obj: { q1: "num", median: "num", q3: "num", top10: "share", top1: "share", gini: "share", top10WithoutMode09: "share", top1WithoutMode09: "share" } },
+  contacts: EXT_DIST, monthsActive: EXT_DIST, medianContacts: "num", medianMonths: "num",
+  portfolioShares: { obj: { single: "share", shared: "share", unmapped: "share" } },
+  singleCandidateReach: { list: { obj: { id: "id", label: "desc", share: "share" } }, max: 12 },
+  months: { list: { obj: { month: "id", amount: "num", mode09: "num", withoutMode09: "num" } }, max: 12 },
+  modes: { list: { obj: { id: "id", label: "desc", rowsShare: "share", amountShare: "share" } }, max: 8 },
+  basket: { list: { obj: { quarter: "id", index: "num", coverage: "share" } }, max: 4 }, basketProducts: "int",
+} } };
+const EXT_UNIT: Spec = { obj: { schema: { lit: ["pillar-c-extension-unit-v1"] }, unit: "org", period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, january: EXT_JANUARY, fileF: EXT_FILEF } };
 
 export const C_SCOPED_PAYLOAD_SPECS = {
+  extension: EXT_UNIT,
+  extensionReviewer: { obj: {
+    schema: { lit: ["pillar-c-extension-reviewer-v1"] }, units: { list: EXT_UNIT, max: 5 },
+    drivers: { obj: { supportProducts: "int", referencePer1000: "num", units: { list: { obj: { unit: "org", per1000: "num", difference: "num", reach: "num", intensity: "num", mix: "num",
+      acquisition: "num", service: "num", reachPer1000: "num", packsPerRecipient: "num", coverage: "share" } }, max: 4 } } },
+    baskets: { obj: { products: "int", units: { list: { obj: { unit: "org", acquisition: "num", service: "num", combined: "num" } }, max: 4 } } },
+  } },
   attribution: { obj: {
     schema: { lit: ["pillar-c-attribution-view-v1"] }, sourceSha256: "hash", classificationSha256: "hash", mappingVersion: "text", sourceSnapshot: "hash",
     portfolios: PORTFOLIOS, scope: ATTR_SCOPE, comparison: { nullable: ATTR_SCOPE },
@@ -95,6 +132,10 @@ function rebuild(value: unknown, spec: Spec, units: readonly CScopedUnit[], path
       case "int": return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : fail(`INT ${path}`);
       case "money": return typeof value === "string" && MONEY.test(value) ? value : fail(`MONEY ${path}`);
       case "null": return value === null ? null : fail(`NULL ${path}`);
+      case "count": return typeof value === "number" && Number.isSafeInteger(value) && (value === 0 || value >= 5) ? value : fail(`COUNT ${path}`);
+      case "share": return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? value : fail(`SHARE ${path}`);
+      case "num": return typeof value === "number" && Number.isFinite(value) && Math.abs(value) < 1e12 ? value : fail(`NUM ${path}`);
+      case "bool": return typeof value === "boolean" ? value : fail(`BOOL ${path}`);
     }
   }
   if ("lit" in spec) return spec.lit.includes(value as string | number) ? value : fail(`VALUE ${path}`);

@@ -93,8 +93,9 @@ test('page: reviewer loaders only after the reviewer gate; the scoped branch nev
   const s=read('app/dashboard-review/pillar-c/page.tsx');
   const member=s.indexOf('if (org && !projectReviewer) {'),resolve=s.indexOf('await resolvePillarCMemberAudience(org)'),gate=s.indexOf('if (!projectReviewer) {');
   assert.ok(member>0&&member<resolve&&resolve<gate);
-  for(const name of ['loadCReviewPacket(Boolean(org)','loadCWorkbookIndex(Boolean(org)'])assert.ok(s.indexOf(name)>gate,name);
+  for(const name of ['loadCReviewPacket(Boolean(org)','loadCWorkbookIndex(Boolean(org)','loadCExtensionReviewer(Boolean(org)'])assert.ok(s.indexOf(name)>gate,name);
   const scoped=s.slice(s.indexOf('async function scopedPillarC'),s.indexOf('export default async function PillarCPage'));
-  assert.ok(scoped.length>200);assert.doesNotMatch(scoped,/loadCReviewPacket|loadCWorkbookIndex|PillarCAnalyticalWorkspace|workbook/);
-  assert.match(scoped,/loadCScopedReview\(audience, await createClient\(\)\)/);
+  assert.ok(scoped.length>200);assert.doesNotMatch(scoped,/loadCReviewPacket|loadCWorkbookIndex|loadCExtensionReviewer|PillarCAnalyticalWorkspace|workbook/);
+  // One session client for the review and the extension: both read under Storage RLS.
+  assert.match(scoped,/const db = await createClient\(\)/);assert.match(scoped,/loadCScopedReview\(audience, db\)/);assert.match(scoped,/loadCExtensionScoped\(audience, db, /);
 });

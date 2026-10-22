@@ -526,7 +526,9 @@ test('11. copy lint and source pins of the two workspaces',()=>{
   for(const line of [
     'const label = (key: string) => cAudienceLabel(audience, key) ?? "";',
     'if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;',
-    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} /> : null;',
+    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} /> : null;',
+    'if (!extension || extension.drivers || extension.baskets) return null;',
+    'return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;',
     '&& packet.orgs.length === audience.orgs.length && packet.orgs.every((unit, i) => unit === audience.orgs[i].key);',
     'data-pillar-c-review={`scoped-${audience.kind}`} data-release-state="review_only"',
     'const publishedActs = useMemo(() => cScopedPublishedActs(packet), [packet]);',

@@ -14,6 +14,8 @@ import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
+import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCResidentDrivers, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import type { CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { PillarCAudienceProvider, usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 import { cBudgetFilters, cBudgetSearch, cDecisionAnswer, cInsightResetSearch } from "@/lib/dashboard-review/pillar-c/insights";
 import type { CWorkbookIndex } from "@/lib/dashboard-review/pillar-c/workbook";
@@ -79,17 +81,17 @@ function OutputLineage({ packet }: { packet: CReviewPacket }) {
 
 /** The reviewer workspace. The audience is mandatory and must be the reviewer's: the reviewer packet (all four
  * Aziende, workbook, lineage and receipts) is never rendered under another audience, and nothing renders without one. */
-export function PillarCAnalyticalWorkspace({ audience, packet, workbook }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex }) {
+export function PillarCAnalyticalWorkspace({ audience, packet, workbook, extension }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension?: CExtensionView | null }) {
   if (audience?.kind !== "reviewer") return null;
-  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} /></PillarCAudienceProvider>;
+  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} extension={extension ?? null} /></PillarCAudienceProvider>;
 }
-function ReviewerGate({ packet, workbook }: { packet: CReviewPacket; workbook?: CWorkbookIndex }) {
+function ReviewerGate({ packet, workbook, extension }: { packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null }) {
   const audience = usePillarCAudience();
-  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} /> : null;
+  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} extension={extension} /> : null;
 }
 /** The six sections of the page (docs/PILLAR_C_SIX_SECTIONS_20261022.md §1), each a frame with its numeral, heading and
  * question; the review blocks, the dossier, the attribution and the workbook insights sit inside the frames by topic. */
-function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex }) {
+function ReviewerWorkspace({ audience, packet, workbook, extension }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null }) {
   const search = useSearchParams(), filters = cReviewFilters(search), data = selectCReview(packet, filters);
   const budgetFilters = cBudgetFilters(packet, new URLSearchParams(search));
   const budgetData = selectCReview(packet, budgetFilters);
@@ -118,7 +120,7 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
   const decisionCards: PillarCDecisionOverviewProps["cards"] = [
     { title: "Variazione contabile", value: decision.change === null ? "Non disponibile" : signed(decision.change), detail: `${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}` },
     { title: "Contributo dei prodotti presenti nei due periodi", value: decision.continuing === null ? "Non disponibile" : signed(decision.continuing), detail: "Contributo alla variazione, non un effetto causale o clinico." },
-    { title: "Persone trattate osservate", value: "Non disponibili", detail: "Gli scenari CO stimano il denominatore; non misurano più persone trattate." },
+    cExtensionRecipientsCard(extension),
   ];
   const comparison = `Confronto: ${filters.comparison === "K1" ? "2024 → 2025" : "Gen–mag 2025 → 2026"}`;
   const forecastDecision = (() => { if (!packet.forecast) return null; try { return cForecastDecision(packet.forecast, "TOT"); } catch { return null; } })();
@@ -136,13 +138,14 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(DESTINATARI)}>
-      <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>
+      {extension ? <PillarCRecipientsSection view={extension} /> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
       <a href="#numerosita" className={crossLink}>Scenario di numerosità stimata →</a>
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
       <PillarCPortfolioDossier workbook={workbook} />
       {workbook && <PillarCAttributionAnalysis />}
+      {extension && <PillarCAttributionEvidence view={extension} />}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>
@@ -161,6 +164,8 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
           {data.left && data.right && data.bridge.length ? <BridgeValues left={data.left} right={data.right} bridge={data.bridge} /> : <Empty>Il confronto non è disponibile nel pacchetto di revisione.</Empty>}
         </Panel>
       </section>
+      {extension && <PillarCResidentDrivers view={extension} />}
+      {extension && <PillarCFileFMonthly view={extension} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
     </PillarCSectionFrame>
 

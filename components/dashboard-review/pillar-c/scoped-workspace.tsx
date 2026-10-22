@@ -14,6 +14,8 @@ import { PillarCForecastPanel } from "@/components/dashboard-review/pillar-c/for
 import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar-c/attribution-analysis";
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
+import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import type { CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 // The shared blocks come from review-blocks.tsx, never from the reviewer workspace: nothing this component reaches
 // carries a province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs).
 import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewHeading as Heading, CReviewExactTable as ExactTable, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendCoverage, SpendKpis, cSpendCell } from "@/components/dashboard-review/pillar-c/review-blocks";
@@ -34,6 +36,8 @@ export type PillarCScopedWorkspaceProps = {
   packet: CScopedClientReview;
   /** The public regional forecast (AIFA, CC BY 4.0), the same projection every approved member receives. */
   forecast: CForecast | null;
+  /** January 2026 DPC and File F 2025 of the audience's own units, guarded on the server; null when unavailable. */
+  extension?: CExtensionView | null;
 };
 
 const { monthNames } = C_REVIEW_UI;
@@ -100,17 +104,23 @@ export function cScopedPageScopeSearch(audience: CClientAudience, search: string
  *     ratio to the estimated count («€ per unità di numerosità stimata»).
  *   - The workbook, the shared review queue, the lineage and the price/quantity/mix decomposition are not part of it.
  */
-export function PillarCScopedWorkspace({ audience, packet, forecast }: PillarCScopedWorkspaceProps) {
+export function PillarCScopedWorkspace({ audience, packet, forecast, extension }: PillarCScopedWorkspaceProps) {
   const checked = cClientAudience(audience);
   if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;
-  return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} /></PillarCAudienceProvider>;
+  return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} extension={cScopedExtensionFor(checked, extension ?? null)} /></PillarCAudienceProvider>;
 }
-function ScopedGate({ packet, forecast }: { packet: CScopedClientReview; forecast: CForecast | null }) {
+function ScopedGate({ packet, forecast, extension }: { packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null }) {
   const audience = usePillarCAudience();
-  return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} /> : null;
+  return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} /> : null;
+}
+/** The extension is shown only when it holds exactly the audience's units, in its order, with no reviewer-only block. */
+export function cScopedExtensionFor(audience: CClientAudience, extension: CExtensionView | null): CExtensionView | null {
+  if (!extension || extension.drivers || extension.baskets) return null;
+  const keys = audience.orgs.map((o) => o.key);
+  return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;
 }
 
-function ScopedWorkspace({ audience, packet, forecast }: { audience: CClientAudience; packet: CScopedClientReview; forecast: CForecast | null }) {
+function ScopedWorkspace({ audience, packet, forecast, extension }: { audience: CClientAudience; packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null }) {
   const search = useSearchParams();
   const { filters, tampered } = cScopedReviewFilters(audience, new URLSearchParams(search));
   const data = selectCReview(packet, filters);
@@ -143,7 +153,7 @@ function ScopedWorkspace({ audience, packet, forecast }: { audience: CClientAudi
   const decisionCards: PillarCDecisionOverviewProps["cards"] = [
     { title: "Variazione contabile", value: decision.change === null ? "Non disponibile" : signed(decision.change), detail: `${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}` },
     { title: "Contributo dei prodotti presenti nei due periodi", value: decision.continuing === null ? "Non disponibile" : signed(decision.continuing), detail: "Contributo alla variazione, non un effetto causale o clinico." },
-    { title: "Persone trattate osservate", value: "Non disponibili", detail: "Gli scenari CO stimano il denominatore; non misurano più persone trattate." },
+    cExtensionRecipientsCard(extension),
   ];
   const comparison = `Confronto: ${filters.comparison === "K1" ? "2024 → 2025" : "Gen–mag 2025 → 2026"}`;
   const forecastDecision = (() => { if (!forecast) return null; try { return cForecastDecision(forecast, "TOT"); } catch { return null; } })();
@@ -160,13 +170,14 @@ function ScopedWorkspace({ audience, packet, forecast }: { audience: CClientAudi
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(DESTINATARI)}>
-      <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>
+      {extension ? <PillarCRecipientsSection view={extension} /> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
       <a href="#numerosita" className={crossLink}>Scenario di numerosità stimata →</a>
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
       <PillarCPortfolioDossier />
       <PillarCAttributionAnalysis />
+      {extension && <PillarCAttributionEvidence view={extension} />}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>
@@ -185,6 +196,7 @@ function ScopedWorkspace({ audience, packet, forecast }: { audience: CClientAudi
           {data.left && data.right && data.bridge.length ? <BridgeValues left={data.left} right={data.right} bridge={data.bridge} /> : <Empty>Il confronto non è disponibile nel pacchetto di revisione.</Empty>}
         </Panel>
       </section>
+      {extension && <PillarCFileFMonthly view={extension} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
     </PillarCSectionFrame>
 
