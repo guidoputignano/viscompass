@@ -29,7 +29,6 @@ const {PillarCAnalyticalWorkspace,cReviewerScopeSearch}=await at('components/das
 const {CAttributionView,PillarCAttributionAnalysis}=await at('components/dashboard-review/pillar-c/attribution-analysis.tsx');
 const {CPortfolioDossierView,PillarCPortfolioDossier}=await at('components/dashboard-review/pillar-c/portfolio-dossier.tsx');
 const {PillarCAudienceProvider}=await at('components/dashboard-review/pillar-c/audience-context.tsx');
-const {PillarCInsightsPanel,PillarCInsightsProvider}=await at('components/dashboard-review/pillar-c/insight-panels.tsx');
 const {CountRows,C_REVIEW_UI}=await at('components/dashboard-review/pillar-c/review-blocks.tsx');
 const {PillarCEvidenceSources}=await at('components/dashboard-review/pillar-c/evidence-sources.tsx');
 const {C_REVIEWER_CLIENT_AUDIENCE,toClientAudience}=await at('lib/dashboard-review/pillar-c/audience-rules.ts');
@@ -60,9 +59,6 @@ const signed=v=>`${Number(v)>0?'+':''}${eur(v)}`;
 const packet=parseCReviewPacket(cReviewV2Fixture());
 // The literal workbook index of tests/helpers/pillar-c-ui-matrix.mjs (one invented output, section spesa).
 const WB={schema:'pillar-c-workbook-index-v1',workbookSha256:C_WORKBOOK_HASH,outputs:[{id:'TEST-1',title:'Invented test only',section:'spesa',tier:'Fonte pubblica',qualifier:'—',grain:'anno',ranges:['Example!A1:C4'],availability:'snapshot',reason:null,sourceState:'review'}],sections:{spesa:{sha256:'4'.repeat(64),bytes:10,outputs:1}}};
-// The same index with one more invented output per insight panel, so that every panel mount renders (test 2, M4).
-const PANEL_SECTIONS=['spesa','cambiamento','pianificazione','numerosita','previsione','evidenza'];
-const WB_PANELS={...WB,outputs:PANEL_SECTIONS.map((section,i)=>({...WB.outputs[0],id:`TEST-${i+1}`,section}))};
 // The matrix helper's invented attribution and portfolio views.
 const attr=attributionFixture();
 const attrView=(period,org,channel)=>({schema:'pillar-c-attribution-view-v1',sourceSha256:attr.sourceSha256,classificationSha256:attr.classificationSha256,mappingVersion:attr.mappingVersion,sourceSnapshot:'3'.repeat(64),portfolios:attr.portfolios,
@@ -94,7 +90,8 @@ const LEAD='mt-1 max-w-4xl text-sm leading-6 text-muted-foreground';
 const SCOPE_LINE='mt-1 max-w-4xl text-xs leading-5 text-muted-foreground';
 const CROSS='inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-primary';
 const OVERVIEW_LINK='inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-primary';
-const INSIGHT_SECTIONS=['composizione','costi','confronti','attivita','tendenze','sensibilita','priorita'];
+// The workbook insight sections removed in 1.2d: none may come back.
+const REMOVED_INSIGHT_IDS=['composizione','costi','confronti','attivita','tendenze','sensibilita','priorita'];
 const frameHead=({id,number,label,question})=>`<section id="${id}" aria-labelledby="${id}-title" class="scroll-mt-6 xl:scroll-mt-36"><div class="mb-5 flex items-start gap-3"><span aria-hidden="true" class="${NUMERAL}">${number}</span><div class="min-w-0"><h2 id="${id}-title" tabindex="-1" class="${FRAME_H2}">${label}</h2><p class="${LEAD}">${question}</p>`;
 /** The six frames of a render, each from its opening tag to the next frame's (the last to the end). */
 function frames(html){
@@ -125,10 +122,6 @@ function options(html,label){
 const selected=(html,label)=>options(html,label).filter(o=>o[2]).map(o=>o[0]);
 const selectLabels=html=>[...html.matchAll(/<select\b([^>]*)>/g)].map(m=>(m[1].match(/aria-label="([^"]*)"/)||[])[1]);
 const between=(html,from,to)=>{const a=html.indexOf(from),b=html.indexOf(to,a+1);assert.ok(a>=0&&b>a,`«${from}» before «${to}»`);return html.slice(a,b);};
-const assertOrder=(html,markers,label)=>{
-  let last=-1;
-  for(const m of markers){assert.equal(count(html,m),1,`${label}: exactly one «${m.slice(0,80)}»`);const i=html.indexOf(m);assert.ok(i>last,`${label}: «${m.slice(0,80)}» comes after the previous marker`);last=i;}
-};
 const NEVER=/NaN|Infinity|undefined|\b[Dd]emo\b|[Dd]imostra|[Vv]erificat|in arrivo/;
 
 // ---------------------------------------------------------------- the copy 1.2b introduces (amendments M2, M7, M13, M15)
@@ -192,7 +185,7 @@ test('1. six frames, in the order of PILLAR_C_SECTIONS, each with its hidden num
 // Catches: a block mounted in the wrong frame or order (the attribution before the dossier, composizione or the spesa
 // panel left where they were at ac5e058 (M4), the forecast block not last in section 5, the queue before the
 // cross-links), an old decision link kept in section 1, anything added to section 2.
-test('2. each frame holds its blocks in the recorded order (M4: composizione after the attribution, the spesa panel in section 4)',()=>{
+test('2. each frame holds its blocks in the recorded order, and the workbook insight browser is gone (1.2d)',()=>{
   const CROSS_4=`<a href="#portafogli-attribuzione" class="${CROSS}">Per il portafoglio selezionato → Portafogli e attribuzione</a>`;
   const PARETO=`<a href="#attribuzione" class="${CROSS}">Quali prodotti approfondire per primi? →</a>`;
   const PLAN=`<a href="#piano-revisione" class="${CROSS}">Piano di revisione del portafoglio →</a>`;
@@ -212,48 +205,34 @@ test('2. each frame holds its blocks in the recorded order (M4: composizione aft
     assert.deepEqual(anchors(f.quadro).map(a=>[a.href,a.label]),[['#previsione','Apri la previsione regionale'],['#portafogli-attribuzione','Vai a Portafogli e attribuzione'],['#fattori','Vai a Fattori di spesa'],['#budget-scenari','Vai a Budget e scenari']],`${label}: the old #attribuzione, #numerosita and #costi links are gone`);
     // Section 2: exactly the status sentence and one link, nothing else.
     assert.equal(f.destinatari,`${frameHead(PILLAR_C_SECTIONS[1])}</div></div><div class="space-y-5"><p role="status" class="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">${DESTINATARI_EMPTY}</p><a href="#numerosita" class="${CROSS}">Scenario di numerosità stimata →</a></div></section>`,label);
-    // Section 3: the dossier first, then (with the workbook) the attribution, then composizione.
-    assert.deepEqual(sectionIds(f['portafogli-attribuzione']).slice(1),workbook?['portafogli','attribuzione','composizione']:['portafogli'],label);
+    // Section 3: the dossier first, then (with the workbook) the attribution.
+    assert.deepEqual(sectionIds(f['portafogli-attribuzione']).slice(1),workbook?['portafogli','attribuzione']:['portafogli'],label);
     assert.equal(count(f['portafogli-attribuzione'],'<div class="space-y-5"><section id="portafogli" '),1,`${label}: the dossier opens section 3`);
-    // Section 4: spesa, cambiamento, the cross-link, then the workbook sections.
-    assert.deepEqual(sectionIds(f.fattori).slice(1),['spesa','cambiamento',...(workbook?['costi','confronti','attivita']:[])],label);
+    // Section 4: spesa, cambiamento, then the cross-link.
+    assert.deepEqual(sectionIds(f.fattori).slice(1),['spesa','cambiamento'],label);
     assert.equal(count(f.fattori,CROSS_4),1,label);
     assert.ok(f.fattori.indexOf(CROSS_4)>f.fattori.indexOf('<section id="cambiamento"'),label);
     assert.equal(depth(between(f.fattori,'<section id="cambiamento"',CROSS_4)),0,`${label}: the cross-link follows the closed cambiamento block`);
-    if(workbook)assert.ok(f.fattori.indexOf(CROSS_4)<f.fattori.indexOf('<section id="costi"'),label);
-    // Section 5: pianificazione, Spazio scenari, numerosita, (tendenze), and the regional forecast last.
-    assert.deepEqual(sectionIds(f['budget-scenari']).slice(1),['pianificazione','scenari','numerosita',...(workbook?['tendenze']:[]),'previsione'],label);
-    // Section 6: the cross-links first, then (with the workbook) the two insight sections and the queue, then evidenza.
+    // Section 5: pianificazione, Spazio scenari, numerosita, and the regional forecast last.
+    assert.deepEqual(sectionIds(f['budget-scenari']).slice(1),['pianificazione','scenari','numerosita','previsione'],label);
+    // Section 6: the cross-links first, then (with the workbook) the queue, then evidenza.
     assert.equal(count(f['priorita-evidenza'],`<div class="space-y-5"><div class="flex flex-wrap gap-x-4 gap-y-1">${workbook?PARETO:''}${PLAN}</div>`),1,`${label}: the cross-links open section 6 (the Pareto link only with the workbook)`);
-    assert.deepEqual(sectionIds(f['priorita-evidenza']).slice(1),[...(workbook?['sensibilita','priorita','evidence-workflow']:[]),'evidenza'],label);
+    assert.deepEqual(sectionIds(f['priorita-evidenza']).slice(1),[...(workbook?['evidence-workflow']:[]),'evidenza'],label);
+    // 1.2d: the workbook insight browser is gone, with or without a workbook index.
+    for(const id of REMOVED_INSIGHT_IDS)assert.equal(count(html,` id="${id}"`),0,`${label}: no ${id} insight section`);
+    assert.doesNotMatch(html,/Approfondimento/,`${label}: no insight panel`);
   }
-  // M4, every insight panel at its place: rendered with one invented output per panel section, each panel's own markup
-  // (rendered alone) occurs once, in this order among the frames and blocks.
-  const html=page(S0,WB_PANELS);
-  const panel=Object.fromEntries(PANEL_SECTIONS.map(s=>[s,bare(withSearch(el(PillarCInsightsProvider,null,el(PillarCInsightsPanel,{index:WB_PANELS,section:s}))))]));
-  for(const s of PANEL_SECTIONS)assert.match(panel[s],/^<article /,`the ${s} panel renders`);
-  assertOrder(html,['<section id="quadro"','<section id="destinatari"','<section id="portafogli-attribuzione"','<section id="portafogli"','<section id="attribuzione"','<section id="composizione"',
-    '<section id="fattori"','<section id="spesa"',panel.spesa,'<section id="cambiamento"',CROSS_4,panel.cambiamento,'<section id="costi"','<section id="confronti"','<section id="attivita"',
-    '<section id="budget-scenari"','<section id="pianificazione"',panel.pianificazione,'<section id="scenari"','<section id="numerosita"',panel.numerosita,'<section id="tendenze"','<section id="previsione"',panel.previsione,
-    '<section id="priorita-evidenza"',PLAN,'<section id="sensibilita"','<section id="priorita"','<section id="evidence-workflow"','<section id="evidenza"',panel.evidenza],'panels');
-  assert.equal(depth(between(html,'<section id="spesa"',panel.spesa)),0,'the spesa panel follows the closed spesa block');
-  assert.equal(depth(between(html,'<section id="pianificazione"',panel.pianificazione)),0,'the pianificazione panel follows its block');
-  assert.equal(depth(between(html,'<section id="numerosita"',panel.numerosita)),0,'the numerosita panel follows its block');
-  assert.equal(depth(between(html,'<section id="previsione"',panel.previsione)),1,'the previsione panel sits inside the forecast block');
-  assert.equal(depth(between(html,'<section id="evidenza"',panel.evidenza)),0,'the evidenza panel follows the evidence block');
 });
 
 // ================================================================ 3. number badges
 // Catches: an inner Heading rendered without `inner` (numbered h2), the attribution badge «03» kept under pageScope,
-// any new badge outside the seven insight sections that keep theirs until 1.2d.
-test('3. no number badge except the six hidden frame numerals and, until 1.2d, the seven insight-section badges',()=>{
-  for(const {label,html,workbook} of RENDERS){
+// any visible badge (the insight-section badges went with 1.2d).
+test('3. no number badge except the six hidden frame numerals',()=>{
+  for(const {label,html} of RENDERS){
     const badges=[...html.matchAll(/<span([^>]*)>([^<]*)<\/span>/g)].filter(m=>/\sclass="flex size-9 /.test(m[1]));
     assert.deepEqual(badges.filter(m=>/aria-hidden="true"/.test(m[1])).map(m=>m[2]),['1','2','3','4','5','6'],label);
     const visible=badges.filter(m=>!/aria-hidden="true"/.test(m[1]));
-    assert.deepEqual(visible.map(m=>m[2]),workbook?['02','05','06','07','10','12','13']:[],label);
-    // Each visible badge opens one of the insight sections, and nothing else.
-    assert.deepEqual(visible.map(m=>(html.slice(0,m.index).match(/<section id="([a-z]+)" aria-labelledby="([a-z]+)-title" class="scroll-mt-6 xl:scroll-mt-56"><div class="mb-5 flex items-start gap-3">$/)||[])[1]),workbook?INSIGHT_SECTIONS:[],label);
+    assert.deepEqual(visible.map(m=>m[2]),[],label);
   }
   const source=code(WS);
   assert.doesNotMatch(source,/\bnumber=/,'no Heading or mount takes a number');
@@ -264,7 +243,7 @@ test('3. no number badge except the six hidden frame numerals and, until 1.2d, t
 // ================================================================ 4. headings
 // Catches: a block heading left as h2 (the dossier or attribution mounted without pageScope, a Heading without
 // `inner`), the decision heading back to h2, an h2 without id, a heading id duplicated.
-test('4. the inner blocks are h3; the h2 set is exactly the frames, Spazio scenari and (with the workbook) the queue and the insight sections',()=>{
+test('4. the inner blocks are h3; the h2 set is exactly the frames, Spazio scenari and (with the workbook) the queue',()=>{
   const H3=['c-decision-title','portfolio-dossier-title','spesa-title','cambiamento-title','pianificazione-title','numerosita-title','previsione-title','evidenza-title'];
   for(const {label,html,workbook} of RENDERS){
     for(const id of [...H3,...(workbook?['attribuzione-title']:[])]){
@@ -272,8 +251,8 @@ test('4. the inner blocks are h3; the h2 set is exactly the frames, Spazio scena
       assert.equal(tagOf(html,id),'h3',`${label}: ${id} is an h3`);
     }
     if(!workbook)assert.equal(count(html,' id="attribuzione-title"'),0,label);
-    assert.deepEqual(headingIds(html,'h2'),['quadro-title','destinatari-title','portafogli-attribuzione-title',...(workbook?['composizione-title']:[]),'fattori-title',...(workbook?['costi-title','confronti-title','attivita-title']:[]),
-      'budget-scenari-title','scenari-title',...(workbook?['tendenze-title']:[]),'priorita-evidenza-title',...(workbook?['sensibilita-title','priorita-title','c-evidence-title']:[])],`${label}: the h2 ids, in page order, none without id`);
+    assert.deepEqual(headingIds(html,'h2'),['quadro-title','destinatari-title','portafogli-attribuzione-title','fattori-title',
+      'budget-scenari-title','scenari-title','priorita-evidenza-title',...(workbook?['c-evidence-title']:[])],`${label}: the h2 ids, in page order, none without id`);
     assert.deepEqual(headingIds(html,'h3').filter(Boolean),['c-decision-title','portfolio-dossier-title',...(workbook?['attribuzione-title']:[]),'spesa-title','cambiamento-title','pianificazione-title','scenari-outside-title','numerosita-title','previsione-title','evidenza-title'],`${label}: the h3 ids, in page order`);
     assert.equal(count(html,'<h1'),1,label);
   }

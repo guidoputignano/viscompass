@@ -430,7 +430,8 @@ test('URL clamps match keys exactly; the budget is always the published act; the
 });
 
 // ---------------------------------------------------------------- reviewer regression
-test('reviewer: the workspace and every shared view render the markup recorded at 1.2b under the reviewer audience',async()=>{
+test('reviewer: the workspace and every shared view render the markup recorded at 1.2d under the reviewer audience',async()=>{
+  // Re-recorded at 1.2d (reason: the workbook insight browser removed; data hash unchanged; 1.2b value c476b18e…).
   // Re-recorded at 1.2b (reason: six-section regroup and the 1.2b copy rows; data hash unchanged); earlier baseline
   // 30e9e57, eac1cc54…, which ac5e058 still rendered byte for byte. Before the re-record, 30 of the 51 cases changed
   // (22 workspace, 4 dossier, 4 attribution) and 21 stayed byte-identical (2 change summaries, 16 planning, 3 review
@@ -451,7 +452,7 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   assert.match(noAct,REVIEWER_ONLY_1_2B[1],'the empty variant is live');assert.doesNotMatch(noAct,REVIEWER_ONLY_1_2B[0]);
   assert.equal(out.cases,59);
   assert.equal(out.data,'bebe2d2b3c1d254353cd668e6b67e61c1c5c4b91ec1f15f465ebcccc2aa4e9be','the same synthetic data as the baseline');
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'c476b18e51c01864596c43a683580630fee96cb7048431f09f715006b8643d58');
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'f7f4e2c6c224ade5791fa3fc716cf54aee50a95bacdf81c2716e48e8a28de299');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout

@@ -10,7 +10,6 @@ import { PillarCScopeBar } from "@/components/dashboard-review/pillar-c/scope-ba
 import { PillarCDecisionOverview, type PillarCDecisionOverviewProps } from "@/components/dashboard-review/pillar-c/decision-overview";
 import { PillarCEvidenceSources, type PillarCEvidenceCriterion, type PillarCEvidenceSource } from "@/components/dashboard-review/pillar-c/evidence-sources";
 import { PillarCForecastPanel } from "@/components/dashboard-review/pillar-c/forecast-section";
-import { PillarCInsightsPanel, PillarCInsightsSection, PillarCInsightsProvider } from "@/components/dashboard-review/pillar-c/insight-panels";
 import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar-c/attribution-analysis";
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
@@ -128,7 +127,7 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
   const regional = forecastDecision === null ? null : { annual: eur(forecastDecision.annual.total), band: `${eur(forecastDecision.annual.low80)} – ${eur(forecastDecision.annual.high80)}`, href: "#previsione" };
   const actsLine = useMemo(() => publishedActsLine(publishedActs), [publishedActs]);
   const evidenceSources = packet.forecast ? EVIDENCE_SOURCES : EVIDENCE_SOURCES.filter((s) => s.term !== "Previsione regionale");
-  return <PillarCInsightsProvider><div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={packet.schema === "pillar-c-review-v2" ? "v2" : "v1"} data-release-state="review_only">
+  return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={packet.schema === "pillar-c-review-v2" ? "v2" : "v1"} data-release-state="review_only">
     <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope="Aggregato delle quattro Aziende e ASL 1–4 · revisione di progetto" />
     <PillarCSectionBar />
 
@@ -145,7 +144,7 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
       <PillarCPortfolioDossier workbook={workbook} />
-      {workbook && <><PillarCAttributionAnalysis /><PillarCInsightsSection index={workbook} section="composizione" /></>}
+      {workbook && <PillarCAttributionAnalysis />}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>
@@ -159,14 +158,12 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
           <p className="mt-4 text-xs leading-5 text-muted-foreground">Un mese assente interrompe la cumulata. Il 2026 è limitato a gennaio–maggio e non è confrontato con dodici mesi.</p>
         </Panel>
       </section>
-      {workbook && <PillarCInsightsPanel index={workbook} section="spesa" />}
       <section id="cambiamento" aria-labelledby="cambiamento-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading inner id="cambiamento" title="Quali componenti spiegano la variazione?">Un ponte contabile con periodi omogenei. I contributi non sono effetti clinici, di prezzo o di volume.</Heading>
         <Panel title={`${C_PERIOD_LABELS[data.leftPeriod as keyof typeof C_PERIOD_LABELS]} → ${C_PERIOD_LABELS[data.rightPeriod as keyof typeof C_PERIOD_LABELS]}`} description={scope} controls={<LocalToggle label="Confronto" value={filters.comparison} options={[{ value: "K1", label: "2024 → 2025" }, { value: "K2", label: "Gen–mag 2025 → 2026" }]} onChange={(comparison) => update({ comparison })} ariaLabel="Periodi del ponte" />}>
           {data.left && data.right && data.bridge.length ? <BridgeValues left={data.left} right={data.right} bridge={data.bridge} /> : <Empty>Il confronto non è disponibile nel pacchetto di revisione.</Empty>}
         </Panel>
       </section>
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
-      {workbook && <><PillarCInsightsPanel index={workbook} section="cambiamento" /><PillarCInsightsSection index={workbook} section="costi" /><PillarCInsightsSection index={workbook} section="confronti" /><PillarCInsightsSection index={workbook} section="attivita" /></>}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(BUDGET)}>
@@ -179,7 +176,6 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
           <p className="mt-5 text-xs leading-5 text-muted-foreground">Dati sintetici: ripartizione per area e, quando selezionato, budget modellato. La compatibilità del perimetro del budget pubblicato non è stabilita: le differenze non misurano sovra/sottospesa organizzativa.</p>
         </Panel>
       </section>
-      {workbook && <PillarCInsightsPanel index={workbook} section="pianificazione" />}
       <PillarCPlanningWorkspace publishedActs={publishedActs} evidenceAnchor={Boolean(workbook)}/>
       <section id="numerosita" aria-labelledby="numerosita-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading inner id="numerosita" title="Quanto dipende il rapporto dalla numerosità ipotizzata?">Scenario CO con tasso regionale di dimissione 2023 e residenti al 31 dicembre 2024. Non rappresenta pazienti distinti osservati.</Heading>
         <Panel title={C_AUDIENCE_COPY.countsTitle} description={`${C_ORG_LABELS[filters.org]} · solo CO. Confronto fra ipotesi di denominatore, non graduatoria di performance.`} controls={<LocalToggle label="Anno CO" value={filters.countPeriod} options={[{ value: "FY2024", label: "2024" }, { value: "FY2025", label: "2025" }]} onChange={(countPeriod) => update({ countPeriod })} ariaLabel="Anno dello scenario CO" />}>
@@ -189,18 +185,15 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
           <p className="mt-4 text-xs leading-5 text-muted-foreground">Dati sintetici: numerosità stimata dai dimessi. L’intervallo varia la numerosità del 25% in meno e in più, senza probabilità né limite garantito. I raggruppamenti ATC restano in bozza, con revisione di dominio in attesa. Le popolazioni dei portafogli possono sovrapporsi e non si sommano. Il canale globale non modifica questa vista CO.</p>
         </Panel>
       </section>
-      {workbook && <><PillarCInsightsPanel index={workbook} section="numerosita" /><PillarCInsightsSection index={workbook} section="tendenze" /></>}
       <section id="previsione" aria-labelledby="previsione-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading inner id="previsione" title="Che cosa indica la previsione regionale per il 2026?">{"Serie pubblica AIFA del flusso tracciabilità a livello regionale, con intervalli all’80\u00a0% e al 95\u00a0%. Non segue l’ambito aziendale né il canale selezionati."}</Heading>
         <PillarCForecastPanel forecast={packet.forecast} series={filters.forecastSeries} onSeries={(forecastSeries) => update({ forecastSeries })} published />
-        {workbook && <PillarCInsightsPanel index={workbook} section="previsione" />}
       </section>
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PRIORITA)}>
       <div className="flex flex-wrap gap-x-4 gap-y-1">{workbook ? <a href="#attribuzione" className={crossLink}>Quali prodotti approfondire per primi? →</a> : null}<a href="#piano-revisione" className={crossLink}>Piano di revisione del portafoglio →</a></div>
-      {workbook && <><PillarCInsightsSection index={workbook} section="sensibilita" /><PillarCInsightsSection index={workbook} section="priorita" /><PillarCEvidenceWorkflow /></>}
+      {workbook && <PillarCEvidenceWorkflow />}
       <PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}><OutputLineage packet={packet} /><details className="mt-6 rounded-xl border border-border p-4"><summary className="cursor-pointer py-3 text-sm font-medium">Versione e tracciabilità</summary><dl className="mt-4 space-y-3 text-xs"><div><dt className="font-semibold">Workbook</dt><dd className="mt-1 break-all">{packet.workbookVersion} · {packet.workbookSha256}</dd></div><div><dt className="font-semibold">Ricevute numeriche</dt><dd className="mt-1 break-all">Spesa: {packet.evidence.financial}<br />Budget e numerosità: {packet.evidence.budgetCount}{packet.evidence.financialR5Review && <><br />{`Spesa, controllo incrociato: ${packet.evidence.financialR5Review}`}</>}{packet.evidence.budgetCountR5Review && <><br />{`Budget e numerosità, controllo incrociato: ${packet.evidence.budgetCountR5Review}`}</>}{packet.evidence.forecast && <><br />{`Previsione: ${packet.evidence.forecast}`}</>}{packet.evidence.forecastInputs && <><br />{`Previsione, input: ${packet.evidence.forecastInputs}`}</>}{packet.evidence.forecastWorkbookIntegration && <><br />{`Previsione, integrazione nel workbook: ${packet.evidence.forecastWorkbookIntegration}`}</>}</dd></div><div><dt className="font-semibold">Ambito dei controlli</dt><dd className="mt-1">Controlli numerici dei campi indicati. L’accettazione indipendente e di dominio resta distinta dal controllo dell’interfaccia.</dd></div></dl></details></PillarCEvidenceSources>
-      {workbook && <PillarCInsightsPanel index={workbook} section="evidenza" />}
     </PillarCSectionFrame>
-  </div></PillarCInsightsProvider>;
+  </div>;
 }

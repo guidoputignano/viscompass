@@ -51,7 +51,7 @@ test('workspace mounts decision sections, not the old workbook explorer',()=>{
   const source=readFileSync(new URL('../components/dashboard-review/pillar-c/analytical-workspace.tsx',import.meta.url),'utf8');
   assert.doesNotMatch(source,/PillarCWorkbook|workbook-explorer|Esplora il workbook|Explore the workbook/);
   assert.match(source,/Più persone trattate o prodotti più costosi/);
-  assert.match(source,/PillarCInsightsProvider/);
+  assert.doesNotMatch(source,/PillarCInsights|insight-panels/,'the workbook insight browser is removed (1.2d)');
   assert.doesNotMatch(source,/>[^<]*(?:Spesa S2|ML-[123])[^<]*</);
 });
 
@@ -62,11 +62,6 @@ test('forecast decision selector excludes model diagnostics and the duplicate ra
   assert.deepEqual(visible.map(o=>o.id),['O-18-04']);
   assert.equal(JSON.stringify(outputs),before,'immutable workbook evidence is preserved');
   assert.deepEqual(cInsightDecisionOutputs(outputs,'tendenze').map(o=>o.id),['O-17-01']);
-  const source=readFileSync(new URL('../components/dashboard-review/pillar-c/insight-panels.tsx',import.meta.url),'utf8');
-  assert.match(source,/definitions=cInsightDecisionOutputs\(index\.outputs,section\)/,'the live selector uses the presentation filter');
-  assert.match(source,/cInsightVisibleColumns\(table,output\)/,'column policy is scoped to the actual output');
-  assert.doesNotMatch(source,/previsione:'Scenari e affidabilità'/);
-  assert.match(source,/non probabilità né previsioni aziendali/,'scenario bounds are not forecast probabilities');
   const workspace=readFileSync(new URL('../components/dashboard-review/pillar-c/analytical-workspace.tsx',import.meta.url),'utf8');
   assert.match(workspace,/<PillarCForecastPanel forecast=\{packet\.forecast\}/,'the typed chart still presents the forecast results');
 });

@@ -141,9 +141,9 @@ test('the queue is its own anchored, navigable section and states its boundaries
   assert.ok(!ids.includes('evidence-workflow')&&!ids.includes('evidenza'),'neither the queue nor the evidence block is a navigation entry');
   assert.equal(pillarCSectionAtViewport([{id:'fattori',top:-900},{id:'priorita-evidenza',top:-20}],150),'priorita-evidenza');
   const page=source('components/dashboard-review/pillar-c/analytical-workspace.tsx');
-  assert.ok(page.indexOf('<PillarCSectionFrame {...frameOf(PRIORITA)}>')>0&&page.indexOf('<PillarCSectionFrame {...frameOf(PRIORITA)}>')<page.indexOf('section="priorita" /><PillarCEvidenceWorkflow />'),'the queue mounts inside section 6');
+  assert.ok(page.indexOf('<PillarCSectionFrame {...frameOf(PRIORITA)}>')>0&&page.indexOf('<PillarCSectionFrame {...frameOf(PRIORITA)}>')<page.indexOf('{workbook && <PillarCEvidenceWorkflow />}'),'the queue mounts inside section 6');
   // 1.2b: the «evidenza» block is PillarCEvidenceSources (its section id is the component's default), after the queue.
-  assert.ok(page.indexOf('section="priorita" /><PillarCEvidenceWorkflow />')>0&&page.indexOf('<PillarCEvidenceWorkflow />')<page.indexOf('<PillarCEvidenceSources'));
+  assert.ok(page.indexOf('{workbook && <PillarCEvidenceWorkflow />}')>0&&page.indexOf('<PillarCEvidenceWorkflow />')<page.indexOf('<PillarCEvidenceSources'));
   assert.match(source('components/dashboard-review/pillar-c/section-navigation.tsx'),/"priorita-evidenza": ListChecks/);
 });
 
