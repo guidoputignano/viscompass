@@ -4,8 +4,8 @@
  * and the organisation-scoped workspace (scoped-workspace.tsx). They read values only, never an organisation key or
  * label, and import nothing reviewer-only: the scoped workspace reaches this module, and its bundle must carry no
  * province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs). */
-import { ArrowDownUp, Wallet, FileCheck2, CalendarRange, ChartArea, ChartNoAxesCombined, BarChart3 } from "lucide-react";
-import { AreaChart, Area, BarChart, Bar, Cell, CartesianGrid, LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ArrowDownUp, Wallet, FileCheck2 } from "lucide-react";
+import { BarChart, Bar, Cell, CartesianGrid, LineChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { KpiCard } from "@/components/dashboard-review/analytics-ui";
 import { PillarCChangeBridge } from "@/components/dashboard-review/pillar-c/change-bridge";
 import { itNumber } from "@/lib/format/it-number";
@@ -39,42 +39,46 @@ function Empty({ children }: { children: React.ReactNode }) { return <p role="st
 type Row<T> = Omit<T, "org"> & { org: string };
 type BudgetRow = Omit<CBudget, "org" | "basis"> & { org: string; basis: CBudget["basis"] };
 type CountRow = Row<CCount>;
-export type CReviewSpendView = "area" | "line" | "bar";
-type SpendView = CReviewSpendView;
 type SpendMonth = { month: number; amount: number | null; exact: string | null; rows: number; label: string };
 
-export function SpendKpis({ baseline, period, scope, monthly }: { baseline: Row<CBaseline>; period: CReviewFilters["period"]; scope: string; monthly: SpendMonth[] }) {
-  return <><div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label={`Spesa netta · ${C_PERIOD_LABELS[period]}`} value={eur(baseline.net)} detail={scope} icon={Wallet} accent /><KpiCard label="Importi positivi" value={eur(baseline.positive)} detail="Prima delle rettifiche negative" icon={ArrowDownUp} /><KpiCard label="Rettifiche negative" value={eur(baseline.negative)} detail="Incluse, non rimosse dal totale" icon={FileCheck2} /><KpiCard label="Mesi rappresentati" value={`${monthly.filter((r) => r.rows > 0).length} / ${monthly.length}`} detail="Non certifica la completezza degli invii" icon={CalendarRange} /></div></>;
+/** The three spend figures of the period. How many months hold a row is a coverage fact, stated under the chart. */
+export function SpendKpis({ baseline, period, scope }: { baseline: Row<CBaseline>; period: CReviewFilters["period"]; scope: string }) {
+  return <><div className="mb-5 grid gap-3 sm:grid-cols-3"><KpiCard label={`Spesa netta · ${C_PERIOD_LABELS[period]}`} value={eur(baseline.net)} detail={scope} icon={Wallet} accent /><KpiCard label="Importi positivi" value={eur(baseline.positive)} detail="Prima delle rettifiche negative" icon={ArrowDownUp} /><KpiCard label="Rettifiche negative" value={eur(baseline.negative)} detail="Incluse, non rimosse dal totale" icon={FileCheck2} /></div></>;
 }
-export function SpendViewButtons({ spendView, setSpendView }: { spendView: SpendView; setSpendView: (view: SpendView) => void }) {
-  return <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Grafico della spesa">{([{id:'area',label:'Area',icon:ChartArea},{id:'line',label:'Linea',icon:ChartNoAxesCombined},{id:'bar',label:'Colonne',icon:BarChart3}] as const).map(({id,label,icon:Icon})=><button key={id} type="button" className={`${actionClass} ${spendView===id?'border-primary bg-primary/5 text-primary':''}`} aria-pressed={spendView===id} onClick={()=>setSpendView(id)}><Icon size={15} aria-hidden="true"/>{label}</button>)}</div>;
-}
-/** `spendGradient` comes from the caller's useId, so the chart's ids stay where they were in the page. */
-export function SpendChart({ monthly, spendView, spendGradient, divisor, trend }: { monthly: SpendMonth[]; spendView: SpendView; spendGradient: string; divisor: number; trend: CReviewFilters["trend"] }) {
+/** The spend of the period, the chart chosen by the question: monthly net spend as columns (a negative month in --viz-4,
+ * below the zero line), the cumulative spend as a line with a dot per month that breaks where a month has no row. The
+ * exact values are in the table beneath, so the chart is hidden from assistive technology. */
+export function SpendChart({ monthly, divisor, trend }: { monthly: SpendMonth[]; divisor: number; trend: CReviewFilters["trend"] }) {
+  const label = trend === "monthly" ? "Spesa netta" : "Spesa cumulata";
+  const value = (v: number, item: { payload?: SpendMonth }) => item.payload?.exact == null ? "Non disponibile" : eur(item.payload.exact ?? v);
   return <div className="h-72 min-w-0" aria-hidden="true">
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            {spendView === "area" ? <AreaChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
-              <defs><linearGradient id={spendGradient} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--viz-1)" stopOpacity={0.35}/><stop offset="100%" stopColor="var(--viz-1)" stopOpacity={0.02}/></linearGradient></defs>
+            {trend === "monthly" ? <BarChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
               <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
-              <Area dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={2.5} fill={`url(#${spendGradient})`} isAnimationActive={false}/>
-            </AreaChart> : spendView === "bar" ? <BarChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
-              <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
+              <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [value(v, item), label]} />
               <Bar dataKey="amount" isAnimationActive={false} radius={[4, 4, 0, 0]}>{monthly.map((r) => <Cell key={r.month} fill={(r.amount ?? 0) < 0 ? "var(--viz-4)" : "var(--viz-1)"} />)}</Bar>
             </BarChart> : <LineChart data={monthly} margin={{ top: 12, right: 10, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="hsl(var(--border))" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={chartTick} />
               <YAxis tickFormatter={(n) => fmt(Number(n) / divisor)} width={55} axisLine={false} tickLine={false} tick={chartTick} />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [eur(item.payload.exact ?? v), trend === 'monthly' ? 'Spesa netta' : 'Spesa cumulata']} />
-              <Line dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={3} isAnimationActive={false} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: tooltipStyle.color }} formatter={(v: number, _name, item) => [value(v, item), label]} />
+              <Line dataKey="amount" type="linear" connectNulls={false} stroke="var(--viz-1)" strokeWidth={2.5} dot={{ r: 3, fill: "var(--viz-1)" }} isAnimationActive={false} />
             </LineChart>}
           </ResponsiveContainer>
         </div>;
+}
+/** How many months of the period hold at least one row: a coverage fact under the chart, not a figure of the period. */
+export function SpendCoverage({ monthly }: { monthly: SpendMonth[] }) {
+  const represented = monthly.filter((r) => r.rows > 0).length;
+  return <p key={`${represented}/${monthly.length}`} className="mt-3 text-xs text-muted-foreground">{`${represented} di ${monthly.length} mesi rappresentati · non certifica la completezza degli invii`}</p>;
+}
+/** The exact cell of a month. A month with no row in the register says so: it is neither an observed zero nor a gap
+ * in the data; a month whose cumulative value is interrupted reads «Non disponibile». */
+export function cSpendCell(r: SpendMonth): string {
+  return r.exact !== null ? eur(r.exact) : r.rows === 0 ? "Nessuna riga nel registro" : "Non disponibile";
 }
 export function BridgeValues({ left, right, bridge }: { left: Row<CBaseline>; right: Row<CBaseline>; bridge: Row<CBridge>[] }) {
   return <><div className="mb-6 grid gap-3 sm:grid-cols-3">{[["Spesa iniziale", eur(left.net)], ["Variazione", signed(cMoneyDifference(right.net, left.net))], ["Spesa finale", eur(right.net)]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/50 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-lg font-semibold tabular-nums">{value}</p></div>)}</div><PillarCChangeBridge opening={left.net} closing={right.net} components={bridge}/><ExactTable caption="Componenti del ponte" headers={["Componente", "Contributo", "Voci prodotto"]} rows={bridge.map((r) => [C_COMPONENT_LABELS[r.component], signed(r.value), itNumber(r.cells)])} /></>;

@@ -58,7 +58,8 @@ export function PillarCChangeBridge({ opening, closing, components }: { opening:
           </svg>
         </div>
         <div className="mt-3 min-h-12 rounded-lg bg-secondary/30 px-4 py-3 text-xs" aria-live="polite">{chosen ? `${label(chosen.id)}: ${cMoneyLabel(chosen.value)}${chosen.total ? '' : ` · da ${cMoneyLabel(chosen.start)} a ${cMoneyLabel(chosen.end)}`}` : 'Seleziona una componente per leggere il contributo esatto e i livelli prima e dopo.'}</div>
-        <p className="mt-3 text-xs text-muted-foreground">La cascata riconcilia gli importi iniziali e finali. Blu: totale; verde: contributo positivo; arancio: contributo negativo. I contributi sono contabili, non effetti causali.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">{([["var(--viz-1)", "Totale"], ["var(--viz-3)", "Contributo positivo"], ["var(--viz-2)", "Contributo negativo"]] as const).map(([color, name]) => <span key={name} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-sm" style={{ background: color }} />{name}</span>)}</div>
+        <p className="mt-2 text-xs text-muted-foreground">La cascata riconcilia gli importi iniziali e finali. I contributi sono contabili, non effetti causali.</p>
       </>}
   </div>;
 }

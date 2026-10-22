@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/dashboard-review/analytics-ui";
 import { LocalToggle } from "@/components/dashboard-review/pillar-b-local-toggle";
@@ -24,7 +24,7 @@ import { PILLAR_C_SECTIONS, type PillarCSection } from "@/lib/dashboard-review/p
 import { itNumber } from "@/lib/format/it-number";
 import { C_FORECAST_LABEL, C_PERIOD_LABELS, C_PERIODS, C_REVIEW_SECTIONS, cMoneyLabel, cReviewFilters, cReviewSearch, selectCReview, type COrg, type CPeriod, type CReviewFilters, type CReviewPacket } from "@/lib/dashboard-review/pillar-c/review";
 import { C_ORG_LABELS } from "@/lib/dashboard-review/pillar-c/reviewer-labels";
-import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendKpis, SpendViewButtons, type CReviewSpendView as SpendView } from "@/components/dashboard-review/pillar-c/review-blocks";
+import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendCoverage, SpendKpis, cSpendCell } from "@/components/dashboard-review/pillar-c/review-blocks";
 
 const eur = cMoneyLabel;
 const signed = (value: string | number) => `${Number(value) > 0 ? "+" : ""}${eur(value)}`;
@@ -92,8 +92,6 @@ function ReviewerGate({ packet, workbook }: { packet: CReviewPacket; workbook?: 
  * question; the review blocks, the dossier, the attribution and the workbook insights sit inside the frames by topic. */
 function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex }) {
   const search = useSearchParams(), filters = cReviewFilters(search), data = selectCReview(packet, filters);
-  const [spendView, setSpendView] = useState<SpendView>('area');
-  const spendGradient = useId().replaceAll(':', '');
   const budgetFilters = cBudgetFilters(packet, new URLSearchParams(search));
   const budgetData = selectCReview(packet, budgetFilters);
   const updateBudget = (patch: Partial<CReviewFilters>) => {
@@ -150,11 +148,11 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
     <PillarCSectionFrame {...frameOf(FATTORI)}>
       <section id="spesa" aria-labelledby="spesa-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading inner id="spesa" title="Come cambia la spesa nel tempo?">Importi netti, rettifiche negative e mesi rappresentati nel registro fornito.</Heading>
         <div className="mb-5 flex flex-wrap gap-4"><label className="min-w-48 text-xs font-medium text-muted-foreground">Periodo della spesa<select aria-label="Periodo della spesa" className={selectClass} value={filters.period} onChange={(e) => update({ period: e.target.value as CReviewFilters["period"] })}>{C_PERIODS.map((p) => <option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label></div>
-        {baseline ? <SpendKpis baseline={baseline} period={filters.period} scope={scope} monthly={monthly} /> : <Empty>Nessun dato nel pacchetto di revisione per questa selezione. Il valore non viene sostituito con zero.</Empty>}
+        {baseline ? <SpendKpis baseline={baseline} period={filters.period} scope={scope} /> : <Empty>Nessun dato nel pacchetto di revisione per questa selezione. Il valore non viene sostituito con zero.</Empty>}
         <Panel title={`Profilo della spesa · ${C_PERIOD_LABELS[filters.period]}`} description={`${scope}. ${axisUnit}.`} controls={<LocalToggle label="Vista" value={filters.trend} options={[{ value: "monthly", label: "Mensile" }, { value: "cumulative", label: "Cumulata" }]} onChange={(trend) => update({ trend })} ariaLabel="Vista della spesa" />}>
-          <SpendViewButtons spendView={spendView} setSpendView={setSpendView} />
-          <SpendChart monthly={monthly} spendView={spendView} spendGradient={spendGradient} divisor={divisor} trend={filters.trend} />
-          <ExactTable caption="Spesa e righe per mese" headers={["Mese", filters.trend === "monthly" ? "Spesa netta" : "Spesa cumulata", "Righe rappresentate"]} rows={monthly.map((r) => [r.label, eur(r.exact), itNumber(r.rows)])} />
+          <SpendChart monthly={monthly} divisor={divisor} trend={filters.trend} />
+          <SpendCoverage monthly={monthly} />
+          <ExactTable caption="Spesa e righe per mese" headers={["Mese", filters.trend === "monthly" ? "Spesa netta" : "Spesa cumulata", "Righe rappresentate"]} rows={monthly.map((r) => [r.label, cSpendCell(r), itNumber(r.rows)])} />
           <p className="mt-4 text-xs leading-5 text-muted-foreground">Un mese assente interrompe la cumulata. Il 2026 è limitato a gennaio–maggio e non è confrontato con dodici mesi.</p>
         </Panel>
       </section>

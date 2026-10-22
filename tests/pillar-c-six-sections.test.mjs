@@ -414,7 +414,7 @@ test('7. the scoped scope bar writes c_org, c_channel, c_port_org and c_port_cha
 
 // ================================================================ 8. a null, a zero and a negative month
 // Catches: an absent month drawn or tabled as zero, a zero month dropped, a negative month clipped, NaN or undefined.
-test('8. the invented null, zero and negative months render as «Non disponibile», zero and a negative amount',()=>{
+test('8. the invented null, zero and negative months render as «Nessuna riga nel registro», zero and a negative amount',()=>{
   const months=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
   const own=reviews[EDGE_UNIT].monthly.filter(r=>r.year===2025&&r.channel==='CO');
   assert.equal(own.some(r=>r.month===EDGE_MONTHS.absent),false);
@@ -426,13 +426,13 @@ test('8. the invented null, zero and negative months render as «Non disponibile
     const rows=[...spend.matchAll(/<tr><t[dh][^>]*>([^<]*)<\/t[dh]><td[^>]*>([^<]*)<\/td>/g)].map(m=>[m[1],m[2]]);
     const row=m=>rows.find(([label])=>label===months[m-1])?.[1];
     assert.equal(row(EDGE_MONTHS.negative),eur(negative),`${k}: the negative month keeps its sign`);
-    assert.equal(row(EDGE_MONTHS.absent),'Non disponibile',`${k}: the absent month is never a zero`);
+    assert.equal(row(EDGE_MONTHS.absent),'Nessuna riga nel registro',`${k}: the absent month is never a zero`);
     assert.equal(row(EDGE_MONTHS.zero),eur('0'),`${k}: the zero month is a zero`);
     assert.doesNotMatch(html,NEVER,k);
     // Cumulated: the absent month interrupts the series; nothing after it is invented.
     const cumulative=between(scoped(k,`${search}&c_trend=cumulative`),'<section id="spesa"','</section>');
     const crow=m=>[...cumulative.matchAll(/<tr><t[dh][^>]*>([^<]*)<\/t[dh]><td[^>]*>([^<]*)<\/td>/g)].find(x=>x[1]===months[m-1])?.[2];
-    for(let m=EDGE_MONTHS.absent;m<=12;m++)assert.equal(crow(m),'Non disponibile',`${k}: cumulated ${months[m-1]}`);
+    for(let m=EDGE_MONTHS.absent;m<=12;m++)assert.equal(crow(m),m===EDGE_MONTHS.absent?'Nessuna riga nel registro':'Non disponibile',`${k}: cumulated ${months[m-1]}`);
   }
 });
 

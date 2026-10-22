@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/dashboard-review/analytics-ui";
 import { LocalToggle } from "@/components/dashboard-review/pillar-b-local-toggle";
@@ -16,7 +16,7 @@ import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 // The shared blocks come from review-blocks.tsx, never from the reviewer workspace: nothing this component reaches
 // carries a province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs).
-import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewHeading as Heading, CReviewExactTable as ExactTable, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendKpis, SpendViewButtons } from "@/components/dashboard-review/pillar-c/review-blocks";
+import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewHeading as Heading, CReviewExactTable as ExactTable, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendCoverage, SpendKpis, cSpendCell } from "@/components/dashboard-review/pillar-c/review-blocks";
 import type { CClientAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
 import { C_AUDIENCE_COPY, cAudienceLabel, cAudienceScope, cClientAudience, cScopedBudgetFilters, cScopedBudgetSearch, cScopedDecision, cScopedHasActs, cScopedPublishedActs, cScopedReviewFilters, cScopedReviewSearch } from "@/lib/dashboard-review/pillar-c/audience-view";
 import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-decision";
@@ -116,8 +116,6 @@ function ScopedWorkspace({ audience, packet, forecast }: { audience: CClientAudi
   const { filters, tampered } = cScopedReviewFilters(audience, new URLSearchParams(search));
   const data = selectCReview(packet, filters);
   const label = (key: string) => cAudienceLabel(audience, key) ?? "";
-  const [spendView, setSpendView] = useState<"area" | "line" | "bar">("area");
-  const spendGradient = useId().replaceAll(":", "");
   const budget = cScopedBudgetFilters(audience, packet, new URLSearchParams(search)), budgetFilters = budget.filters;
   const budgetData = selectCReview(packet, budgetFilters), budgets = budgetData.budgets;
   const budgetLabel = label(budgetFilters.org), hasActs = cScopedHasActs(packet, budgetFilters.org);
@@ -175,11 +173,11 @@ function ScopedWorkspace({ audience, packet, forecast }: { audience: CClientAudi
     <PillarCSectionFrame {...frameOf(FATTORI)}>
       <section id="spesa" aria-labelledby="spesa-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading inner id="spesa" title="Come cambia la spesa nel tempo?">Importi netti, rettifiche negative e mesi rappresentati nel registro fornito.</Heading>
         <div className="mb-5 flex flex-wrap gap-4"><label className="min-w-48 text-xs font-medium text-muted-foreground">Periodo della spesa<select aria-label="Periodo della spesa" className={selectClass} value={filters.period} onChange={(e) => update({ period: e.target.value as CScopedReviewFilters["period"] })}>{C_PERIODS.map((p) => <option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label></div>
-        {baseline ? <SpendKpis baseline={baseline} period={filters.period} scope={scope} monthly={monthly} /> : <Empty>Nessun dato nel pacchetto di revisione per questa selezione. Il valore non viene sostituito con zero.</Empty>}
+        {baseline ? <SpendKpis baseline={baseline} period={filters.period} scope={scope} /> : <Empty>Nessun dato nel pacchetto di revisione per questa selezione. Il valore non viene sostituito con zero.</Empty>}
         <Panel title={`Profilo della spesa · ${C_PERIOD_LABELS[filters.period]}`} description={`${scope}. ${axisUnit}.`} controls={<LocalToggle label="Vista" value={filters.trend} options={[{ value: "monthly", label: "Mensile" }, { value: "cumulative", label: "Cumulata" }]} onChange={(trend) => update({ trend })} ariaLabel="Vista della spesa" />}>
-          <SpendViewButtons spendView={spendView} setSpendView={setSpendView} />
-          <SpendChart monthly={monthly} spendView={spendView} spendGradient={spendGradient} divisor={divisor} trend={filters.trend} />
-          <ExactTable caption="Spesa e righe per mese" headers={["Mese", filters.trend === "monthly" ? "Spesa netta" : "Spesa cumulata", "Righe rappresentate"]} rows={monthly.map((r) => [r.label, eur(r.exact), itNumber(r.rows)])} />
+          <SpendChart monthly={monthly} divisor={divisor} trend={filters.trend} />
+          <SpendCoverage monthly={monthly} />
+          <ExactTable caption="Spesa e righe per mese" headers={["Mese", filters.trend === "monthly" ? "Spesa netta" : "Spesa cumulata", "Righe rappresentate"]} rows={monthly.map((r) => [r.label, cSpendCell(r), itNumber(r.rows)])} />
           <p className="mt-4 text-xs leading-5 text-muted-foreground">Un mese assente interrompe la cumulata. Il 2026 è limitato a gennaio–maggio e non è confrontato con dodici mesi.</p>
         </Panel>
       </section>
