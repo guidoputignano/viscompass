@@ -59,6 +59,7 @@ test('PVM rendering gives the admitted subset its own denominator and never show
  const html=renderToStaticMarkup(React.createElement(CPortfolioPvmReading,{result}));
  assert.match(html,/60%/);assert.match(html,/70%/);assert.match(html,/data-c-pvm-admitted-change="8"/);assert.match(html,/data-c-pvm-effect="unitCost" data-value="-1"/);
  assert.match(html,/non scompongono l’intera variazione/);assert.match(html,/non è convalidata dall’Azienda/);assert.doesNotMatch(html,/NaN|Infinity|undefined/);
+ assert.doesNotMatch(html,/registro AIFA|convenzione Q|ledger/,'no internal source wording in the reading (1.2b)');
  const unsupported=renderToStaticMarkup(React.createElement(CPortfolioPvmReading,{result:{status:'unsupported',reason:'scope'}}));assert.match(unsupported,/Non viene applicato a questa selezione/);assert.doesNotMatch(unsupported,/data-c-pvm-effect/);
  const insufficient=renderToStaticMarkup(React.createElement(CPortfolioPvmReading,{result:{status:'insufficient',coverage:{earlier:'0.3',later:'0.4'},effects:null,admittedChange:null}}));assert.match(insufficient,/inferiore al 50%/);assert.doesNotMatch(insufficient,/data-c-pvm-effect/);
  const rounded=renderToStaticMarkup(React.createElement(CPortfolioPvmReading,{result:{...result,rounding:{rawResidual:'0',displayResidual:'0.01'}}}));assert.match(rounded,/differisce dal saldo arrotondato di \+0,01 €/);
@@ -70,11 +71,16 @@ test('candidate-only portfolio never invents fixed spending or a scenario baseli
  assert.match(html,/data-change="unavailable"/);assert.match(html,/Non disponibile/);
  assert.doesNotMatch(html,/data-c-portfolio-scenario/);assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });
-test('purpose navigation distinguishes adoption from whole-portfolio decisions; all local reset keys are registered',()=>{
+test('purpose navigation stays for the organisation-scoped page until 1.2c; the reviewer no longer mounts it and the sidebar carries the distinction; all local reset keys are registered',()=>{
  const html=renderToStaticMarkup(React.createElement(PillarPurposeNavigation));
  assert.match(html,/Pillar B · Biosimilari ed esclusività/);assert.match(html,/Intera spesa farmaceutica/);
  const workspace=readFileSync(new URL('../components/dashboard-review/pillar-c/analytical-workspace.tsx',import.meta.url),'utf8');
- assert.match(workspace,/<PillarCPortfolioDossier workbook=\{workbook\}\s*\/>/);
+ assert.match(workspace,/<PillarCPortfolioDossier workbook=\{workbook\} pageScope\s*\/>/);
+ assert.doesNotMatch(workspace,/PillarPurposeNavigation/,'the reviewer no longer mounts the purpose navigation (1.2b, D5)');
+ const sidebar=readFileSync(new URL('../components/dashboard-review/nav.tsx',import.meta.url),'utf8');
+ assert.ok(sidebar.includes('href: "/dashboard-review/revisione-pillar-b", label: "Pillar B · Biosimilari ed esclusività"'),'the sidebar names Pillar B');
+ assert.ok(sidebar.includes('label: "Pillar C · Aree cliniche e budget"'),'the sidebar names Pillar C');
+ assert.match(readFileSync(new URL('../components/dashboard-review/pillar-c/scoped-workspace.tsx',import.meta.url),'utf8'),/<PillarPurposeNavigation \/>/,'the scoped page keeps it until 1.2c');
  // The page-level reset lives in reset-search.ts (shared by both workspaces); insights.ts re-exports it.
  const source=readFileSync(new URL('../lib/dashboard-review/pillar-c/reset-search.ts',import.meta.url),'utf8');
  for(const key of ['c_port_org','c_port_channel','c_port_period','c_port_id'])assert.ok(source.includes(key));

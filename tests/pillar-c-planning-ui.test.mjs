@@ -313,7 +313,12 @@ test('the planning section carries only allowlisted data-* attributes, never an 
   assert.doesNotMatch(ui,/\bdemo\b|dimostra|verificat/i,'never a demo, never a verification claim');
   assert.doesNotMatch(Object.values(L).flatMap(g=>Object.values(g).flat()).join(' '),/verificat|\bdemo\b/i,'no label claims a verification');
   const workspace=source('components/dashboard-review/pillar-c/analytical-workspace.tsx');
-  assert.match(workspace,/<PillarCPortfolioDossier workbook=\{workbook\}\s*\/>\n\s*<PillarCPlanningWorkspace publishedActs=\{publishedActs\} evidenceAnchor=\{Boolean\(workbook\)\}\/>/,'mounted right after the dossier with only the act keys');
+  // 1.2b: the Spazio scenari sits in section 5 «Budget e scenari», after the budget panel and before the CO count
+  // scenario; the dossier moved to section 3, before the spend block of section 4.
+  const at=s=>{const i=workspace.indexOf(s);assert.ok(i>=0,s);assert.equal(workspace.indexOf(s,i+1),-1,`${s} occurs once`);return i;};
+  const mount='<PillarCPlanningWorkspace publishedActs={publishedActs} evidenceAnchor={Boolean(workbook)}/>';
+  assert.ok(at('<section id="pianificazione"')<at(mount)&&at(mount)<at('<section id="numerosita"'),'Spazio scenari in section 5 after the budget panel, with only the act keys');
+  assert.ok(at('<PillarCPortfolioDossier workbook={workbook} pageScope/>')<at('<section id="spesa"'),'the dossier precedes the spend block');
   assert.match(workspace,/const publishedActs = useMemo\(\(\) => \[\.\.\.new Set\(packet\.budgets\.filter\(b => b\.basis === "published" && b\.level === "Dipartimento"\)\.map\(b => `\$\{b\.org\}\|\$\{b\.period\}\|\$\{b\.channel\}`\)\)\], \[packet\]\);/,'keys only, never a budget row or amount');
   assert.equal((workspace.match(/PillarCPlanningWorkspace/g)??[]).length,2,'imported once, mounted once');
 });

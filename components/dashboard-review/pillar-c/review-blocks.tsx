@@ -23,7 +23,11 @@ const tooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(va
 function Panel({ title, description, controls, children }: { title: string; description?: string; controls?: React.ReactNode; children: React.ReactNode }) {
   return <article className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6"><div className="mb-5 flex flex-wrap items-start justify-between gap-4"><div><h3 className="text-base font-semibold">{title}</h3>{description && <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>}</div>{controls}</div>{children}</article>;
 }
-function Heading({ id, number, title, children }: { id: string; number: string; title: string; children: React.ReactNode }) {
+type HeadingProps = { id: string; title: string; children: React.ReactNode } & ({ number: string; inner?: false } | { inner: true; number?: undefined });
+/** A review section's heading. `inner`: a block inside a section frame, which carries the h2 and the numeral, so the
+ * block gets an h3 and no number badge (1.2b); without it, the numbered h2 the organisation-scoped page uses until 1.2c. */
+function Heading({ id, number, title, children, inner = false }: HeadingProps) {
+  if (inner) return <div className="mb-5"><h3 id={`${id}-title`} className="text-lg font-semibold tracking-tight">{title}</h3><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">{children}</p></div>;
   return <div className="mb-5 flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs font-semibold text-primary">{number}</span><div><h2 id={`${id}-title`} className="text-xl font-semibold tracking-tight">{title}</h2><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">{children}</p></div></div>;
 }
 function ExactTable({ caption, headers, rows }: { caption: string; headers: string[]; rows: React.ReactNode[][] }) {
@@ -74,7 +78,7 @@ export function SpendChart({ monthly, spendView, spendGradient, divisor, trend }
         </div>;
 }
 export function BridgeValues({ left, right, bridge }: { left: Row<CBaseline>; right: Row<CBaseline>; bridge: Row<CBridge>[] }) {
-  return <><div className="mb-6 grid gap-3 sm:grid-cols-3">{[["Spesa iniziale", eur(left.net)], ["Variazione", signed(cMoneyDifference(right.net, left.net))], ["Spesa finale", eur(right.net)]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/50 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-lg font-semibold tabular-nums">{value}</p></div>)}</div><PillarCChangeBridge opening={left.net} closing={right.net} components={bridge}/><ExactTable caption="Componenti del ponte" headers={["Componente", "Contributo", "Celle prodotto"]} rows={bridge.map((r) => [C_COMPONENT_LABELS[r.component], signed(r.value), itNumber(r.cells)])} /></>;
+  return <><div className="mb-6 grid gap-3 sm:grid-cols-3">{[["Spesa iniziale", eur(left.net)], ["Variazione", signed(cMoneyDifference(right.net, left.net))], ["Spesa finale", eur(right.net)]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/50 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-lg font-semibold tabular-nums">{value}</p></div>)}</div><PillarCChangeBridge opening={left.net} closing={right.net} components={bridge}/><ExactTable caption="Componenti del ponte" headers={["Componente", "Contributo", "Voci prodotto"]} rows={bridge.map((r) => [C_COMPONENT_LABELS[r.component], signed(r.value), itNumber(r.cells)])} /></>;
 }
 /** Budget, both allocation keys and the neutral difference on one common scale; the first twelve areas are drawn. */
 export function BudgetRows({ budgets }: { budgets: BudgetRow[] }) {
@@ -99,14 +103,15 @@ export function BudgetRows({ budgets }: { budgets: BudgetRow[] }) {
         </>;
 }
 /** The wording of the CO count block: the scale's caption, the unit after each row's ratio, and the exact table's
- * headers. The default is the reviewer view's wording, whose markup is pinned byte-identical; the organisation-scoped
- * workspace passes its own (C_AUDIENCE_COPY.countsLabels), a ratio to the estimated count and never a per-person unit
- * (review finding F-UI3-RES). */
+ * headers. The default is the ratio wording for every reader (1.2b), a ratio to the estimated count and never a
+ * per-person unit (review finding F-UI3-RES); it equals the countsLabels of the organisation-scoped copy, which the
+ * organisation-scoped workspace still passes; the strings are literal because this file imports nothing from the
+ * scoped vocabulary. */
 export type CCountLabels = { scale: string; unit: string; headers: readonly [string, string, string, string, string, string] };
 const C_REVIEW_COUNT_LABELS: CCountLabels = {
-  scale: "Euro / persona nello scenario",
-  unit: " / persona nello scenario",
-  headers: ["Portafoglio", "Numerosità base stimata", "Spesa CO attribuita tramite portafoglio", "Numerosità ridotta del 25%", "Numerosità di riferimento", "Numerosità aumentata del 25%"],
+  scale: "€ per unità di numerosità stimata · scenario",
+  unit: " per unità di numerosità stimata",
+  headers: ["Portafoglio", "Numerosità base stimata", "Spesa CO attribuita tramite portafoglio", "€ per unità · numerosità ridotta del 25%", "€ per unità · numerosità di riferimento", "€ per unità · numerosità aumentata del 25%"],
 };
 /** The calculated CO scenarios on one common scale, with the ±25% denominator range. */
 export function CountRows({ countRows, labels = C_REVIEW_COUNT_LABELS }: { countRows: CountRow[]; labels?: CCountLabels }) {

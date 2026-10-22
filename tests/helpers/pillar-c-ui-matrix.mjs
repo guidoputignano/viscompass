@@ -1,8 +1,11 @@
 // Reviewer regression matrix of the Pillar C client components (recommendation 5, interface step).
 // It renders, on synthetic data only, the reviewer workspace for a fixed list of addresses (with and without a
 // workbook index) and every leaf view the organisation-scoped interface now shares with it, and returns one
-// canonical JSON string of the markup. The same function was run on the components of 30e9e57, before the
-// audience existed, to pin the expected hash: the reviewer's markup is byte-identical to that commit.
+// canonical JSON string of the markup. The hash was first pinned on the components of 30e9e57, before the audience
+// existed, and re-recorded at 1.2b on the same synthetic data (six-section regroup, the 1.2b copy rows and the
+// reviewer queue link at 44 px), when the leaves of the six-section page were added: the section frame, the scope
+// bar, the decision overview and the evidence sources, each on literal synthetic props outside `data`, so the data
+// hash is unchanged.
 //
 // `root` is the checkout to render (a file URL ending with '/'); `wrap(React, element)` adds what that checkout
 // needs around a leaf view (the reviewer's audience provider now, nothing at 30e9e57); `workspaceProps` are the
@@ -37,6 +40,10 @@ export async function reviewerUiMatrix({root, wrap, workspaceProps}){
   const {CPortfolioChangeSummary}=await at('components/dashboard-review/pillar-c/change-summary.tsx');
   const {CPlanningPanel}=await at('components/dashboard-review/pillar-c/planning-workspace.tsx');
   const {CPortfolioReviewPlan}=await at('components/dashboard-review/pillar-c/review-plan.tsx');
+  const {PillarCSectionFrame,PillarCSectionEmpty}=await at('components/dashboard-review/pillar-c/section-frame.tsx');
+  const {PillarCScopeBar}=await at('components/dashboard-review/pillar-c/scope-bar.tsx');
+  const {PillarCDecisionOverview}=await at('components/dashboard-review/pillar-c/decision-overview.tsx');
+  const {PillarCEvidenceSources}=await at('components/dashboard-review/pillar-c/evidence-sources.tsx');
   const {parseCReviewPacket}=await at('lib/dashboard-review/pillar-c/review.ts');
   const {buildCPortfolioPacket,cPortfolioView}=await at('lib/dashboard-review/pillar-c/portfolio.ts');
   const {cPlanningAccept,C_PLANNING_MATCHED}=await at('lib/dashboard-review/pillar-c/planning.ts');
@@ -84,5 +91,27 @@ export async function reviewerUiMatrix({root, wrap, workspaceProps}){
     out.push([`planning ?${search} ${load?('view' in load?'ready':load.error):'loading'} evidence=${evidenceAnchor}`,leaf(CPlanningPanel,{search,load,acts,evidenceAnchor,onSearch(){},onRetry(){}},search)]);
   const context={period:'FY2025',org:'AQ',channel:'CO',portfolioId:'AA',portfolioLabel:'Area sintetica A',sourceSha256:'1'.repeat(64),classificationSha256:'2'.repeat(64),mappingVersion:'fictional',sourceSnapshot:'3'.repeat(64),fixedNet:'10.005',sharedAbs:'2'};
   for(const org of ['AQ','Regione','TE'])out.push([`review plan ${org}`,leaf(CPortfolioReviewPlan,{context:{...context,org}})]);
+  // ---- the six-section leaves (1.2b): literal synthetic props only, outside `data`; invented organisations and amounts.
+  const e=React.createElement,NB=String.fromCharCode(0xa0),none=()=>{};
+  out.push(['frame with scope line',leaf(PillarCSectionFrame,{id:'sezione-a',number:'3',title:'Sezione sintetica A',question:'Domanda sintetica della sezione?',scope:['Azienda sintetica Alfa','Tutti i canali','Anno 2025'],children:e('p',null,'contenuto')})]);
+  out.push(['frame with empty state',leaf(PillarCSectionFrame,{id:'sezione-b',number:'2',title:'Sezione sintetica B',question:'Seconda domanda sintetica?',children:e(PillarCSectionEmpty,null,'Frase sintetica. Nessun valore viene sostituito.')})]);
+  const scopeBar={orgOptions:[{value:'unit-a',label:'Azienda sintetica Alfa'},{value:'tutte',label:'Aggregato sintetico'}],org:'unit-a',channelOptions:[{value:'Tutti',label:'Tutti i canali'},{value:'CO',label:'CO'}],channel:'Tutti',onChange:none,onReset:none,tamperedText:'Nota sintetica.',scope:'Azienda sintetica Alfa · Tutti i canali'};
+  out.push(['scope bar',leaf(PillarCScopeBar,scopeBar)]);
+  out.push(['scope bar tampered',leaf(PillarCScopeBar,{...scopeBar,tampered:true})]);
+  const overview={
+    cards:[
+      {title:'Variazione contabile',value:`+1.000,00${NB}€`,detail:'Azienda sintetica Alfa · tutti i canali · 2024–2025'},
+      {title:'Contributo dei prodotti presenti nei due periodi',value:`+600,00${NB}€`,detail:'Contributo alla variazione, non un effetto causale o clinico.'},
+      {title:'Persone trattate osservate',value:'Non disponibili',detail:'Gli scenari CO stimano il denominatore; non misurano più persone trattate.'},
+    ],
+    comparison:'Confronto: 2024 → 2025',
+    links:[{href:'#portafogli-attribuzione',label:'Portafogli e attribuzione'},{href:'#fattori',label:'Fattori di spesa'},{href:'#budget-scenari',label:'Budget e scenari'}],
+  };
+  out.push(['decision overview with regional',leaf(PillarCDecisionOverview,{...overview,regional:{annual:`9.000,00${NB}€`,band:`8.000,00${NB}€ – 10.000,00${NB}€`,href:'#previsione'}})]);
+  out.push(['decision overview without regional',leaf(PillarCDecisionOverview,{...overview,regional:null})]);
+  const criteria=[{title:'Criterio sintetico A',text:'Lettura sintetica del primo criterio.'},{title:'Criterio sintetico B',text:'Lettura sintetica del secondo criterio.'}];
+  const sources=[{term:'Fonte sintetica A',detail:'Descrizione sintetica della prima fonte.'},{term:'Fonte sintetica B',detail:'Descrizione sintetica della seconda fonte.'}];
+  out.push(['evidence sources with children',leaf(PillarCEvidenceSources,{criteria,sources,children:e('details',null,e('summary',null,'Dettaglio sintetico'))})]);
+  out.push(['evidence sources without sources',leaf(PillarCEvidenceSources,{criteria,sources:[]})]);
   return {json:JSON.stringify(out),cases:out.length,data:await sha(JSON.stringify(data))};
 }

@@ -72,6 +72,8 @@ test('new private endpoint checks roles and validates filters, and UI mounts onl
   const route=readFileSync(new URL('../app/api/pillar-c/attribution/route.ts',import.meta.url),'utf8');
   assert.match(route,/!org \|\| !\(viewer\?\.isReviewer \|\| admin\)/);assert.match(route,/private, no-store/);assert.match(route,/invalid_scope/);
   const source=readFileSync(new URL('../components/dashboard-review/pillar-c/analytical-workspace.tsx',import.meta.url),'utf8');
-  assert.equal((source.match(/<PillarCAttributionAnalysis\s*\/>/g)||[]).length,1);
+  // 1.2b (D1): the reviewer mounts it once, inside section 3, reading the dossier's c_port_* scope.
+  assert.equal((source.match(/<PillarCAttributionAnalysis pageScope\s*\/>/g)||[]).length,1);
+  assert.equal((source.match(/<PillarCAttributionAnalysis\b/g)||[]).length,1);
   assert.doesNotMatch(source,/section="attribuzione"/);
 });

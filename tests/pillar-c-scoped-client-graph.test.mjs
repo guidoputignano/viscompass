@@ -11,7 +11,7 @@
 // and asserts that no module of that closure has a province key as an object key, pairs a province token with an
 // «ASL n» literal in one statement, or names C_ORG_LABELS; that the reviewer-only modules are outside it; and that
 // the reviewer workspace is reached only through its dynamic wrapper. The detector is shown to find the
-// vocabulary where it does live (reviewer-labels.ts, insights.ts, analytical-workspace.tsx).
+// vocabulary where it does live (reviewer-labels.ts and insights.ts; analytical-workspace.tsx names C_ORG_LABELS).
 // The built chunks were also checked after `next build --webpack` (see the review record); this test is the
 // deterministic, build-free guard.
 import test from 'node:test';
@@ -132,7 +132,8 @@ test('the detector finds the province vocabulary where it lives, and only there'
   assert.ok(findings(abs('lib/dashboard-review/pillar-c/insights.ts')).some(f=>/^AQ paired with an ASL pseudonym/.test(f)),'the replace chain of cInsightText');
   assert.ok(findings(abs('lib/dashboard-review/pillar-c/insights.ts')).includes('C_ORG_LABELS'));
   const reviewer=findings(abs('components/dashboard-review/pillar-c/analytical-workspace.tsx'));
-  assert.ok(reviewer.includes('C_ORG_LABELS')&&reviewer.some(f=>/^TE paired with an ASL pseudonym/.test(f)),JSON.stringify(reviewer));
+  assert.deepEqual(reviewer,['C_ORG_LABELS'],JSON.stringify(reviewer)); // 1.2b removed the only literal pairing (the preset buttons); labels go through the map
+  assert.ok(findings(abs('lib/dashboard-review/pillar-c/insights.ts')).some(f=>/^TE paired with an ASL pseudonym/.test(f)),'the replace chain of cInsightText');
   // Synthetic shapes: each is found, and an array of keys or a key compared with a period is not a mapping.
   let probes=0;
   const probe=src=>{const f=path.join(root,'tests',`.detector-probe-${probes++}.tsx`);

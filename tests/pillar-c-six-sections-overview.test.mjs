@@ -144,6 +144,7 @@ test('source pins: no reader-group word, no loader, no chart library, no toggle,
   assert.ok(src.includes('{`Vai a ${link.label}`}'));
   // Exactly one import, the class merger.
   assert.deepEqual([...src.matchAll(/^import .*$/gm)].map(m=>m[0]),['import { cn } from "@/lib/utils";']);
-  // Nothing is mounted by 1.2a: no workspace imports the overview yet.
-  for(const f of ['analytical-workspace.tsx','scoped-workspace.tsx','regional-forecast-workspace.tsx']) assert.doesNotMatch(read(`components/dashboard-review/pillar-c/${f}`),/decision-overview/);
+  // Mounted by the reviewer workspace from 1.2b; the scoped and regional workspaces mount it in 1.2c.
+  for(const f of ['scoped-workspace.tsx','regional-forecast-workspace.tsx']) assert.doesNotMatch(read(`components/dashboard-review/pillar-c/${f}`),/decision-overview/);
+  assert.match(read('components/dashboard-review/pillar-c/analytical-workspace.tsx'),/from "@\/components\/dashboard-review\/pillar-c\/decision-overview"/);
 });

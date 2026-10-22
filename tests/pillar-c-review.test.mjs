@@ -488,7 +488,7 @@ test('forecast copy: source attribution is inside collapsed data-and-scope detai
 });
 
 test('forecast copy: a number and its «%» never wrap apart in either component; packet copy is typeset for display only', () => {
-  for (const file of ['components/dashboard-review/pillar-c/forecast-section.tsx', 'components/dashboard-review/pillar-c/analytical-workspace.tsx']) {
+  for (const file of ['components/dashboard-review/pillar-c/forecast-section.tsx', 'components/dashboard-review/pillar-c/analytical-workspace.tsx', 'components/dashboard-review/pillar-c/evidence-sources.tsx']) {
     const source = fs.readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), 'utf8');
     assert.doesNotMatch(source, /\d %/, `${file}: ordinary space before %`);
     assert.equal(source.includes(String.fromCharCode(0xa0)), false, `${file}: the no-break space is written as its escape, never as an invisible character`);
@@ -512,19 +512,22 @@ test('forecast chart: band opacities rise on the dark card, the legend reads the
 // nodes in place, and machine translation has already replaced them, so such a
 // text stays stale on screen. It must be a single text child (React rewrites the
 // element's content) or a keyed element (replaced whole). The blocks shared with the organisation-scoped workspace
-// live in review-blocks.tsx (review finding UI-4), so both files are read.
-const workspaceSource = ['analytical-workspace.tsx', 'review-blocks.tsx'].map((name) => fs.readFileSync(fileURLToPath(new URL(`../components/dashboard-review/pillar-c/${name}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n')).join('\n');
+// live in review-blocks.tsx (review finding UI-4); from 1.2b the reviewer page also renders the scope bar, the section
+// frames (with their scope line), the decision overview and the evidence sources, so all six files are read.
+const workspaceSource = ['analytical-workspace.tsx', 'review-blocks.tsx', 'scope-bar.tsx', 'section-frame.tsx', 'decision-overview.tsx', 'evidence-sources.tsx'].map((name) => fs.readFileSync(fileURLToPath(new URL(`../components/dashboard-review/pillar-c/${name}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n')).join('\n');
 
 test('workspace: text that follows a filter is one text child or a keyed element, so translation cannot leave it stale', () => {
   for (const expr of [
-    '{`${scope}. Periodi e misure sono accanto ai grafici;',
     '{`${scope}. Selezione aggiornata.`}',
-    '{`Piano modellato 2025 · ${budgetFilters.org === "Regione" ? "ASL 1" : C_ORG_LABELS[budgetFilters.org]}`}',
     '{`Prime 12 aree nel grafico; tutte le ${budgets.length} aree sono nella tabella.`}',
     // The row's ratio and its unit, one text child; the unit is the audience's wording (review finding F-UI3-RES).
     '{`${eur(r.perPerson)}${labels.unit}`}',
     '{`${data.counts.filter((r) => r.state !== "CALCOLATO").length} portafogli senza rapporto disponibile',
     '<span key={copied ? "copied" : "copy"}>{copied ? "Link copiato" : "Copia vista"}</span>',
+    // 1.2b: the overview links, the chosen comparison and the frame scope line.
+    '{`Vai a ${link.label}`}',
+    '<p key={comparison} className="mt-4 text-xs text-muted-foreground">{comparison}</p>',
+    '<p key={text} className={cn("mt-1 max-w-4xl text-xs leading-5 text-muted-foreground", className)}>{text}</p>',
   ]) assert.ok(workspaceSource.includes(expr), expr);
   // No literal JSX text next to a filter-, data- or state-driven expression inside the same element (same line, outside template literals).
   const DRIVEN = String.raw`\{(?:scope|filters\.|budgets\.length|data\.|copied|eur\(|signed\()[^{}]*\}`;
@@ -535,7 +538,10 @@ test('workspace: text that follows a filter is one text child or a keyed element
 });
 
 test('every Pillar C review state stays pending: no page source presents data as «verificato», nothing as a demo', () => {
-  for (const file of ['components/dashboard-review/pillar-c/analytical-workspace.tsx', 'components/dashboard-review/pillar-c/forecast-section.tsx', 'components/dashboard-review/pillar-c/section-navigation.tsx', 'app/dashboard-review/pillar-c/page.tsx', 'lib/dashboard-review/pillar-c/section-navigation.ts']) {
+  for (const file of ['components/dashboard-review/pillar-c/analytical-workspace.tsx', 'components/dashboard-review/pillar-c/forecast-section.tsx', 'components/dashboard-review/pillar-c/section-navigation.tsx', 'app/dashboard-review/pillar-c/page.tsx', 'lib/dashboard-review/pillar-c/section-navigation.ts',
+    // 1.2b: the components the reviewer page now renders, and the three it re-composes.
+    'components/dashboard-review/pillar-c/scope-bar.tsx', 'components/dashboard-review/pillar-c/section-frame.tsx', 'components/dashboard-review/pillar-c/decision-overview.tsx', 'components/dashboard-review/pillar-c/evidence-sources.tsx', 'components/dashboard-review/pillar-c/review-blocks.tsx',
+    'components/dashboard-review/pillar-c/portfolio-pvm.tsx', 'components/dashboard-review/pillar-c/portfolio-dossier.tsx', 'components/dashboard-review/pillar-c/attribution-analysis.tsx']) {
     const source = fs.readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), 'utf8');
     assert.doesNotMatch(source, /verificat|\bdemo\b|dimostra/i, file);
   }

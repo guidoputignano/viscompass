@@ -141,7 +141,8 @@ test('the queue is its own anchored, navigable section and states its boundaries
   assert.equal(PILLAR_C_ALL_SECTIONS[at].number,'');
   assert.equal(pillarCSectionAtViewport([{id:'priorita',top:-900},{id:'evidence-workflow',top:-20},{id:'evidenza',top:900}],150,false,PILLAR_C_ALL_SECTIONS),'evidence-workflow');
   const page=source('components/dashboard-review/pillar-c/analytical-workspace.tsx');
-  assert.ok(page.indexOf('section="priorita" /><PillarCEvidenceWorkflow />')>0&&page.indexOf('<PillarCEvidenceWorkflow />')<page.indexOf('<section id="evidenza"'));
+  // 1.2b: the «evidenza» block is PillarCEvidenceSources (its section id is the component's default), after the queue.
+  assert.ok(page.indexOf('section="priorita" /><PillarCEvidenceWorkflow />')>0&&page.indexOf('<PillarCEvidenceWorkflow />')<page.indexOf('<PillarCEvidenceSources'));
   assert.match(source('components/dashboard-review/pillar-c/section-navigation.tsx'),/"evidence-workflow": ClipboardList/);
 });
 
@@ -149,10 +150,12 @@ test('the attribution panel offers the queue as its own fixed perimeter, never a
   const packet=attributionFixture();
   const view=(org,channel)=>({schema:'pillar-c-attribution-view-v1',mappingVersion:packet.mappingVersion,portfolios:packet.portfolios,scope:packet.scopes.find(s=>s.period==='FY2025'&&s.org===org&&s.channel===channel),comparison:null});
   const reference=renderToStaticMarkup(reviewer(React.createElement(CAttributionView,{view:view('Regione','Tutti')})));
-  assert.match(reference,/<a href="#evidence-workflow"[^>]*>Assegna le verifiche nella coda condivisa · priorità fissa: anno 2025, aggregato regionale, tutti i canali →<\/a>/);
+  assert.match(reference,/<a href="#evidence-workflow"[^>]*>Assegna le verifiche nella coda condivisa · priorità fissa: anno 2025, aggregato delle quattro Aziende, tutti i canali →<\/a>/);
   const other=renderToStaticMarkup(reviewer(React.createElement(CAttributionView,{view:view('AQ','CO')})));
   assert.doesNotMatch(other,/Assegna le verifiche/);
-  assert.match(other,/La coda condivisa delle verifiche usa una priorità fissa \(anno 2025, aggregato regionale, tutti i canali, condivisi ed evidenza insufficiente\) e non segue questa selezione/);
+  assert.match(other,/La coda condivisa delle verifiche usa una priorità fissa \(anno 2025, aggregato delle quattro Aziende, tutti i canali, condivisi ed evidenza insufficiente\) e non segue questa selezione/);
+  // 1.2b (design 2.2): the reviewer's queue perimeter names the four Aziende, never «aggregato regionale».
+  assert.doesNotMatch(reference+other,/aggregato regionale/);
   assert.match(source('components/dashboard-review/pillar-c/attribution-analysis.tsx'),/scope\.period==="FY2025"&&scope\.org==="Regione"&&scope\.channel==="Tutti"&&pool==="therapeutic"&&query\.trim\(\)===""/);
 });
 

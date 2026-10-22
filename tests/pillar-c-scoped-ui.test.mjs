@@ -5,7 +5,8 @@
 //     «Aggregato regionale» and ASL 1–4 under opaque keys, no province key or place name in any identifier.
 //   - No reviewer-only section (workbook, shared review queue, lineage, price/quantity/mix), the O4 notes, the
 //     export labels, the honest empty states, keyed changing text.
-//   - Reviewer: the markup of the reviewer workspace and of every shared view is byte-identical to 30e9e57.
+//   - Reviewer: one regression hash over the reviewer workspace and every shared view, re-recorded at 1.2b on the same
+//     synthetic data (regroup, the 1.2b copy rows and the reviewer queue link at 44 px).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -82,7 +83,12 @@ function identifiers(html,units,label){
     for(const m of value.matchAll(/(?:^|[^A-Za-z0-9])(asl-\d+|aggregato)(?=$|[^A-Za-z0-9])/g))assert.ok(units.includes(m[1]),`${label}: foreign unit ${m[1]} in ${attr}`);
   }
 }
-const REVIEWER_ONLY=[/id="evidence-workflow"/,/href="#evidence-workflow"/,/coda condivisa|Assegna le verifiche/i,/href="#costi"/,/Versione e tracciabilità/,/Fonti e significato delle analisi/,/Ricevute numeriche/,/Budget modellato/,/Piano modellato/,/data-pillar-c-review="v[12]"/,/\/api\/pillar-c\/workbook/,/id="(composizione|costi|confronti|attivita|tendenze|sensibilita|priorita)"/,/Riservato ai revisori del progetto/];
+// 1.2b tightening: the reviewer page's availability line (both variants) and its header scope pill. Never the shorter
+// «Atti di budget pubblicati», which the scoped reading card uses. One pattern per variant, so that each has its own
+// live match: the reviewer regression test below shows that each of these also matches the reviewer's own markup (the
+// empty variant in one extra render of the workspace with no published act), so none can be a dead pattern.
+const REVIEWER_ONLY_1_2B=[/Atti di budget dipartimentali pubblicati nel pacchetto/,/Nessun atto di budget dipartimentale pubblicato nel pacchetto/,/Aggregato delle quattro Aziende e ASL 1–4/];
+const REVIEWER_ONLY=[/id="evidence-workflow"/,/href="#evidence-workflow"/,/coda condivisa|Assegna le verifiche/i,/href="#costi"/,/Versione e tracciabilità/,/Fonti e significato delle analisi/,/Ricevute numeriche/,/Budget modellato/,/Piano modellato/,/data-pillar-c-review="v[12]"/,/\/api\/pillar-c\/workbook/,/id="(composizione|costi|confronti|attivita|tendenze|sensibilita|priorita)"/,/Riservato ai revisori del progetto/,...REVIEWER_ONLY_1_2B];
 const NEVER=/NaN|Infinity|undefined|\b[Dd]emo\b|[Dd]imostra|[Vv]erificat/;
 /** The project's money label, read the way text() reads the page (whitespace, no-break included, collapsed). */
 const euro=v=>cMoneyLabel(v).replace(/\s+/g,' ');
@@ -120,8 +126,8 @@ test('without an audience, or with an incomplete one, every audience-bound compo
   // returns null without one, so a fetch cannot start without an audience.
   const src=p=>readFileSync(`${root}${p}`,'utf8').replace(/\r\n/g,'\n');
   for(const [file,guard,inner] of [
-    ['attribution-analysis.tsx',/export function PillarCAttributionAnalysis\([^)]*\) \{\n  const audience=usePillarCAudience\(\);\n  return audience\?<AttributionAnalysis audience=\{audience\} number=\{number\}\/>:null;\n\}/,/function AttributionAnalysis\(\{audience,number\}:\{audience:CClientAudience;number:string\}\)/],
-    ['portfolio-dossier.tsx',/export function PillarCPortfolioDossier\([^)]*\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?<PortfolioDossier audience=\{audience\} workbook=\{workbook\}\/>:null;\n\}/,/function PortfolioDossier\(\{audience,workbook\}:\{audience:CClientAudience;/],
+    ['attribution-analysis.tsx',/export function PillarCAttributionAnalysis\([^)]*\) \{\n  const audience=usePillarCAudience\(\);\n  return audience\?<AttributionAnalysis audience=\{audience\} number=\{number\} pageScope=\{pageScope\}\/>:null;\n\}/,/function AttributionAnalysis\(\{audience,number,pageScope\}:\{audience:CClientAudience;number:string;pageScope:boolean\}\)/],
+    ['portfolio-dossier.tsx',/export function PillarCPortfolioDossier\([^)]*\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?<PortfolioDossier audience=\{audience\} workbook=\{workbook\} pageScope=\{pageScope\}\/>:null;\n\}/,/function PortfolioDossier\(\{audience,workbook,pageScope\}:\{audience:CClientAudience;/],
     ['planning-workspace.tsx',/export function PillarCPlanningWorkspace\(props: CPlanningWorkspaceProps\) \{\n  const audience = usePillarCAudience\(\);\n  return audience \? <PlanningWorkspace \{\.\.\.props\} audience=\{audience\}\/> : null;\n\}/,/function PlanningWorkspace\(\{ publishedActs, evidenceAnchor = false, audience \}: CPlanningWorkspaceProps & \{ audience: CClientAudience \}\)/],
     ['evidence-workflow.tsx',/export function PillarCEvidenceWorkflow\(\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?\.capabilities\.evidence===true\?<EvidenceWorkflow\/>:null;\n\}/,/function EvidenceWorkflow\(\)\{/],
     ['portfolio-pvm.tsx',/const audience=usePillarCAudience\(\);\n  if\(!audience\)return null;\n  if\(!audience\.capabilities\.pvm\)return <p [^\n]*\{C_AUDIENCE_COPY\.pvm\}<\/p>;\n  return <PriceQuantityMix view=\{view\} workbook=\{workbook\}\/>;/,/function PriceQuantityMix\(/],
@@ -247,7 +253,7 @@ test('O4 notes render only with the rows they describe; an empty state never say
   }
 });
 
-test('no per-person or per-patient wording in scoped audiences: the CO count panel reads a ratio to the estimated count; the reviewer wording is left as it was (UI-3, F-UI3-RES)',()=>{
+test('no per-person or per-patient wording in scoped audiences: the CO count panel reads a ratio to the estimated count; from 1.2b the reviewer reads the same ratio wording (UI-3, F-UI3-RES; design 2.3 analytical#numerosita-reviewer-wording)',()=>{
   const C=AV.C_AUDIENCE_COPY,L=C.countsLabels;
   assert.equal(C.countsTitle,'Spesa rapportata alla numerosità stimata · scenario');
   assert.deepEqual(L,{
@@ -280,13 +286,15 @@ test('no per-person or per-patient wording in scoped audiences: the CO count pan
     assert.deepEqual([...panel.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map(m=>m[1]),L.headers,`${label}: table headers`);
   }
   assert.ok(withRows>=5&&empty>=2,`both states rendered (${withRows} with rows, ${empty} empty)`);
-  // The reviewer view keeps its pinned markup (byte-identical matrix below): the shared block's default wording is the
-  // reviewer's, and only the scoped workspace passes the ratio wording.
+  // From 1.2b the shared block's default wording is the ratio wording for every reader (it equals countsLabels); the
+  // reviewer passes no labels and takes that default, and the scoped page still passes the ratio wording explicitly.
   const reviewer=readFileSync(`${root}components/dashboard-review/pillar-c/analytical-workspace.tsx`,'utf8');
-  assert.ok(reviewer.includes('<Panel title="Spesa per paziente nello scenario di numerosità stimata"'),'reviewer copy unchanged');
+  assert.ok(reviewer.includes('<Panel title={C_AUDIENCE_COPY.countsTitle}'),'the reviewer count panel takes the ratio title');
+  assert.doesNotMatch(reviewer,/per paziente|persona nello scenario/,'no per-patient or per-person wording in the reviewer source');
   assert.ok(reviewer.includes('<CountRows countRows={countRows} />'),'the reviewer passes no labels');
   const blocks=readFileSync(`${root}components/dashboard-review/pillar-c/review-blocks.tsx`,'utf8');
-  assert.ok(blocks.includes('scale: "Euro / persona nello scenario",')&&blocks.includes('unit: " / persona nello scenario",'),'the reviewer default wording');
+  assert.ok(blocks.includes('scale: "€ per unità di numerosità stimata · scenario",')&&blocks.includes('unit: " per unità di numerosità stimata",'),'the shared default is the ratio wording');
+  assert.doesNotMatch(blocks,/persona\b|paziente/,'the shared block names no person and no patient');
   const scoped=readFileSync(`${root}components/dashboard-review/pillar-c/scoped-workspace.tsx`,'utf8');
   assert.doesNotMatch(scoped,/paziente|persona\b/,'the scoped source names no patient and no per-person unit');
   assert.ok(scoped.includes('<CountRows countRows={countRows} labels={C_AUDIENCE_COPY.countsLabels} />'),'the scoped workspace passes the ratio wording');
@@ -413,14 +421,28 @@ test('URL clamps match keys exactly; the budget is always the published act; the
 });
 
 // ---------------------------------------------------------------- reviewer regression
-test('reviewer: the workspace and every shared view render byte-identical to 30e9e57 under the reviewer audience',async()=>{
-  // Baseline: the same matrix rendered from the components at 30e9e57 (no audience then), hash eac1cc54…
+test('reviewer: the workspace and every shared view render the markup recorded at 1.2b under the reviewer audience',async()=>{
+  // Re-recorded at 1.2b (reason: six-section regroup and the 1.2b copy rows; data hash unchanged); earlier baseline
+  // 30e9e57, eac1cc54…, which ac5e058 still rendered byte for byte. Before the re-record, 30 of the 51 cases changed
+  // (22 workspace, 4 dossier, 4 attribution) and 21 stayed byte-identical (2 change summaries, 16 planning, 3 review
+  // plans); the 8 leaf changes are exactly the 1.2b copy rows, plus, in the attribution leaf at the queue's fixed scope
+  // (FY2025|Regione|Tutti), the reviewer-only queue link at 44 px (min-h-10 → min-h-11, the one change between 0ea2a14a…
+  // and this hash). The 8 cases added at 1.2b render the frame, the scope bar, the overview and the evidence sources on
+  // literal synthetic props.
   const wrap=(R,el)=>R.createElement(PillarCAudienceProvider,{audience:C_REVIEWER_CLIENT_AUDIENCE},el);
   const quiet=console.error;console.error=()=>{};const warn=console.warn;console.warn=()=>{};
-  let out;try{out=await reviewerUiMatrix({root:rootUrl.href,wrap,workspaceProps:{audience:C_REVIEWER_CLIENT_AUDIENCE}});}finally{console.error=quiet;console.warn=warn;}
-  assert.equal(out.cases,51);
+  let out,noAct;try{
+    out=await reviewerUiMatrix({root:rootUrl.href,wrap,workspaceProps:{audience:C_REVIEWER_CLIENT_AUDIENCE}});
+    // Outside the hashed matrix: the workspace with no published act, the only render of the empty availability line.
+    const p=parseCReviewPacket(cReviewV2Fixture());
+    noAct=bare(React.createElement(PillarCAnalyticalWorkspace,{audience:C_REVIEWER_CLIENT_AUDIENCE,packet:{...p,budgets:p.budgets.filter(b=>b.basis!=='published')}}));
+  }finally{console.error=quiet;console.warn=warn;}
+  // The 1.2b leak patterns are live: each matches the reviewer's own markup, which the scoped pages must never show.
+  for(const r of REVIEWER_ONLY_1_2B)assert.match(out.json+noAct,r,`${r} matches the reviewer markup`);
+  assert.match(noAct,REVIEWER_ONLY_1_2B[1],'the empty variant is live');assert.doesNotMatch(noAct,REVIEWER_ONLY_1_2B[0]);
+  assert.equal(out.cases,59);
   assert.equal(out.data,'bebe2d2b3c1d254353cd668e6b67e61c1c5c4b91ec1f15f465ebcccc2aa4e9be','the same synthetic data as the baseline');
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'eac1cc54cfb1f90b7e9222ea46d065a11ba9e769352ed8876922995fd17827fd');
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'c476b18e51c01864596c43a683580630fee96cb7048431f09f715006b8643d58');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Coins, Scale, Shuffle } from "lucide-react";
+import { Coins, Scale, Shuffle } from "lucide-react";
 import { cPortfolioPvm, type CPortfolioPvm } from "@/lib/dashboard-review/pillar-c/portfolio-pvm";
 import type { CPortfolioView } from "@/lib/dashboard-review/pillar-c/portfolio";
 import { cAttrPercent } from "@/lib/dashboard-review/pillar-c/attribution-format";
@@ -29,7 +29,7 @@ export function CPortfolioPvmReading({result}:{result:CPortfolioPvm}) {
       {Number(result.rounding.displayResidual)!==0&&<p className="text-xs text-muted-foreground">{`La somma delle tre componenti arrotondate differisce dal saldo arrotondato di ${signed(result.rounding.displayResidual)}. Gli importi non sono corretti artificialmente per farli coincidere.`}</p>}
       <p className="text-xs leading-5 text-muted-foreground">Questi effetti riguardano soltanto gli strati ammessi: non scompongono l’intera variazione del portafoglio né il contributo dei prodotti presenti calcolato sopra, che aggrega diversamente le Aziende e i canali. Gli importi esclusi non sono rappresentati dagli effetti mostrati.</p>
     </>}
-    <p className="border-t border-border pt-3 text-xs leading-5 text-muted-foreground">Stima da dati reali: registro AIFA, convenzione Q dai campi del ledger. La convenzione delle unità non è convalidata dall’Azienda; mappatura terapeutica in bozza. Il costo riportato non è un prezzo netto negoziato né un risparmio realizzato.</p>
+    <p className="border-t border-border pt-3 text-xs leading-5 text-muted-foreground">Stima da dati reali, con quantità ricondotte a unità confrontabili. La convenzione delle unità non è convalidata dall’Azienda; mappatura terapeutica in bozza. Il costo riportato non è un prezzo netto negoziato né un risparmio realizzato.</p>
   </div>;
 }
 
@@ -55,8 +55,7 @@ function PriceQuantityMix({view,workbook}:{view:CPortfolioView;workbook?:CWorkbo
   const result=!supported?{status:'unsupported' as const,reason:'scope' as const}:section?cPortfolioPvm(section,view):null;
   return <details className="rounded-xl border border-border bg-card" onToggle={e=>setOpen(e.currentTarget.open)} data-c-portfolio-pvm>
     <summary className="cursor-pointer px-5 py-4 text-sm font-medium">Quantità, mix e costo unitario · evidenza disponibile</summary>
-    <div className="space-y-4 border-t border-border p-5">{result?<CPortfolioPvmReading result={result}/>:!workbook?<p className="text-sm text-muted-foreground">Nessuna scomposizione compatibile è disponibile.</p>:failed?<div role="status"><p className="text-sm">La scomposizione non è disponibile al momento.</p><button type="button" className="mt-3 min-h-10 rounded-lg border border-border px-3 text-xs" onClick={()=>{setFailed(false);setAttempt(n=>n+1);}}>Riprova</button></div>:<p role="status" className="text-sm text-muted-foreground">Lettura della scomposizione verificata…</p>}
-      <a className="inline-flex min-h-10 items-center gap-2 text-xs font-medium text-primary" href="#costi">Apri supporto, confronti e dettaglio dei costi<ArrowRight size={14}/></a>
+    <div className="space-y-4 border-t border-border p-5">{result?<CPortfolioPvmReading result={result}/>:!workbook?<p className="text-sm text-muted-foreground">Nessuna scomposizione compatibile è disponibile.</p>:failed?<div role="status"><p className="text-sm">La scomposizione non è disponibile al momento.</p><button type="button" className="mt-3 min-h-10 rounded-lg border border-border px-3 text-xs" onClick={()=>{setFailed(false);setAttempt(n=>n+1);}}>Riprova</button></div>:<p role="status" className="text-sm text-muted-foreground">Caricamento della scomposizione…</p>}
     </div>
   </details>;
 }
