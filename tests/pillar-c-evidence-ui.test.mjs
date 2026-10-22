@@ -176,3 +176,16 @@ test('unsaved decision and follow-up text survives the remount that follows an a
   assert.match(workflow,/failed==="archived"&&selected\.current\)void refresh\(selected\.current\)/,'a 409 archived re-reads the case so it turns read only');
   assert.doesNotMatch(workflow,/mappatura pubblicata/,'the mapping is a draft, not published');
 });
+
+test('point 18: a finding case shows its scope and source and words the four decisions for a finding',()=>{
+  const A=owners[0].id;
+  const finding=baseCase({state:'in_review',revision:3,owner_id:A,assigned_role:'Farmacia',due_date:'2026-11-30',product_key:'F03',source:{product_label:'Rilievo sintetico',scope:'Ambito sintetico',origin:'Punto sintetico',source_state:'F'}});
+  const page=html(finding);
+  assert.match(page,/Rilievo sintetico/);assert.match(page,/Ambito sintetico · Punto sintetico/);
+  assert.match(page,/Questione ancora aperta/);assert.doesNotMatch(page,/Attribuzione ancora incerta/);
+  const decided=html({...finding,state:'decision_recorded',decision:'needs_local_allocation',decision_note:'Nota',decision_revision:4,revision:4});
+  assert.match(decided,/Serve un’azione locale/);
+  // A product case keeps the attribution wording.
+  assert.match(html(baseCase({state:'in_review',revision:3,owner_id:A,assigned_role:'Farmacia',due_date:'2026-11-30'})),/Attribuzione ancora incerta/);
+  assert.deepEqual(cEvidenceEventLines({id:1,case_id:finding.id,action:'record_decision',actor_id:A,created_at:'2026-10-22T10:00:00Z',revision:4,detail:{payload:{decision:'remains_uncertain'}}},()=>'x',{remains_uncertain:'Questione ancora aperta'}),['Decisione: Questione ancora aperta']);
+});

@@ -71,6 +71,11 @@ export function cEvidenceRpcRolledBack(error:CEvidenceDbError){const code=error?
 
 /** A case is in the working queue only on the current snapshot AND while its group is still in that snapshot's queue. */
 export function cEvidenceCurrent(row:{source_snapshot:string;source_group:string},snapshot:string,groups:ReadonlySet<string>){return row.source_snapshot===snapshot&&groups.has(row.source_group);}
+/** The two current queues: attribution products of the current priority, and point 18 findings of the current extension version. */
+export type CEvidenceCurrentSet = {sourceSnapshot:string;groups:ReadonlySet<string>;findingSnapshot:string|null;findingGroups:ReadonlySet<string>};
+export function cEvidenceIsCurrent(row:{source_snapshot:string;source_group:string},s:CEvidenceCurrentSet){return cEvidenceCurrent(row,s.sourceSnapshot,s.groups)||(s.findingSnapshot!==null&&cEvidenceCurrent(row,s.findingSnapshot,s.findingGroups));}
+/** Decision labels of a finding case: the same four decisions, worded for a finding rather than a product's attribution. */
+export const C_EVIDENCE_FINDING_DECISION_LABELS:Record<string,string>={remains_uncertain:"Questione ancora aperta",evidence_sufficient:"Evidenza sufficiente per chiudere il rilievo",needs_local_allocation:"Serve un’azione locale",identifier_corrected:"Dato della fonte chiarito"};
 export type CEvidenceArchived = {id:string;product_key:string;product_label:string;state:string;decision:string|null;updated_at:string;source_snapshot:string};
 type CEvidenceArchiveSource = {id:string;product_key:string;source?:unknown;state:string;decision?:string|null;updated_at:string;source_snapshot:string};
 export const C_EVIDENCE_ARCHIVE_LIMIT = 200;
@@ -79,8 +84,8 @@ export function cEvidenceArchivedRow(row:CEvidenceArchiveSource):CEvidenceArchiv
   return {id:row.id,product_key:row.product_key,product_label:typeof label==='string'&&label?label:row.product_key,state:row.state,decision:row.decision??null,updated_at:row.updated_at,source_snapshot:row.source_snapshot};
 }
 /** Earlier reviews stay readable but are never carried into the current queue. `older` holds only other snapshots, newest update first. */
-export function cEvidenceQueue<T extends CEvidenceArchiveSource&{source_group:string}>(same:T[],older:CEvidenceArchiveSource[],olderCount:number,snapshot:string,groups:ReadonlySet<string>){
-  const cases=same.filter(r=>cEvidenceCurrent(r,snapshot,groups)),stale=same.filter(r=>!cEvidenceCurrent(r,snapshot,groups));
+export function cEvidenceQueue<T extends CEvidenceArchiveSource&{source_group:string}>(same:T[],older:CEvidenceArchiveSource[],olderCount:number,snapshot:string,groups:ReadonlySet<string>,isCurrent:(r:T)=>boolean=r=>cEvidenceCurrent(r,snapshot,groups)){
+  const cases=same.filter(isCurrent),stale=same.filter(r=>!isCurrent(r));
   const time=(v:string)=>{const t=Date.parse(v);return Number.isFinite(t)?t:0;};
   const archived=[...stale,...older].map(cEvidenceArchivedRow).sort((a,b)=>time(b.updated_at)-time(a.updated_at)||(a.updated_at<b.updated_at?1:a.updated_at>b.updated_at?-1:0)||(a.id<b.id?-1:a.id>b.id?1:0)).slice(0,C_EVIDENCE_ARCHIVE_LIMIT);
   return {cases,archived,archivedCount:olderCount+stale.length};

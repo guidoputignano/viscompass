@@ -2,7 +2,7 @@ import {createHash,randomUUID} from "node:crypto";
 import {NextResponse} from "next/server";
 import {createServiceRoleClient} from "@/lib/supabase/service-role";
 import {cEvidenceActor,cEvidenceSource,cEvidenceSameOrigin,C_EVIDENCE_HEADERS,C_EVIDENCE_UUID} from "@/lib/dashboard-review/pillar-c/evidence-server";
-import {C_EVIDENCE_BUCKET,C_EVIDENCE_MAX_BODY,cEvidenceCurrent,cEvidenceFile,cEvidenceRpcError,cEvidenceRpcRolledBack} from "@/lib/dashboard-review/pillar-c/evidence-priority";
+import {C_EVIDENCE_BUCKET,C_EVIDENCE_MAX_BODY,cEvidenceIsCurrent,cEvidenceFile,cEvidenceRpcError,cEvidenceRpcRolledBack} from "@/lib/dashboard-review/pillar-c/evidence-priority";
 
 const json=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:C_EVIDENCE_HEADERS});
 /** Any existing case, current or from an earlier data version. Writes add the current-queue check themselves. */
@@ -17,7 +17,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   if(Number(request.headers.get('content-length')??0)>C_EVIDENCE_MAX_BODY)return json({error:'file_too_large'},413);
   try{
     const [source,context]=await Promise.all([cEvidenceSource(),load(id)]);if(!context)return json({error:'not_found'},404);
-    if(!cEvidenceCurrent(context.case,source.sourceSnapshot,source.groups))return json({error:'archived'},409);
+    if(!cEvidenceIsCurrent(context.case,source))return json({error:'archived'},409);
     if(context.case.state==='closed')return json({error:'validation'},422);
     let form:FormData;
     try{

@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {buildCAttrPacket,cAttrAtoms,cAttrPriority,cAttrScope,cAttrSum} from '../lib/dashboard-review/pillar-c/attribution.ts';
 import {C_ATTR_STORAGE} from '../lib/dashboard-review/pillar-c/attribution-storage.ts';
 import {loadCAttrView} from '../lib/dashboard-review/pillar-c/attribution-loader.ts';
-import {cEvidenceArchivedRow,cEvidenceCurrent,cEvidenceFile,cEvidenceFollowupSaved,cEvidenceGroupKey,cEvidencePriority,cEvidenceQueue,cEvidenceRpcError,cEvidenceRpcRolledBack,C_EVIDENCE_ARCHIVE_LIMIT,C_EVIDENCE_BUCKET,C_EVIDENCE_MAX_BODY,C_EVIDENCE_MAX_FILE} from '../lib/dashboard-review/pillar-c/evidence-priority.ts';
+import {cEvidenceIsCurrent,cEvidenceArchivedRow,cEvidenceCurrent,cEvidenceFile,cEvidenceFollowupSaved,cEvidenceGroupKey,cEvidencePriority,cEvidenceQueue,cEvidenceRpcError,cEvidenceRpcRolledBack,C_EVIDENCE_ARCHIVE_LIMIT,C_EVIDENCE_BUCKET,C_EVIDENCE_MAX_BODY,C_EVIDENCE_MAX_FILE} from '../lib/dashboard-review/pillar-c/evidence-priority.ts';
 
 // Synthetic aggregates only: invented product keys and amounts, no workbook or ledger figures.
 const portfolios=[{id:'AA',label:'Area sintetica A',kind:'area_terapeutica'},{id:'BB',label:'Area sintetica B',kind:'area_terapeutica'},{id:'CC',label:'Area sintetica C',kind:'area_terapeutica'}];
@@ -167,11 +167,17 @@ test('every evidence route stays gated and private, and archived cases are reada
   const [list,detail,files]=sources.map(handlers);
   for(const h of [list.GET,list.POST,list.PATCH,detail.GET,files.GET,files.POST])assert.match(h,/await cEvidenceActor\(\)/);
   for(const h of [list.POST,list.PATCH,files.POST])assert.match(h,/if\(!actor\|\|!cEvidenceSameOrigin\(request\)\)return \w+\(\{error:'forbidden'\},403\)/);
-  for(const h of [list.PATCH,files.POST])assert.match(h,/if\(!cEvidenceCurrent\(\w+\.\w+,source\.sourceSnapshot,source\.groups\)\)return \w+\(\{error:'archived'\},409\)/);
+  // Point 18: the current set is the attribution queue plus the findings of the current extension version.
+  for(const h of [list.PATCH,files.POST])assert.match(h,/if\(!cEvidenceIsCurrent\(\w+\.\w+,source\)\)return \w+\(\{error:'archived'\},409\)/);
   for(const h of [detail.GET,files.GET])assert.doesNotMatch(h,/source_snapshot|archived/,'reads work for any existing case');
-  assert.match(detail.GET,/current:cEvidenceCurrent\(found\.data,source\.sourceSnapshot,source\.groups\)/);
+  assert.match(detail.GET,/current:cEvidenceIsCurrent\(found\.data,source\)/);
   assert.match(list.GET,/schema:'pillar-c-evidence-workspace-v1'/);assert.match(list.GET,/archived:queue\.archived,archivedCount:queue\.archivedCount/);
-  assert.match(list.GET,/\.neq\('source_snapshot',source\.sourceSnapshot\)\.order\('updated_at',\{ascending:false\}\)\.order\('id'\)\.limit\(C_EVIDENCE_ARCHIVE_LIMIT\)/);
+  assert.match(list.GET,/const current=\[source\.sourceSnapshot,\.\.\.\(source\.findingSnapshot\?\[source\.findingSnapshot\]:\[\]\)\];/);
+  assert.match(list.GET,/\.in\('source_snapshot',current\)\.order\('created_at'\)/);
+  assert.match(list.GET,/\.not\('source_snapshot','in',`\(\$\{current\.join\(','\)\}\)`\)\.order\('updated_at',\{ascending:false\}\)\.order\('id'\)\.limit\(C_EVIDENCE_ARCHIVE_LIMIT\)/);
+  assert.match(list.GET,/cEvidenceQueue\(cases\.data\?\?\[\],older\.data\?\?\[\],older\.count,source\.sourceSnapshot,source\.groups,r=>cEvidenceIsCurrent\(r,source\)\)/);
+  // A finding group is created only by its own SQL function, from the server's own record of the current version.
+  assert.match(list.POST,/finding=cEvidenceFindingRecord\(source,body\.group\);\r?\n\s*if\(finding\)\{const saved=await createServiceRoleClient\(\)\.rpc\('c_evidence_create_finding',\{p_actor:actor\.id,p_source:finding\}\)/);
   for(const h of [list.POST,list.PATCH,files.POST])assert.match(h,/return reply\(\{case:saved\.data\}\)|return json\(\{case:saved\.data\}\)|\?failed\(saved\.error\):reply\(\{case:saved\.data\}\)/);
   for(const src of sources){
     assert.doesNotMatch(src,/saved\.error\.code/,'RPC errors go through cEvidenceRpcError');
@@ -179,4 +185,19 @@ test('every evidence route stays gated and private, and archived cases are reada
     assert.equal((src.match(/NextResponse\.json\(/g)||[]).length,(src.match(/NextResponse\.json\(body,\{status,headers:C_EVIDENCE_HEADERS\}\)/g)||[]).length,'every JSON reply carries the private headers');
   }
   assert.match(read('lib/dashboard-review/pillar-c/evidence-server.ts'),/"Cache-Control":"private, no-store, max-age=0"/);
+});
+
+test('point 18: finding cases are current only on the current extension version, and never mix with the product queue',()=>{
+  const F='9'.repeat(64),GF='8'.repeat(64),set={sourceSnapshot:SNAP,groups:new Set([G1]),findingSnapshot:F,findingGroups:new Set([GF])};
+  assert.equal(cEvidenceIsCurrent({source_snapshot:SNAP,source_group:G1},set),true);
+  assert.equal(cEvidenceIsCurrent({source_snapshot:F,source_group:GF},set),true);
+  assert.equal(cEvidenceIsCurrent({source_snapshot:F,source_group:G1},set),false,'a product group under the finding snapshot');
+  assert.equal(cEvidenceIsCurrent({source_snapshot:SNAP,source_group:GF},set),false,'a finding group under the product snapshot');
+  assert.equal(cEvidenceIsCurrent({source_snapshot:F,source_group:GF},{...set,findingSnapshot:null}),false,'without the extension object a finding case is read only');
+  const q=cEvidenceQueue([stored('p',SNAP,G1,'2026-10-22T10:00:00+00:00'),stored('f',F,GF,'2026-10-22T11:00:00+00:00'),stored('x',F,'7'.repeat(64),'2026-10-22T12:00:00+00:00')],[],0,SNAP,set.groups,r=>cEvidenceIsCurrent(r,set));
+  assert.deepEqual(q.cases.map(r=>r.id),['p','f']);assert.deepEqual(q.archived.map(r=>r.id),['x']);
+  const server=read('lib/dashboard-review/pillar-c/evidence-server.ts');
+  assert.match(server,/createHash\('sha256'\)\.update\(`finding\|\$\{version\}\|\$\{id\}`\)/);
+  assert.match(server,/findingSnapshot:findings\?C_EXTENSION_STORAGE\.reviewer\.sha256:null/);
+  assert.match(server,/source_state:'F'/);
 });
