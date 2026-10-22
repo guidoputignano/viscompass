@@ -58,7 +58,7 @@ export function CPortfolioChangeSummary({view,onPickProduct}:{view:CPortfolioVie
         </div>
       </details>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">{productList(explanation.increases.top,explanation.increases.remainder,explanation.increases.count,true)}{productList(explanation.decreases.top,explanation.decreases.remainder,explanation.decreases.count,false)}</div>
-      <a href="#portfolio-product-detail" className="mt-4 inline-flex min-h-10 items-center gap-2 text-xs font-medium text-primary" onClick={()=>onPickProduct?.("")}>Apri tutti i contributi e gli importi dei due periodi<ArrowRight size={14}/></a>
+      <a href="#portfolio-product-detail" className="mt-4 inline-flex min-h-11 items-center gap-2 text-xs font-medium text-primary" onClick={()=>onPickProduct?.("")}>Apri tutti i contributi e gli importi dei due periodi<ArrowRight size={14}/></a>
     </> : <p className="mt-2 text-sm text-muted-foreground">Nessun saldo o contributo viene trasformato in zero. L’eventuale esposizione condivisa rimane nell’analisi di attribuzione.</p>}
     <p className="mt-4 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">Entrato o uscito significa presente in un solo periodo di questo portafoglio: non è un lancio sul mercato né un passaggio di pazienti. Questi sono contributi di spesa, non effetti di prezzo, quantità o crescita delle persone trattate. I prodotti condivisi sono analizzati separatamente. Importi al centesimo: gli arrotondamenti delle singole voci possono differire dal totale.</p>
   </article>;

@@ -522,7 +522,7 @@ test('workspace: text that follows a filter is one text child or a keyed element
     '{`Prime 12 aree nel grafico; tutte le ${budgets.length} aree sono nella tabella.`}',
     // The row's ratio and its unit, one text child; the unit is the audience's wording (review finding F-UI3-RES).
     '{`${eur(r.perPerson)}${labels.unit}`}',
-    '{`${data.counts.filter((r) => r.state !== "CALCOLATO").length} portafogli senza rapporto disponibile',
+    '{missingCounts === 1 ? "1 portafoglio senza rapporto disponibile resta nel registro di copertura; non è trattato come zero." : `${missingCounts} portafogli senza rapporto disponibile',
     '<span key={copied ? "copied" : "copy"}>{copied ? "Link copiato" : "Copia vista"}</span>',
     // 1.2b: the overview links, the chosen comparison and the frame scope line.
     '{`Vai a ${link.label}`}',

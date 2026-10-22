@@ -23,7 +23,7 @@ const money=(v:string,digits=0)=>`${cWorkbookDecimal(v,digits)} €`;
 const signed=(v:string|null)=>v===null?"Non disponibile":`${Number(v)>0?"+":""}${money(v)}`;
 const field="mt-2 h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary";
 const card="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6";
-const action="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40";
+const action="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40";
 const cleanLabel=(label:string)=>label.replace(/\s*\([^)]*\)\s*$/,"");
 const monthNames=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
 const kindLabels={continuing:"Presenti nei due periodi",entry:"Entrati nel portafoglio",exit:"Usciti dal portafoglio"};

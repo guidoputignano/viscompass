@@ -465,7 +465,7 @@ test('9. each chart block carries its exact values: spend, bridge, budget and co
 // overview and cross-links, the scoped workspace's own selects back at h-10), a second sticky element, the old root
 // offset back, a transition without motion-safe in either workspace.
 test('10. keyboard and focus: no positive tabindex, every frame h2 focusable by the bar, 44 px targets, one sticky bar',()=>{
-  const SELECT_44=C_REVIEW_UI.selectClass.replace(/\bh-10\b/,'h-11');
+  const SELECT_44=C_REVIEW_UI.selectClass;
   for(const {k,label,html} of SCOPED_RENDERS){
     assert.doesNotMatch(html,/tabindex="[1-9]/,label);
     for(const id of IDS)assert.equal(count(html,`<h2 id="${id}-title" tabindex="-1"`),1,`${label}: ${id}`);
@@ -479,7 +479,7 @@ test('10. keyboard and focus: no positive tabindex, every frame h2 focusable by 
     const bar=between(html,'<section aria-label="Ambito di revisione"','</section>');
     for(const [,c] of bar.matchAll(/<select[^>]* class="([^"]*)"/g))assert.match(c,/(^|\s)h-11(\s|$)/,label);
     for(const [,c] of bar.matchAll(/<button type="button" class="([^"]*)"/g))assert.match(c,/(^|\s)min-h-11(\s|$)/,label);
-    for(const l of ['Periodo della spesa',...(k==='regione'?['Azienda del budget']:[]),'Canale del budget','Periodo del budget','Livello del budget','Portafoglio dello scenario']){
+    for(const l of ['Periodo della spesa',...(k==='regione'?['Azienda del budget']:[]),'Canale del budget','Periodo del budget','Livello organizzativo del budget','Portafoglio dello scenario']){
       const m=html.match(new RegExp(`<select aria-label="${l}" class="([^"]*)"`));assert.ok(m,`${label}: «${l}»`);assert.equal(m[1],SELECT_44,`${label}: «${l}» at 44 px`);
     }
     const sticky=[...html.matchAll(/<([a-z0-9]+)\b[^>]*\sclass="([^"]*)"/g)].filter(m=>/(^|\s)(xl:)?sticky(\s|$)/.test(m[2]));
@@ -498,7 +498,7 @@ test('10. keyboard and focus: no positive tabindex, every frame h2 focusable by 
     assert.doesNotMatch(src,/\btransition\b|transition-|\bsticky\b|\[&_section\[id\]\]/,file);
     assert.equal(count(src,'xl:[&_[id]]:scroll-mt-36'),1,file);
   }
-  assert.equal(count(read(SCOPED),'const selectClass = C_REVIEW_UI.selectClass.replace(/\\bh-10\\b/, "h-11");'),1);
+  assert.equal(count(read(SCOPED),'const { selectClass } = C_REVIEW_UI;'),1);
 });
 
 // ================================================================ 11. copy lint and source pins

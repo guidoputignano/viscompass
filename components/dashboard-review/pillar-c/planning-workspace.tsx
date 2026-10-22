@@ -21,12 +21,12 @@ type Bar = { key: string; label: string; detail?: string; lower: CPlanningAmount
 
 const card = "min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm md:p-6";
 const field = "mt-1.5 h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary aria-[invalid=true]:border-destructive";
-const action = "inline-flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40";
+const action = "inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40";
 const chip = "inline-flex max-w-full rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium leading-4 text-primary";
 const amber = "rounded-xl border border-[#8a5a12]/40 bg-[#d89b38]/10";
 const note = "text-xs leading-5 text-muted-foreground";
 const small = "text-[11px] leading-4 text-muted-foreground";
-const link = "inline-flex min-h-10 items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary";
+const link = "inline-flex min-h-11 items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary";
 const summary = "cursor-pointer rounded-xl px-4 py-3 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary";
 const heading = "text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary";
 const pointer = "inline-flex min-h-8 items-center text-[11px] font-medium leading-4 text-primary underline underline-offset-4 hover:no-underline focus-visible:outline-2 focus-visible:outline-primary";
@@ -167,7 +167,7 @@ function GroupPicker({ ids, portfolios, names, headingRef, addRef, onAdd, onRemo
   const id = useId(), [choice, setChoice] = useState(""), free = portfolios ? portfolios.filter(p => !ids.includes(p.id)) : [], full = ids.length >= C_PLANNING_MAX_GROUP;
   const valid = !full && free.some(p => p.id === choice), add = () => { if (valid) { setChoice(""); onAdd(choice); } };
   return <fieldset className="min-w-0"><legend ref={headingRef} tabIndex={-1} className={heading}>{L.group.label}</legend>
-    <ul className="mt-2 flex flex-wrap gap-2">{ids.map(pid => <li key={pid} className="inline-flex min-h-10 max-w-full items-center rounded-xl border border-primary/30 bg-primary/5 pl-3 text-xs font-medium"><Live className="min-w-0 truncate">{names(pid)}</Live><button type="button" className="ml-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40" disabled={ids.length === 1} aria-label={`${L.group.remove}: ${names(pid)}`} onClick={() => onRemove(pid)}><X size={14} aria-hidden="true"/></button></li>)}</ul>
+    <ul className="mt-2 flex flex-wrap gap-2">{ids.map(pid => <li key={pid} className="inline-flex min-h-11 max-w-full items-center rounded-xl border border-primary/30 bg-primary/5 pl-3 text-xs font-medium"><Live className="min-w-0 truncate">{names(pid)}</Live><button type="button" className="ml-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40" disabled={ids.length === 1} aria-label={`${L.group.remove}: ${names(pid)}`} onClick={() => onRemove(pid)}><X size={14} aria-hidden="true"/></button></li>)}</ul>
     <div className="mt-3 flex max-w-md items-end gap-2"><label className="block min-w-0 flex-1 text-xs font-medium" htmlFor={`${id}-add`}>{L.group.add}<select className={field} id={`${id}-add`} ref={addRef} value={valid ? choice : ""} disabled={full || !free.length} aria-describedby={`${id}-limit`} onChange={e => setChoice(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}><option value="">{L.group.choose}</option>{free.map(p => <option key={p.id} value={p.id}>{cleanLabel(p.label)}</option>)}</select></label>
       <button type="button" className={`${action} h-11 shrink-0`} disabled={!valid} onClick={add}><Plus size={14} aria-hidden="true"/>{L.group.commit}</button></div>
     <p id={`${id}-limit`} className={`mt-1.5 ${note}`}>{L.group.limit}</p>
@@ -209,7 +209,7 @@ function UserShares({ sets, unused, names, onShare }: { sets: CPlanningCrossingS
 function RuleControls({ rule, r, names, onRule, onShare }: { rule: CPlanningRule | null; r: CPlanningResult | null; names: Names; onRule: (rule: CPlanningRule | null) => void; onShare: (set: string, bps: number | null) => void }) {
   const id = useId();
   return <fieldset className="min-w-0"><legend className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">{L.split.rule}<span className={chip}>{L.split.chip}</span></legend>
-    <div className="mt-2 grid gap-0.5">{([null, ...C_PLANNING_RULES] as const).map(x => <label key={x ?? "none"} className="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm hover:bg-primary/5"><input type="radio" className="size-4 shrink-0 accent-primary" name={`${id}-rule`} value={x ?? "none"} checked={rule === x} onChange={() => onRule(x)}/><Live>{x ? L.split[x] : L.split.none}</Live></label>)}</div>
+    <div className="mt-2 grid gap-0.5">{([null, ...C_PLANNING_RULES] as const).map(x => <label key={x ?? "none"} className="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm hover:bg-primary/5"><input type="radio" className="size-4 shrink-0 accent-primary" name={`${id}-rule`} value={x ?? "none"} checked={rule === x} onChange={() => onRule(x)}/><Live>{x ? L.split[x] : L.split.none}</Live></label>)}</div>
     {rule && <p className="mt-2 text-xs font-medium leading-5"><Live>{C_PLANNING_RULE_NOTES[rule]}</Live></p>}
     {rule === "user" && r && r.crossingSets.length > 0 && <UserShares sets={r.crossingSets} unused={r.split?.unusedShares ?? []} names={names} onShare={onShare}/>}
   </fieldset>;

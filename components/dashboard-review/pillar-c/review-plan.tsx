@@ -26,8 +26,8 @@ const errors = {
   transition: "Segui i passaggi: bozza, assegnazione, verifica, conclusione. Per modificare una verifica conclusa, riaprila prima.",
   task: "Questa attività non appartiene al perimetro o alla fonte selezionati.",
 };
-const inputClass = "mt-1 block min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
-const buttonClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40";
+const inputClass = "mt-1 block min-h-11 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium motion-safe:transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40";
 const message = (error: unknown) => error instanceof CReviewValidationError ? errors[error.code] : "Operazione non completata. Il piano resta in questa pagina.";
 
 function download(name: string, content: string, type: string) {

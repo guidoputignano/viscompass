@@ -593,9 +593,9 @@ test('15. evidence-sources.tsx: presentation only, the criteria as h5 under the 
 // the workspace's own selects back at h-10, the attribution's queue link back at 40 px), a transition without
 // motion-safe in the workspace, and (M14) a summary of the workspace back to a 20 px line.
 test('16. no positive tabindex; every new link and the workspace’s own selects are 44 px targets; the workspace summaries have py-3 (M14)',()=>{
-  const SELECT_44=C_REVIEW_UI.selectClass.replace(/\bh-10\b/,'h-11');
-  assert.notEqual(SELECT_44,C_REVIEW_UI.selectClass,'the shared class is still h-10 (1.4)');
-  const OWN=['Periodo della spesa','Azienda del budget','Canale del budget','Periodo del budget','Fonte del budget','Livello del budget','Area del budget','Portafoglio dello scenario'];
+  const SELECT_44=C_REVIEW_UI.selectClass;
+  assert.ok(SELECT_44.split(' ').includes('h-11'),'the shared select class is 44 px (point 19)');
+  const OWN=['Periodo della spesa','Azienda del budget','Canale del budget','Periodo del budget','Fonte del budget','Livello organizzativo del budget','Area da esplorare del budget','Portafoglio dello scenario'];
   for(const {label,html,workbook} of RENDERS){
     assert.doesNotMatch(html,/tabindex="[1-9]/,label);
     const f=frames(html);
@@ -614,7 +614,7 @@ test('16. no positive tabindex; every new link and the workspace’s own selects
   }
   const source=read(WS);
   assert.doesNotMatch(source,/\btransition\b|transition-/);
-  assert.equal(count(source,'const selectClass = C_REVIEW_UI.selectClass.replace(/\\bh-10\\b/, "h-11");'),1);
+  assert.equal(count(source,'const { selectClass } = C_REVIEW_UI;'),1);
   // M14: every summary of the workspace is a 44 px target; the summary strings stay verbatim (REVIEWER_ONLY matches them).
   const summaries=[...source.matchAll(/<summary className="([^"]*)">([^<]*)<\/summary>/g)];
   assert.equal(count(source,'<summary'),2);

@@ -7,7 +7,7 @@ import { C_COMPONENT_LABELS, cMoneyLabel, type CBridge } from '@/lib/dashboard-r
 import { PillarCInsightChart } from '@/components/dashboard-review/pillar-c/insight-chart';
 
 const compact = (v: string | number) => new Intl.NumberFormat('it-IT', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(v));
-const button = 'inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
+const button = 'inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
 function wrap(s: string) {
   return s.split(' ').reduce<string[][]>((lines, word) => {
     const last = lines[lines.length - 1];

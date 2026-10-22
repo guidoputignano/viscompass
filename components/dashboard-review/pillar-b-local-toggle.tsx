@@ -59,7 +59,7 @@ export function LocalToggle<T extends string | number>({
             aria-pressed={o.value === value}
             onClick={() => onChange(o.value)}
             className={
-              "rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary " +
+              "min-h-11 rounded-md px-3 py-1 text-[11px] font-semibold motion-safe:transition-colors md:min-h-8 md:px-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary " +
               (o.value === value ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-card hover:text-foreground")
             }
           >

@@ -19,7 +19,7 @@ const pct = cAttrPercent;
 const labels: Record<CAttrState,string> = {S2:"Portafoglio singolo · da mappatura",S3:"Condivisa tra portafogli",S4:"Evidenza insufficiente",S5:"Identificativo da risolvere"};
 const colors: Record<CAttrState,string> = {S2:"#19998f",S3:"#d89b38",S4:"#8672ba",S5:"#677c96"};
 const select = "mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
-const button = "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium transition hover:border-primary/50 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40";
+const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium motion-safe:transition hover:border-primary/50 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40";
 const card = "min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6";
 function Tile({label,value,detail}:{label:string;value:string;detail:string}) {
   return <div className="min-w-0 rounded-xl bg-secondary/40 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{value}</p><p className="mt-2 text-xs leading-5 text-muted-foreground">{detail}</p></div>;

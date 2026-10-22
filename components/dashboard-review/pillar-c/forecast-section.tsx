@@ -141,7 +141,7 @@ export function PillarCForecastPanel({ forecast, series, onSeries, published = f
       </details>
     </article>
 
-    <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm font-medium">Dati e ambito della previsione</summary>
+    <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer py-3 text-sm font-medium">Dati e ambito della previsione</summary>
       <dl className="mt-4 space-y-3 text-xs leading-5">
         {[["Territorio", `Regione ${forecast.region}. Le selezioni di Azienda e canale non modificano questa previsione.`], ["Spesa rappresentata", "Acquisti diretti alle strutture pubbliche, inclusi i canali DD e DPC; importi al lordo dell’IVA e del payback."], ["Periodo", "Previsione gennaio–dicembre 2026, formulata con dati disponibili fino a dicembre 2025."], ["Dati osservati", labels.observedNote], ["Lettura degli intervalli", "Le fasce rappresentano l’incertezza della previsione. Quelle annue sono indicative e non sono limiti garantiti né disponibilità approvate."]].map(([term, detail]) => <div key={term}><dt className="font-semibold">{term}</dt><dd className="mt-1 text-muted-foreground">{typeset(detail)}</dd></div>)}
         <div><dt className="font-semibold">Fonte e licenza</dt><dd className="mt-1 text-muted-foreground"><span>{labels.attribution}</span> <a href={LICENCE_URL} target="_blank" rel="license noopener noreferrer" className={linkClass}>Licenza</a> · <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>Dati e documentazione AIFA</a></dd></div>

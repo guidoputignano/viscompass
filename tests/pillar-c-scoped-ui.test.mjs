@@ -430,7 +430,8 @@ test('URL clamps match keys exactly; the budget is always the published act; the
 });
 
 // ---------------------------------------------------------------- reviewer regression
-test('reviewer: the workspace and every shared view render the markup recorded at point 16 under the reviewer audience',async()=>{
+test('reviewer: the workspace and every shared view render the markup recorded at point 19 under the reviewer audience',async()=>{
+  // Re-recorded at point 19 (reason: 44 px controls, motion-safe transitions, budget select names that start with their visible label, the singular count sentence; data hash unchanged; earlier 0ef441e7…).
   // Re-recorded at point 16 (reason: spend chart chosen by the question, coverage note, «Nessuna riga nel registro», responsive attribution ranges, bridge legend; data hash unchanged; earlier f7f4e2c6…).
   // Re-recorded at 1.2d (reason: the workbook insight browser removed; data hash unchanged; 1.2b value c476b18e…).
   // Re-recorded at 1.2b (reason: six-section regroup and the 1.2b copy rows; data hash unchanged); earlier baseline
@@ -453,7 +454,7 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   assert.match(noAct,REVIEWER_ONLY_1_2B[1],'the empty variant is live');assert.doesNotMatch(noAct,REVIEWER_ONLY_1_2B[0]);
   assert.equal(out.cases,59);
   assert.equal(out.data,'bebe2d2b3c1d254353cd668e6b67e61c1c5c4b91ec1f15f465ebcccc2aa4e9be','the same synthetic data as the baseline');
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'0ef441e79d3291f4d7200ded966761dfdd288c9aabc28995984a9a906981c2fb');
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'021f09140aac17502be7b69c662bcf99a9f626c1e343e3fdd4512181ac5d28a5');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout
