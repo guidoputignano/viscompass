@@ -527,9 +527,6 @@ the record.
 - `github.com/Lufemos/vis` is a separate, parallel Next.js application
   whose own deployment doc targets this same Vercel project and domain.
   Its status is unresolved. Do not deploy it or merge from it.
-- Prototype/UI direction changes require sign-off from the Foundation
-  President (Guido Putignano) and, where relevant, the external reviewer
-  (Alberto Costantini).
 - Pricing, commercial positioning, and the trademark status of the "VIS
   PHARMA COMPASS" name are business decisions.
 - **M6's comparison basis is decided; one confirmation is outstanding.**
