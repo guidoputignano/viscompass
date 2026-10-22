@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowDownUp, ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleDot, Layers3, Search, SlidersHorizontal, Target } from "lucide-react";
+import { ArrowDownUp, ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleDot, Layers3, Search, Target } from "lucide-react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { cAttrAtoms, cAttrPriority, cAttrShare, cAttrUncertain, C_ATTR_CHANNELS, C_ATTR_PERIODS, C_ATTR_STATES, type CAttrScope, type CAttrState } from "@/lib/dashboard-review/pillar-c/attribution";
+import { cAttrAtoms, cAttrPriority, cAttrShare, cAttrUncertain, C_ATTR_PERIODS, C_ATTR_STATES, type CAttrScope, type CAttrState } from "@/lib/dashboard-review/pillar-c/attribution";
 import type { CAttrView } from "@/lib/dashboard-review/pillar-c/attribution-loader";
 import { cWorkbookDecimal } from "@/lib/dashboard-review/pillar-c/workbook";
 import { C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
@@ -91,18 +91,18 @@ function AttributionValues({view,audience,orgLabel}:{view:CAttrView;audience:CCl
   </div>;
 }
 
-/** Mandatory audience: without one nothing renders and nothing is fetched. `number` is the section's place in the page.
- * `pageScope`: mounted inside the section-3 frame; the scope is the dossier's (c_port_*), there are no selects and no badge. */
-export function PillarCAttributionAnalysis({number="03",pageScope=false}:{number?:string;pageScope?:boolean}) {
+/** Mandatory audience: without one nothing renders and nothing is fetched. Mounted inside the section-3 frame on every
+ * reader's page: the scope is the dossier's (c_port_*), there are no selects and no badge. */
+export function PillarCAttributionAnalysis() {
   const audience=usePillarCAudience();
-  return audience?<AttributionAnalysis audience={audience} number={number} pageScope={pageScope}/>:null;
+  return audience?<AttributionAnalysis audience={audience}/>:null;
 }
-function AttributionAnalysis({audience,number,pageScope}:{audience:CClientAudience;number:string;pageScope:boolean}) {
+function AttributionAnalysis({audience}:{audience:CClientAudience}) {
   const params=useSearchParams();
   // The organisation is one of the audience's own keys (exact match); any other value falls back to its default.
-  // Under pageScope the scope is read from c_port_* (period from the dossier, organisation and channel from the page
-  // scope bar) and c_attr_* is not read at all; without it, from c_attr_* as on the organisation-scoped page.
-  const {period,org,channel,tampered}=cAudienceScope(audience,params,pageScope?"c_port":"c_attr");
+  // The scope is read from c_port_* (period from the dossier, organisation and channel from the page scope bar);
+  // c_attr_* is not read at all.
+  const {period,org,channel,tampered}=cAudienceScope(audience,params,"c_port");
   const key=`${period}|${org}|${channel}`;
   const [result,setResult]=useState<{key:string;view:CAttrView}|null>(null),[failure,setFailure]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   useEffect(()=>{
@@ -114,11 +114,9 @@ function AttributionAnalysis({audience,number,pageScope}:{audience:CClientAudien
     }).catch(()=>{if(active)setFailure(`${key}|${attempt}`);});
     return()=>{active=false;controller.abort();};
   },[period,org,channel,key,attempt]);
-  const update=(name:string,value:string)=>{const next=new URLSearchParams(window.location.search);next.set(name,value);window.history.pushState(null,"",`${window.location.pathname}?${next}${window.location.hash}`);};
-  const Title=pageScope?"h3":"h2";
-  return <section id="attribuzione" aria-labelledby="attribuzione-title" className="scroll-mt-6 space-y-5 xl:scroll-mt-56" data-c-attribution="v1" data-c-attribution-scope={pageScope?key:undefined}>
-    <div className="flex items-start gap-3">{pageScope?null:<span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs text-primary">{number}</span>}<div><Title id="attribuzione-title" className={pageScope?"text-lg font-semibold":"text-xl font-semibold"}>Dove è incerta l’attribuzione della spesa?</Title><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">Misuriamo importi, prodotti e aree possibili. Un raggruppamento terapeutico non identifica il reparto che ha sostenuto il costo.</p></div></div>
-    {pageScope?(tampered&&isCScopedClientAudience(audience)?<p role="note" className="mt-2 text-xs font-medium">{C_AUDIENCE_COPY.tampered}</p>:null):<div className={card}><div className="mb-3 flex items-center gap-2 text-xs font-medium text-primary"><SlidersHorizontal size={15}/>Ambito di questa analisi</div><div className="grid gap-4 md:grid-cols-3"><label className="text-xs font-medium">Periodo<select aria-label="Periodo dell’attribuzione" className={select} value={period} onChange={e=>update("c_attr_period",e.target.value)}>{C_ATTR_PERIODS.map(p=><option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label><label className="text-xs font-medium">Organizzazione<select aria-label="Organizzazione dell’attribuzione" className={select} value={org} onChange={e=>update("c_attr_org",e.target.value)}>{audience.orgs.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}</select></label><label className="text-xs font-medium">Canale<select aria-label="Canale dell’attribuzione" className={select} value={channel} onChange={e=>update("c_attr_channel",e.target.value)}>{C_ATTR_CHANNELS.map(c=><option key={c} value={c}>{c==="Tutti"?"Tutti i canali":c}</option>)}</select></label></div><p className="mt-3 text-xs text-muted-foreground">Questi controlli aggiornano tutte le analisi di attribuzione qui sotto, senza modificare gli altri moduli.</p>{tampered&&isCScopedClientAudience(audience)?<p role="note" className="mt-2 text-xs font-medium">{C_AUDIENCE_COPY.tampered}</p>:null}</div>}
+  return <section id="attribuzione" aria-labelledby="attribuzione-title" className="scroll-mt-6 space-y-5 xl:scroll-mt-56" data-c-attribution="v1" data-c-attribution-scope={key}>
+    <div className="flex items-start gap-3"><div><h3 id="attribuzione-title" className="text-lg font-semibold">Dove è incerta l’attribuzione della spesa?</h3><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">Misuriamo importi, prodotti e aree possibili. Un raggruppamento terapeutico non identifica il reparto che ha sostenuto il costo.</p></div></div>
+    {tampered&&isCScopedClientAudience(audience)?<p role="note" className="mt-2 text-xs font-medium">{C_AUDIENCE_COPY.tampered}</p>:null}
     {result?.key===key?<CAttributionView key={key} view={result.view}/>:<div role="status" className={card}>{failure===`${key}|${attempt}`?<><p className="text-sm">L’analisi non è disponibile in questo momento. Nessun valore viene sostituito con zero.</p><button type="button" className={`${button} mt-3`} onClick={()=>setAttempt(attempt+1)}>Riprova</button></>:<p className="text-sm text-muted-foreground">Caricamento dell’ambito selezionato…</p>}</div>}
   </section>;
 }

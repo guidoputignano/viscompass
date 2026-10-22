@@ -43,7 +43,7 @@ const AV=await at('lib/dashboard-review/pillar-c/audience-view.ts');
 const {cPlanningAccept,cPlanningExport,cPlanningExportName,cPlanningFilters,C_PLANNING_LABELS}=await at('lib/dashboard-review/pillar-c/planning.ts');
 const {cReviewPlan,cReviewJson,cReviewCsv,cCreateReviewTask}=await at('lib/dashboard-review/pillar-c/review-plan.ts');
 const {cMoneyLabel,parseCReviewPacket,selectCReview}=await at('lib/dashboard-review/pillar-c/review.ts');
-const {PILLAR_C_SCOPED_SECTIONS}=await at('lib/dashboard-review/pillar-c/section-navigation.ts');
+const {PILLAR_C_SECTIONS}=await at('lib/dashboard-review/pillar-c/section-navigation.ts');
 
 // ---------------------------------------------------------------- synthetic audiences, packets and views
 const ORG_NAME='Azienda sintetica Quattro';
@@ -126,8 +126,8 @@ test('without an audience, or with an incomplete one, every audience-bound compo
   // returns null without one, so a fetch cannot start without an audience.
   const src=p=>readFileSync(`${root}${p}`,'utf8').replace(/\r\n/g,'\n');
   for(const [file,guard,inner] of [
-    ['attribution-analysis.tsx',/export function PillarCAttributionAnalysis\([^)]*\) \{\n  const audience=usePillarCAudience\(\);\n  return audience\?<AttributionAnalysis audience=\{audience\} number=\{number\} pageScope=\{pageScope\}\/>:null;\n\}/,/function AttributionAnalysis\(\{audience,number,pageScope\}:\{audience:CClientAudience;number:string;pageScope:boolean\}\)/],
-    ['portfolio-dossier.tsx',/export function PillarCPortfolioDossier\([^)]*\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?<PortfolioDossier audience=\{audience\} workbook=\{workbook\} pageScope=\{pageScope\}\/>:null;\n\}/,/function PortfolioDossier\(\{audience,workbook,pageScope\}:\{audience:CClientAudience;/],
+    ['attribution-analysis.tsx',/export function PillarCAttributionAnalysis\([^)]*\) \{\n  const audience=usePillarCAudience\(\);\n  return audience\?<AttributionAnalysis audience=\{audience\}\/>:null;\n\}/,/function AttributionAnalysis\(\{audience\}:\{audience:CClientAudience\}\)/],
+    ['portfolio-dossier.tsx',/export function PillarCPortfolioDossier\([^)]*\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?<PortfolioDossier audience=\{audience\} workbook=\{workbook\}\/>:null;\n\}/,/function PortfolioDossier\(\{audience,workbook\}:\{audience:CClientAudience;/],
     ['planning-workspace.tsx',/export function PillarCPlanningWorkspace\(props: CPlanningWorkspaceProps\) \{\n  const audience = usePillarCAudience\(\);\n  return audience \? <PlanningWorkspace \{\.\.\.props\} audience=\{audience\}\/> : null;\n\}/,/function PlanningWorkspace\(\{ publishedActs, evidenceAnchor = false, audience \}: CPlanningWorkspaceProps & \{ audience: CClientAudience \}\)/],
     ['evidence-workflow.tsx',/export function PillarCEvidenceWorkflow\(\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?\.capabilities\.evidence===true\?<EvidenceWorkflow\/>:null;\n\}/,/function EvidenceWorkflow\(\)\{/],
     ['portfolio-pvm.tsx',/const audience=usePillarCAudience\(\);\n  if\(!audience\)return null;\n  if\(!audience\.capabilities\.pvm\)return <p [^\n]*\{C_AUDIENCE_COPY\.pvm\}<\/p>;\n  return <PriceQuantityMix view=\{view\} workbook=\{workbook\}\/>;/,/function PriceQuantityMix\(/],
@@ -137,10 +137,10 @@ test('without an audience, or with an incomplete one, every audience-bound compo
     const exported=[...s.matchAll(/^export function (\w+)[^\n]*\n([\s\S]*?)^\}/gm)].filter(m=>m[2].includes('fetch('));
     assert.deepEqual(exported.map(m=>m[1]),[],`${file}: no exported component fetches`);
   }
-  for(const file of ['analytical-workspace.tsx','scoped-workspace.tsx','change-summary.tsx','review-plan.tsx','section-navigation.tsx','audience-context.tsx'])assert.doesNotMatch(src(`components/dashboard-review/pillar-c/${file}`),/fetch\(/,file);
+  for(const file of ['analytical-workspace.tsx','scoped-workspace.tsx','regional-forecast-workspace.tsx','change-summary.tsx','review-plan.tsx','section-navigation.tsx','section-frame.tsx','audience-context.tsx'])assert.doesNotMatch(src(`components/dashboard-review/pillar-c/${file}`),/fetch\(/,file);
   // The context has no default, and no component falls back to the reviewer's vocabulary.
   assert.match(src('components/dashboard-review/pillar-c/audience-context.tsx'),/createContext<CClientAudience \| null>\(null\)/);
-  for(const file of ['attribution-analysis.tsx','portfolio-dossier.tsx','planning-workspace.tsx','change-summary.tsx','review-plan.tsx','scoped-workspace.tsx'])
+  for(const file of ['attribution-analysis.tsx','portfolio-dossier.tsx','planning-workspace.tsx','change-summary.tsx','review-plan.tsx','scoped-workspace.tsx','regional-forecast-workspace.tsx'])
     assert.doesNotMatch(src(`components/dashboard-review/pillar-c/${file}`),/\bC_ORG_LABELS\b|\bC_ATTR_ORGS\b|\bC_ORGS\b/,file);
 });
 
@@ -173,9 +173,12 @@ test('Azienda: own name and the four-Azienda aggregate only, no peer, no reviewe
     assert.doesNotMatch(t,/Prova ASL 4|Budget pubblicati · ASL 4/);
     // The planning workspace's confidentiality label is the Azienda's own.
     assert.match(h,new RegExp(`<p id="scenari-confidentiality" class="[^"]*">Riservato a ${ORG_NAME} · dati della propria Azienda e aggregato delle quattro Aziende</p>`));
-    // The PVM is not offered: no link to it from the decision panel either; the attribution analysis is.
-    assert.match(h,/href="#attribuzione">Spesa condivisa fra aree<\/a><a [^>]*href="#numerosita">/);
-    assert.match(h,/<section id="attribuzione"[^>]*data-c-attribution="v1">/);assert.match(h,/<span class="flex size-9[^"]*">02<\/span>/);
+    // The PVM is not offered: no link to it from section 1 either; the three «Vai a» links of the overview (1.2c).
+    assert.doesNotMatch(h,/Spesa condivisa fra aree|Scenari di numerosità|href="#costi"|Quantità, mix e costo/);
+    assert.match(h,/>Vai a Portafogli e attribuzione<\/a><a href="#fattori" [^>]*>Vai a Fattori di spesa<\/a><a href="#budget-scenari" [^>]*>Vai a Budget e scenari<\/a>/);
+    // The attribution analysis is in section 3 and reads the page scope (c_port_*): the bar's c_org does not move it (M2).
+    assert.match(h,/<section id="attribuzione"[^>]*data-c-attribution="v1" data-c-attribution-scope="FY2025\|asl-4\|Tutti">/);
+    assert.deepEqual([...h.matchAll(/<span([^>]*)>([^<]*)<\/span>/g)].filter(m=>/class="flex size-9 /.test(m[1])).map(m=>[m[2],/aria-hidden="true"/.test(m[1])]),['1','2','3','4','5','6'].map(n=>[n,true]),'no number badge: only the six hidden frame numerals');
     // The public regional forecast, as every approved member receives it.
     assert.match(h,/<section id="previsione"/);assert.ok(t.includes(forecast.labels.forecast));
   }
@@ -218,10 +221,14 @@ test('Regione: «Aggregato regionale» and ASL 1–4 under opaque keys, no provi
   }
   assert.ok(text(workspace('regione')).includes('Dipartimento 4000'),'the published act of ASL 4 opens the panel');
   assert.ok(text(workspace('regione','c_budget_org=asl-1&c_budget_channel=DD')).includes(AV.C_AUDIENCE_COPY.budgetNone));
-  // The section navigation is the scoped list: dossier, scenarios, then 01–07; no workbook section, no queue.
+  // The section navigation is the six-entry bar linking the six frames (1.2c); the nine old anchors stay as inner blocks
+  // so that old links resolve; no select, no workbook section, no queue.
   const h=workspace('regione');
-  assert.deepEqual(options(h,'Vai alla sezione Pillar C').map(([v])=>v),PILLAR_C_SCOPED_SECTIONS.map(s=>s.id));
-  for(const s of PILLAR_C_SCOPED_SECTIONS)assert.match(h,new RegExp(`id="${s.id}"`),s.id);
+  assert.doesNotMatch(h,/Vai alla sezione/);
+  const nav=h.slice(h.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"'),h.indexOf('</nav>'));
+  assert.deepEqual([...nav.matchAll(/href="#([^"]+)"/g)].map(m=>m[1]),PILLAR_C_SECTIONS.map(s=>s.id));
+  for(const s of PILLAR_C_SECTIONS)assert.equal(h.split(`<section id="${s.id}" aria-labelledby="${s.id}-title"`).length-1,1,s.id);
+  for(const id of ['portafogli','scenari','spesa','attribuzione','cambiamento','pianificazione','numerosita','previsione','evidenza'])assert.equal(h.split(` id="${id}"`).length-1,1,id);
 });
 
 test('O4 notes render only with the rows they describe; an empty state never says the panel «contains» anything (UI-2)',()=>{
@@ -307,13 +314,15 @@ test('a link carrying a key outside the audience shows the audience default with
     assert.match(h,new RegExp(`<option value="${shown}" selected="">`));
   }
   assert.ok(!text(workspace('azienda4','c_org=aggregato')).includes(AV.C_AUDIENCE_COPY.tampered),'an own key is not tampered');
-  // The dossier and the attribution analysis clamp their own keys the same way, before any fetch.
+  // The dossier and the attribution analysis read the page scope (c_port_*) and clamp it the same way, before any fetch;
+  // their own organisation selects are gone (1.2c): the clamp shows as the note, the section-3 line and the fetched scope.
   const dossier=under(client('azienda4'),React.createElement(PillarCPortfolioDossier),'c_port_org=asl-1');
-  assert.deepEqual(options(dossier,'Organizzazione del dossier'),[['asl-4',ORG_NAME],['aggregato','Aggregato delle quattro Aziende']]);
-  assert.match(dossier,/<option value="asl-4" selected="">/);assert.ok(text(dossier).includes(AV.C_AUDIENCE_COPY.tampered));
-  const attribution=under(client('regione'),React.createElement(PillarCAttributionAnalysis,{number:'02'}),'c_attr_org=TE');
-  assert.deepEqual(options(attribution,'Organizzazione dell’attribuzione').map(([v])=>v),['aggregato','asl-1','asl-2','asl-3','asl-4']);
-  assert.match(attribution,/<option value="aggregato" selected="">/);assert.ok(text(attribution).includes(AV.C_AUDIENCE_COPY.tampered));
+  assert.doesNotMatch(dossier,/aria-label="(Organizzazione|Canale) del dossier"/);assert.ok(text(dossier).includes(AV.C_AUDIENCE_COPY.tampered));
+  assert.ok(text(workspace('azienda4','c_port_org=asl-1')).includes(`${ORG_NAME} · Tutti i canali · Anno 2025 · raggruppamenti ATC in bozza`),'section 3 states the clamped organisation');
+  const attribution=under(client('regione'),React.createElement(PillarCAttributionAnalysis),'c_port_org=TE');
+  assert.doesNotMatch(attribution,/<select/);
+  assert.match(attribution,/data-c-attribution-scope="FY2025\|aggregato\|Tutti"/);assert.ok(text(attribution).includes(AV.C_AUDIENCE_COPY.tampered));
+  assert.ok(!text(under(client('regione'),React.createElement(PillarCAttributionAnalysis),'c_attr_org=TE')).includes(AV.C_AUDIENCE_COPY.tampered),'c_attr_* is not read');
   // The reviewer reads the same addresses exactly as before: no note, today's defaults.
   assert.ok(!text(under(C_REVIEWER_CLIENT_AUDIENCE,React.createElement(PillarCPortfolioDossier),'c_port_org=asl-1')).includes(AV.C_AUDIENCE_COPY.tampered));
 });
@@ -452,7 +461,8 @@ test('copy and translation safety: keyed or single-child changing text, no demo 
   const DRIVEN=String.raw`\{(?:scope|filters\.|budgets\.length|data\.|copied|eur\(|signed\(|orgLabel|budgetLabel|missingCounts|decision\.|audience\.)[^{}]*\}`;
   const TEXT=String.raw`[^<>{}\`\n]*[^<>{}\`\s][^<>{}\`\n]*`;
   assert.doesNotMatch(s,new RegExp(`>${TEXT}${DRIVEN}`));assert.doesNotMatch(s,new RegExp(`${DRIVEN}${TEXT}<`));
-  assert.ok(s.includes('<span key={copied ? "copied" : "copy"}>{copied ? "Link copiato" : "Copia vista"}</span>'));
+  // 1.2c: «Copia vista» and its keyed span live in the shared scope bar (scope-bar.tsx, pinned by six-sections-frames and review).
+  assert.ok(s.includes('<PillarCScopeBar '));assert.doesNotMatch(s,/\bcopied\b|Copia vista|Link copiato/);
   for(const file of ['components/dashboard-review/pillar-c/scoped-workspace.tsx','components/dashboard-review/pillar-c/audience-context.tsx','lib/dashboard-review/pillar-c/audience-view.ts'])
     assert.doesNotMatch(readFileSync(`${root}${file}`,'utf8'),/\bdemo\b|dimostra|verificat/i,file);
   // Every string of the copy, nested ones (the count panel's labels) included.
@@ -464,6 +474,6 @@ test('copy and translation safety: keyed or single-child changing text, no demo 
   assert.ok(readFileSync(`${root}components/dashboard-review/pillar-c/review-plan.tsx`,'utf8').includes('<p key={key} className="text-xs font-medium">'));
   // Phone width: nothing in the scoped workspace fixes a width; wide content scrolls inside its own container.
   assert.doesNotMatch(s,/\b(?:min-)?w-\[\d+px\]/);
-  // The forecast-only branch keeps today's component unchanged: it reads no audience.
+  // The forecast-only branch composes the section bar and section 5 (1.2c); it still reads no audience.
   assert.doesNotMatch(readFileSync(`${root}components/dashboard-review/pillar-c/regional-forecast-workspace.tsx`,'utf8'),/audience/i);
 });

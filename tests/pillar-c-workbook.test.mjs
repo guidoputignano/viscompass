@@ -4,16 +4,14 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {C_WORKBOOK_HASH,C_WORKBOOK_SECTIONS,cWorkbookDecimal,cWorkbookLabel,cWorkbookRows,cWorkbookPlotRows,cWorkbookComparableColumns,cWorkbookLabelColumn,cWorkbookAxisLabel,parseCWorkbookIndex,parseCWorkbookSection} from '../lib/dashboard-review/pillar-c/workbook.ts';
 import {loadCWorkbookIndex,loadCWorkbookSection} from '../lib/dashboard-review/pillar-c/workbook-loader.ts';
-import {PILLAR_C_ALL_SECTIONS,pillarCSectionAtViewport} from '../lib/dashboard-review/pillar-c/section-navigation.ts';
 
 const meta=()=>({id:'TEST-1',title:'Invented test only',section:'spesa',tier:'Fonte pubblica',qualifier:'—',grain:'anno',ranges:['Example!A1:C4'],availability:'snapshot',reason:null,sourceState:'review'});
 const fixture=()=>({schema:'pillar-c-workbook-section-v1',workbookSha256:C_WORKBOOK_HASH,section:'spesa',formats:{0:'General',3:'#,##0',164:'#,##0.00 "€"',167:'0.0%'},outputs:[{...meta(),tables:[{sheet:'Example',range:'A1:C4',startColumn:1,columns:['Anno','Unità','Spesa (€)'],headerRow:1,rows:[[['2024',0],'A',['1.005',164]],[['2025',0],'B',null],[['2026',0],'A',['0',164]]],sourceRows:[2,3,4],notes:[],numericColumns:[2]}]}]});
 const indexFor=p=>({schema:'pillar-c-workbook-index-v1',workbookSha256:C_WORKBOOK_HASH,outputs:[meta()],sections:{spesa:{sha256:createHash('sha256').update(JSON.stringify(p)).digest('hex'),bytes:Buffer.byteLength(JSON.stringify(p)),outputs:1}}});
 
-test('all extended sections have unique anchors and follow their actual reading order',()=>{
+test('the fourteen workbook sections have unique anchors; the page navigation no longer depends on them (1.2c)',()=>{
   assert.equal(C_WORKBOOK_SECTIONS.length,14);assert.equal(new Set(C_WORKBOOK_SECTIONS.map(x=>x[0])).size,14);
-  assert.equal(PILLAR_C_ALL_SECTIONS.at(-1).id,'evidenza');
-  assert.equal(pillarCSectionAtViewport([{id:'spesa',top:-600},{id:'composizione',top:-100},{id:'attribuzione',top:300}],150,false,PILLAR_C_ALL_SECTIONS),'composizione');
+  assert.doesNotMatch(readFileSync(new URL('../lib/dashboard-review/pillar-c/section-navigation.ts',import.meta.url),'utf8'),/workbook|C_WORKBOOK_SECTIONS/);
 });
 test('exact workbook decimals retain cent ties, signs, large amounts and exponent values',()=>{
   for(const [input,p,percent,want] of [['1.005',2,false,'1,01'],['-1.005',2,false,'-1,01'],['1234567890123.005',2,false,'1.234.567.890.123,01'],['3.6398317899999998E-2',1,true,'3,6'],['0',2,false,'0,00'],['-0.004',2,false,'0,00']]) assert.equal(cWorkbookDecimal(input,p,percent),want);

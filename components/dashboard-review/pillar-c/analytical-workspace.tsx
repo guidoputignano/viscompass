@@ -21,7 +21,7 @@ import type { CWorkbookIndex } from "@/lib/dashboard-review/pillar-c/workbook";
 import type { CClientAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
 import { C_AUDIENCE_COPY, cAudienceLabel, cAudienceScope } from "@/lib/dashboard-review/pillar-c/audience-view";
 import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-decision";
-import { PILLAR_C_SIX_SECTIONS, type PillarCSixSection } from "@/lib/dashboard-review/pillar-c/section-navigation";
+import { PILLAR_C_SECTIONS, type PillarCSection } from "@/lib/dashboard-review/pillar-c/section-navigation";
 import { itNumber } from "@/lib/format/it-number";
 import { C_FORECAST_LABEL, C_PERIOD_LABELS, C_PERIODS, C_REVIEW_SECTIONS, cMoneyLabel, cReviewFilters, cReviewSearch, selectCReview, type COrg, type CPeriod, type CReviewFilters, type CReviewPacket } from "@/lib/dashboard-review/pillar-c/review";
 import { C_ORG_LABELS } from "@/lib/dashboard-review/pillar-c/reviewer-labels";
@@ -33,8 +33,8 @@ const { monthNames } = C_REVIEW_UI;
 // The reviewer workspace's own selects at 44 px (R7); the shared classes stay until 1.4.
 const selectClass = C_REVIEW_UI.selectClass.replace(/\bh-10\b/, "h-11");
 const SCOPE_CHANNELS = [{ value: "Tutti", label: "Tutti i canali" }, { value: "CO", label: "CO" }, { value: "DD", label: "DD" }, { value: "DPC", label: "DPC" }] as const;
-const [QUADRO, DESTINATARI, PORTAFOGLI, FATTORI, BUDGET, PRIORITA] = PILLAR_C_SIX_SECTIONS;
-const frameOf = (s: PillarCSixSection) => ({ id: s.id, number: s.number, title: s.label, question: s.question });
+const [QUADRO, DESTINATARI, PORTAFOGLI, FATTORI, BUDGET, PRIORITA] = PILLAR_C_SECTIONS;
+const frameOf = (s: PillarCSection) => ({ id: s.id, number: s.number, title: s.label, question: s.question });
 const OVERVIEW_LINKS = [PORTAFOGLI, FATTORI, BUDGET].map((s) => ({ href: `#${s.id}`, label: s.label }));
 const crossLink = "inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-primary";
 const EVIDENCE_CRITERIA: readonly PillarCEvidenceCriterion[] = [
@@ -144,8 +144,8 @@ function ReviewerWorkspace({ audience, packet, workbook }: { audience: CClientAu
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
-      <PillarCPortfolioDossier workbook={workbook} pageScope/>
-      {workbook && <><PillarCAttributionAnalysis pageScope /><PillarCInsightsSection index={workbook} section="composizione" /></>}
+      <PillarCPortfolioDossier workbook={workbook} />
+      {workbook && <><PillarCAttributionAnalysis /><PillarCInsightsSection index={workbook} section="composizione" /></>}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>

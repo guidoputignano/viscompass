@@ -144,7 +144,9 @@ test('source pins: no reader-group word, no loader, no chart library, no toggle,
   assert.ok(src.includes('{`Vai a ${link.label}`}'));
   // Exactly one import, the class merger.
   assert.deepEqual([...src.matchAll(/^import .*$/gm)].map(m=>m[0]),['import { cn } from "@/lib/utils";']);
-  // Mounted by the reviewer workspace from 1.2b; the scoped and regional workspaces mount it in 1.2c.
-  for(const f of ['scoped-workspace.tsx','regional-forecast-workspace.tsx']) assert.doesNotMatch(read(`components/dashboard-review/pillar-c/${f}`),/decision-overview/);
+  // Mounted by the reviewer workspace (1.2b) and the organisation-scoped workspace (1.2c); the forecast_only page has no
+  // section 1, so the regional workspace never mounts it.
+  assert.match(read('components/dashboard-review/pillar-c/scoped-workspace.tsx'),/from "@\/components\/dashboard-review\/pillar-c\/decision-overview"/);
+  assert.doesNotMatch(read('components/dashboard-review/pillar-c/regional-forecast-workspace.tsx'),/decision-overview/);
   assert.match(read('components/dashboard-review/pillar-c/analytical-workspace.tsx'),/from "@\/components\/dashboard-review\/pillar-c\/decision-overview"/);
 });

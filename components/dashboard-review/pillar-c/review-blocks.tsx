@@ -23,12 +23,11 @@ const tooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(va
 function Panel({ title, description, controls, children }: { title: string; description?: string; controls?: React.ReactNode; children: React.ReactNode }) {
   return <article className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6"><div className="mb-5 flex flex-wrap items-start justify-between gap-4"><div><h3 className="text-base font-semibold">{title}</h3>{description && <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>}</div>{controls}</div>{children}</article>;
 }
-type HeadingProps = { id: string; title: string; children: React.ReactNode } & ({ number: string; inner?: false } | { inner: true; number?: undefined });
-/** A review section's heading. `inner`: a block inside a section frame, which carries the h2 and the numeral, so the
- * block gets an h3 and no number badge (1.2b); without it, the numbered h2 the organisation-scoped page uses until 1.2c. */
-function Heading({ id, number, title, children, inner = false }: HeadingProps) {
-  if (inner) return <div className="mb-5"><h3 id={`${id}-title`} className="text-lg font-semibold tracking-tight">{title}</h3><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">{children}</p></div>;
-  return <div className="mb-5 flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs font-semibold text-primary">{number}</span><div><h2 id={`${id}-title`} className="text-xl font-semibold tracking-tight">{title}</h2><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">{children}</p></div></div>;
+type HeadingProps = { id: string; title: string; children: React.ReactNode; inner: true };
+/** The heading of a block inside a section frame: the frame carries the h2 and the numeral, so the block gets an h3 and
+ * no number badge. `inner` is required, so a block heading can never be rendered as a numbered h2 again (1.2c). */
+function Heading({ id, title, children }: HeadingProps) {
+  return <div className="mb-5"><h3 id={`${id}-title`} className="text-lg font-semibold tracking-tight">{title}</h3><p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">{children}</p></div>;
 }
 function ExactTable({ caption, headers, rows }: { caption: string; headers: string[]; rows: React.ReactNode[][] }) {
   return <details className="mt-5 rounded-xl border border-border"><summary className="cursor-pointer rounded-xl px-4 py-3 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Valori e dettaglio · {caption}</summary><div className="overflow-x-auto px-4 pb-4"><table className="w-full text-left text-xs"><caption className="sr-only">{caption}</caption><thead><tr>{headers.map((h) => <th scope="col" key={h} className="whitespace-nowrap border-b border-border px-2 py-3 font-semibold">{h}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell, j) => j === 0 ? <th key={j} scope="row" className="border-b border-border/50 px-2 py-3 font-medium">{cell}</th> : <td key={j} className="whitespace-nowrap border-b border-border/50 px-2 py-3 tabular-nums">{cell}</td>)}</tr>)}</tbody></table></div></details>;

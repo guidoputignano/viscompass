@@ -6,7 +6,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {buildCAttrPacket} from '../lib/dashboard-review/pillar-c/attribution.ts';
 import {buildCPortfolioPacket,cPortfolioView} from '../lib/dashboard-review/pillar-c/portfolio.ts';
 import {cPortfolioPlanning} from '../lib/dashboard-review/pillar-c/portfolio-insights.ts';
-import {PILLAR_C_ALL_SECTIONS,PILLAR_C_SECTIONS,pillarCSectionAtViewport} from '../lib/dashboard-review/pillar-c/section-navigation.ts';
+import {PILLAR_C_SECTIONS,pillarCSectionAtViewport} from '../lib/dashboard-review/pillar-c/section-navigation.ts';
 import {C_PERIOD_LABELS} from '../lib/dashboard-review/pillar-c/review.ts';
 import {C_PLANNING_GROUP_STATEMENTS,C_PLANNING_LABELS as L,C_PLANNING_MATCHED,C_PLANNING_READING,C_PLANNING_RULE_NOTES,cPlanningSplitStatus,cPlanningStatements,cPlanningAccept,cPlanningCompare,cPlanningCopyLint,cPlanningDossierHref,cPlanningExport,cPlanningExportName,cPlanningFilters,cPlanningMoney,cPlanningNumber,cPlanningPartialText,cPlanningPercentLabel,cPlanningRegroup,cPlanningSearch,cPlanningShareText,cPlanningWorkspace} from '../lib/dashboard-review/pillar-c/planning.ts';
 const root=fileURLToPath(new URL('..',import.meta.url));
@@ -318,7 +318,7 @@ test('the planning section carries only allowlisted data-* attributes, never an 
   const at=s=>{const i=workspace.indexOf(s);assert.ok(i>=0,s);assert.equal(workspace.indexOf(s,i+1),-1,`${s} occurs once`);return i;};
   const mount='<PillarCPlanningWorkspace publishedActs={publishedActs} evidenceAnchor={Boolean(workbook)}/>';
   assert.ok(at('<section id="pianificazione"')<at(mount)&&at(mount)<at('<section id="numerosita"'),'Spazio scenari in section 5 after the budget panel, with only the act keys');
-  assert.ok(at('<PillarCPortfolioDossier workbook={workbook} pageScope/>')<at('<section id="spesa"'),'the dossier precedes the spend block');
+  assert.ok(at('<PillarCPortfolioDossier workbook={workbook} />')<at('<section id="spesa"'),'the dossier precedes the spend block');
   assert.match(workspace,/const publishedActs = useMemo\(\(\) => \[\.\.\.new Set\(packet\.budgets\.filter\(b => b\.basis === "published" && b\.level === "Dipartimento"\)\.map\(b => `\$\{b\.org\}\|\$\{b\.period\}\|\$\{b\.channel\}`\)\)\], \[packet\]\);/,'keys only, never a budget row or amount');
   assert.equal((workspace.match(/PillarCPlanningWorkspace/g)??[]).length,2,'imported once, mounted once');
 });
@@ -533,16 +533,16 @@ test('R1/R6: the blur and the click of one tap both land in the address; each va
   assert.doesNotMatch(ui,/cPlanningSearch\(search,|\{ \.\.\.plan,|const plan: CPlanningPlan|<li key=\{i\}|key=\{v\.index\}/,'no handler builds on the plan of the render, and no card is keyed by its index');
 });
 
-test('navigation: «Scenari» is an unnumbered entry right after «Dossier»; the anchor resolves; workbook numbering is unchanged',()=>{
-  const ids=PILLAR_C_ALL_SECTIONS.map(s=>s.id);
-  assert.deepEqual(ids.slice(0,3),['portafogli','scenari','spesa']);
-  const entry=PILLAR_C_ALL_SECTIONS[1];
-  assert.deepEqual(entry,{id:'scenari',label:L.section.nav,description:L.section.navDescription,number:''});
-  assert.deepEqual(PILLAR_C_ALL_SECTIONS.filter(s=>s.number).map(s=>s.number),Array.from({length:14},(_,i)=>String(i+1).padStart(2,'0')));
-  assert.equal(new Set(ids).size,ids.length);
-  assert.deepEqual(PILLAR_C_SECTIONS.map(s=>s.id),['spesa','cambiamento','pianificazione','numerosita','previsione','evidenza'],'the compact navigation is unchanged');
-  assert.match(source('components/dashboard-review/pillar-c/section-navigation.tsx'),/scenari: GitBranch/);
-  assert.equal(pillarCSectionAtViewport([{id:'portafogli',top:-900},{id:'scenari',top:-40},{id:'spesa',top:900}],150,false,PILLAR_C_ALL_SECTIONS),'scenari');
+test('navigation: Spazio scenari keeps its inner anchor inside section 5 «Budget e scenari» on every page with six sections (1.2c)',()=>{
+  const ids=PILLAR_C_SECTIONS.map(s=>s.id);
+  assert.deepEqual(ids,['quadro','destinatari','portafogli-attribuzione','fattori','budget-scenari','priorita-evidenza'],'the six sections');
+  assert.ok(!ids.includes('scenari'),'Spazio scenari is a block of section 5, not a navigation entry');
+  for(const [file,mount] of [['analytical-workspace.tsx','<PillarCPlanningWorkspace publishedActs={publishedActs} evidenceAnchor={Boolean(workbook)}/>'],['scoped-workspace.tsx','<PillarCPlanningWorkspace publishedActs={publishedActs} />']]){
+    const ws=source(`components/dashboard-review/pillar-c/${file}`);
+    assert.ok(ws.indexOf('<PillarCSectionFrame {...frameOf(BUDGET)}>')<ws.indexOf(mount)&&ws.indexOf(mount)<ws.indexOf('<PillarCSectionFrame {...frameOf(PRIORITA)}>'),`${file}: inside section 5`);
+  }
+  assert.match(source('components/dashboard-review/pillar-c/section-navigation.tsx'),/"budget-scenari": Landmark/);
+  assert.equal(pillarCSectionAtViewport([{id:'portafogli-attribuzione',top:-900},{id:'budget-scenari',top:-40},{id:'priorita-evidenza',top:900}],150),'budget-scenari');
   assert.match(html(states.observed,null),/<section id="scenari"/);
 });
 

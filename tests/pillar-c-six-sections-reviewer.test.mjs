@@ -39,7 +39,7 @@ const {cForecastDecision}=await at('lib/dashboard-review/pillar-c/forecast-decis
 const {cDecisionAnswer}=await at('lib/dashboard-review/pillar-c/insights.ts');
 const {C_FORECAST_LABEL,C_PERIOD_LABELS,cMoneyLabel,cReviewFilters,parseCReviewPacket}=await at('lib/dashboard-review/pillar-c/review.ts');
 const {C_ORG_LABELS}=await at('lib/dashboard-review/pillar-c/reviewer-labels.ts');
-const {PILLAR_C_SIX_SECTIONS}=await at('lib/dashboard-review/pillar-c/section-navigation.ts');
+const {PILLAR_C_SECTIONS}=await at('lib/dashboard-review/pillar-c/section-navigation.ts');
 const {C_WORKBOOK_HASH}=await at('lib/dashboard-review/pillar-c/workbook.ts');
 const {buildCPortfolioPacket,cPortfolioView}=await at('lib/dashboard-review/pillar-c/portfolio.ts');
 const {C_PLANNING_MATCHED}=await at('lib/dashboard-review/pillar-c/planning.ts');
@@ -87,7 +87,7 @@ const S0='',S1='c_org=AQ&c_channel=CO&c_port_org=TE&c_port_period=FY2024&c_attr_
 const RENDERS=[[S0,undefined],[S0,WB],[S1,undefined],[S1,WB]].map(([search,workbook])=>({search,workbook,label:`?${search} ${workbook?'with':'without'} workbook`,html:page(search,workbook)}));
 
 // ---------------------------------------------------------------- markup helpers
-const SIX=PILLAR_C_SIX_SECTIONS.map(s=>s.id);
+const SIX=PILLAR_C_SECTIONS.map(s=>s.id);
 const NUMERAL='flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs font-semibold text-primary';
 const FRAME_H2='text-xl font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-primary';
 const LEAD='mt-1 max-w-4xl text-sm leading-6 text-muted-foreground';
@@ -98,7 +98,7 @@ const INSIGHT_SECTIONS=['composizione','costi','confronti','attivita','tendenze'
 const frameHead=({id,number,label,question})=>`<section id="${id}" aria-labelledby="${id}-title" class="scroll-mt-6 xl:scroll-mt-36"><div class="mb-5 flex items-start gap-3"><span aria-hidden="true" class="${NUMERAL}">${number}</span><div class="min-w-0"><h2 id="${id}-title" tabindex="-1" class="${FRAME_H2}">${label}</h2><p class="${LEAD}">${question}</p>`;
 /** The six frames of a render, each from its opening tag to the next frame's (the last to the end). */
 function frames(html){
-  const starts=PILLAR_C_SIX_SECTIONS.map(s=>html.indexOf(frameHead(s)));
+  const starts=PILLAR_C_SECTIONS.map(s=>html.indexOf(frameHead(s)));
   assert.ok(starts.every(i=>i>=0),`every frame heading is present: ${starts}`);
   return Object.fromEntries(SIX.map((id,i)=>[id,html.slice(starts[i],i<5?starts[i+1]:html.length)]));
 }
@@ -161,11 +161,11 @@ function sourcesOf(html){
 // ================================================================ 1. frames
 // Catches: a frame missing, reordered or nested in another; frameOf mapping a wrong field (label, number or question);
 // the page header losing its scope pill or the section bar moving below the frames.
-test('1. six frames, in the order of PILLAR_C_SIX_SECTIONS, each with its hidden numeral, its h2 and its question; none nested',()=>{
+test('1. six frames, in the order of PILLAR_C_SECTIONS, each with its hidden numeral, its h2 and its question; none nested',()=>{
   assert.deepEqual(SIX,['quadro','destinatari','portafogli-attribuzione','fattori','budget-scenari','priorita-evidenza']);
   for(const {label,html} of RENDERS){
-    const starts=PILLAR_C_SIX_SECTIONS.map(s=>html.indexOf(frameHead(s)));
-    for(const [i,s] of PILLAR_C_SIX_SECTIONS.entries()){
+    const starts=PILLAR_C_SECTIONS.map(s=>html.indexOf(frameHead(s)));
+    for(const [i,s] of PILLAR_C_SECTIONS.entries()){
       assert.equal(count(html,frameHead(s)),1,`${label}: frame ${s.id} once`);
       if(i)assert.ok(starts[i]>starts[i-1],`${label}: ${s.id} after ${SIX[i-1]}`);
     }
@@ -174,7 +174,7 @@ test('1. six frames, in the order of PILLAR_C_SIX_SECTIONS, each with its hidden
     // The hidden numerals are exactly the frames' 1–6.
     assert.deepEqual([...html.matchAll(new RegExp(`<span aria-hidden="true" class="${NUMERAL}">([^<]*)</span>`,'g'))].map(m=>m[1]),['1','2','3','4','5','6'],label);
     // Only section 3 carries a scope line (c_port_*); every other frame goes straight from the question to its blocks.
-    for(const s of PILLAR_C_SIX_SECTIONS){
+    for(const s of PILLAR_C_SECTIONS){
       const after=html.slice(html.indexOf(frameHead(s))+frameHead(s).length);
       if(s.id==='portafogli-attribuzione')assert.match(after,new RegExp(`^<p class="${SCOPE_LINE}">[^<]+</p></div></div><div class="space-y-5">`),label);
       else assert.ok(after.startsWith('</div></div><div class="space-y-5">'),`${label}: ${s.id} has no scope line`);
@@ -211,7 +211,7 @@ test('2. each frame holds its blocks in the recorded order (M4: composizione aft
     ],`${label}: the three cards keep the values and wording of ac5e058`);
     assert.deepEqual(anchors(f.quadro).map(a=>[a.href,a.label]),[['#previsione','Apri la previsione regionale'],['#portafogli-attribuzione','Vai a Portafogli e attribuzione'],['#fattori','Vai a Fattori di spesa'],['#budget-scenari','Vai a Budget e scenari']],`${label}: the old #attribuzione, #numerosita and #costi links are gone`);
     // Section 2: exactly the status sentence and one link, nothing else.
-    assert.equal(f.destinatari,`${frameHead(PILLAR_C_SIX_SECTIONS[1])}</div></div><div class="space-y-5"><p role="status" class="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">${DESTINATARI_EMPTY}</p><a href="#numerosita" class="${CROSS}">Scenario di numerosità stimata →</a></div></section>`,label);
+    assert.equal(f.destinatari,`${frameHead(PILLAR_C_SECTIONS[1])}</div></div><div class="space-y-5"><p role="status" class="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">${DESTINATARI_EMPTY}</p><a href="#numerosita" class="${CROSS}">Scenario di numerosità stimata →</a></div></section>`,label);
     // Section 3: the dossier first, then (with the workbook) the attribution, then composizione.
     assert.deepEqual(sectionIds(f['portafogli-attribuzione']).slice(1),workbook?['portafogli','attribuzione','composizione']:['portafogli'],label);
     assert.equal(count(f['portafogli-attribuzione'],'<div class="space-y-5"><section id="portafogli" '),1,`${label}: the dossier opens section 3`);
@@ -291,7 +291,7 @@ test('5. every old anchor still exists once; every in-page link resolves, except
     assert.deepEqual(targets.filter(t=>!ids.has(t)),['piano-revisione'],`${label}: the only dangling target`);
     assert.equal(count(html,'href="#attribuzione"'),workbook?1:0,`${label}: the Pareto link only where the attribution renders`);
   }
-  assert.equal(count(read(DOSSIER),'{pageScope?<div id="piano-revisione">{plan}</div>:plan}'),1,'the dossier wraps its review plan in #piano-revisione under pageScope');
+  assert.equal(count(read(DOSSIER),'<div id="piano-revisione">{plan}</div>'),1,'the dossier wraps its review plan in #piano-revisione');
   const leaf=under(C_REVIEWER_CLIENT_AUDIENCE,el(CPortfolioDossierView,{view:portView('AA')}));
   assert.equal(count(leaf,' id="portfolio-product-detail"'),1,'the product detail anchor stays in the dossier view');
 });
@@ -356,7 +356,7 @@ test('8. the scope bar writes c_org, c_channel, c_port_org and c_port_channel to
   assert.equal(count(bar,'onChange={updateScope}'),1);assert.equal(count(bar,'onReset={() => update({}, true)}'),1);
   assert.equal(count(source,'<PillarCScopeBar '),1);
   // In the page: the bar shows c_org and c_channel, section 3 states c_port_*.
-  const scopeLine=html=>frames(html)['portafogli-attribuzione'].match(new RegExp(`^${frameHead(PILLAR_C_SIX_SECTIONS[2]).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}<p class="${SCOPE_LINE}">([^<]*)</p>`))?.[1];
+  const scopeLine=html=>frames(html)['portafogli-attribuzione'].match(new RegExp(`^${frameHead(PILLAR_C_SECTIONS[2]).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}<p class="${SCOPE_LINE}">([^<]*)</p>`))?.[1];
   const cases=[
     // [search, bar organisation, bar channel, section-3 scope line, attribution scope]
     ['','Regione','Tutti','Aggregato delle quattro Aziende · Tutti i canali · Anno 2025 · raggruppamenti ATC in bozza','FY2025|Regione|Tutti'],
@@ -415,36 +415,32 @@ test('9. the availability line names Azienda, period and channels of the publish
 // Catches: the attribution reading c_attr_* under pageScope (sections 1 and 3 would show different scopes), its
 // selects, scope card or «03» badge kept under pageScope, its h2 kept, the scope attribute missing, the tampered note
 // shown to the reviewer, and (M1) the unavailable sentence rewritten.
-test('10. under pageScope the attribution reads c_port_*, has no selects, no badge and an h3; without it, today’s shape',()=>{
+test('10. the attribution reads c_port_* only, has no selects, no badge and an h3, with no prop (1.2c)',()=>{
   const S='c_port_period=FY2024&c_port_org=AQ&c_port_channel=CO&c_attr_period=JM2026&c_attr_org=TE&c_attr_channel=DD';
   const head=scope=>`<section id="attribuzione" aria-labelledby="attribuzione-title" class="scroll-mt-6 space-y-5 xl:scroll-mt-56" data-c-attribution="v1" data-c-attribution-scope="${scope}"><div class="flex items-start gap-3"><div><h3 id="attribuzione-title" class="text-lg font-semibold">Dove è incerta l’attribuzione della spesa?</h3><p class="${LEAD}">Misuriamo importi, prodotti e aree possibili. Un raggruppamento terapeutico non identifica il reparto che ha sostenuto il costo.</p></div></div>`;
   const loading='<div role="status" class="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6"><p class="text-sm text-muted-foreground">Caricamento dell’ambito selezionato…</p></div></section>';
-  const scoped=under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCAttributionAnalysis,{pageScope:true}),S);
+  const scoped=under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCAttributionAnalysis),S);
   assert.equal(scoped,head('FY2024|AQ|CO')+loading,'the whole pageScope render: c_port_* scope, h3, no badge, no select, no card, no note');
   // c_attr_* alone is not read under pageScope; an organisation outside the reviewer's keys falls back without a note.
-  assert.equal(under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCAttributionAnalysis,{pageScope:true}),'c_attr_period=JM2026&c_attr_org=TE&c_attr_channel=DD'),head('FY2025|Regione|Tutti')+loading);
-  assert.equal(under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCAttributionAnalysis,{pageScope:true}),'c_port_org=asl-1'),head('FY2025|Regione|Tutti')+loading,'no tampered note for the reviewer');
-  // Without pageScope: c_attr_*, the three selects, the badge, the h2, no scope attribute.
-  const own=under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCAttributionAnalysis),S);
-  assert.deepEqual(selectLabels(own),['Periodo dell’attribuzione','Organizzazione dell’attribuzione','Canale dell’attribuzione']);
-  assert.deepEqual(['Periodo dell’attribuzione','Organizzazione dell’attribuzione','Canale dell’attribuzione'].map(l=>selected(own,l)[0]),['JM2026','TE','DD']);
-  assert.equal(count(own,'<span class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-xs text-primary">03</span><div><h2 id="attribuzione-title" class="text-xl font-semibold">'),1);
-  assert.equal(count(own,'data-c-attribution-scope'),0);
-  assert.equal(count(own,'Ambito di questa analisi'),1);
+  assert.equal(under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCAttributionAnalysis),'c_attr_period=JM2026&c_attr_org=TE&c_attr_channel=DD'),head('FY2025|Regione|Tutti')+loading);
+  assert.equal(under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCAttributionAnalysis),'c_port_org=asl-1'),head('FY2025|Regione|Tutti')+loading,'no tampered note for the reviewer');
+  // 1.2c (E6): the selects, the scope card, the badge, the h2 and the c_attr_* reading are gone from the source.
+  const attrCode=code(ATTR);
+  assert.doesNotMatch(attrCode,/pageScope|c_attr|aria-label="(?:Periodo|Organizzazione|Canale) dell’attribuzione"|Ambito di questa analisi|\{number\}|<h2/);
   // M1: the unavailable sentence stays verbatim, one branch, no key and no period prefix.
   const src=read(ATTR);
   assert.equal(count(src,'<p className="text-sm">L’analisi non è disponibile in questo momento. Nessun valore viene sostituito con zero.</p>'),1);
   assert.equal(count(src,'non è disponibile in questo momento'),1);
-  assert.equal(count(src,'cAudienceScope(audience,params,pageScope?"c_port":"c_attr")'),1);
+  assert.equal(count(src,'cAudienceScope(audience,params,"c_port")'),1);
 });
 
 // ================================================================ 11. dossier under pageScope
 // Catches: the organisation or channel select kept under pageScope, the M2 note reworded or replaced by the plan's
 // earlier text, the title left as h2, the period select lost, the dossier reading the bar's c_org or c_channel (or
 // any key but c_port_*) instead of the section-3 scope; and the default render changed.
-test('11. under pageScope the dossier keeps only portfolio and period, states the M2 note and has an h3; without it, four selects and the old note',()=>{
+test('11. the dossier keeps only portfolio and period, states the M2 note and has an h3, with no prop (1.2c)',()=>{
   const S='c_port_period=FY2024&c_port_org=AQ&c_port_channel=CO&c_port_id=AA';
-  const scoped=under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCPortfolioDossier,{pageScope:true}),S);
+  const scoped=under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCPortfolioDossier),S);
   assert.deepEqual(selectLabels(scoped),['Portafoglio del dossier','Periodo del dossier']);
   assert.deepEqual(options(scoped,'Periodo del dossier').map(o=>[o[0],o[2]]),[['FY2024',true],['FY2025',false],['JM2025',false],['JM2026',false]]);
   assert.equal(count(scoped,'<div class="grid gap-4 sm:grid-cols-2"><label class="text-xs font-medium">Portafoglio<select '),1);
@@ -453,13 +449,8 @@ test('11. under pageScope the dossier keeps only portfolio and period, states th
   assert.equal(count(scoped,OLD_DOSSIER_NOTE),0);
   assert.equal(tagOf(scoped,'portfolio-dossier-title'),'h3');
   assert.equal(count(scoped,'<h3 class="mt-1 text-lg font-semibold" id="portfolio-dossier-title">Un portafoglio, le sue variazioni, il prossimo approfondimento</h3>'),1);
-  const own=under(C_REVIEWER_CLIENT_AUDIENCE,el(PillarCPortfolioDossier),S);
-  assert.deepEqual(selectLabels(own),['Portafoglio del dossier','Organizzazione del dossier','Periodo del dossier','Canale del dossier']);
-  assert.deepEqual(['Organizzazione del dossier','Periodo del dossier','Canale del dossier'].map(l=>selected(own,l)[0]),['AQ','FY2024','CO']);
-  assert.equal(count(own,`<p class="mt-3 text-xs text-muted-foreground">${OLD_DOSSIER_NOTE}</p>`),1);
-  assert.equal(count(own,M2_NOTE),0);
-  assert.equal(count(own,'<h2 class="mt-1 text-xl font-semibold" id="portfolio-dossier-title">'),1);
-  assert.equal(count(own,'<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.5fr_1.2fr_1fr_1fr]">'),1);
+  // 1.2c (E6): the organisation and channel selects, the old note, the h2 and the four-column grid are gone from the source.
+  assert.doesNotMatch(code(DOSSIER),/pageScope|aria-label="(Organizzazione|Canale) del dossier"|I controlli aggiornano solo questo dossier|xl:grid-cols-\[1\.5fr_1\.2fr_1fr_1fr\]|<h2|PillarPurposeNavigation/);
   // M2/D1: the dossier reads its whole scope from c_port_*, the keys the section-3 scope line and the attribution read;
   // never the bar's c_org or c_channel, nor c_period or c_attr_*. Its server render is the loading state, so the
   // organisation and channel it fetches never reach the markup: only the source can show which keys it reads.
@@ -469,38 +460,35 @@ test('11. under pageScope the dossier keeps only portfolio and period, states th
   assert.doesNotMatch(dossierCode,/\.get\(\s*['"`]c_(?:org|channel|period|attr_[a-z]+)['"`]\s*\)|cReviewFilters|cReviewSearch/);
   // The workspace mounts both under pageScope, once.
   const ws=read(WS);
-  assert.equal(count(ws,'<PillarCPortfolioDossier workbook={workbook} pageScope/>'),1);
+  assert.equal(count(ws,'<PillarCPortfolioDossier workbook={workbook} />'),1);
   assert.equal(count(ws,'<PillarCPortfolioDossier'),1);
-  assert.equal(count(ws,'<PillarCAttributionAnalysis pageScope />'),1);
+  assert.equal(count(ws,'<PillarCAttributionAnalysis />'),1);
   assert.equal(count(ws,'<PillarCAttributionAnalysis'),1);
 });
 
-// ================================================================ 12. scoped page unchanged
-// Catches: the default (pageScope false) branch altered for the organisation-scoped page, the scoped page mounting
-// pageScope before 1.2c, the default parameter not false.
-test('12. without pageScope both components render as the organisation-scoped page has them; the scoped mounts are unchanged',()=>{
-  for(const [audience,search] of [[C_REVIEWER_CLIENT_AUDIENCE,'c_port_org=CH&c_attr_org=PE'],[regione,'c_port_org=asl-2&c_port_channel=DD&c_attr_org=asl-3&c_attr_period=JM2026']]){
-    assert.equal(under(audience,el(PillarCPortfolioDossier,{pageScope:false}),search),under(audience,el(PillarCPortfolioDossier),search),'the dossier default is pageScope false');
-    assert.equal(under(audience,el(PillarCAttributionAnalysis,{number:'02',pageScope:false}),search),under(audience,el(PillarCAttributionAnalysis,{number:'02'}),search),'the attribution default is pageScope false');
-  }
+// ================================================================ 12. the organisation-scoped page mounts the same shape
+// Catches: the scoped page keeping the old dossier or attribution shape (selects, c_attr_*, badge, h2), a scoped reader's
+// tampered c_port_org shown without the note, c_attr_* read again, a pageScope prop or branch coming back anywhere.
+test('12. the organisation-scoped page mounts the dossier and the attribution in the reviewer’s shape (1.2c)',()=>{
   const S='c_port_org=asl-2&c_port_channel=DD&c_port_period=FY2024&c_attr_org=asl-3&c_attr_period=JM2026&c_attr_channel=CO';
   const dossier=under(regione,el(PillarCPortfolioDossier),S);
-  assert.deepEqual(selectLabels(dossier),['Portafoglio del dossier','Organizzazione del dossier','Periodo del dossier','Canale del dossier']);
-  assert.deepEqual(options(dossier,'Organizzazione del dossier'),regione.orgs.map(o=>[o.key,o.label,o.key==='asl-2']));
-  assert.deepEqual(selected(dossier,'Canale del dossier'),['DD']);
-  assert.equal(count(dossier,OLD_DOSSIER_NOTE),1);assert.equal(count(dossier,M2_NOTE),0);
-  assert.equal(tagOf(dossier,'portfolio-dossier-title'),'h2');
-  const attribution=under(regione,el(PillarCAttributionAnalysis,{number:'02'}),S);
-  assert.deepEqual(selectLabels(attribution),['Periodo dell’attribuzione','Organizzazione dell’attribuzione','Canale dell’attribuzione']);
-  assert.deepEqual(['Periodo dell’attribuzione','Organizzazione dell’attribuzione','Canale dell’attribuzione'].map(l=>selected(attribution,l)[0]),['JM2026','asl-3','CO']);
-  assert.equal(count(attribution,'text-xs text-primary">02</span><div><h2 id="attribuzione-title" class="text-xl font-semibold">'),1);
-  assert.equal(count(attribution,'data-c-attribution-scope'),0);
-  // Under pageScope a scoped audience would see the tampered note (the gate the reviewer never passes, test 10).
-  assert.equal(count(under(regione,el(PillarCAttributionAnalysis,{pageScope:true}),'c_port_org=TE'),`<p role="note" class="mt-2 text-xs font-medium">${C_AUDIENCE_COPY.tampered}</p>`),1);
+  assert.deepEqual(selectLabels(dossier),['Portafoglio del dossier','Periodo del dossier']);
+  assert.deepEqual(selected(dossier,'Periodo del dossier'),['FY2024']);
+  assert.equal(count(dossier,`<p class="mt-3 text-xs text-muted-foreground">${M2_NOTE}</p>`),1);assert.equal(count(dossier,OLD_DOSSIER_NOTE),0);
+  assert.equal(tagOf(dossier,'portfolio-dossier-title'),'h3');
+  const attribution=under(regione,el(PillarCAttributionAnalysis),S);
+  assert.deepEqual(selectLabels(attribution),[]);
+  assert.equal(count(attribution,'data-c-attribution-scope="FY2024|asl-2|DD"'),1,'c_port_*, never c_attr_*');
+  assert.equal(count(attribution,'class="flex size-9'),0);
+  assert.equal(tagOf(attribution,'attribuzione-title'),'h3');
+  // A scoped reader's foreign c_port_org: the note in both blocks; a foreign c_attr_org is not read at all.
+  assert.equal(count(under(regione,el(PillarCAttributionAnalysis),'c_port_org=TE'),`<p role="note" class="mt-2 text-xs font-medium">${C_AUDIENCE_COPY.tampered}</p>`),1);
+  assert.equal(count(under(regione,el(PillarCPortfolioDossier),'c_port_org=TE'),C_AUDIENCE_COPY.tampered),1);
+  assert.equal(count(under(regione,el(PillarCAttributionAnalysis),'c_attr_org=TE'),C_AUDIENCE_COPY.tampered),0);
   const scopedWs=read('components/dashboard-review/pillar-c/scoped-workspace.tsx');
   assert.equal(count(scopedWs,'<PillarCPortfolioDossier />'),1);
-  assert.equal(count(scopedWs,'<PillarCAttributionAnalysis number="02" />'),1);
-  for(const f of ['scoped-workspace.tsx','regional-forecast-workspace.tsx'])assert.equal(count(read(`components/dashboard-review/pillar-c/${f}`),'pageScope'),0,f);
+  assert.equal(count(scopedWs,'<PillarCAttributionAnalysis />'),1);
+  for(const f of ['scoped-workspace.tsx','regional-forecast-workspace.tsx','analytical-workspace.tsx','portfolio-dossier.tsx','attribution-analysis.tsx'])assert.equal(count(read(`components/dashboard-review/pillar-c/${f}`),'pageScope'),0,f);
 });
 
 // ================================================================ 13. regional card, comparison and the forecast source row

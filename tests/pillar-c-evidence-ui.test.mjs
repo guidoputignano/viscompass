@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {createRequire,register} from 'node:module';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {attributionFixture} from './fixtures/pillar-c-attribution.mjs';
-import {PILLAR_C_ALL_SECTIONS,pillarCSectionAtViewport} from '../lib/dashboard-review/pillar-c/section-navigation.ts';
+import {PILLAR_C_SECTIONS,pillarCSectionAtViewport} from '../lib/dashboard-review/pillar-c/section-navigation.ts';
 import {C_EVIDENCE_MAX_FILE} from '../lib/dashboard-review/pillar-c/evidence-priority.ts';
 const root=fileURLToPath(new URL('..',import.meta.url));
 register('data:text/javascript,'+encodeURIComponent(`
@@ -134,16 +134,17 @@ test('the queue is its own anchored, navigable section and states its boundaries
   assert.match(workflow,/<h2 id="c-evidence-title"/);
   assert.match(workflow,/nessuna email automatica/);assert.match(workflow,/non la quota di attribuzione clinica/);
   assert.doesNotMatch(workflow,/\bdemo\b|dimostra|verificat|email inviat|inviat[ao] per email/i);
-  const ids=PILLAR_C_ALL_SECTIONS.map(s=>s.id),at=ids.indexOf('evidence-workflow');
-  assert.deepEqual(ids.slice(at-1,at+2),['priorita','evidence-workflow','evidenza']);
-  assert.equal(new Set(ids).size,ids.length);
-  assert.deepEqual(PILLAR_C_ALL_SECTIONS.filter(s=>s.number).map(s=>s.number),Array.from({length:14},(_,i)=>String(i+1).padStart(2,'0')),'workbook numbering stays 01–14');
-  assert.equal(PILLAR_C_ALL_SECTIONS[at].number,'');
-  assert.equal(pillarCSectionAtViewport([{id:'priorita',top:-900},{id:'evidence-workflow',top:-20},{id:'evidenza',top:900}],150,false,PILLAR_C_ALL_SECTIONS),'evidence-workflow');
+  // 1.2c: the queue is no longer a navigation entry; it sits inside section 6 «Priorità ed evidenza», after the priority
+  // block and before the sources block, and the bar marks section 6 while it is read.
+  const ids=PILLAR_C_SECTIONS.map(s=>s.id);
+  assert.equal(ids.at(-1),'priorita-evidenza');
+  assert.ok(!ids.includes('evidence-workflow')&&!ids.includes('evidenza'),'neither the queue nor the evidence block is a navigation entry');
+  assert.equal(pillarCSectionAtViewport([{id:'fattori',top:-900},{id:'priorita-evidenza',top:-20}],150),'priorita-evidenza');
   const page=source('components/dashboard-review/pillar-c/analytical-workspace.tsx');
+  assert.ok(page.indexOf('<PillarCSectionFrame {...frameOf(PRIORITA)}>')>0&&page.indexOf('<PillarCSectionFrame {...frameOf(PRIORITA)}>')<page.indexOf('section="priorita" /><PillarCEvidenceWorkflow />'),'the queue mounts inside section 6');
   // 1.2b: the «evidenza» block is PillarCEvidenceSources (its section id is the component's default), after the queue.
   assert.ok(page.indexOf('section="priorita" /><PillarCEvidenceWorkflow />')>0&&page.indexOf('<PillarCEvidenceWorkflow />')<page.indexOf('<PillarCEvidenceSources'));
-  assert.match(source('components/dashboard-review/pillar-c/section-navigation.tsx'),/"evidence-workflow": ClipboardList/);
+  assert.match(source('components/dashboard-review/pillar-c/section-navigation.tsx'),/"priorita-evidenza": ListChecks/);
 });
 
 test('the attribution panel offers the queue as its own fixed perimeter, never as the current selection',()=>{

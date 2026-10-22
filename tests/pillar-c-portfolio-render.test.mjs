@@ -12,7 +12,7 @@ export async function resolve(specifier,context,next){return next(['next/navigat
 export async function load(url,context,next){if(url.startsWith('file:')&&url.endsWith('.tsx')){const file=fileURLToPath(url);return{format:'module',source:sucrase.transform(readFileSync(file,'utf8'),{transforms:['typescript','jsx'],jsxRuntime:'automatic',production:true,filePath:file}).code,shortCircuit:true};}return next(url,context);}
 `),{data:{pkg:pathToFileURL(`${root}package.json`).href}});
 const req=createRequire(`${root}package.json`),React=req('react'),{renderToStaticMarkup}=req('react-dom/server');
-const {CPortfolioDossierView,PillarPurposeNavigation}=await import('../components/dashboard-review/pillar-c/portfolio-dossier.tsx');
+const dossierModule=await import('../components/dashboard-review/pillar-c/portfolio-dossier.tsx'),{CPortfolioDossierView}=dossierModule;
 const {CPortfolioChangeSummary}=await import('../components/dashboard-review/pillar-c/change-summary.tsx');
 const {CPortfolioPvmReading}=await import('../components/dashboard-review/pillar-c/portfolio-pvm.tsx');
 const reviewer=await (await import('./helpers/pillar-c-audience.mjs')).reviewerAudience(React);
@@ -71,16 +71,16 @@ test('candidate-only portfolio never invents fixed spending or a scenario baseli
  assert.match(html,/data-change="unavailable"/);assert.match(html,/Non disponibile/);
  assert.doesNotMatch(html,/data-c-portfolio-scenario/);assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });
-test('purpose navigation stays for the organisation-scoped page until 1.2c; the reviewer no longer mounts it and the sidebar carries the distinction; all local reset keys are registered',()=>{
- const html=renderToStaticMarkup(React.createElement(PillarPurposeNavigation));
- assert.match(html,/Pillar B · Biosimilari ed esclusività/);assert.match(html,/Intera spesa farmaceutica/);
+test('purpose navigation removed for every reader (1.2c); the sidebar carries the Pillar B / Pillar C distinction; all local reset keys are registered',()=>{
+ assert.equal('PillarPurposeNavigation' in dossierModule,false,'the export is gone');
+ assert.doesNotMatch(readFileSync(new URL('../components/dashboard-review/pillar-c/portfolio-dossier.tsx',import.meta.url),'utf8'),/PillarPurposeNavigation|Obiettivi distinti dei Pillar B e C/);
  const workspace=readFileSync(new URL('../components/dashboard-review/pillar-c/analytical-workspace.tsx',import.meta.url),'utf8');
- assert.match(workspace,/<PillarCPortfolioDossier workbook=\{workbook\} pageScope\s*\/>/);
+ assert.match(workspace,/<PillarCPortfolioDossier workbook=\{workbook\}\s*\/>/);
  assert.doesNotMatch(workspace,/PillarPurposeNavigation/,'the reviewer no longer mounts the purpose navigation (1.2b, D5)');
  const sidebar=readFileSync(new URL('../components/dashboard-review/nav.tsx',import.meta.url),'utf8');
  assert.ok(sidebar.includes('href: "/dashboard-review/revisione-pillar-b", label: "Pillar B · Biosimilari ed esclusività"'),'the sidebar names Pillar B');
  assert.ok(sidebar.includes('label: "Pillar C · Aree cliniche e budget"'),'the sidebar names Pillar C');
- assert.match(readFileSync(new URL('../components/dashboard-review/pillar-c/scoped-workspace.tsx',import.meta.url),'utf8'),/<PillarPurposeNavigation \/>/,'the scoped page keeps it until 1.2c');
+ assert.doesNotMatch(readFileSync(new URL('../components/dashboard-review/pillar-c/scoped-workspace.tsx',import.meta.url),'utf8'),/PillarPurposeNavigation/,'the scoped page no longer mounts it (1.2c)');
  // The page-level reset lives in reset-search.ts (shared by both workspaces); insights.ts re-exports it.
  const source=readFileSync(new URL('../lib/dashboard-review/pillar-c/reset-search.ts',import.meta.url),'utf8');
  for(const key of ['c_port_org','c_port_channel','c_port_period','c_port_id'])assert.ok(source.includes(key));

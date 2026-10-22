@@ -514,7 +514,7 @@ test('forecast chart: band opacities rise on the dark card, the legend reads the
 // element's content) or a keyed element (replaced whole). The blocks shared with the organisation-scoped workspace
 // live in review-blocks.tsx (review finding UI-4); from 1.2b the reviewer page also renders the scope bar, the section
 // frames (with their scope line), the decision overview and the evidence sources, so all six files are read.
-const workspaceSource = ['analytical-workspace.tsx', 'review-blocks.tsx', 'scope-bar.tsx', 'section-frame.tsx', 'decision-overview.tsx', 'evidence-sources.tsx'].map((name) => fs.readFileSync(fileURLToPath(new URL(`../components/dashboard-review/pillar-c/${name}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n')).join('\n');
+const workspaceSource = ['analytical-workspace.tsx', 'review-blocks.tsx', 'scope-bar.tsx', 'section-frame.tsx', 'decision-overview.tsx', 'evidence-sources.tsx', 'scoped-workspace.tsx', 'regional-forecast-workspace.tsx', 'section-navigation.tsx'].map((name) => fs.readFileSync(fileURLToPath(new URL(`../components/dashboard-review/pillar-c/${name}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n')).join('\n');
 
 test('workspace: text that follows a filter is one text child or a keyed element, so translation cannot leave it stale', () => {
   for (const expr of [
@@ -541,7 +541,9 @@ test('every Pillar C review state stays pending: no page source presents data as
   for (const file of ['components/dashboard-review/pillar-c/analytical-workspace.tsx', 'components/dashboard-review/pillar-c/forecast-section.tsx', 'components/dashboard-review/pillar-c/section-navigation.tsx', 'app/dashboard-review/pillar-c/page.tsx', 'lib/dashboard-review/pillar-c/section-navigation.ts',
     // 1.2b: the components the reviewer page now renders, and the three it re-composes.
     'components/dashboard-review/pillar-c/scope-bar.tsx', 'components/dashboard-review/pillar-c/section-frame.tsx', 'components/dashboard-review/pillar-c/decision-overview.tsx', 'components/dashboard-review/pillar-c/evidence-sources.tsx', 'components/dashboard-review/pillar-c/review-blocks.tsx',
-    'components/dashboard-review/pillar-c/portfolio-pvm.tsx', 'components/dashboard-review/pillar-c/portfolio-dossier.tsx', 'components/dashboard-review/pillar-c/attribution-analysis.tsx']) {
+    'components/dashboard-review/pillar-c/portfolio-pvm.tsx', 'components/dashboard-review/pillar-c/portfolio-dossier.tsx', 'components/dashboard-review/pillar-c/attribution-analysis.tsx',
+    // 1.2c: the organisation-scoped and forecast_only workspaces.
+    'components/dashboard-review/pillar-c/scoped-workspace.tsx', 'components/dashboard-review/pillar-c/regional-forecast-workspace.tsx']) {
     const source = fs.readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), 'utf8');
     assert.doesNotMatch(source, /verificat|\bdemo\b|dimostra/i, file);
   }

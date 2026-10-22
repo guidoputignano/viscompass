@@ -48,7 +48,8 @@ test('PillarCSectionFrame: section id and aria-labelledby, the h2 with tabIndex 
   const html=frame();
   assert.match(html,/^<section id="sezione-x" aria-labelledby="sezione-x-title" class="scroll-mt-6 xl:scroll-mt-36">/);
   assert.ok(html.includes(`<span aria-hidden="true" class="${NUMERAL_CLASS}">3</span>`),'the numeral is hidden from assistive technology');
-  assert.ok(BLOCKS.includes(`className="${NUMERAL_CLASS}">{number}</span>`),'the numeral classes are those of CReviewHeading');
+  assert.ok(read(FRAME).includes(`<span aria-hidden="true" className="${NUMERAL_CLASS}">{number}</span>`),'the numeral is the frame\'s own');
+  assert.ok(!BLOCKS.includes('{number}'),'no numbered heading is left in review-blocks.tsx (1.2c): the frame carries the only numeral');
   assert.match(html,/<h2 id="sezione-x-title" tabindex="-1" class="text-xl font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-primary">Titolo di prova<\/h2>/);
   assert.equal((html.match(/<h2\b/g)||[]).length,1,'one heading');
   assert.ok(html.includes(`</h2><p class="${LEAD_CLASS}">Qual è la domanda di prova?</p>`),'the question follows the title as its lead');
