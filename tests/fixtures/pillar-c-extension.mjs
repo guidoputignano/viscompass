@@ -33,14 +33,14 @@ export function extFileF(){
     contacts:dist(n,[['1','1',2000],['2+','2 o più',3000]]),monthsActive:dist(n,[['1','1',2500],['2+','2 o più',2500]]),medianContacts:3,medianMonths:3,
     portfolioShares:{single:0.7,shared:0.29,unmapped:0.01},singleCandidateReach:[{id:'oncology',label:'Oncologia',share:0.05}],
     months:months.map((month,i)=>({month,amount:i===11?1500:1000,mode09:i===11?600:0,withoutMode09:i===11?900:1000})),
-    modes:[{id:'03',label:'Diretta a pazienti cronici (03)',rowsShare:0.3,amountShare:0.6},{id:'altre',label:'Altre modalità',rowsShare:0.7,amountShare:0.4}],
-    basket:[{quarter:'Q1',index:100.2,coverage:0.9}],basketProducts:50};
+    modes:[{id:'03',label:'Diretta a pazienti cronici (03)',rowsShare:0.3,amountShare:0.6},{id:'altre',label:'Altre modalità',rowsShare:0.7,amountShare:0.4}]};
 }
 
 export function extReviewer(){
-  return {schema:'pillar-c-extension-reviewer-v1',units:['aggregato','asl-1','asl-2','asl-3','asl-4'].map(u=>extUnit(u,u==='aggregato'?4000:1000)),
+  return {schema:'pillar-c-extension-reviewer-v2',units:['aggregato','asl-1','asl-2','asl-3','asl-4'].map(u=>extUnit(u,u==='aggregato'?4000:1000)),
     drivers:{supportProducts:100,referencePer1000:5000,units:['asl-1','asl-2','asl-3','asl-4'].map((unit,i)=>({unit,per1000:5000+i,difference:i,reach:10*i,intensity:-10*i,mix:i,acquisition:0,service:0,reachPer1000:50,packsPerRecipient:1.5,coverage:0.97}))},
     baskets:{products:40,units:['asl-1','asl-2','asl-3','asl-4'].map(unit=>({unit,acquisition:100,service:100,combined:100}))},
+    fileFBasket:{unit:'asl-3',products:50,quarters:[{quarter:'Q1',index:100.2,coverage:0.9},{quarter:'Q2',index:99.8,coverage:0.88}]},
     findings:{version:'ext-v1',rows:[{id:'F01',title:'Rilievo sintetico',scope:'Ambito sintetico',source:'Punto sintetico',detail:'Dettaglio sintetico.',action:'Azione sintetica.'},{id:'F02',title:'Secondo rilievo',scope:'Ambito',source:'Punto',detail:'Dettaglio.',action:'Azione.'}]}};
 }
 

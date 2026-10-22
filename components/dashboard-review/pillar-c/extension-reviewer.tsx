@@ -11,6 +11,17 @@ const num = (v: number, digits = 0) => itNumber(v, { minimumFractionDigits: digi
 const eur0 = (v: number) => itNumber(v, { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const signedEur = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${eur0(Math.abs(v))}`;
 
+/** Section 4, reviewer only (O1): the File F quarterly unit-amount index on fixed common products, with its coverage. */
+export function PillarCFileFBasket({ view }: { view: CExtensionView }) {
+  const b = view.fileFBasket;
+  if (!b) return null;
+  const unit = view.units.find((u) => u.key === b.unit)?.label ?? b.unit;
+  return <Panel title={`Importo unitario sugli stessi prodotti, trimestre per trimestre · File F 2025 · ${unit}`} description={`${num(b.products)} prodotti presenti e senza rettifiche in tutti i trimestri, con composizione fissa. Riferimento annuo = 100. Solo revisori.`}>
+    <ExactTable caption="Indice trimestrale e copertura" headers={["Trimestre", "Indice (riferimento annuo = 100)", "Quota dell’importo del trimestre inclusa"]} rows={b.quarters.map((q) => [q.quarter, num(q.index, 2), pct(q.coverage)])} />
+    <p className="mt-4 text-xs leading-5 text-muted-foreground">La copertura indica quanta parte dell’importo del trimestre entra nel confronto: non è un indice del costo medio di tutti i medicinali. Importo riportato, non spesa netta.</p>
+  </Panel>;
+}
+
 const FACTORS = [["reach", "Destinatari per 1.000 residenti"], ["intensity", "Confezioni per destinatario"], ["mix", "Composizione dei prodotti"], ["acquisition", "Costo di acquisto per confezione"], ["service", "Servizio per confezione"]] as const;
 
 /** Section 4, reviewer only (owner decision O1): why DPC spending per resident differs, exact Shapley decomposition. */

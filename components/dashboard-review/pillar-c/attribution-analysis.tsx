@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowDownUp, ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleDot, Layers3, Search, Target } from "lucide-react";
 import dynamic from "next/dynamic";
+import { cLazyChart } from "@/components/dashboard-review/pillar-c/chart-fallback";
 import { cAttrAtoms, cAttrPriority, cAttrShare, cAttrUncertain, C_ATTR_PERIODS, C_ATTR_STATES, type CAttrScope, type CAttrState } from "@/lib/dashboard-review/pillar-c/attribution";
 import type { CAttrView } from "@/lib/dashboard-review/pillar-c/attribution-loader";
 import { cWorkbookDecimal } from "@/lib/dashboard-review/pillar-c/workbook";
@@ -16,8 +17,8 @@ import { usePillarCAudience } from "@/components/dashboard-review/pillar-c/audie
 
 const money = (v: string, digits = 0) => `${cWorkbookDecimal(v,digits)} €`;
 const pct = cAttrPercent;
-const AttributionDonutCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.AttributionDonutCanvas), { ssr: false });
-const AttributionParetoCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.AttributionParetoCanvas), { ssr: false });
+const AttributionDonutCanvas = dynamic(() => cLazyChart(import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.AttributionDonutCanvas)), { ssr: false });
+const AttributionParetoCanvas = dynamic(() => cLazyChart(import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.AttributionParetoCanvas)), { ssr: false });
 const labels: Record<CAttrState,string> = {S2:"Portafoglio singolo · da mappatura",S3:"Condivisa tra portafogli",S4:"Evidenza insufficiente",S5:"Identificativo da risolvere"};
 const colors: Record<CAttrState,string> = {S2:"#19998f",S3:"#d89b38",S4:"#8672ba",S5:"#677c96"};
 const select = "mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";

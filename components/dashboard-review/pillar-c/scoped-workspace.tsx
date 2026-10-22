@@ -15,7 +15,7 @@ import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
-import type { CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
+import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 // The shared blocks come from review-blocks.tsx, never from the reviewer workspace: nothing this component reaches
 // carries a province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs).
 import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewHeading as Heading, CReviewExactTable as ExactTable, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendCoverage, SpendKpis, cSpendCell } from "@/components/dashboard-review/pillar-c/review-blocks";
@@ -115,7 +115,7 @@ function ScopedGate({ packet, forecast, extension }: { packet: CScopedClientRevi
 }
 /** The extension is shown only when it holds exactly the audience's units, in its order, with no reviewer-only block. */
 export function cScopedExtensionFor(audience: CClientAudience, extension: CExtensionView | null): CExtensionView | null {
-  if (!extension || extension.drivers || extension.baskets || extension.findings) return null;
+  if (!extension || extension.drivers || extension.baskets || extension.fileFBasket || extension.findings) return null;
   const keys = audience.orgs.map((o) => o.key);
   return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;
 }
@@ -165,7 +165,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension }: { audience: 
 
     <PillarCSectionFrame {...frameOf(QUADRO)}>
       <PillarCScopeBar orgOptions={orgOptions} org={filters.org} channelOptions={SCOPE_CHANNELS} channel={filters.channel} onChange={updateScope} onReset={() => update({}, true)} tampered={tampered} tamperedText={C_AUDIENCE_COPY.tampered} scope={scope} />
-      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">La spesa osservata e i prodotti che la compongono sono misurabili. I dati disponibili non contano le persone trattate: non possiamo attribuire la variazione a un aumento dei pazienti.</p></div>
+      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">{`La spesa osservata e i prodotti che la compongono sono misurabili. ${cDecisionPeopleLine(extension)}`}</p></div>
       <PillarCDecisionOverview cards={decisionCards} comparison={comparison} regional={regional} links={OVERVIEW_LINKS} />
     </PillarCSectionFrame>
 

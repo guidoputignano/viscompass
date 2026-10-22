@@ -3,7 +3,8 @@ import type { CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 
 /**
  * Pillar C extension objects (points 15-16): January 2026 DPC and File F 2025, built privately (build ext-v1,
- * outputs/pillar-c/extension-release-20261022/PINS.json). Hashes and sizes only: no figure.
+ * outputs/pillar-c/extension-release-20261022/PINS.json). Hashes and sizes only: no figure. 23 Oct 2026: the File F
+ * quarterly index moved from the asl-3 object to the reviewer object (O1), so those two pins changed; the others did not.
  *
  *   - scoped: one object per unit in bucket pillar-c-scoped under its own root v9 (v9/<unit>/estensione-<sha>.json), so
  *     the rec5 root v1 keeps exactly its manifest. The storage.objects policy of migration 20261020120000 admits every
@@ -16,15 +17,23 @@ export const C_EXTENSION_STORAGE = {
   scoped: {
     "asl-1": { name: "estensione-8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a.json", sha256: "8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a", bytes: 4490 },
     "asl-2": { name: "estensione-1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818.json", sha256: "1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818", bytes: 4492 },
-    "asl-3": { name: "estensione-d9789a0e61fd2068e8294a582e22e30ffc5cce477d3a951789a54db56110c1fa.json", sha256: "d9789a0e61fd2068e8294a582e22e30ffc5cce477d3a951789a54db56110c1fa", bytes: 9006 },
+    "asl-3": { name: "estensione-541fe4842d7813ba5dde5ab7fa38b16ae414a9cc4ec7eb440501135e42cf68cd.json", sha256: "541fe4842d7813ba5dde5ab7fa38b16ae414a9cc4ec7eb440501135e42cf68cd", bytes: 8780 },
     "asl-4": { name: "estensione-7c9b9d4a76394e5c734b4d70a0d1ac28a5abaa079877fe7f5013cb2e8810ac0c.json", sha256: "7c9b9d4a76394e5c734b4d70a0d1ac28a5abaa079877fe7f5013cb2e8810ac0c", bytes: 4491 },
     aggregato: { name: "estensione-c81948a7c2a72bdd2e94f3fc24864a8324bcd54747125fc71caffa8edb8993d9.json", sha256: "c81948a7c2a72bdd2e94f3fc24864a8324bcd54747125fc71caffa8edb8993d9", bytes: 4398 },
   } satisfies Record<CScopedUnit, { name: string; sha256: string; bytes: number }>,
   reviewer: {
     bucket: "pillar-c-review",
-    object: "ext1/59ad3da74072ac52476492639aca142352d75746162455ee8ed6a873eb9cfa54.json",
-    sha256: "59ad3da74072ac52476492639aca142352d75746162455ee8ed6a873eb9cfa54",
-    bytes: 31605,
+    object: "ext1/226de30d3f63bbbb48d561018489d489251713f097a0ab7ff81ad6d05cd04356.json",
+    sha256: "226de30d3f63bbbb48d561018489d489251713f097a0ab7ff81ad6d05cd04356",
+    bytes: 31632,
+  },
+  /** Point 18 cases bind to the release of the findings, not to the reviewer object's bytes: findings ext-v1 were first
+   * published in reviewer object 59ad3da7… and are unchanged since (SHA-256 of their compact JSON). New text needs a new
+   * version, which starts new cases; build_packets.py refuses changed text under the same version. */
+  findings: {
+    version: "ext-v1",
+    sha256: "bc3228cb77a2bdb8e965035a1395d93507654e5e5e9c1436fd2fa312ef7e5e06",
+    snapshot: "59ad3da74072ac52476492639aca142352d75746162455ee8ed6a873eb9cfa54",
   },
 } as const;
 export const C_EXTENSION_MAX_BYTES = 200_000;

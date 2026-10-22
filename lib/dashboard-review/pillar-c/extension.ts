@@ -28,7 +28,6 @@ export type CExtFileF = {
   singleCandidateReach: { id: string; label: string; share: number }[];
   months: { month: string; amount: number; mode09: number; withoutMode09: number }[];
   modes: { id: string; label: string; rowsShare: number; amountShare: number }[];
-  basket: { quarter: string; index: number; coverage: number }[]; basketProducts: number;
 };
 /** notes: interpretive sentences written in the private build (the public code states methods, never a private finding). */
 export type CExtUnitPacket = { schema: "pillar-c-extension-unit-v1"; unit: CScopedUnit; period: "2026-01"; channel: "DPC"; january: CExtJanuary; fileF: CExtFileF | null; notes: { fileFMode09: string | null } };
@@ -37,11 +36,22 @@ export type CExtDrivers = {
   units: { unit: CScopedUnit; per1000: number; difference: number; reach: number; intensity: number; mix: number; acquisition: number; service: number; reachPer1000: number; packsPerRecipient: number; coverage: number }[];
 };
 export type CExtBaskets = { products: number; units: { unit: CScopedUnit; acquisition: number; service: number; combined: number }[] };
+/** File F quarterly unit-amount index on the products present and clean in all four quarters (annual reference = 100). Reviewer only. */
+export type CExtFileFBasket = { unit: CScopedUnit; products: number; quarters: { quarter: string; index: number; coverage: number }[] };
 /** Point 18: findings to action, versioned with the data; each names its source and scope, never a person. Reviewer only. */
 export type CExtFinding = { id: string; title: string; scope: string; source: string; detail: string; action: string };
 export type CExtFindings = { version: "ext-v1"; rows: CExtFinding[] };
 /** What a workspace receives: the units of its audience in display order, with their labels, and the reviewer-only blocks. */
-export type CExtensionView = { units: { key: CScopedUnit; label: string; data: CExtUnitPacket }[]; drivers: CExtDrivers | null; baskets: CExtBaskets | null; findings: CExtFindings | null };
+export type CExtensionView = { units: { key: CScopedUnit; label: string; data: CExtUnitPacket }[]; drivers: CExtDrivers | null; baskets: CExtBaskets | null; fileFBasket: CExtFileFBasket | null; findings: CExtFindings | null };
+
+/** The sentence on treated persons under «La domanda di gestione». Persons are counted only in the extension's sources
+ * (January DPC; File F 2025 for one Azienda), not in the spending series the page explains: a change over time is still
+ * not attributed to more patients. Without the extension nothing counts persons. */
+export function cDecisionPeopleLine(view: CExtensionView | null): string {
+  if (!view) return "I dati disponibili non contano le persone trattate: non possiamo attribuire la variazione a un aumento dei pazienti.";
+  const fileF = view.units.some((u) => u.data.fileF);
+  return `Le persone trattate sono contate solo nella DPC di gennaio 2026${fileF ? " e, per un’Azienda, nel File F 2025" : ""}: fonti e periodi diversi dalla serie della spesa, quindi non possiamo attribuire la variazione a un aumento dei pazienti.`;
+}
 
 /** Reviewer labels of the units: the reviewed pseudonyms, never a province or place name. */
 export const C_EXT_UNIT_LABELS: Readonly<Record<CScopedUnit, string>> = { aggregato: "Aggregato delle quattro Aziende", "asl-1": "ASL 1", "asl-2": "ASL 2", "asl-3": "ASL 3", "asl-4": "ASL 4" };

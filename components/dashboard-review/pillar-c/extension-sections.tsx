@@ -69,7 +69,7 @@ export function PillarCRecipientsSection({ view }: { view: CExtensionView }) {
     </div>
     <div className="grid gap-6 xl:grid-cols-2">
       <Panel title="Confezioni per destinatario" description="Confezioni registrate nel mese, con segno; non dosi né giorni di terapia."><DistMatrix caption="Destinatari per numero di confezioni" units={units} pick={(u) => u.january.use.packs.bins} /></Panel>
-      <Panel title="Principi attivi distinti per destinatario" description="Codici ATC di quinto livello ricevuti nel mese."><DistMatrix caption="Destinatari per numero di principi attivi" units={units} pick={(u) => u.january.ingredients} /></Panel>
+      <Panel title="Sostanze e combinazioni ATC5 per destinatario" description="Codici ATC di quinto livello distinti nel mese: una combinazione può contenere più principi attivi, quindi non è un conteggio di ingredienti unici."><DistMatrix caption="Destinatari per numero di sostanze e combinazioni ATC5" units={units} pick={(u) => u.january.ingredients} /></Panel>
     </div>
     <Panel title="Servizio di distribuzione e tempi di erogazione" description="Compenso DPC su tutte le righe del flusso; intervallo fra prescrizione ed erogazione sui contatti ammissibili (date registrate, non tempi di attesa).">
       <Matrix caption="Servizio di distribuzione e tempi" units={units} rows={[
@@ -112,15 +112,15 @@ export function cExtensionRecipientsCard(view: CExtensionView | null): { title: 
 
 const SEGMENTS = [
   { key: "single", label: "Prodotti a un solo portafoglio candidato", className: "bg-primary" },
-  { key: "narrowed", label: "Condivisi, ristretti a un’area da un’esenzione coerente", className: "bg-primary/55" },
+  { key: "narrowed", label: "Condivisi, candidati ristretti a uno da un’esenzione coerente", className: "bg-primary/55" },
   { key: "indicative", label: "Condivisi, esenzione oncologica o da trapianto (indicativa)", className: "bg-amber-500/80" },
   { key: "notInformative", label: "Condivisi, senza esenzione informativa", className: "bg-muted-foreground/35" },
 ] as const;
 
-/** Section 3 addition: how much January DPC spending an exemption code can attribute to one area. */
+/** Section 3 addition: how far an exemption code narrows the candidate portfolios of January DPC spending (wording per Codex review, 22 Oct 2026). */
 export function PillarCAttributionEvidence({ view }: { view: CExtensionView }) {
   const units = view.units, agreement = units.flatMap((u) => u.data.january.attribution.agreementLines ?? []);
-  return <Panel title="Quanta spesa DPC si attribuisce a un’area? · gennaio 2026" description="Quota della spesa dei destinatari ammissibili. L’esenzione per patologia restringe un prodotto condiviso solo se il farmaco appartiene alle classi correlate a quella patologia (regola trasparente: elenco della Regione Toscana, DGR 865/2018).">
+  return <Panel title="Quanto si restringe il campo dei portafogli candidati? · gennaio 2026" description="Quota della spesa dei destinatari ammissibili. L’esenzione restringe i candidati soltanto se il farmaco rientra nelle classi correlate alla patologia secondo l’elenco della Regione Toscana, DGR 865/2018. È un riferimento esterno: non dimostra quale area abbia sostenuto il costo in questa ASL.">
     <div className="space-y-4">{units.map((u) => { const a = u.data.january.attribution; return <div key={u.key}>
       <p className="mb-1.5 flex flex-wrap justify-between gap-2 text-xs"><span className="font-medium">{u.label}</span><span className="text-muted-foreground">{`Senza prova informativa: ${pct(a.notInformative)}`}</span></p>
       <div className="flex h-4 overflow-hidden rounded-full bg-secondary" role="img" aria-label={`${u.label}: ${SEGMENTS.map((s) => `${s.label} ${pct(a[s.key])}`).join("; ")}`}>{SEGMENTS.map((s) => <span key={s.key} className={s.className} style={{ width: `${a[s.key] * 100}%` }} />)}</div>
@@ -130,7 +130,7 @@ export function PillarCAttributionEvidence({ view }: { view: CExtensionView }) {
       ...SEGMENTS.map((s) => [s.label, ...units.map((u) => pct(u.data.january.attribution[s.key]))]),
       ["Accordo esenzione–portafoglio sui prodotti a candidato singolo", ...units.map((u) => pct(u.data.january.attribution.agreementLines))],
     ]} />
-    {agreement.length > 0 && <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Sui prodotti a un solo candidato l’esenzione coerente indica la stessa area nel ${agreement.length > 1 && Math.min(...agreement) !== Math.max(...agreement) ? `${pct(Math.min(...agreement))} – ${pct(Math.max(...agreement))}` : pct(agreement[0])} delle righe${Math.min(...agreement) >= 0.99 ? ": la mappatura regge al confronto con un segnale clinico indipendente" : ""}. Resta una bozza farmacologica, non un’attribuzione clinica.`}</p>}
+    {agreement.length > 0 && <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Sui prodotti a un solo candidato l’esenzione coerente indica lo stesso portafoglio nel ${agreement.length > 1 && Math.min(...agreement) !== Math.max(...agreement) ? `${pct(Math.min(...agreement))} – ${pct(Math.max(...agreement))}` : pct(agreement[0])} delle righe. È un controllo di coerenza fra segnali, non una conferma indipendente dell’attribuzione clinica: i portafogli restano candidati farmacologici.`}</p>}
   </Panel>;
 }
 

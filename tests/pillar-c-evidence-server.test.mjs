@@ -198,6 +198,11 @@ test('point 18: finding cases are current only on the current extension version,
   assert.deepEqual(q.cases.map(r=>r.id),['p','f']);assert.deepEqual(q.archived.map(r=>r.id),['x']);
   const server=read('lib/dashboard-review/pillar-c/evidence-server.ts');
   assert.match(server,/createHash\('sha256'\)\.update\(`finding\|\$\{version\}\|\$\{id\}`\)/);
-  assert.match(server,/findingSnapshot:findings\?C_EXTENSION_STORAGE\.reviewer\.sha256:null/);
+  // The cases bind to the findings release, not to the reviewer object's bytes (23 Oct 2026: the File F quarterly index
+  // moved into that object; the seven seeded cases must stay current).
+  assert.match(server,/findingSnapshot:release\?\.snapshot\?\?null/);
+  assert.match(server,/return findings&&findings\.version===pin\.version&&createHash\('sha256'\)\.update\(JSON\.stringify\(findings\)\)\.digest\('hex'\)===pin\.sha256\?\{findings,snapshot:pin\.snapshot\}:null;/);
+  const storage=read('lib/dashboard-review/pillar-c/extension-storage.ts').replace(/\r\n/g,'\n');
+  assert.match(storage,/findings: \{\n    version: "ext-v1",\n    sha256: "[0-9a-f]{64}",\n    snapshot: "59ad3da74072ac52476492639aca142352d75746162455ee8ed6a873eb9cfa54",/,'ext-v1 stays bound to the snapshot its cases were seeded with');
   assert.match(server,/source_state:'F'/);
 });

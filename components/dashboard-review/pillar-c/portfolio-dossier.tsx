@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, BriefcaseBusiness, CalendarRange, CheckCheck, Layers3, SlidersHorizontal, Target } from "lucide-react";
 import dynamic from "next/dynamic";
+import { cLazyChart } from "@/components/dashboard-review/pillar-c/chart-fallback";
 import { C_ATTR_PERIODS, cAttrAtoms } from "@/lib/dashboard-review/pillar-c/attribution";
 import { cAttrPercent } from "@/lib/dashboard-review/pillar-c/attribution-format";
 import type { CPortfolioView } from "@/lib/dashboard-review/pillar-c/portfolio";
@@ -19,7 +20,7 @@ import { CPortfolioReviewPlan } from "@/components/dashboard-review/pillar-c/rev
 import { CPortfolioChangeSummary } from "@/components/dashboard-review/pillar-c/change-summary";
 import { CPortfolioPriceQuantityMix } from "@/components/dashboard-review/pillar-c/portfolio-pvm";
 
-const PortfolioMonthlyCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.PortfolioMonthlyCanvas), { ssr: false });
+const PortfolioMonthlyCanvas = dynamic(() => cLazyChart(import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.PortfolioMonthlyCanvas)), { ssr: false });
 const money=(v:string,digits=0)=>`${cWorkbookDecimal(v,digits)} €`;
 const signed=(v:string|null)=>v===null?"Non disponibile":`${Number(v)>0?"+":""}${money(v)}`;
 const field="mt-2 h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary";

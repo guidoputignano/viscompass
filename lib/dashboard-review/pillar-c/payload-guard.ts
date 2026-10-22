@@ -75,7 +75,6 @@ const EXT_FILEF: Spec = { nullable: { obj: {
   singleCandidateReach: { list: { obj: { id: "id", label: "desc", share: "share" } }, max: 12 },
   months: { list: { obj: { month: "id", amount: "num", mode09: "num", withoutMode09: "num" } }, max: 12 },
   modes: { list: { obj: { id: "id", label: "desc", rowsShare: "share", amountShare: "share" } }, max: 8 },
-  basket: { list: { obj: { quarter: "id", index: "num", coverage: "share" } }, max: 4 }, basketProducts: "int",
 } } };
 const EXT_UNIT: Spec = { obj: { schema: { lit: ["pillar-c-extension-unit-v1"] }, unit: "org", period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, january: EXT_JANUARY, fileF: EXT_FILEF,
   notes: { obj: { fileFMode09: { nullable: "text" } } } } };
@@ -84,10 +83,12 @@ const EXT_FINDING: Spec = { obj: { id: "id", title: "text", scope: "text", sourc
 export const C_SCOPED_PAYLOAD_SPECS = {
   extension: EXT_UNIT,
   extensionReviewer: { obj: {
-    schema: { lit: ["pillar-c-extension-reviewer-v1"] }, units: { list: EXT_UNIT, max: 5 },
+    schema: { lit: ["pillar-c-extension-reviewer-v2"] }, units: { list: EXT_UNIT, max: 5 },
     drivers: { obj: { supportProducts: "int", referencePer1000: "num", units: { list: { obj: { unit: "org", per1000: "num", difference: "num", reach: "num", intensity: "num", mix: "num",
       acquisition: "num", service: "num", reachPer1000: "num", packsPerRecipient: "num", coverage: "share" } }, max: 4 } } },
     baskets: { obj: { products: "int", units: { list: { obj: { unit: "org", acquisition: "num", service: "num", combined: "num" } }, max: 4 } } },
+    // The File F quarterly index on fixed common products is a price measure: reviewer-only (O1), never in a unit object.
+    fileFBasket: { obj: { unit: "org", products: "int", quarters: { list: { obj: { quarter: "id", index: "num", coverage: "share" } }, max: 4 } } },
     findings: { obj: { version: { lit: ["ext-v1"] }, rows: { list: EXT_FINDING, max: 20 } } },
   } },
   attribution: { obj: {

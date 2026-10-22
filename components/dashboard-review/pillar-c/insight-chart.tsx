@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import dynamic from "next/dynamic";
+import { cLazyChart } from "@/components/dashboard-review/pillar-c/chart-fallback";
 import { C_INSIGHT_CHARTS, type CInsightChart, type CInsightInterval, type CInsightPoint } from '@/lib/dashboard-review/pillar-c/chart-kinds';
 
 type Props = {
@@ -16,7 +17,7 @@ function extent(values: (number | null | undefined)[]): [number, number] {
   return lo === hi ? [lo - 1, hi + 1] : [lo, hi];
 }
 const number = (p: CInsightPoint, c: number) => p.values[c]?.value;
-const InsightLineCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.InsightLineCanvas), { ssr: false });
+const InsightLineCanvas = dynamic(() => cLazyChart(import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.InsightLineCanvas)), { ssr: false });
 
 /** Shared exact-value interaction; visual scales never replace source labels. */
 export function PillarCInsightChart({ kind, points, metric, comparison, xMetric, matrix, interval, heading, axis, title }: Props) {

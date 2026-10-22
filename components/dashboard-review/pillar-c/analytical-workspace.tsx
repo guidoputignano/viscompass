@@ -15,8 +15,8 @@ import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
-import { PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
-import type { CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
+import { PillarCFileFBasket, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
+import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { PillarCAudienceProvider, usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 import { cBudgetFilters, cBudgetSearch, cDecisionAnswer, cInsightResetSearch } from "@/lib/dashboard-review/pillar-c/insights";
 import type { CWorkbookIndex } from "@/lib/dashboard-review/pillar-c/workbook";
@@ -134,7 +134,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension }: { audience
 
     <PillarCSectionFrame {...frameOf(QUADRO)}>
       <PillarCScopeBar orgOptions={orgOptions} org={filters.org} channelOptions={SCOPE_CHANNELS} channel={filters.channel} onChange={updateScope} onReset={() => update({}, true)} tamperedText={C_AUDIENCE_COPY.tampered} scope={scope} />
-      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">La spesa osservata e i prodotti che la compongono sono misurabili. I dati disponibili non contano le persone trattate: non possiamo attribuire la variazione a un aumento dei pazienti. Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.</p></div>
+      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">{`La spesa osservata e i prodotti che la compongono sono misurabili. ${cDecisionPeopleLine(extension)} Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.`}</p></div>
       <PillarCDecisionOverview cards={decisionCards} comparison={comparison} regional={regional} links={OVERVIEW_LINKS} />
     </PillarCSectionFrame>
 
@@ -167,6 +167,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension }: { audience
       </section>
       {extension && <PillarCResidentDrivers view={extension} />}
       {extension && <PillarCFileFMonthly view={extension} />}
+      {extension && <PillarCFileFBasket view={extension} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
     </PillarCSectionFrame>
 

@@ -51,7 +51,7 @@ function ForecastTooltip({ row }: { row?: CForecastChartRow }) {
   if (!row) return null;
   const lines = row.year === 2025
     ? [["Osservato (provvisorio)", eur(row.exact.observed)], ["Righe valorizzate", row.rows ? `${itNumber(row.rows.valued)} di ${itNumber(row.rows.source)}` : "Non disponibile"]]
-    : [["Previsione regionale", eur(row.exact.point)], ["Intervallo 80 %", range(row.exact.low80, row.exact.high80)], ["Intervallo 95 %", range(row.exact.low95, row.exact.high95)]];
+    : [["Previsione regionale", eur(row.exact.point)], ["Intervallo 80\u00a0%", range(row.exact.low80, row.exact.high80)], ["Intervallo 95\u00a0%", range(row.exact.low95, row.exact.high95)]];
   return <div key={row.key} style={tooltipStyle} className="px-3 py-2 text-xs shadow-sm"><p className="font-semibold">{`${monthLong[row.month - 1]} ${String(row.year)}`}</p>{lines.map(([label, value]) => <p key={label} className="mt-1 tabular-nums">{`${label}: ${value}`}</p>)}</div>;
 }
 export function ForecastCanvas({ chart, ticks, tick, divisor, firstForecast }: { chart: CForecastChartRow[]; ticks: string[]; tick: (key: string) => string; divisor: number; firstForecast: string | undefined }) {

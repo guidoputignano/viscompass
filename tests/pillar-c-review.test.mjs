@@ -418,7 +418,7 @@ const canvasSource = fs.readFileSync(fileURLToPath(new URL('../components/dashbo
 test('forecast panel: SeriesView is the keyed only child of its wrapper, and the tooltip is replaced whole', () => {
   assert.match(forecastSource, /function SeriesView\(\{ series, className, children \}[^)]*\) \{\n\s*return <div><div key=\{series\} className=\{className\}>\{children\}<\/div><\/div>;\n\}/);
   assert.match(canvasSource, /return <div key=\{row\.key\} style=\{tooltipStyle\}/);
-  assert.match(forecastSource, /const ForecastCanvas = dynamic\(\(\) => import\("@\/components\/dashboard-review\/pillar-c\/chart-canvases"\)\.then\(\(m\) => m\.ForecastCanvas\), \{ ssr: false \}\);/);
+  assert.match(forecastSource, /const ForecastCanvas = dynamic\(\(\) => cLazyChart\(import\("@\/components\/dashboard-review\/pillar-c\/chart-canvases"\)\.then\(\(m\) => m\.ForecastCanvas\)\), \{ ssr: false \}\);/);
 });
 
 test('forecast panel: every series-dependent value renders inside SeriesView; the selector and fixed labels sit outside', () => {
@@ -491,7 +491,7 @@ test('forecast copy: source attribution is inside collapsed data-and-scope detai
 });
 
 test('forecast copy: a number and its «%» never wrap apart in either component; packet copy is typeset for display only', () => {
-  for (const file of ['components/dashboard-review/pillar-c/forecast-section.tsx', 'components/dashboard-review/pillar-c/analytical-workspace.tsx', 'components/dashboard-review/pillar-c/evidence-sources.tsx']) {
+  for (const file of ['components/dashboard-review/pillar-c/forecast-section.tsx', 'components/dashboard-review/pillar-c/chart-canvases.tsx', 'components/dashboard-review/pillar-c/analytical-workspace.tsx', 'components/dashboard-review/pillar-c/evidence-sources.tsx']) {
     const source = fs.readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), 'utf8');
     assert.doesNotMatch(source, /\d %/, `${file}: ordinary space before %`);
     assert.equal(source.includes(String.fromCharCode(0xa0)), false, `${file}: the no-break space is written as its escape, never as an invisible character`);

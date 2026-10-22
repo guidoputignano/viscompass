@@ -6,6 +6,7 @@
  * province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs). */
 import { ArrowDownUp, Wallet, FileCheck2 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { cLazyChart } from "@/components/dashboard-review/pillar-c/chart-fallback";
 import { KpiCard } from "@/components/dashboard-review/analytics-ui";
 import { PillarCChangeBridge } from "@/components/dashboard-review/pillar-c/change-bridge";
 import { itNumber } from "@/lib/format/it-number";
@@ -14,7 +15,7 @@ import { C_COMPONENT_LABELS, C_PERIOD_LABELS, cMoneyDifference, cMoneyLabel, typ
 const eur = cMoneyLabel;
 const signed = (value: string | number) => `${Number(value) > 0 ? "+" : ""}${eur(value)}`;
 const fmt = (value: number) => itNumber(value, { maximumFractionDigits: 1 });
-const SpendCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.SpendCanvas), { ssr: false });
+const SpendCanvas = dynamic(() => cLazyChart(import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.SpendCanvas)), { ssr: false });
 const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 const selectClass = "mt-2 h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 const actionClass = "inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";

@@ -36,7 +36,7 @@ async function readReviewerObject(): Promise<{ state: "ready"; bytes: Uint8Array
 
 const decode = (bytes: Uint8Array) => JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
 
-/** Reviewer: the aggregate and ASL 1-4, plus the per-resident drivers and basket indices (owner decision O1: reviewer-only). */
+/** Reviewer: the aggregate and ASL 1-4, plus the per-resident drivers and basket indices, January and File F (owner decision O1: reviewer-only). */
 export async function loadCExtensionReviewer(approved: boolean, projectReviewer: boolean, remote: CExtensionRemote = readReviewerObject): Promise<CExtensionLoad> {
   if (!approved || !projectReviewer) return { state: "forbidden" };
   const read = await remote();
@@ -48,7 +48,7 @@ export async function loadCExtensionReviewer(approved: boolean, projectReviewer:
     const p = parseCExtensionReviewer(decode(read.bytes));
     const order: CScopedUnit[] = ["aggregato", "asl-1", "asl-2", "asl-3", "asl-4"];
     const units = order.map((key) => ({ key, label: C_EXT_UNIT_LABELS[key], data: p.units.find((u) => u.unit === key)! }));
-    return { state: "ready", view: { units, drivers: p.drivers, baskets: p.baskets, findings: p.findings } };
+    return { state: "ready", view: { units, drivers: p.drivers, baskets: p.baskets, fileFBasket: p.fileFBasket, findings: p.findings } };
   } catch { return { state: "unavailable" }; }
 }
 
@@ -67,7 +67,7 @@ export async function loadCExtensionScoped(audience: PillarCScopedAudience, db: 
       return { key: unit, label, data: parseCExtensionUnit(decode(read.bytes), unit, units) };
     }));
     cExtComplementCheck(out.map((u) => u.data));
-    return { state: "ready", view: { units: out, drivers: null, baskets: null, findings: null } };
+    return { state: "ready", view: { units: out, drivers: null, baskets: null, fileFBasket: null, findings: null } };
   } catch (error) {
     pcsLog(error instanceof Error && error.message === "PCS-ABSENT" ? "PCS-ABSENT" : "PCS-GUARD");
     return { state: "unavailable" };

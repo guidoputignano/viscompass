@@ -11,6 +11,7 @@ import {C_ATTR_STORAGE} from "./attribution-storage";
 import {cEvidenceGroupKey,cEvidencePriority,type CEvidenceOwner} from "./evidence-priority";
 import {loadCExtensionReviewer} from "./extension-loader";
 import {C_EXTENSION_STORAGE} from "./extension-storage";
+import type {CExtFindings} from "./extension";
 
 export const C_EVIDENCE_HEADERS={"Cache-Control":"private, no-store, max-age=0",Vary:"Cookie","X-Content-Type-Options":"nosniff"};
 export const C_EVIDENCE_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -47,12 +48,18 @@ export async function cEvidenceOwners(){
 export async function cEvidenceSource(){
   // Point 18 findings come from the hash-verified reviewer extension object; without it the product queue is unchanged.
   const [loaded,extension]=await Promise.all([loadCAttrView(true,true,'FY2025','Regione','Tutti'),loadCExtensionReviewer(true,true)]);if(loaded.state!=='ready')throw Error('source');
-  const findings=extension.state==='ready'?extension.view.findings:null;
+  const release=cEvidenceFindingsRelease(extension.state==='ready'?extension.view.findings:null),findings=release?.findings??null;
   const findingRows=findings?findings.rows.map(f=>({...f,group:cEvidenceFindingGroup(findings.version,f.id)})):[];
   const priority=cEvidencePriority(loaded.view.scope,loaded.view.portfolios);
   // Provenance is read from the hash-verified index that produced this queue, never from a copied constant.
   return {priority,groups:new Set(priority.rows.map(cEvidenceGroup)),portfolios:loaded.view.portfolios,sourceSnapshot:C_ATTR_STORAGE.index,sourceSha256:loaded.view.sourceSha256,classificationSha256:loaded.view.classificationSha256,mappingVersion:loaded.view.mappingVersion,
-    findingSnapshot:findings?C_EXTENSION_STORAGE.reviewer.sha256:null,findingVersion:findings?.version??null,findingRows,findingGroups:new Set(findingRows.map(r=>r.group))};
+    findingSnapshot:release?.snapshot??null,findingVersion:findings?.version??null,findingRows,findingGroups:new Set(findingRows.map(r=>r.group))};
+}
+/** The findings release the cases bind to: the pinned version, its content hash and the snapshot that first published it.
+ * Findings whose text differs from the pin are not offered (fail closed): their cases stay readable, not current. */
+export function cEvidenceFindingsRelease(findings:CExtFindings|null){
+  const pin=C_EXTENSION_STORAGE.findings;
+  return findings&&findings.version===pin.version&&createHash('sha256').update(JSON.stringify(findings)).digest('hex')===pin.sha256?{findings,snapshot:pin.snapshot}:null;
 }
 export function cEvidenceGroup(row:{key:string;atc:string;state:string;candidates:string[]}) {return createHash('sha256').update(cEvidenceGroupKey(row)).digest('hex');}
 /** Identity of one finding: its version and id. Text changes in a new version start a new case, never edit an old one. */

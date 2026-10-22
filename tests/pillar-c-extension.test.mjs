@@ -71,6 +71,27 @@ test('semantic checks: File F only in asl-3, sums equal totals, additivity of th
   assert.equal(parseCExtensionReviewer(extReviewer()).findings.rows.length,2);
 });
 
+test('parser: shares match their counts, File F months appear once and in order, reviewer blocks cover the four ASLs once each',()=>{
+  // Codex review 22 Oct 2026 (DELIVERY_SECURITY_V2: admitted defensive mutations).
+  const p=extUnit('asl-1',1000);p.january.age.cells[0].share+=0.01;refuse(()=>parseCExtensionUnit(p,'asl-1',ALL),'PCE_SHARE_age');
+  const q=extUnit('asl-3',1000);q.fileF.months[1].month=q.fileF.months[0].month;refuse(()=>parseCExtensionUnit(q,'asl-3',ALL),'PCE_FILEF_MONTHS');
+  const q2=extUnit('asl-3',1000);q2.fileF.identifiersByMonth.reverse();refuse(()=>parseCExtensionUnit(q2,'asl-3',ALL),'PCE_FILEF_MONTHS');
+  const r=extReviewer();r.drivers.units=[];refuse(()=>parseCExtensionReviewer(r),'PCE_REVIEWER_UNITS');
+  const r2=extReviewer();r2.baskets.units[1].unit='asl-1';refuse(()=>parseCExtensionReviewer(r2),'PCE_REVIEWER_UNITS');
+  const r3=extReviewer();r3.drivers.units.pop();refuse(()=>parseCExtensionReviewer(r3),'PCE_REVIEWER_UNITS');
+  for(const u of EXT_UNITS)assert.equal(parseCExtensionUnit(extUnit(u,u==='aggregato'?4000:1000),u,ALL).unit,u);
+});
+
+test('O1: the File F quarterly index never travels in a unit object; the reviewer object carries it for ASL 3 only',()=>{
+  // The asl-3 object built before 23 Oct 2026 carried it: the closed guard now refuses that shape.
+  const old=extUnit('asl-3',1000);old.fileF.basket=[{quarter:'Q1',index:100.2,coverage:0.9}];old.fileF.basketProducts=50;
+  refuse(()=>parseCExtensionUnit(old,'asl-3',AZ),'PCS_GUARD_UNKNOWN_FIELD');
+  const v1=extReviewer();v1.schema='pillar-c-extension-reviewer-v1';refuse(()=>parseCExtensionReviewer(v1),'PCS_GUARD');
+  const moved=extReviewer();moved.fileFBasket.unit='asl-1';refuse(()=>parseCExtensionReviewer(moved),'PCE_FILEF_BASKET_UNIT');
+  const missing=extReviewer();delete missing.fileFBasket;refuse(()=>parseCExtensionReviewer(missing),'PCS_GUARD');
+  assert.deepEqual(parseCExtensionReviewer(extReviewer()).fileFBasket.quarters.map(q=>q.quarter),['Q1','Q2']);
+});
+
 test('reviewer loader: gated, pinned by size and hash, fails closed',async()=>{
   const fx=extFixture();as({pins:{root:'v1',bucket:'pillar-c-scoped'},client:()=>null});globalThis.__pcs.ext=fx.pins;
   const remote=async()=>({state:'ready',bytes:new Uint8Array(fx.reviewerBytes)});
@@ -78,7 +99,7 @@ test('reviewer loader: gated, pinned by size and hash, fails closed',async()=>{
   assert.equal((await loadCExtensionReviewer(false,true,remote)).state,'forbidden');
   const ok=await loadCExtensionReviewer(true,true,remote);
   assert.equal(ok.state,'ready');assert.deepEqual(ok.view.units.map(u=>u.key),ALL);assert.deepEqual(ok.view.units.map(u=>u.label),ALL.map(u=>C_EXT_UNIT_LABELS[u]));
-  assert.ok(ok.view.drivers&&ok.view.baskets);
+  assert.ok(ok.view.drivers&&ok.view.baskets);assert.deepEqual(ok.view.fileFBasket,extReviewer().fileFBasket);
   const tampered=Buffer.from(fx.reviewerBytes);tampered[10]^=1;
   assert.equal((await loadCExtensionReviewer(true,true,async()=>({state:'ready',bytes:new Uint8Array(tampered)}))).state,'unavailable');
   assert.equal((await loadCExtensionReviewer(true,true,async()=>({state:'not_configured'}))).state,'not_configured');
@@ -90,7 +111,7 @@ test('scoped loader: only the audience units, under the session, labelled by the
   const {client,calls}=fakeSessionClient(fx,{visible:AZ});
   const r=await loadCExtensionScoped(AZIENDA,client,labels);
   assert.equal(r.state,'ready');assert.deepEqual(r.view.units.map(u=>[u.key,u.label]),[['asl-3','Azienda sintetica Tre'],['aggregato','Aggregato delle quattro Aziende']]);
-  assert.equal(r.view.drivers,null);assert.equal(r.view.baskets,null);
+  assert.equal(r.view.drivers,null);assert.equal(r.view.baskets,null);assert.equal(r.view.fileFBasket,null);
   assert.deepEqual(calls.downloads.map(d=>[d.bucket,d.path.split('/')[0],d.path.split('/')[1]]),[['pillar-c-scoped','v9','asl-3'],['pillar-c-scoped','v9','aggregato']],'the extension root, never the rec5 root v1');
   // Storage refuses the own unit (RLS): the whole extension is unavailable, never partial.
   const refused=fakeSessionClient(fx,{visible:['aggregato']});
@@ -120,7 +141,7 @@ test('no small cell is recoverable by subtraction across the units one audience 
   refuse(()=>cExtComplementCheck([gap,...four]),'PCE_COMPLEMENT');
 });
 
-const viewOf=(units,extras=false)=>({units:units.map(u=>({key:u,label:u==='aggregato'?'Aggregato delle quattro Aziende':`Unità ${u.slice(4)}`,data:extUnit(u,u==='aggregato'?4000:1000)})),drivers:extras?extReviewer().drivers:null,baskets:extras?extReviewer().baskets:null,findings:extras?extReviewer().findings:null});
+const viewOf=(units,extras=false)=>({units:units.map(u=>({key:u,label:u==='aggregato'?'Aggregato delle quattro Aziende':`Unità ${u.slice(4)}`,data:extUnit(u,u==='aggregato'?4000:1000)})),drivers:extras?extReviewer().drivers:null,baskets:extras?extReviewer().baskets:null,fileFBasket:extras?extReviewer().fileFBasket:null,findings:extras?extReviewer().findings:null});
 const audienceOf=(keys)=>({schema:'pillar-c-client-audience-v1',kind:'azienda',monthlyMode:'explicit',aggregateKey:'aggregato',orgs:keys.map(k=>({key:k,label:k})),defaultOrg:keys[0],budgetOrgs:[],capabilities:{},scopeLine:'x',exportLabel:'x'});
 
 test('the scoped workspace shows the extension only for exactly its units, in order, and never a reviewer-only block',()=>{
@@ -128,6 +149,7 @@ test('the scoped workspace shows the extension only for exactly its units, in or
   assert.equal(cScopedExtensionFor(audienceOf(AZ),viewOf(['aggregato','asl-3'])),null);
   assert.equal(cScopedExtensionFor(audienceOf(AZ),viewOf(['asl-1','aggregato'])),null);
   assert.equal(cScopedExtensionFor(audienceOf(AZ),viewOf(AZ,true)),null);
+  assert.equal(cScopedExtensionFor(audienceOf(AZ),{...viewOf(AZ),fileFBasket:extReviewer().fileFBasket}),null,'the File F quarterly index is reviewer-only');
   assert.equal(cScopedExtensionFor(audienceOf(AZ),{...viewOf(AZ),findings:extReviewer().findings}),null);
   assert.equal(cScopedExtensionFor(audienceOf(AZ),null),null);
 });

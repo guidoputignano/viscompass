@@ -17,7 +17,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {existsSync,readFileSync,statSync} from 'node:fs';
+import {existsSync,readdirSync,readFileSync,statSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -63,6 +63,7 @@ function parse(file){
   return info;
 }
 
+const REVIEWER_BOUNDARY='components/dashboard-review/pillar-c/analytical-workspace.tsx';
 const ROUTE=['app/layout.tsx','app/dashboard-review/layout.tsx','app/dashboard-review/loading.tsx','app/dashboard-review/error.tsx','app/dashboard-review/pillar-c/page.tsx'];
 function routeClientGraph(){
   const server=new Set(),roots=new Set();
@@ -81,7 +82,16 @@ function routeClientGraph(){
     for(const s of m.dynamic){const r=resolveSpec(f,s);if(r)boundaries.push([rel(f),rel(r)]);}
   };
   for(const f of roots)walkClient(f);
-  return {roots:[...roots].map(rel).sort(),entry:[...entry].map(rel).sort(),boundaries};
+  // Point 19: chunks loaded after hydration (the chart canvases) reach every audience too. Only the reviewer workspace
+  // boundary is reviewer-only (its wrapper renders it for reviewers alone); every other dynamic import is followed.
+  const lazy=new Set();
+  const walkLazy=f=>{
+    if(entry.has(f)||lazy.has(f))return;lazy.add(f);
+    const m=parse(f);
+    for(const s of [...m.imports,...m.dynamic]){const r=resolveSpec(f,s);if(r&&rel(r)!==REVIEWER_BOUNDARY)walkLazy(r);}
+  };
+  for(const [,to] of boundaries)if(to!==REVIEWER_BOUNDARY)walkLazy(abs(to));
+  return {roots:[...roots].map(rel).sort(),entry:[...entry].map(rel).sort(),lazy:[...lazy].map(rel).sort(),boundaries};
 }
 
 // ------------------------------------------------------------------ the detector
@@ -165,6 +175,29 @@ test('UI-4: no module of the route’s entry chunks carries a province key or it
   // No module of the entry carries the vocabulary in any form.
   const found=graph.entry.map(m=>[m,findings(abs(m))]).filter(([,f])=>f.length);
   assert.deepEqual(found,[],'province keys or pseudonym pairs in the entry chunks');
+  // Nor any module of the chunks every audience loads after hydration (point 19).
+  assert.ok(graph.lazy.includes('components/dashboard-review/pillar-c/chart-canvases.tsx'),'the lazily loaded chart canvases are scanned');
+  for(const m of REVIEWER_ONLY)assert.ok(!graph.lazy.includes(m),`${m} is in a chunk every audience loads after hydration`);
+  const foundLazy=graph.lazy.map(m=>[m,findings(abs(m))]).filter(([,f])=>f.length);
+  assert.deepEqual(foundLazy,[],'province keys or pseudonym pairs in the lazily loaded chunks');
+});
+
+test('point 19: every chart drawing loads after hydration, with ssr:false and a fallback, and only chart-canvases.tsx imports the chart library',()=>{
+  // The test hook resolves next/dynamic to the Pages implementation, which renders an empty slot whatever the ssr option;
+  // the build uses the App Router one, which would render the chart on the server without ssr:false. So the option is
+  // asserted here, at the source.
+  const dir=abs('components/dashboard-review/pillar-c');
+  const CALL=/dynamic\(\(\) => cLazyChart\(import\("@\/components\/dashboard-review\/pillar-c\/chart-canvases"\)\.then\(\(m\) => m\.([A-Za-z]+)\)\), \{ ssr: false \}\)/g;
+  const canvases=[];
+  for(const f of readdirSync(dir).filter(f=>f.endsWith('.tsx'))){
+    const src=readFileSync(path.join(dir,f),'utf8');
+    const calls=(src.match(/\bdynamic\(/g)??[]).length, lazyCharts=[...src.matchAll(CALL)].map(m=>m[1]);
+    if(f==='reviewer-workspace.tsx'){assert.equal(calls,1,'the reviewer workspace wrapper');continue;}
+    assert.equal(lazyCharts.length,calls,`${f}: every dynamic() is a chart canvas with cLazyChart and ssr:false`);
+    canvases.push(...lazyCharts);
+    if(f!=='chart-canvases.tsx')assert.doesNotMatch(src,/from "recharts"|from 'recharts'/,`${f} imports the chart library directly`);
+  }
+  assert.deepEqual(canvases.sort(),['AttributionDonutCanvas','AttributionParetoCanvas','ForecastCanvas','InsightLineCanvas','PortfolioMonthlyCanvas','SpendCanvas']);
 });
 
 test('points 15-16: the guard vocabulary and the extension parsers stay on the server',()=>{

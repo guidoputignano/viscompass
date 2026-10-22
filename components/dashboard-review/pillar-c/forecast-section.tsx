@@ -5,13 +5,14 @@
 
 import { useId } from "react";
 import dynamic from "next/dynamic";
+import { cLazyChart } from "@/components/dashboard-review/pillar-c/chart-fallback";
 import { LocalToggle } from "@/components/dashboard-review/pillar-b-local-toggle";
 import { itNumber } from "@/lib/format/it-number";
 import { C_FORECAST_LABEL, C_FORECAST_SELECTABLE, cMoneyLabel, selectCForecast, type CForecast, type CForecastChartRow, type CForecastSelectable, type CForecastSeries } from "@/lib/dashboard-review/pillar-c/review";
 import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-decision";
 
 const eur = cMoneyLabel;
-const ForecastCanvas = dynamic(() => import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.ForecastCanvas), { ssr: false });
+const ForecastCanvas = dynamic(() => cLazyChart(import("@/components/dashboard-review/pillar-c/chart-canvases").then((m) => m.ForecastCanvas)), { ssr: false });
 const range = (low: string | null, high: string | null) => `${eur(low)} – ${eur(high)}`;
 /** Display only: a no-break space between a number and «%» in packet copy, so the sign never wraps onto its own line. Fixed copy writes the escape itself. */
 const typeset = (text: string) => text.replace(/(\d) %/g, "$1\u00a0%");
