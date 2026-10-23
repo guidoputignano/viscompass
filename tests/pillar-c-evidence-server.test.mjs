@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {buildCAttrPacket,cAttrAtoms,cAttrPriority,cAttrScope,cAttrSum} from '../lib/dashboard-review/pillar-c/attribution.ts';
 import {C_ATTR_STORAGE} from '../lib/dashboard-review/pillar-c/attribution-storage.ts';
 import {loadCAttrView} from '../lib/dashboard-review/pillar-c/attribution-loader.ts';
-import {cEvidenceIsCurrent,cEvidenceArchivedRow,cEvidenceCurrent,cEvidenceFile,cEvidenceFollowupSaved,cEvidenceGroupKey,cEvidencePriority,cEvidenceQueue,cEvidenceRpcError,cEvidenceRpcRolledBack,C_EVIDENCE_ARCHIVE_LIMIT,C_EVIDENCE_BUCKET,C_EVIDENCE_MAX_BODY,C_EVIDENCE_MAX_FILE} from '../lib/dashboard-review/pillar-c/evidence-priority.ts';
+import {cEvidenceIsCurrent,cEvidenceArchivedRow,cEvidenceFindingsUnavailable,cEvidenceKind,cEvidenceCurrent,cEvidenceFile,cEvidenceFollowupSaved,cEvidenceGroupKey,cEvidencePriority,cEvidenceQueue,cEvidenceRpcError,cEvidenceRpcRolledBack,C_EVIDENCE_ARCHIVE_LIMIT,C_EVIDENCE_BUCKET,C_EVIDENCE_MAX_BODY,C_EVIDENCE_MAX_FILE} from '../lib/dashboard-review/pillar-c/evidence-priority.ts';
 
 // Synthetic aggregates only: invented product keys and amounts, no workbook or ledger figures.
 const portfolios=[{id:'AA',label:'Area sintetica A',kind:'area_terapeutica'},{id:'BB',label:'Area sintetica B',kind:'area_terapeutica'},{id:'CC',label:'Area sintetica C',kind:'area_terapeutica'}];
@@ -153,7 +153,8 @@ test('cases from an earlier data version stay listed read-only and never join th
   assert.deepEqual(q.cases.map(r=>r.id),['c1','c3'],'same product on an earlier version does not replace or merge the current case');
   assert.deepEqual(q.archived.map(r=>r.id),['c2','o1','o2'],'newest update first; a row dropped from the current queue is archived too');
   assert.equal(q.archivedCount,8,'true total: all earlier-version cases plus the dropped current one');
-  assert.deepEqual(q.archived[0],{id:'c2',product_key:'K-c2',product_label:'Prodotto c2',state:'closed',decision:'remains_uncertain',updated_at:'2026-10-19T12:00:00+00:00',source_snapshot:SNAP});
+  assert.deepEqual(q.archived[0],{id:'c2',product_key:'K-c2',product_label:'Prodotto c2',state:'closed',decision:'remains_uncertain',updated_at:'2026-10-19T12:00:00+00:00',source_snapshot:SNAP,kind:'priority'});
+  assert.equal(cEvidenceArchivedRow({...older[0],source:{source_state:'F',product_label:'Rilievo'}}).kind,'finding','a finding case keeps its kind in the archive');
   assert.equal(cEvidenceArchivedRow({...older[0],source:null}).product_label,'K-o1');
   const many=Array.from({length:250},(_,i)=>stored(`m${String(i).padStart(3,'0')}`,OLD,G1,new Date(Date.UTC(2026,0,1,0,i)).toISOString()));
   const big=cEvidenceQueue([],many,250,SNAP,new Set([G1]));
@@ -169,9 +170,13 @@ test('every evidence route stays gated and private, and archived cases are reada
   for(const h of [list.POST,list.PATCH,files.POST])assert.match(h,/if\(!actor\|\|!cEvidenceSameOrigin\(request\)\)return \w+\(\{error:'forbidden'\},403\)/);
   // Point 18: the current set is the attribution queue plus the findings of the current extension version.
   for(const h of [list.PATCH,files.POST])assert.match(h,/if\(!cEvidenceIsCurrent\(\w+\.\w+,source\)\)return \w+\(\{error:'archived'\},409\)/);
-  for(const h of [detail.GET,files.GET])assert.doesNotMatch(h,/source_snapshot|archived/,'reads work for any existing case');
-  assert.match(detail.GET,/current:cEvidenceIsCurrent\(found\.data,source\)/);
-  assert.match(list.GET,/schema:'pillar-c-evidence-workspace-v1'/);assert.match(list.GET,/archived:queue\.archived,archivedCount:queue\.archivedCount/);
+  assert.doesNotMatch(files.GET,/source_snapshot|archived/,'reads work for any existing case');
+  // The detail read uses the snapshot only to word a read-only case (superseded or temporarily unavailable), never to refuse it.
+  assert.doesNotMatch(detail.GET,/error:'archived'|\.eq\('source_snapshot'|\.in\('source_snapshot'/,'reads work for any existing case');
+  assert.match(detail.GET,/current:cEvidenceIsCurrent\(found\.data,source\),findingsUnavailable\}/);
+  assert.match(detail.GET,/const findingsUnavailable=cEvidenceFindingsUnavailable\(\{source_snapshot:found\.data\.source_snapshot,kind:cEvidenceKind\(found\.data\.source\)\},source\);/);
+  assert.match(list.GET,/schema:'pillar-c-evidence-workspace-v1'/);assert.match(list.GET,/archived,archivedCount:queue\.archivedCount/);
+  assert.match(list.GET,/const archived=queue\.archived\.map\(a=>\(\{\.\.\.a,unavailable:cEvidenceFindingsUnavailable\(a,source\)\}\)\);/);
   assert.match(list.GET,/const current=\[source\.sourceSnapshot,\.\.\.\(source\.findingSnapshot\?\[source\.findingSnapshot\]:\[\]\)\];/);
   assert.match(list.GET,/\.in\('source_snapshot',current\)\.order\('created_at'\)/);
   assert.match(list.GET,/\.not\('source_snapshot','in',`\(\$\{current\.join\(','\)\}\)`\)\.order\('updated_at',\{ascending:false\}\)\.order\('id'\)\.limit\(C_EVIDENCE_ARCHIVE_LIMIT\)/);
@@ -194,6 +199,13 @@ test('point 18: finding cases are current only on the current extension version,
   assert.equal(cEvidenceIsCurrent({source_snapshot:F,source_group:G1},set),false,'a product group under the finding snapshot');
   assert.equal(cEvidenceIsCurrent({source_snapshot:SNAP,source_group:GF},set),false,'a finding group under the product snapshot');
   assert.equal(cEvidenceIsCurrent({source_snapshot:F,source_group:GF},{...set,findingSnapshot:null}),false,'without the extension object a finding case is read only');
+  // ...but it is not superseded: a finding case of the pinned release is «unavailable», never an earlier version.
+  const pin={findingSnapshot:null,pinnedFindingSnapshot:F};
+  assert.equal(cEvidenceKind({source_state:'F'}),'finding');assert.equal(cEvidenceKind({source_state:'S3'}),'priority');assert.equal(cEvidenceKind(null),'priority');
+  assert.equal(cEvidenceFindingsUnavailable({source_snapshot:F,kind:'finding'},pin),true);
+  assert.equal(cEvidenceFindingsUnavailable({source_snapshot:F,kind:'finding'},{...pin,findingSnapshot:F}),false,'readable again: current, not unavailable');
+  assert.equal(cEvidenceFindingsUnavailable({source_snapshot:'1'.repeat(64),kind:'finding'},pin),false,'an earlier findings release is superseded');
+  assert.equal(cEvidenceFindingsUnavailable({source_snapshot:F,kind:'priority'},pin),false,'product cases are never «findings unavailable»');
   const q=cEvidenceQueue([stored('p',SNAP,G1,'2026-10-22T10:00:00+00:00'),stored('f',F,GF,'2026-10-22T11:00:00+00:00'),stored('x',F,'7'.repeat(64),'2026-10-22T12:00:00+00:00')],[],0,SNAP,set.groups,r=>cEvidenceIsCurrent(r,set));
   assert.deepEqual(q.cases.map(r=>r.id),['p','f']);assert.deepEqual(q.archived.map(r=>r.id),['x']);
   const server=read('lib/dashboard-review/pillar-c/evidence-server.ts');

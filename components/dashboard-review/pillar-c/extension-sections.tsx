@@ -153,10 +153,11 @@ function CandidateReach({ view }: { view: CExtensionView }) {
     const c = u.data.january[key].find((x) => x.id === id);
     return c ? `${num(c.count)} (${pct(c.share)})` : "—";
   };
-  return <Panel title="Destinatari per stato del prodotto e portafoglio candidato · gennaio 2026" description="Destinatari che hanno ricevuto almeno un prodotto di ciascuno stato o di ciascun portafoglio a candidato singolo. Le quote si sovrappongono e non ripartiscono la spesa.">
+  const aggregate = units.some((u) => u.key === "aggregato");
+  return <Panel title="Destinatari per stato del prodotto e gruppo di portafogli candidati · gennaio 2026" description={`Destinatari che hanno ricevuto almeno un prodotto di ciascuno stato o di ciascun gruppo. Le quote si sovrappongono e non ripartiscono la spesa.${aggregate ? " L’aggregato somma i destinatari delle quattro ASL: non è un conteggio di persone uniche regionali." : ""}`}>
     <ExactTable caption="Destinatari per stato del prodotto" headers={["Stato del prodotto", ...units.map((u) => u.label)]} rows={lead.portfolioStatus.map((s) => [s.label, ...units.map((u) => cell(u, "portfolioStatus", s.id))])} />
-    <ExactTable caption="Destinatari per portafoglio candidato" headers={["Portafoglio candidato (prodotti a candidato singolo)", ...units.map((u) => u.label)]} rows={lead.singleCandidateReach.map((g) => [g.label, ...units.map((u) => cell(u, "singleCandidateReach", g.id))])} />
-    <p className="mt-3 text-xs leading-5 text-muted-foreground">Un portafoglio candidato è un raggruppamento farmacologico: non indica la diagnosi, l’indicazione effettiva né l’area che sostiene il costo.</p>
+    <ExactTable caption="Destinatari per gruppo di portafogli candidati" headers={["Gruppo di portafogli (prodotti a candidato singolo)", ...units.map((u) => u.label)]} rows={lead.singleCandidateReach.map((g) => [g.label, ...units.map((u) => cell(u, "singleCandidateReach", g.id))])} />
+    <p className="mt-3 text-xs leading-5 text-muted-foreground">Ogni gruppo riunisce più portafogli candidati, raggruppamenti farmacologici: non è confrontabile con un singolo portafoglio e non indica la diagnosi, l’indicazione effettiva né l’area che sostiene il costo.</p>
   </Panel>;
 }
 
@@ -168,8 +169,8 @@ function FileFPortfolios({ view }: { view: CExtensionView }) {
     <ExactTable caption="Importo riportato per stato del prodotto" headers={["Stato del prodotto", "Quota dell’importo"]} rows={[
       ["Un solo portafoglio candidato", pct(f.portfolioShares.single)], ["Più portafogli candidati", pct(f.portfolioShares.shared)], ["Non mappati o evidenza insufficiente", pct(f.portfolioShares.unmapped)],
     ]} />
-    <ExactTable caption="Identificativi raggiunti per portafoglio candidato" headers={["Portafoglio candidato (prodotti a candidato singolo)", "Quota degli identificativi"]} rows={f.singleCandidateReach.map((g) => [g.label, pct(g.share)])} />
-    <p className="mt-3 text-xs leading-5 text-muted-foreground">Le quote di identificativi si sovrappongono e non indicano diagnosi, indicazioni effettive o titolarità del budget.</p>
+    <ExactTable caption="Identificativi raggiunti per gruppo di portafogli candidati" headers={["Gruppo di portafogli (prodotti a candidato singolo)", "Quota degli identificativi"]} rows={f.singleCandidateReach.map((g) => [g.label, pct(g.share)])} />
+    <p className="mt-3 text-xs leading-5 text-muted-foreground">Ogni gruppo riunisce più portafogli candidati. Le quote di identificativi si sovrappongono e non indicano diagnosi, indicazioni effettive o titolarità del budget.</p>
   </Panel>;
 }
 

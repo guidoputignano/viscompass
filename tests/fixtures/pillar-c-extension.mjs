@@ -15,7 +15,8 @@ export function extUnit(unit,n=1000){
     age:dist(n,[['0-64','0-64',n*0.4],['65-74','65-74',n*0.3],['75-84','75-84',n*0.2],['85+','85+',n*0.1]]),
     sex:{female:0.52,male:0.48,unknownLeftOut:false},
     cost:{quartiles:aggregate?null:{q1:40,median:80,q3:120},bins:dist(n,[['low','0–<50 €',n*0.6],['mid','50–<100 €',n*0.3],['high','≥100 €',n*0.1]]),top10:aggregate?null:0.4,top20:aggregate?null:0.55,gini:aggregate?null:0.48},
-    use:{packs:{quartiles:q,bins:dist(n,[['one','1–<2',n*0.8],['two','2+',n*0.2]])},prescriptions:{quartiles:q,bins:dist(n,[['one','1',n*0.9],['more','2+',n*0.1]])},distinctAICs:{quartiles:q,bins:dist(n,[['one','1',n*0.95],['more','2+',n*0.05]])}},
+    // Distinct quartiles per measure, so a panel reading the wrong field cannot pass (review of 9545a68).
+    use:{packs:{quartiles:q,bins:dist(n,[['one','1–<2',n*0.8],['two','2+',n*0.2]])},prescriptions:{quartiles:aggregate?null:{q1:1,median:1,q3:2},bins:dist(n,[['one','1',n*0.9],['more','2+',n*0.1]])},distinctAICs:{quartiles:aggregate?null:{q1:1,median:1.5,q3:2.5},bins:dist(n,[['one','1',n*0.95],['more','2+',n*0.05]])}},
     ingredients:dist(n,[['one','1',n*0.94],['two','2',n*0.05],['three_plus','3+',n*0.01]]),
     portfolioStatus:[cell('single_portfolio_proxy','Un solo portafoglio candidato',n*0.6,n),cell('shared','Più portafogli candidati',n*0.5,n)],
     singleCandidateReach:[cell('cardio_blood','Cardiovascolare',n*0.1,n),cell('oncology','Oncologia',0,n)],

@@ -443,6 +443,7 @@ export function AccessControlCenter({
 }) {
   const [view, setView] = useState<CenterView>("requests");
   const pendingInvites = data.invitations.filter((invitation) => invitation.status === "pending");
+  const Body = embedded ? "div" : "main";
 
   return (
     <div className="min-h-svh bg-background">
@@ -469,7 +470,8 @@ export function AccessControlCenter({
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-7 px-5 py-8 md:px-8 md:py-10">
+      {/* Inside the dashboard shell the shell owns the one main landmark. */}
+      <Body className="mx-auto flex max-w-7xl flex-col gap-7 px-5 py-8 md:px-8 md:py-10">
         <section className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(174_46%_24%)]">
@@ -627,7 +629,7 @@ export function AccessControlCenter({
           </section>
         )}
 
-      </main>
+      </Body>
     </div>
   );
 }

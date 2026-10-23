@@ -20,6 +20,18 @@ test('safeNext keeps same-site paths and refuses every off-site form, including 
   assert.equal(safeNext('/a/../b?x=1',F),'/b?x=1');
 });
 
+test('review of 9545a68: dot segments that normalise into an off-site or encoded-slash path are refused; non-strings are absent',()=>{
+  for(const bad of ['/.//evil.example','/.//evil.example/phish','/a/..//evil.example','/%2E%2E//evil.example','/%2e//evil.example',
+    '/dashboard-review/..//evil.example','/./%2F/evil','/x/%2e%2e/%2f%2fevil','/./\\evil'])
+    assert.equal(safeNext(bad,F),F,bad);
+  // Encoded slashes inside a path stay encoded: same site, whatever a later decoding hop does.
+  assert.equal(new URL(safeNext('/x/..%2f..%2f/evil',F),'https://base.invalid').host,'base.invalid');
+  for(const odd of [['/a','/b'],123,{},undefined])assert.equal(safeNext(odd,F),F,JSON.stringify(odd));
+  assert.equal(loginNext(['/dashboard-review/pillar-c','/x']),LOGIN_DEFAULT_NEXT,'a repeated next is absent, never a crash');
+  // Every accepted value re-resolves to this site from any base.
+  for(const ok of ['/dashboard-review/pillar-c','/a/../b','/x/./y?z=1#k'])assert.equal(new URL(safeNext(ok,F),'https://base.invalid').host,'base.invalid',ok);
+});
+
 test('loginNext: a safe page or the default, never an auth or API route',()=>{
   assert.equal(LOGIN_DEFAULT_NEXT,'/dashboard-review/spend');
   assert.equal(loginNext(undefined),LOGIN_DEFAULT_NEXT);
@@ -59,6 +71,12 @@ test('the proxy, the sign-in page and form, the access page and the callback rou
   assert.doesNotMatch(form,/router\.push\("\/dashboard-review\/spend"\)/,'the destination is no longer hard-coded');
   const access=read('app/access/page.tsx');
   assert.ok(access.includes('const destination = loginNext(next);')&&access.includes('if (approved) redirect(destination);'));
+  // Signed out on /access: the destination survives a sign-in and comes back through /access.
+  assert.ok(access.includes('if (!overview) redirect(destination === LOGIN_DEFAULT_NEXT ? "/auth/login" : `/auth/login?next=${encodeURIComponent(`/access?next=${encodeURIComponent(destination)}`)}`);'));
+  const roundTrip=`/access?next=${encodeURIComponent('/dashboard-review/pillar-c?org=asl-1')}`;
+  assert.equal(loginNext(roundTrip),roundTrip,'the nested target is itself a valid sign-in destination');
+  assert.equal(loginNext(new URL(`https://x.invalid${roundTrip}`).searchParams.get('next')),'/dashboard-review/pillar-c?org=asl-1');
+  for(const p of ['app/access/page.tsx','app/auth/login/page.tsx'])assert.match(read(p),/next\?: string \| string\[\]/,`${p}: a repeated parameter is typed as what it is`);
   for(const route of ['app/auth/callback/route.ts','app/auth/confirm/route.ts'])assert.match(read(route),/safeNext\(/,route);
 });
 

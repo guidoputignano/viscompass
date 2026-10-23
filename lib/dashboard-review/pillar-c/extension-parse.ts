@@ -33,6 +33,9 @@ function checkUnit(p: CExtUnitPacket) {
     j.attribution.agreementLines, j.attribution.sharedRecipientsNarrowed, j.services.under10Packs, j.services.under10Service, j.services.pharmacies, j.services.pharmacyTop10,
     j.services.intervalQ1, j.services.intervalMedian, j.services.intervalQ3, j.services.within7, j.services.sameDay];
   if (aggregate ? perAsl.some((v) => v !== null) : perAsl.some((v) => v === null)) fail("ADDITIVITY");
+  // Recipient groups shown as «n (x %)»: each share is its count over the recipients, within half a unit of rounding.
+  for (const [name, list] of [["portfolioStatus", j.portfolioStatus], ["singleCandidateReach", j.singleCandidateReach]] as const)
+    if (list.some((c) => Math.abs(c.share - (j.recipients ? c.count / j.recipients : 0)) > 0.0005 + 1e-9)) fail(`SHARE_${name}`);
   if (p.fileF && p.unit !== "asl-3") fail("FILEF_UNIT");
   if ((p.notes.fileFMode09 === null) !== (p.fileF === null)) fail("NOTES");
   if (p.fileF) {

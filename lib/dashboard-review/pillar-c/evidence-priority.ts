@@ -76,12 +76,19 @@ export type CEvidenceCurrentSet = {sourceSnapshot:string;groups:ReadonlySet<stri
 export function cEvidenceIsCurrent(row:{source_snapshot:string;source_group:string},s:CEvidenceCurrentSet){return cEvidenceCurrent(row,s.sourceSnapshot,s.groups)||(s.findingSnapshot!==null&&cEvidenceCurrent(row,s.findingSnapshot,s.findingGroups));}
 /** Decision labels of a finding case: the same four decisions, worded for a finding rather than a product's attribution. */
 export const C_EVIDENCE_FINDING_DECISION_LABELS:Record<string,string>={remains_uncertain:"Questione ancora aperta",evidence_sufficient:"Evidenza sufficiente per chiudere il rilievo",needs_local_allocation:"Serve un’azione locale",identifier_corrected:"Dato della fonte chiarito"};
-export type CEvidenceArchived = {id:string;product_key:string;product_label:string;state:string;decision:string|null;updated_at:string;source_snapshot:string};
+/** kind: a point 18 finding (source_state F) or a product of the attribution priority. unavailable: a finding case of
+ * the pinned findings release while that release cannot be read (not superseded: it becomes current again on its own). */
+export type CEvidenceArchived = {id:string;product_key:string;product_label:string;state:string;decision:string|null;updated_at:string;source_snapshot:string;kind:"finding"|"priority";unavailable?:boolean};
 type CEvidenceArchiveSource = {id:string;product_key:string;source?:unknown;state:string;decision?:string|null;updated_at:string;source_snapshot:string};
 export const C_EVIDENCE_ARCHIVE_LIMIT = 200;
+export function cEvidenceKind(source:unknown):"finding"|"priority"{return source&&typeof source==='object'&&(source as Record<string,unknown>).source_state==='F'?"finding":"priority";}
 export function cEvidenceArchivedRow(row:CEvidenceArchiveSource):CEvidenceArchived{
   const label=row.source&&typeof row.source==='object'?(row.source as Record<string,unknown>).product_label:null;
-  return {id:row.id,product_key:row.product_key,product_label:typeof label==='string'&&label?label:row.product_key,state:row.state,decision:row.decision??null,updated_at:row.updated_at,source_snapshot:row.source_snapshot};
+  return {id:row.id,product_key:row.product_key,product_label:typeof label==='string'&&label?label:row.product_key,state:row.state,decision:row.decision??null,updated_at:row.updated_at,source_snapshot:row.source_snapshot,kind:cEvidenceKind(row.source)};
+}
+/** A finding case of the pinned release while the findings object cannot be read: read only for now, not superseded. */
+export function cEvidenceFindingsUnavailable(row:{source_snapshot:string;kind:"finding"|"priority"},s:{findingSnapshot:string|null;pinnedFindingSnapshot:string}){
+  return row.kind==="finding"&&s.findingSnapshot===null&&row.source_snapshot===s.pinnedFindingSnapshot;
 }
 /** Earlier reviews stay readable but are never carried into the current queue. `older` holds only other snapshots, newest update first. */
 export function cEvidenceQueue<T extends CEvidenceArchiveSource&{source_group:string}>(same:T[],older:CEvidenceArchiveSource[],olderCount:number,snapshot:string,groups:ReadonlySet<string>,isCurrent:(r:T)=>boolean=r=>cEvidenceCurrent(r,snapshot,groups)){

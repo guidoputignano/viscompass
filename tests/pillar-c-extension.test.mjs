@@ -200,9 +200,24 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.match(html,/Confezioni, 1° – 3° quartile<\/th><td[^>]*>1,0 – 3,0<\/td><td[^>]*>—<\/td>/);
   assert.match(html,/1° – 3° quartile<\/th><td[^>]*>1 – 4<\/td><td[^>]*>—<\/td>/);
   assert.match(html,/i quartili delle singole ASL non si sommano/);
+  // Each row reads its own field (the fixture gives every measure a different value).
+  const row=(label)=>{const m=html.match(new RegExp(`>${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}</th><td[^>]*>([^<]*)</td>`));return m?m[1]:null;};
+  assert.equal(row('Prescrizioni registrate, mediana'),'1,0');assert.equal(row('Prodotti AIC distinti, mediana'),'1,5');
+  assert.equal(row('Prodotti AIC distinti, 1° – 3° quartile'),'1,0 – 2,5');assert.equal(row('Prescrizioni registrate, 1° – 3° quartile'),'1,0 – 2,0');
+  assert.equal(row('Quota di costo del 10\u00a0% di farmacie con costo maggiore'),'25,0\u00a0%','pharmacy concentration, not recipient cost concentration');
+  assert.equal(row('Prescrizione ed erogazione nello stesso giorno'),'12,0\u00a0%','same day, not within seven days');
+  assert.equal(row('Uomini (sul sesso noto)'),'49,0\u00a0%');assert.equal(row('Età 0-64'),'40,0\u00a0%');assert.equal(row('Età 65+'),'60,0\u00a0%');
+  // Each distribution panel reads its own bins.
+  const table=(caption)=>{const i=html.indexOf(`<caption class="sr-only">${caption}</caption>`);return i<0?'':html.slice(i,html.indexOf('</table>',i));};
+  assert.match(table('Destinatari per numero di prescrizioni registrate'),/90,0\u00a0%/);assert.doesNotMatch(table('Destinatari per numero di prescrizioni registrate'),/80,0\u00a0%/);
+  assert.match(table('Destinatari per numero di prodotti AIC distinti'),/95,0\u00a0%/);
   assert.match(html,/Donne \(sul sesso noto\)<\/th><td[^>]*>51,0 %/);
   const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
-  assert.match(attr,/Destinatari per stato del prodotto e portafoglio candidato/);
+  assert.match(attr,/Destinatari per stato del prodotto e gruppo di portafogli candidati/);
+  assert.match(attr,/L’aggregato somma i destinatari delle quattro ASL: non è un conteggio di persone uniche regionali\./,'the summed aggregate is said to be a sum');
+  assert.match(attr,/Ogni gruppo riunisce più portafogli candidati/);assert.doesNotMatch(attr,/Portafoglio candidato \(prodotti a candidato singolo\)/);
+  assert.match(attr,/Identificativi raggiunti per gruppo di portafogli candidati[\s\S]*?Oncologia<\/th><td[^>]*>5,0 %/,'the File F reach table is present and reads its own field');
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(['asl-3'])})),/somma i destinatari delle quattro ASL/,'no sum caveat without an aggregate column');
   assert.ok(attr.includes('600 (60,0 %)')&&attr.includes('2.400 (60,0 %)'),'counts and shares per unit, the aggregate as a sum');
   assert.match(attr,/File F 2025 · Unità 3: portafogli candidati/);assert.match(attr,/Un solo portafoglio candidato<\/th><td[^>]*>70,0 %/);
   assert.match(attr,/non indica la diagnosi, l’indicazione effettiva né l’area che sostiene il costo/);
@@ -211,13 +226,24 @@ test('R20-04: admitted January use, service and File F fields already in the pac
 
 test('R20-09: a File F month the source lacks is absent, and every month row is labelled and joined by its own key',()=>{
   const v=viewOf(AZ),f=v.units.find(u=>u.key==='asl-3').data.fileF;
-  f.months=f.months.filter(m=>m.month!=='2025-06');
+  f.months=f.months.filter(m=>m.month!=='2025-06').map(m=>m.month==='2025-07'?{...m,amount:1200,withoutMode09:1200}:m);
   f.identifiersByMonth=f.identifiersByMonth.map(m=>m.month==='2025-07'?{...m,count:2100}:m);
   const html=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:v}));
   assert.match(html,/Mesi presenti nel flusso: 11 su 12; un mese assente non vale zero\./);
   assert.match(html,/>Lug<\/th>(<td[^>]*>[^<]*<\/td>){4}<td[^>]*>2\.100<\/td>/,'July shows July’s identifiers, not June’s');
-  assert.doesNotMatch(html,/>Giu</);
-  assert.match(html,/aria-label="Importo mensile: Gen [^"]*Mag [^"]*; Lug /);
+  assert.doesNotMatch(html,/>Giu</);assert.doesNotMatch(html,/Giu /,'not in the chart’s accessible name either');
+  // Every place the commit changed: the accessible name pairs each label with its own amount...
+  assert.match(html,/aria-label="Importo mensile: Gen 1\.000\s€; Feb 1\.000\s€; Mar 1\.000\s€; Apr 1\.000\s€; Mag 1\.000\s€; Lug 1\.200\s€; Ago 1\.000\s€;/);
+  // ...the mode-09 month keeps its own name, and the last-month remark still finds December.
+  assert.match(html,/presenti in: Dic\./);
+  assert.match(html,/Senza la modalità 09 l’ultimo mese è il più basso\./);
+});
+
+test('review of 9545a68: identifiersByMonth must be non-empty too; recipient-group shares must match their counts',()=>{
+  const q=extUnit('asl-3',1000);q.fileF.identifiersByMonth=[];refuse(()=>parseCExtensionUnit(q,'asl-3',ALL),'PCE_FILEF_MONTHS');
+  const s=extUnit('asl-1',1000);s.january.portfolioStatus[0].share=0.9;refuse(()=>parseCExtensionUnit(s,'asl-1',ALL),'PCE_SHARE_portfolioStatus');
+  const r=extUnit('asl-1',1000);r.january.singleCandidateReach[0].share=0.5;refuse(()=>parseCExtensionUnit(r,'asl-1',ALL),'PCE_SHARE_singleCandidateReach');
+  const ok=extUnit('aggregato',4000);assert.equal(parseCExtensionUnit(ok,'aggregato',ALL).unit,'aggregato','the aggregate: summed counts over summed recipients');
 });
 
 test('the decision card counts recipients only when the extension is present, and never claims a change',()=>{

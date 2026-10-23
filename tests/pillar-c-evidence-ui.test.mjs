@@ -42,7 +42,7 @@ test('the attachment limit is 4 MB everywhere the reviewer reads it, and every A
   assert.equal(new Set(texts).size,codes.length,'each code has its own message');
   assert.match(cEvidenceErrorText('file_too_large'),/4 MB/);assert.match(cEvidenceErrorText('file'),/fino a 4 MB/);
   assert.match(cEvidenceErrorText('actor'),/account non è abilitato/);
-  assert.match(cEvidenceErrorText('archived'),/versione precedente.*sola lettura/);
+  assert.match(cEvidenceErrorText('archived'),/sola lettura.*versione precedente della priorità o dei rilievi.*non sono leggibili/);
   assert.match(cEvidenceErrorText('unavailable'),/nessuna modifica è stata confermata/);
   assert.equal(cEvidenceErrorText('something-new'),cEvidenceErrorText('unavailable'),'an unknown failure never claims that nothing changed');
   assert.doesNotMatch(cEvidenceErrorText('conflict'),/altra persona/,'a stale revision may be the reviewer’s own earlier save');
@@ -98,7 +98,7 @@ test('a case from an earlier priority snapshot is read only but keeps documents 
   assert.match(page,/Referente: Referente sintetico B\nRuolo o ufficio: Farmacia ospedaliera\nScadenza: 30\/11\/2026/);
   assert.match(page,/Documento: riepilogo-aggregato\.csv/);assert.doesNotMatch(page,/x\/y|e{64}/,'no storage path or hash in the visible history');
   assert.match(page,/19\/10\/2026, 12:00 · Referente sintetico A · versione 2/,'history time is pinned to Europe/Rome');
-  assert.match(workflow,/Verifiche di una versione precedente della priorità \(sola lettura\)/);
+  assert.match(workflow,/Verifiche di una versione precedente \(sola lettura\)/);
   assert.match(workflow,/readOnly=detail\.current===false/);
 });
 
@@ -205,4 +205,21 @@ test('R20-06: a finding states only its own frozen scope; the 2025 four-Aziende 
   const old=html(fileF,{current:false});
   assert.match(old,/Versione precedente dei rilievi · sola lettura/);assert.match(old,/versione precedente dei rilievi\./);
   assert.doesNotMatch(old,/versione precedente della priorità/);
+});
+
+test('a finding case whose pinned release cannot be read is «unavailable», never «superseded»; the archive words each kind',()=>{
+  const fileF=baseCase({product_key:'F05',source:{product_label:'Rilievo File F',scope:'File F 2025 · ASL 3',origin:'Punti 8 e 11',source_state:'F'}});
+  const page=renderToStaticMarkup(React.createElement(PillarCEvidenceCase,{detail:{case:fileF,attachments:[],events:[],current:false,findingsUnavailable:true},owners,busy:false,onSave:async()=>true}));
+  assert.match(page,/Rilievi non leggibili in questo momento · sola lettura/);
+  assert.match(page,/non è stata sostituita da una nuova versione/);
+  assert.doesNotMatch(page,/versione precedente dei rilievi|Una nuova versione dei rilievi avvia/);
+  assert.doesNotMatch(page,/<form|<textarea|<select/,'still read only');
+  // findingsUnavailable never reaches a current case.
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCEvidenceCase,{detail:{case:fileF,attachments:[],events:[],current:true,findingsUnavailable:true},owners,busy:false,onSave:async()=>true})),/non leggibili/);
+  // The archive list: unavailable finding cases apart; each earlier row worded and decided by its own kind.
+  assert.ok(workflow.includes('const unavailableRows=archived.filter(a=>a.unavailable),olderRows=archived.filter(a=>!a.unavailable),olderCount=archivedCount-unavailableRows.length;'));
+  assert.ok(workflow.includes('(a.kind==="finding"?C_EVIDENCE_FINDING_DECISION_LABELS:C_EVIDENCE_DECISION_LABELS)[a.decision]'));
+  assert.ok(workflow.includes('`${a.kind==="finding"?"Rilievo":"Prodotto"} ${a.product_key}'));
+  assert.match(workflow,/Rilievi non leggibili in questo momento · \$\{unavailableRows\.length\} verifiche in sola lettura/);
+  assert.match(workflow,/Una nuova versione dell’attribuzione o dei rilievi avvia una nuova coda\./);
 });

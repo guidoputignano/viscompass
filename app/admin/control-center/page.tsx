@@ -24,10 +24,10 @@ function Restricted() {
   );
 }
 
-function SetupRequired({ detail }: { detail?: string }) {
+function SetupRequired({ detail, embedded = false }: { detail?: string; embedded?: boolean }) {
   return (
-    <div className="mx-auto flex min-h-svh max-w-2xl flex-col justify-center gap-5 px-6 py-12">
-      <VisLogoLink size="sm" className="self-start" />
+    <div className={embedded ? "flex max-w-2xl flex-col gap-5 px-6 py-12" : "mx-auto flex min-h-svh max-w-2xl flex-col justify-center gap-5 px-6 py-12"}>
+      {!embedded && <VisLogoLink size="sm" className="self-start" />}
       <Card>
         <CardHeader>
           <CardTitle className="font-display text-2xl">Attivazione Control Center richiesta</CardTitle>
@@ -54,7 +54,10 @@ function SetupRequired({ detail }: { detail?: string }) {
 export default async function ControlCenterPage() {
   const adminEmail = await getAdminEmail();
   if (!adminEmail) return <Restricted />;
-  if (!hasServiceRoleConfig()) return <SetupRequired />;
+  // R20-05: with an approved membership the admin layout wraps this page in the dashboard shell (the same decision:
+  // org and admin), so every view below drops its own chrome there.
+  const embedded = Boolean(await getCurrentOrg());
+  if (!hasServiceRoleConfig()) return <SetupRequired embedded={embedded} />;
 
   // The data read is the only thing that can throw; the JSX is built outside
   // the try so a render error is not mistaken for a schema error.
@@ -63,9 +66,7 @@ export default async function ControlCenterPage() {
     data = await getAdminControlCenterData();
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Schema non disponibile";
-    return <SetupRequired detail={detail} />;
+    return <SetupRequired detail={detail} embedded={embedded} />;
   }
-  // R20-05: with an approved membership the admin layout wraps this page in the dashboard shell.
-  const embedded = Boolean(await getCurrentOrg());
   return <AccessControlCenter adminEmail={adminEmail} data={data} embedded={embedded} />;
 }

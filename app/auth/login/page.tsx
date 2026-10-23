@@ -8,7 +8,8 @@ export const instant = false;
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ code?: string; next?: string }>;
+  // A repeated parameter arrives as an array: loginNext treats it as absent, and only a single code is exchanged.
+  searchParams: Promise<{ code?: string | string[]; next?: string | string[] }>;
 }) {
   const { code, next } = await searchParams;
   // R20-05: the page the user asked for before signing in, validated once here (lib/auth/safe-next.ts).
@@ -17,7 +18,7 @@ export default async function Page({
   // Some Supabase projects still use /auth/login as their Site URL. If a
   // confirmation returns here with a PKCE code, complete the exchange rather
   // than rendering the login form again and leaving the user in a loop.
-  if (code) {
+  if (typeof code === "string" && code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) redirect(destination);

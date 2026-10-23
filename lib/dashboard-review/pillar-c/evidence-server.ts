@@ -53,7 +53,7 @@ export async function cEvidenceSource(){
   const priority=cEvidencePriority(loaded.view.scope,loaded.view.portfolios);
   // Provenance is read from the hash-verified index that produced this queue, never from a copied constant.
   return {priority,groups:new Set(priority.rows.map(cEvidenceGroup)),portfolios:loaded.view.portfolios,sourceSnapshot:C_ATTR_STORAGE.index,sourceSha256:loaded.view.sourceSha256,classificationSha256:loaded.view.classificationSha256,mappingVersion:loaded.view.mappingVersion,
-    findingSnapshot:release?.snapshot??null,findingVersion:findings?.version??null,findingRows,findingGroups:new Set(findingRows.map(r=>r.group))};
+    findingSnapshot:release?.snapshot??null,pinnedFindingSnapshot:C_EXTENSION_STORAGE.findings.snapshot as string,findingVersion:findings?.version??null,findingRows,findingGroups:new Set(findingRows.map(r=>r.group))};
 }
 /** The findings release the cases bind to: the pinned version, its content hash and the snapshot that first published it.
  * Findings whose text differs from the pin are not offered (fail closed): their cases stay readable, not current. */

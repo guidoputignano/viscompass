@@ -14,31 +14,39 @@
 //     into either of the above
 //   - and, after all that, it must still resolve to this site when parsed as a URL; the normalised path, query and
 //     fragment are returned, never the raw text.
+//   - the returned, normalised value passes every check above again: normalisation removes dot segments, so
+//     "/.//evil.example" or "/a/%2e%2e//evil.example" would otherwise come back as "//evil.example" (review of
+//     9545a68, 23 Oct 2026).
+//   - anything but a string (a repeated query parameter arrives as an array) is absent.
 //
 // This lives here rather than in each route because the copies it replaced were maintained separately, and a fix
 // applied to one did not reach the other.
 const BASE = "https://vis-next.invalid";
 const MAX = 2048;
 
-export function safeNext(value: string | null, fallback: string): string {
-  if (value === null || value.length === 0 || value.length > MAX) return fallback;
-  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return fallback;
-  if (/[\u0000-\u001f\u007f]/.test(value) || /^\/%(2f|5c)/i.test(value)) return fallback;
+function unsafePath(value: string): boolean {
+  return !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f\u007f]/.test(value) || /^\/%(2f|5c)/i.test(value);
+}
+
+export function safeNext(value: unknown, fallback: string): string {
+  if (typeof value !== "string" || value.length === 0 || value.length > MAX || unsafePath(value)) return fallback;
   let url: URL;
   try {
     url = new URL(value, BASE);
   } catch {
     return fallback;
   }
-  return url.origin === BASE ? `${url.pathname}${url.search}${url.hash}` : fallback;
+  if (url.origin !== BASE) return fallback;
+  const out = `${url.pathname}${url.search}${url.hash}`;
+  return out.length <= MAX && !unsafePath(out) && new URL(out, BASE).origin === BASE ? out : fallback;
 }
 
 /** Where a signed-in user lands when nothing better is known. */
 export const LOGIN_DEFAULT_NEXT = "/dashboard-review/spend";
 
 /** A sign-in destination: a safe same-site page, never an auth or API route (no loop, no JSON response). */
-export function loginNext(value: string | null | undefined): string {
-  const next = safeNext(value ?? null, LOGIN_DEFAULT_NEXT);
+export function loginNext(value: unknown): string {
+  const next = safeNext(value, LOGIN_DEFAULT_NEXT);
   return /^\/(auth|api)(\/|\?|#|$)/.test(next) ? LOGIN_DEFAULT_NEXT : next;
 }
 

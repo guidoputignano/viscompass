@@ -6,7 +6,7 @@ import { LOGIN_DEFAULT_NEXT, loginNext } from "@/lib/auth/safe-next";
 
 export const instant = false;
 
-export default async function AccessPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+export default async function AccessPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
   const [overview, adminEmail, { next }] = await Promise.all([getAccessOverview(), getAdminEmail(), searchParams]);
   // R20-05: a validated `next` survives the approval wait and comes back once access is granted.
   const destination = loginNext(next);

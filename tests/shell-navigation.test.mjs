@@ -188,7 +188,10 @@ test('sidebar hrefs, the admin gate and the role forwarding are unchanged',()=>{
   ])assert.ok(layout.includes(line),line.split('\n')[0]);
   // The control-center gates and the public page's reserved target.
   const center=read('app/admin/control-center/page.tsx');
-  assert.ok(center.includes('const adminEmail = await getAdminEmail();\n  if (!adminEmail) return <Restricted />;\n  if (!hasServiceRoleConfig()) return <SetupRequired />;'));
+  assert.ok(center.includes('const adminEmail = await getAdminEmail();\n  if (!adminEmail) return <Restricted />;'));
+  // R20-05: inside the dashboard shell (approved admin with an organisation) every view drops its own chrome.
+  assert.ok(center.includes('const embedded = Boolean(await getCurrentOrg());\n  if (!hasServiceRoleConfig()) return <SetupRequired embedded={embedded} />;'));
+  assert.ok(center.includes('return <SetupRequired detail={detail} embedded={embedded} />;')&&center.includes('{!embedded && <VisLogoLink size="sm" className="self-start" />}'));
   assert.ok(center.includes('<Button asChild variant="outline"><Link href="/dashboard-review/spend">Torna alla piattaforma</Link></Button>'));
   const home=read('app/page.tsx');
   assert.ok(home.includes('href="/pillar-a"')&&home.includes('href="/pillar-b"')&&home.includes('<Link href="/auth/login">Accedi</Link>'));
