@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAdminControlCenterData } from "@/lib/access/admin";
 import { getAdminEmail } from "@/lib/auth/admin";
+import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { hasServiceRoleConfig } from "@/lib/supabase/service-role";
 
 export const instant = false;
@@ -64,5 +65,7 @@ export default async function ControlCenterPage() {
     const detail = error instanceof Error ? error.message : "Schema non disponibile";
     return <SetupRequired detail={detail} />;
   }
-  return <AccessControlCenter adminEmail={adminEmail} data={data} />;
+  // R20-05: with an approved membership the admin layout wraps this page in the dashboard shell.
+  const embedded = Boolean(await getCurrentOrg());
+  return <AccessControlCenter adminEmail={adminEmail} data={data} embedded={embedded} />;
 }

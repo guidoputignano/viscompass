@@ -162,9 +162,13 @@ export function DashboardReviewNav({
             </span>
             <Link
               href="/admin/control-center"
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+              aria-current={pathname === "/admin/control-center" ? "page" : undefined}
+              className={
+                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors " +
+                (pathname === "/admin/control-center" ? "bg-primary text-primary-foreground shadow-sm" : "text-foreground hover:bg-secondary")
+              }
             >
-              <KeyRound className="text-muted-foreground" size={15} strokeWidth={1.8} />
+              <KeyRound aria-hidden="true" className={pathname === "/admin/control-center" ? "text-white" : "text-muted-foreground"} size={15} strokeWidth={1.8} />
               Control Center
             </Link>
           </div>

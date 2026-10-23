@@ -434,9 +434,12 @@ function InvitationComposer({ data }: { data: AdminControlCenterData }) {
 export function AccessControlCenter({
   adminEmail,
   data,
+  embedded = false,
 }: {
   adminEmail: string;
   data: AdminControlCenterData;
+  /** R20-05: inside the dashboard shell (app/admin/layout.tsx), which already carries the logo, theme and sign-out. */
+  embedded?: boolean;
 }) {
   const [view, setView] = useState<CenterView>("requests");
   const pendingInvites = data.invitations.filter((invitation) => invitation.status === "pending");
@@ -446,14 +449,14 @@ export function AccessControlCenter({
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-8">
           <div className="flex items-center gap-5">
-            <VisLogoLink size="sm" />
-            <div className="hidden h-8 w-px bg-border sm:block" />
+            {!embedded && <VisLogoLink size="sm" />}
+            {!embedded && <div className="hidden h-8 w-px bg-border sm:block" />}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Admin</p>
               <p className="text-sm font-semibold">Control Center</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          {!embedded && <div className="flex items-center gap-2">
             <ThemeSwitcher />
             <Button asChild variant="outline" size="sm">
               <Link href="/dashboard-review/spend">
@@ -462,7 +465,7 @@ export function AccessControlCenter({
               </Link>
             </Button>
             <LogoutButton label="Esci" className="text-muted-foreground" />
-          </div>
+          </div>}
         </div>
       </header>
 

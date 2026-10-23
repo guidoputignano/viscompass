@@ -82,6 +82,24 @@ test('parser: shares match their counts, File F months appear once and in order,
   for(const u of EXT_UNITS)assert.equal(parseCExtensionUnit(extUnit(u,u==='aggregato'?4000:1000),u,ALL).unit,u);
 });
 
+test('R20-09: File F months and quarterly-index quarters come from a closed calendar vocabulary',()=>{
+  // Months: 2025-01..2025-12 only, at least one, strictly increasing; a gap is allowed (absent, never zero-filled).
+  for(const bad of [['0000-00'],['2025-00'],['2025-13'],['2024-12'],['2025-1'],[]]){
+    const q=extUnit('asl-3',1000);q.fileF.months=bad.map(month=>({month,amount:1000,mode09:0,withoutMode09:1000}));
+    refuse(()=>parseCExtensionUnit(q,'asl-3',ALL),'PCE_FILEF_MONTHS|PCS_GUARD');
+  }
+  const gap=extUnit('asl-3',1000);gap.fileF.months=gap.fileF.months.filter(m=>m.month!=='2025-06');
+  assert.equal(parseCExtensionUnit(gap,'asl-3',ALL).fileF.months.length,11,'a month the source did not report is absent, not refused');
+  const ids=extUnit('asl-3',1000);ids.fileF.identifiersByMonth[0].month='0000-00';refuse(()=>parseCExtensionUnit(ids,'asl-3',ALL),'PCE_FILEF_MONTHS');
+  // Quarters: at least one, each of Q1..Q4 once, in order.
+  for(const quarters of [[],['Q1','Q1'],['Q2','Q1'],['Q5'],['T1'],['q1']]){
+    const r=extReviewer();r.fileFBasket.quarters=quarters.map(quarter=>({quarter,index:100,coverage:0.9}));
+    refuse(()=>parseCExtensionReviewer(r),'PCE_FILEF_BASKET_QUARTERS');
+  }
+  const four=extReviewer();four.fileFBasket.quarters=['Q1','Q2','Q3','Q4'].map(quarter=>({quarter,index:100,coverage:0.9}));
+  assert.deepEqual(parseCExtensionReviewer(four).fileFBasket.quarters.map(q=>q.quarter),['Q1','Q2','Q3','Q4']);
+});
+
 test('O1: the File F quarterly index never travels in a unit object; the reviewer object carries it for ASL 3 only',()=>{
   // The asl-3 object built before 23 Oct 2026 carried it: the closed guard now refuses that shape.
   const old=extUnit('asl-3',1000);old.fileF.basket=[{quarter:'Q1',index:100.2,coverage:0.9}];old.fileF.basketProducts=50;
@@ -169,6 +187,37 @@ test('rendered blocks: units in the given order, File F only with asl-3, drivers
   const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
   assert.match(attr,/role="img" aria-label="Unità 3: Prodotti a un solo portafoglio candidato 50,0/);
   assert.match(attr,/99,8 %/);
+});
+
+test('R20-04: admitted January use, service and File F fields already in the packets are shown; non-additive ones stay blank for the aggregate',()=>{
+  const html=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)}));
+  assert.doesNotMatch(html,/NaN|undefined|Infinity/);
+  for(const t of ['Prescrizioni registrate per destinatario','Prodotti AIC distinti per destinatario','Utilizzo tipico e dispersione','Prescrizioni registrate, mediana','Prodotti AIC distinti, 1° – 3° quartile',
+    'Quota di costo del 10 % di farmacie con costo maggiore','Giorni fra prescrizione ed erogazione, 1° – 3° quartile','Prescrizione ed erogazione nello stesso giorno','Profilo anagrafico degli identificativi','Donne (sul sesso noto)'])
+    assert.ok(html.includes(t),t);
+  // Per ASL the quartiles are shown; the aggregate cell is a dash, never a summed quartile.
+  assert.match(html,/Confezioni, mediana<\/th><td[^>]*>2,0<\/td><td[^>]*>—<\/td>/);
+  assert.match(html,/Confezioni, 1° – 3° quartile<\/th><td[^>]*>1,0 – 3,0<\/td><td[^>]*>—<\/td>/);
+  assert.match(html,/1° – 3° quartile<\/th><td[^>]*>1 – 4<\/td><td[^>]*>—<\/td>/);
+  assert.match(html,/i quartili delle singole ASL non si sommano/);
+  assert.match(html,/Donne \(sul sesso noto\)<\/th><td[^>]*>51,0 %/);
+  const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
+  assert.match(attr,/Destinatari per stato del prodotto e portafoglio candidato/);
+  assert.ok(attr.includes('600 (60,0 %)')&&attr.includes('2.400 (60,0 %)'),'counts and shares per unit, the aggregate as a sum');
+  assert.match(attr,/File F 2025 · Unità 3: portafogli candidati/);assert.match(attr,/Un solo portafoglio candidato<\/th><td[^>]*>70,0 %/);
+  assert.match(attr,/non indica la diagnosi, l’indicazione effettiva né l’area che sostiene il costo/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(['asl-1','aggregato'])})),/File F 2025/);
+});
+
+test('R20-09: a File F month the source lacks is absent, and every month row is labelled and joined by its own key',()=>{
+  const v=viewOf(AZ),f=v.units.find(u=>u.key==='asl-3').data.fileF;
+  f.months=f.months.filter(m=>m.month!=='2025-06');
+  f.identifiersByMonth=f.identifiersByMonth.map(m=>m.month==='2025-07'?{...m,count:2100}:m);
+  const html=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:v}));
+  assert.match(html,/Mesi presenti nel flusso: 11 su 12; un mese assente non vale zero\./);
+  assert.match(html,/>Lug<\/th>(<td[^>]*>[^<]*<\/td>){4}<td[^>]*>2\.100<\/td>/,'July shows July’s identifiers, not June’s');
+  assert.doesNotMatch(html,/>Giu</);
+  assert.match(html,/aria-label="Importo mensile: Gen [^"]*Mag [^"]*; Lug /);
 });
 
 test('the decision card counts recipients only when the extension is present, and never claims a change',()=>{

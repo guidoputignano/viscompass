@@ -189,3 +189,20 @@ test('point 18: a finding case shows its scope and source and words the four dec
   assert.match(html(baseCase({state:'in_review',revision:3,owner_id:A,assigned_role:'Farmacia',due_date:'2026-11-30'})),/Attribuzione ancora incerta/);
   assert.deepEqual(cEvidenceEventLines({id:1,case_id:finding.id,action:'record_decision',actor_id:A,created_at:'2026-10-22T10:00:00Z',revision:4,detail:{payload:{decision:'remains_uncertain'}}},()=>'x',{remains_uncertain:'Questione ancora aperta'}),['Decisione: Questione ancora aperta']);
 });
+
+test('R20-06: a finding states only its own frozen scope; the 2025 four-Aziende scope belongs to the product queue',()=>{
+  const FIXED='Anno 2025 · aggregato delle quattro Aziende · tutti i canali';
+  const january=baseCase({product_key:'F01',source:{product_label:'Rilievo di gennaio',scope:'DPC gennaio 2026 · quattro ASL',origin:'Punto 10, prove di attribuzione',source_state:'F'}});
+  const fileF=baseCase({product_key:'F05',source:{product_label:'Rilievo File F',scope:'File F 2025 · ASL 3',origin:'Punti 8 e 11',source_state:'F'}});
+  for(const [c,scope] of [[january,'DPC gennaio 2026 · quattro ASL'],[fileF,'File F 2025 · ASL 3']]){
+    const page=html(c);
+    assert.ok(page.includes(scope),'the frozen scope is shown');
+    assert.ok(!page.includes(FIXED),'no contradictory 2025 scope on a finding');
+    assert.match(page,/L’ambito è quello del rilievo indicato sopra/);
+  }
+  assert.ok(html(baseCase()).includes(FIXED),'an S3/S4 product case keeps the queue scope');
+  // An earlier finding release is read only and says so in its own terms.
+  const old=html(fileF,{current:false});
+  assert.match(old,/Versione precedente dei rilievi · sola lettura/);assert.match(old,/versione precedente dei rilievi\./);
+  assert.doesNotMatch(old,/versione precedente della priorità/);
+});

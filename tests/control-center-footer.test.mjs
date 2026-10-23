@@ -9,5 +9,6 @@ test('Control Center omits implementation footer notes while preserving its admi
   assert.doesNotMatch(component,/Tutte le decisioni sono limitate|registrate con identità e timestamp/);
   assert.match(page,/const adminEmail = await getAdminEmail\(\)/);
   assert.match(page,/if \(!adminEmail\) return <Restricted \/>/);
-  assert.match(page,/<AccessControlCenter adminEmail=\{adminEmail\} data=\{data\} \/>/);
+  // R20-05: inside the dashboard shell the component drops its own logo, back link and sign-out.
+  assert.match(page,/<AccessControlCenter adminEmail=\{adminEmail\} data=\{data\} embedded=\{embedded\} \/>/);
 });

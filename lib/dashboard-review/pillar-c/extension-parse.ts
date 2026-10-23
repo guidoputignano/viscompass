@@ -11,6 +11,9 @@ import { C_SCOPED_ASL_UNITS, C_SCOPED_UNITS, isCScopedUnit, type CScopedUnit } f
 import type { CExtBaskets, CExtDist, CExtDrivers, CExtFileFBasket, CExtFindings, CExtUnitPacket } from "@/lib/dashboard-review/pillar-c/extension";
 
 const fail = (reason: string): never => { throw new Error(`PCE_${reason}`); };
+// File F is the 2025 file (the guard pins year 2025): its months and quarters come from a closed vocabulary.
+const FILEF_MONTH = /^2025-(0[1-9]|1[0-2])$/;
+const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 
 function checkDist(d: CExtDist, where: string, total?: number) {
   if (d.status === "withheld") { if (d.total !== null || d.cells.length) fail(`WITHHELD_${where}`); return; }
@@ -36,9 +39,11 @@ function checkUnit(p: CExtUnitPacket) {
     const f = p.fileF;
     checkDist(f.age, "fileF_age", f.identifiers); checkDist(f.contacts, "fileF_contacts", f.identifiers); checkDist(f.monthsActive, "fileF_months", f.identifiers);
     if (f.months.some((m) => Math.abs(m.amount - m.mode09 - m.withoutMode09) > 0.011)) fail("FILEF_MODE09");
-    // Calendar months once each, in order: a duplicated month would be drawn and summed twice.
+    // Calendar months of the packet's year, once each, in order: a duplicated month would be drawn and summed twice,
+    // and a lexically ordered string such as «0000-00» is not a month (R20-09). A month the source did not report is
+    // absent, never zero-filled.
     for (const months of [f.months.map((m) => m.month), f.identifiersByMonth.map((m) => m.month)])
-      if (months.some((m, i) => i > 0 && m <= months[i - 1])) fail("FILEF_MONTHS");
+      if (!months.length || months.some((m, i) => !FILEF_MONTH.test(m) || (i > 0 && m <= months[i - 1]))) fail("FILEF_MONTHS");
   }
 }
 
@@ -62,6 +67,9 @@ export function parseCExtensionReviewer(raw: unknown): CExtReviewerPacket {
   const four = (units: readonly { unit: string }[]) => units.length === C_SCOPED_ASL_UNITS.length && C_SCOPED_ASL_UNITS.every((k) => units.filter((u) => u.unit === k).length === 1);
   if (!four(p.drivers.units) || !four(p.baskets.units)) fail("REVIEWER_UNITS");
   if (p.fileFBasket.unit !== "asl-3" || !p.units.some((u) => u.unit === "asl-3" && u.fileF)) fail("FILEF_BASKET_UNIT");
+  // Quarters of the year, at least one, each once, in calendar order (R20-09).
+  const quarters = p.fileFBasket.quarters.map((q) => QUARTERS.indexOf(q.quarter));
+  if (!quarters.length || quarters.some((q, i) => q < 0 || (i > 0 && q <= quarters[i - 1]))) fail("FILEF_BASKET_QUARTERS");
   const ids = p.findings.rows.map((f) => f.id);
   if (!ids.every((id) => /^F[0-9]{2}$/.test(id)) || new Set(ids).size !== ids.length) fail("FINDINGS");
   return { units: p.units, drivers: p.drivers, baskets: p.baskets, fileFBasket: p.fileFBasket, findings: p.findings };

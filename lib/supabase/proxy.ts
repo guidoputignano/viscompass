@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 import { isPublicPath } from "./public-paths";
+import { loginRedirectSearch } from "../auth/safe-next";
 
 // Session cookies last at most seven days. The Supabase default of 400 days keeps
 // a stolen session usable long after the user believes it ended.
@@ -83,7 +84,9 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/auth")
   ) {
     // no user, potentially respond by redirecting the user to the login page
+    // R20-05: the requested page (and its filters) comes back after sign-in, validated (lib/auth/safe-next.ts).
     const url = request.nextUrl.clone();
+    url.search = loginRedirectSearch(request.nextUrl.pathname, request.nextUrl.search, request.method);
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }

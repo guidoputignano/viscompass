@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { LOGIN_DEFAULT_NEXT, loginDestination } from "@/lib/auth/safe-next";
 
 function loginErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
@@ -27,8 +28,9 @@ function loginErrorMessage(error: unknown): string {
 
 export function LoginForm({
   className,
+  next = LOGIN_DEFAULT_NEXT,
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: React.ComponentPropsWithoutRef<"div"> & { next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,8 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
-      router.push("/dashboard-review/spend");
+      // R20-05: back to the page the user asked for (validated by the login page), with its section anchor.
+      router.push(loginDestination(next, window.location.hash));
       router.refresh();
     } catch (error: unknown) {
       setError(loginErrorMessage(error));
