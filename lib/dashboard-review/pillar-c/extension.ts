@@ -25,6 +25,8 @@ export type CExtJanuary = {
 };
 export type CExtFileF = {
   year: 2025; identifiers: number; identifiersByMonth: { month: string; count: number }[]; age: CExtDist; sex: CExtSex;
+  /** Owner decision D3: the unknown ages are pooled into the 85+ band, whose label then says so. */
+  ageUnknownPooled: boolean;
   concentration: { q1: number; median: number; q3: number; top10: number; top1: number; gini: number; top10WithoutMode09: number; top1WithoutMode09: number };
   contacts: CExtDist; monthsActive: CExtDist; medianContacts: number; medianMonths: number;
   portfolioShares: { single: number; shared: number; unmapped: number };
@@ -41,7 +43,9 @@ export type CExtFileFBridge = {
   continuingIncrease: number; continuingDecrease: number; entries: number; exits: number;
   mode09Change: number; withoutMode09: number; products: number; top10Share: number;
 };
-/** One product's acquisition and service component per recorded pack in the unit's January 2026 DPC (owner decision D2). */
+/** One product's acquisition and service component per recorded pack in the unit's January 2026 DPC (owner decision D2).
+ * Listed only if at least 5 distinct recipients received the product in every ASL: membership itself says that the
+ * other ASLs dispensed it (small-cell rule applied to presence, private presence screen). */
 export type CExtUnitCost = { aic: string; name: string; pack: string; atc: string; acquisition: number; service: number; combined: number };
 /** notes: interpretive sentences written in the private build (the public code states methods, never a private finding). */
 /** unitCosts: the unit's own per-pack components on the products present in all four ASLs (null for the aggregate, and

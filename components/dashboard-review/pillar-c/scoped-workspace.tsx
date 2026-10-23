@@ -120,6 +120,8 @@ function ScopedGate({ packet, forecast, extension, extensionUnavailable }: { pac
 /** The extension is shown only when it holds exactly the audience's units, in its order, with no reviewer-only block. */
 export function cScopedExtensionFor(audience: CClientAudience, extension: CExtensionView | null): CExtensionView | null {
   if (!extension || extension.drivers || extension.baskets || extension.fileFBasket || extension.findings) return null;
+  // A per-pack list belongs only to the Azienda's own unit (D2): any other is refused like a reviewer-only block.
+  if (extension.units.some((u) => u.data.unitCosts && !(audience.kind === "azienda" && u.key === audience.defaultOrg))) return null;
   const keys = audience.orgs.map((o) => o.key);
   return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;
 }
@@ -182,6 +184,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
       <PillarCPortfolioDossier />
       <PillarCAttributionAnalysis />
       {extension && <PillarCAttributionEvidence view={extension} />}
+      {extensionUnavailable && <PillarCSectionEmpty>Le prove di attribuzione della DPC di gennaio 2026 non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>
@@ -201,6 +204,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
         </Panel>
       </section>
       {extension && <PillarCFileFMonthly view={extension} />}
+      {extensionUnavailable && <PillarCSectionEmpty>I dati aggiuntivi della DPC di gennaio 2026 e del File F non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
       {/* Owner decision D2: an Azienda sees its own per-pack costs; the Regione page shows none (and receives none). */}
       {extension && audience.kind === "azienda" && <PillarCUnitCosts view={extension} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>

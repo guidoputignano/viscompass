@@ -2,6 +2,7 @@
 // the semantic parser, the reviewer and scoped loaders against a fake Storage, the audience matcher and the rendered
 // blocks. Synthetic data only.
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {createRequire,register} from 'node:module';
 import {fileURLToPath} from 'node:url';
@@ -298,8 +299,8 @@ test('ext-v2 parser: File F bridges join calendar-adjacent months of the series 
   const bad=(f,reason)=>refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>f(p.fileF)),'asl-3',AZ),reason);
   bad(f=>{f.bridges[3].to='2025-06';},'PCE_FILEF_BRIDGE_MONTHS');
   bad(f=>{f.bridges[3]={...f.bridges[3],from:'2025-04',to:'2025-06'};},'PCE_FILEF_BRIDGE_MONTHS');
-  bad(f=>{f.bridges=[f.bridges[1],f.bridges[0]];},'PCE_FILEF_BRIDGE_MONTHS');
-  bad(f=>{f.bridges[0]=f.bridges[1];},'PCE_FILEF_BRIDGE_MONTHS');
+  bad(f=>{f.bridges=[f.bridges[1],f.bridges[0]];},'PCE_FILEF_BRIDGE_MONTHS|PCE_FILEF_BRIDGES_INCOMPLETE');
+  bad(f=>{f.bridges[0]=f.bridges[1];},'PCE_FILEF_BRIDGE_MONTHS|PCE_FILEF_BRIDGES_INCOMPLETE');
   bad(f=>{f.bridges.push({...f.bridges[10],from:'2025-12',to:'2025-13'});},'PCE_FILEF_BRIDGE_MONTHS|PCS_GUARD_LIST');
   bad(f=>{f.bridges[2].opening+=1;},'PCE_FILEF_BRIDGE_ENDS');
   bad(f=>{f.bridges[2].change+=1;},'PCE_FILEF_BRIDGE_ENDS');
@@ -327,17 +328,17 @@ test('ext-v2 panels: Lorenz deciles per ASL, fee quartiles, File F tiles and poo
   assert.match(html,/Per l’aggregato non si calcola/);
   const lorenz=html.slice(html.indexOf('Quota cumulata del costo per decimo'));
   assert.match(lorenz,/<th scope="col"[^>]*>Unità 3<\/th><\/tr>/,'one column, the ASL: the aggregate has no curve');
-  assert.match(html,/Quota di costo del 20 % con costo maggiore<\/th><td[^>]*>55,0 %<\/td><td[^>]*>—<\/td>/);
+  assert.match(html,/Quota di costo del 20 % con costo maggiore<\/th><td[^>]*>53,0 %<\/td><td[^>]*>—<\/td>/);
   assert.match(html,/Servizio per confezione fra le farmacie, mediana<\/th><td[^>]*>7,25 €<\/td><td[^>]*>—<\/td>/);
   assert.match(html,/Servizio per confezione fra le farmacie, 1° – 3° quartile<\/th><td[^>]*>6,50 € – 8,75 €<\/td>/);
   assert.match(html,/Indice di Gini<\/dt><dd[^>]*>0,80<\/dd>/);assert.match(html,/Senza modalità 09: quota dell’1 %<\/dt><dd[^>]*>29,0 %/);
   assert.match(html,/Importo per identificativo, 1° – 3° quartile<\/dt><dd[^>]*>50 € – 800 €/);
   // D3: when the unknown ages are pooled into 85+, the band and the 65+ tile say so.
-  const pooled=viewOf(AZ);const f=pooled.units[0].data.fileF;f.age={status:'released',total:5000,cells:[{id:'0-64',label:'0-64',count:2000,share:0.4},{id:'85+',label:'85 e oltre, incluse le età non note',count:3000,share:0.6}]};
+  const pooled=viewOf(AZ);const f=pooled.units[0].data.fileF;f.age={status:'released',total:5000,cells:[{id:'0-64',label:'0-64',count:2000,share:0.4},{id:'85+',label:'85 e oltre, incluse le età non note',count:3000,share:0.6}]};f.ageUnknownPooled=true;
   const p=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:pooled}));
   assert.match(p,/65 anni e oltre, incluse le età non note/);assert.match(p,/Età 85 e oltre, incluse le età non note/);
   const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
-  assert.match(attr,/almeno una riga ristretta a un candidato \(quota dei destinatari\)<\/th><td[^>]*>15,0 %<\/td><td[^>]*>—<\/td>/);
+  assert.match(attr,/Con almeno una riga ristretta a un candidato da un’esenzione coerente<\/th><td[^>]*>15,0 %<\/td><td[^>]*>—<\/td>/);
 });
 
 test('ext-v2 panels: File F bridges with signed components; own per-pack costs, one Azienda at a time',()=>{
@@ -359,4 +360,53 @@ test('ext-v2 wording: an extension that could not be read is «not available», 
   assert.match(cExtensionRecipientsCard(null,true).detail,/non è riuscita/);
   assert.equal(cExtensionRecipientsCard(null).value,'Non disponibili');
   assert.match(cDecisionPeopleLine(null,true),/non sono disponibili in questo momento/);assert.match(cDecisionPeopleLine(null),/non contano le persone trattate/);
+});
+
+// ---------------------------------------------------------------- independent review of 90f84f1 (M1, M2, L1, L3, L5, L6, test gaps)
+test('review M1: the bridges’ mode-09 split follows the monthly series',()=>{
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{const b=p.fileF.bridges[10];b.withoutMode09+=b.mode09Change;b.mode09Change=0;}),'asl-3',AZ),'PCE_FILEF_BRIDGE_MODE09');
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{const b=p.fileF.bridges[10];b.withoutMode09+=2*b.mode09Change;b.mode09Change=-b.mode09Change;}),'asl-3',AZ),'PCE_FILEF_BRIDGE_MODE09');
+});
+
+test('review M2: a Lorenz curve lies under the line of equality, is convex, matches the top shares, and has 5 people per tenth',()=>{
+  const lor=(f)=>refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>f(p.january)),'asl-1',ALL),'PCE_LORENZ');
+  lor(j=>{j.cost.lorenz=[0,0.5,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1];});
+  lor(j=>{j.cost.lorenz=[0,0.05,0.06,0.09,0.14,0.2,0.27,0.36,0.47,0.6,1];});
+  lor(j=>{j.cost.lorenz=[0,0.02,0.05,0.09,0.14,0.2,0.27,0.36,0.47,0.95,1];});
+  lor(j=>{j.cost.top10=0.3;});lor(j=>{j.cost.top20=0.7;});
+  const small=extUnit('asl-1',40);refuse(()=>parseCExtensionUnit(small,'asl-1',ALL),'PCE_LORENZ_SMALL|PCS_GUARD_COUNT');
+});
+
+test('review L1: every adjacent-month bridge is present, none is dropped',()=>{
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{p.fileF.bridges.pop();}),'asl-3',AZ),'PCE_FILEF_BRIDGES_INCOMPLETE');
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{p.fileF.bridges=[];}),'asl-3',AZ),'PCE_FILEF_BRIDGES_INCOMPLETE');
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{p.fileF.bridges.splice(4,1);}),'asl-3',AZ),'PCE_FILEF_BRIDGES_INCOMPLETE');
+});
+
+test('review L3: the pooled-age flag must match the 85+ label',()=>{
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{p.fileF.ageUnknownPooled=true;}),'asl-3',AZ),'PCE_FILEF_AGE_POOLED');
+  const pooled=mutate('asl-3',p=>{p.fileF.age={status:'released',total:5000,cells:[{id:'0-64',label:'0-64',count:2000,share:0.4},{id:'85+',label:'85 e oltre, incluse le età non note',count:3000,share:0.6}]};});
+  refuse(()=>parseCExtensionUnit(pooled,'asl-3',AZ),'PCE_FILEF_AGE_POOLED');
+  pooled.fileF.ageUnknownPooled=true;assert.equal(parseCExtensionUnit(pooled,'asl-3',AZ).fileF.ageUnknownPooled,true);
+});
+
+test('review L5 and L6: per-pack lists only for the own Azienda unit; one product set; no empty descriptor',()=>{
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.products[0].name='  ';}),'asl-1',ALL),'PCE_UNIT_COSTS_IDENTITY');
+  const r=extReviewer();r.units.find(u=>u.unit==='asl-2').unitCosts.products.pop();refuse(()=>parseCExtensionReviewer(r),'PCE_UNIT_COSTS_SETS');
+  // The scoped workspace refuses a view carrying a list on any unit but the Azienda's own.
+  const az=audienceOf(['asl-3','aggregato']);
+  assert.ok(cScopedExtensionFor(az,viewOf(['asl-3','aggregato'])),'own list kept');
+  const leaked=viewOf(['asl-3','aggregato']);leaked.units[1].data={...leaked.units[1].data,unitCosts:extUnit('asl-1').unitCosts};
+  assert.equal(cScopedExtensionFor(az,leaked),null);
+  const reg={...audienceOf(ALL),kind:'regione'};
+  assert.equal(cScopedExtensionFor(reg,viewOf(ALL)),null,'a Regione view with lists is refused');
+  const stripped=viewOf(ALL);stripped.units.forEach(u=>{u.data={...u.data,unitCosts:null};});
+  assert.ok(cScopedExtensionFor(reg,stripped));
+});
+
+test('review test gap: every pinned extension object fits under the read cap',()=>{
+  const src=readFileSync(new URL('../lib/dashboard-review/pillar-c/extension-storage.ts',import.meta.url),'utf8');
+  const cap=Number(src.match(/C_EXTENSION_MAX_BYTES = ([0-9_]+);/)[1].replace(/_/g,''));
+  const sizes=[...src.matchAll(/bytes: ([0-9]+)/g)].map(m=>Number(m[1]));
+  assert.equal(sizes.length,6);assert.ok(sizes.every(b=>b>1&&b<=cap),`${sizes} under ${cap}`);
 });

@@ -14,6 +14,8 @@ const fail = (reason: string): never => { throw new Error(`PCE_${reason}`); };
 // File F is the 2025 file (the guard pins year 2025): its months and quarters come from a closed vocabulary.
 const FILEF_MONTH = /^2025-(0[1-9]|1[0-2])$/;
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
+export const C_EXT_POOLED_AGE_LABEL = "85 e oltre, incluse le età non note";
+const nextMonth = (month: string) => `2025-${String(Number(month.slice(5, 7)) + 1).padStart(2, "0")}`;
 
 function checkDist(d: CExtDist, where: string, total?: number) {
   if (d.status === "withheld") { if (d.total !== null || d.cells.length) fail(`WITHHELD_${where}`); return; }
@@ -37,12 +39,19 @@ function checkUnit(p: CExtUnitPacket) {
   // Lorenz: eleven points from 0 to 1 that never fall; quartiles of the pharmacy fee in order.
   const l = j.cost.lorenz;
   if (l && (l.length !== 11 || l[0] !== 0 || l[10] !== 1 || l.some((v, i) => i > 0 && v < l[i - 1]))) fail("LORENZ");
+  // A Lorenz curve lies on or below the line of equality and is convex (each tenth of recipients holds at least as much
+  // as the one before), within the rounding of three-decimal points; its top tenths are the displayed top-10 and top-20
+  // shares; and each tenth holds at least 5 recipients (review of 90f84f1, M2).
+  if (l && (l.some((v, i) => v > i / 10 + 0.0005 + 1e-9) || l.some((v, i) => i > 1 && v - l[i - 1] < l[i - 1] - l[i - 2] - 0.002 - 1e-9))) fail("LORENZ_SHAPE");
+  if (l && ((j.cost.top10 !== null && Math.abs(1 - l[9] - j.cost.top10) > 0.0015) || (j.cost.top20 !== null && Math.abs(1 - l[8] - j.cost.top20) > 0.0015))) fail("LORENZ_TOP");
+  if (l && j.recipients < 50) fail("LORENZ_SMALL");
   const fee = [j.services.pharmacyFeeQ1, j.services.pharmacyFeeMedian, j.services.pharmacyFeeQ3];
   if (fee[0] !== null && (fee[0] < 0 || fee[0] > fee[1]! || fee[1]! > fee[2]!)) fail("PHARMACY_FEE");
   // Per-pack components (D2): one row per AIC, none negative, the total the sum of its two parts within rounding.
   if (p.unitCosts) {
     const rows = p.unitCosts.products, aics = rows.map((r) => r.aic);
     if (!rows.length || new Set(aics).size !== aics.length || aics.some((a) => !/^[0-9]{9}$/.test(a))) fail("UNIT_COSTS");
+    if (rows.some((r) => !r.name.trim() || !r.pack.trim() || !r.atc.trim())) fail("UNIT_COSTS_IDENTITY");
     if (rows.some((r) => r.acquisition < 0 || r.service < 0 || Math.abs(r.combined - r.acquisition - r.service) > 0.011)) fail("UNIT_COSTS_SUM");
   }
   // Recipient groups shown as «n (x %)»: each share is its count over the recipients, within half a unit of rounding.
@@ -53,6 +62,8 @@ function checkUnit(p: CExtUnitPacket) {
   if (p.fileF) {
     const f = p.fileF;
     checkDist(f.age, "fileF_age", f.identifiers); checkDist(f.contacts, "fileF_contacts", f.identifiers); checkDist(f.monthsActive, "fileF_months", f.identifiers);
+    // D3 is stated by a flag, and the flag must match the band's label (review of 90f84f1, L3).
+    if (f.ageUnknownPooled !== (f.age.status === "released" && f.age.cells.some((c) => c.id === "85+" && c.label === C_EXT_POOLED_AGE_LABEL))) fail("FILEF_AGE_POOLED");
     if (f.months.some((m) => Math.abs(m.amount - m.mode09 - m.withoutMode09) > 0.011)) fail("FILEF_MODE09");
     // Calendar months of the packet's year, once each, in order: a duplicated month would be drawn and summed twice,
     // and a lexically ordered string such as «0000-00» is not a month (R20-09). A month the source did not report is
@@ -62,12 +73,18 @@ function checkUnit(p: CExtUnitPacket) {
     // Bridges (D1): between calendar-adjacent months of the series, in order, each ending on the months' amounts; the four
     // components add up to the change and so do the mode-09 split, within rounding (each value is rounded to the cent).
     const amount = new Map(f.months.map((m) => [m.month, m.amount]));
+    const byMonth = new Map(f.months.map((m) => [m.month, m]));
+    // Every pair of calendar-adjacent months of the series has its bridge, none other (review of 90f84f1, L1).
+    if (f.bridges.map((b) => b.from).join() !== f.months.map((m) => m.month).filter((m) => amount.has(nextMonth(m))).join()) fail("FILEF_BRIDGES_INCOMPLETE");
     f.bridges.forEach((b, i) => {
-      const next = `2025-${String(Number(b.from.slice(5, 7)) + 1).padStart(2, "0")}`;
+      const next = nextMonth(b.from);
       if (!FILEF_MONTH.test(b.from) || b.to !== next || (i > 0 && b.from <= f.bridges[i - 1].from) || !amount.has(b.from) || !amount.has(b.to)) fail("FILEF_BRIDGE_MONTHS");
       if (Math.abs(b.opening - amount.get(b.from)!) > 0.011 || Math.abs(b.closing - amount.get(b.to)!) > 0.011 || Math.abs(b.closing - b.opening - b.change) > 0.021) fail("FILEF_BRIDGE_ENDS");
       if (Math.abs(b.continuingIncrease + b.continuingDecrease + b.entries + b.exits - b.change) > 0.041 || Math.abs(b.mode09Change + b.withoutMode09 - b.change) > 0.021) fail("FILEF_BRIDGE_SUM");
       if (b.continuingIncrease < 0 || b.continuingDecrease > 0) fail("FILEF_BRIDGE_SIGN");
+      // The mode-09 split follows the monthly series shown above it (review of 90f84f1, M1).
+      const from = byMonth.get(b.from)!, to = byMonth.get(b.to)!;
+      if (Math.abs(b.mode09Change - (to.mode09 - from.mode09)) > 0.021 || Math.abs(b.withoutMode09 - (to.withoutMode09 - from.withoutMode09)) > 0.021) fail("FILEF_BRIDGE_MODE09");
     });
   }
 }
@@ -92,6 +109,9 @@ export function parseCExtensionReviewer(raw: unknown): CExtReviewerPacket {
   const four = (units: readonly { unit: string }[]) => units.length === C_SCOPED_ASL_UNITS.length && C_SCOPED_ASL_UNITS.every((k) => units.filter((u) => u.unit === k).length === 1);
   if (!four(p.drivers.units) || !four(p.baskets.units)) fail("REVIEWER_UNITS");
   if (p.fileFBasket.unit !== "asl-3" || !p.units.some((u) => u.unit === "asl-3" && u.fileF)) fail("FILEF_BASKET_UNIT");
+  // The four per-pack lists cover one product set, which the panel names (review of 90f84f1, L6).
+  const lists = p.units.filter((u) => u.unitCosts).map((u) => u.unitCosts!.products.map((r) => r.aic).sort().join());
+  if (lists.length !== C_SCOPED_ASL_UNITS.length || new Set(lists).size !== 1) fail("UNIT_COSTS_SETS");
   // Quarters of the year, at least one, each once, in calendar order (R20-09).
   const quarters = p.fileFBasket.quarters.map((q) => QUARTERS.indexOf(q.quarter));
   if (!quarters.length || quarters.some((q, i) => q < 0 || (i > 0 && q <= quarters[i - 1]))) fail("FILEF_BASKET_QUARTERS");

@@ -16,17 +16,17 @@ export const C_EXTENSION_STORAGE = {
   build: "ext-v2",
   root: "v9",
   scoped: {
-    "asl-1": { name: "estensione-f1f5c1734f5107e8d11dc00153d4660ce15319195a7239f3e93c2930308f9120.json", sha256: "f1f5c1734f5107e8d11dc00153d4660ce15319195a7239f3e93c2930308f9120", bytes: 56337 },
-    "asl-2": { name: "estensione-146df3703f9ec951e993c606109e47d9d29c4117940569bb78e25254e81f26e2.json", sha256: "146df3703f9ec951e993c606109e47d9d29c4117940569bb78e25254e81f26e2", bytes: 56321 },
-    "asl-3": { name: "estensione-7b1c2e7b7c217d774dcc4e4b5d1875921bf09d89419611503420bcd1bbe360b2.json", sha256: "7b1c2e7b7c217d774dcc4e4b5d1875921bf09d89419611503420bcd1bbe360b2", bytes: 63673 },
-    "asl-4": { name: "estensione-2eb474f724f97e92be791dd74dce3d62d5b18fae80d2a060dcb8db019fef677e.json", sha256: "2eb474f724f97e92be791dd74dce3d62d5b18fae80d2a060dcb8db019fef677e", bytes: 56278 },
+    "asl-1": { name: "estensione-be9430a75c3f2c5ba8081779508bb1f2353baeaa7d8ea277e5e91325b22e11bf.json", sha256: "be9430a75c3f2c5ba8081779508bb1f2353baeaa7d8ea277e5e91325b22e11bf", bytes: 37406 },
+    "asl-2": { name: "estensione-697df652108c18e6d44c145fedad6846d85203d7678170122091d93ef36e5f34.json", sha256: "697df652108c18e6d44c145fedad6846d85203d7678170122091d93ef36e5f34", bytes: 37402 },
+    "asl-3": { name: "estensione-ce86c21f7098e832a65475e27fd5d5e3bd28b4f104b1ae8bbaaee37a33476b2c.json", sha256: "ce86c21f7098e832a65475e27fd5d5e3bd28b4f104b1ae8bbaaee37a33476b2c", bytes: 44770 },
+    "asl-4": { name: "estensione-06219b08440fbf911f891cd30ffe31cd3268ff2dc5f76726798cf65327115134.json", sha256: "06219b08440fbf911f891cd30ffe31cd3268ff2dc5f76726798cf65327115134", bytes: 37387 },
     aggregato: { name: "estensione-5818863bc804c49dde30df118df5c5286fa98e2218a9f1b6a30c7ae30ff39646.json", sha256: "5818863bc804c49dde30df118df5c5286fa98e2218a9f1b6a30c7ae30ff39646", bytes: 4496 },
   } satisfies Record<CScopedUnit, { name: string; sha256: string; bytes: number }>,
   reviewer: {
     bucket: "pillar-c-review",
-    object: "ext1/42975256e1fd403a8bea5d628042b862381aadcf5467b925a3ecbd31014c4cbc.json",
-    sha256: "42975256e1fd403a8bea5d628042b862381aadcf5467b925a3ecbd31014c4cbc",
-    bytes: 242086,
+    object: "ext1/d5db37e1febcb5a35bc04f20f8ac1a78f4683a31ebeac08ea48f3375c98a5090.json",
+    sha256: "d5db37e1febcb5a35bc04f20f8ac1a78f4683a31ebeac08ea48f3375c98a5090",
+    bytes: 166442,
   },
   /** Point 18 cases bind to the release of the findings, not to the reviewer object's bytes: findings ext-v1 were first
    * published in reviewer object 59ad3da7… and are unchanged since (SHA-256 of their compact JSON). New text needs a new

@@ -14,7 +14,7 @@ export function extUnit(unit,n=1000){
     recipients:n,recipientsAreSum:aggregate,
     age:dist(n,[['0-64','0-64',n*0.4],['65-74','65-74',n*0.3],['75-84','75-84',n*0.2],['85+','85+',n*0.1]]),
     sex:{female:0.52,male:0.48,unknownLeftOut:false},
-    cost:{quartiles:aggregate?null:{q1:40,median:80,q3:120},bins:dist(n,[['low','0–<50 €',n*0.6],['mid','50–<100 €',n*0.3],['high','≥100 €',n*0.1]]),top10:aggregate?null:0.4,top20:aggregate?null:0.55,gini:aggregate?null:0.48,
+    cost:{quartiles:aggregate?null:{q1:40,median:80,q3:120},bins:dist(n,[['low','0–<50 €',n*0.6],['mid','50–<100 €',n*0.3],['high','≥100 €',n*0.1]]),top10:aggregate?null:0.4,top20:aggregate?null:0.53,gini:aggregate?null:0.48,
       lorenz:aggregate?null:[0,0.02,0.05,0.09,0.14,0.2,0.27,0.36,0.47,0.6,1]},
     // Distinct quartiles per measure, so a panel reading the wrong field cannot pass (review of 9545a68).
     use:{packs:{quartiles:q,bins:dist(n,[['one','1–<2',n*0.8],['two','2+',n*0.2]])},prescriptions:{quartiles:aggregate?null:{q1:0.9,median:1,q3:2},bins:dist(n,[['one','1',n*0.9],['more','2+',n*0.1]])},distinctAICs:{quartiles:aggregate?null:{q1:1.2,median:1.5,q3:2.5},bins:dist(n,[['one','1',n*0.95],['more','2+',n*0.05]])}},
@@ -31,7 +31,7 @@ export function extUnit(unit,n=1000){
 export function extFileF(){
   const n=5000,months=Array.from({length:12},(_,i)=>`2025-${String(i+1).padStart(2,'0')}`);
   return {year:2025,identifiers:n,identifiersByMonth:months.map(month=>({month,count:2000})),
-    age:dist(n,[['0-64','0-64',2000],['65+','65+',3000]]),sex:{female:0.51,male:0.49,unknownLeftOut:true},
+    age:dist(n,[['0-64','0-64',2000],['65+','65+',3000]]),ageUnknownPooled:false,sex:{female:0.51,male:0.49,unknownLeftOut:true},
     concentration:{q1:50,median:300,q3:800,top10:0.7,top1:0.3,gini:0.8,top10WithoutMode09:0.69,top1WithoutMode09:0.29},
     contacts:dist(n,[['1','1',2000],['2+','2 o più',3000]]),monthsActive:dist(n,[['1','1',2500],['2+','2 o più',2500]]),medianContacts:3,medianMonths:3,
     portfolioShares:{single:0.7,shared:0.29,unmapped:0.01},singleCandidateReach:[{id:'oncology',label:'Oncologia',share:0.05}],

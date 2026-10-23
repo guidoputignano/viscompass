@@ -147,6 +147,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
       <PillarCPortfolioDossier workbook={workbook} />
       {workbook && <PillarCAttributionAnalysis />}
       {extension && <PillarCAttributionEvidence view={extension} />}
+      {extensionUnavailable && <PillarCSectionEmpty>Le prove di attribuzione della DPC di gennaio 2026 non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>
@@ -167,6 +168,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
       </section>
       {extension && <PillarCResidentDrivers view={extension} />}
       {extension && <PillarCFileFMonthly view={extension} />}
+      {extensionUnavailable && <PillarCSectionEmpty>I dati aggiuntivi della DPC di gennaio 2026 e del File F non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
       {extension && <PillarCFileFBasket view={extension} />}
       {extension && <PillarCUnitCosts view={extension} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>

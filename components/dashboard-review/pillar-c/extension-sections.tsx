@@ -20,6 +20,7 @@ const eur2 = (v: number) => itNumber(v, { style: "currency", currency: "EUR", mi
 const MONTHS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 const th = "whitespace-nowrap border-b border-border px-2 py-3 text-right font-semibold first:text-left";
 const thUnit = "border-b border-border px-2 py-3 text-right align-bottom font-semibold";
+const thLeft = "border-b border-border px-2 py-3 text-left align-bottom font-semibold";
 const td = "whitespace-nowrap border-b border-border/50 px-2 py-2.5 text-right tabular-nums";
 const SELECT = "mt-2 h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
@@ -116,7 +117,7 @@ export function PillarCRecipientsSection({ view }: { view: CExtensionView }) {
 function FileFRecipients({ fileF, unitLabel, januaryTop10 }: { fileF: NonNullable<CExtUnitPacket["fileF"]>; unitLabel: string; januaryTop10: number | null }) {
   const c = fileF.concentration;
   // Owner decision D3: the unknown ages are pooled into the oldest band, so its label says so and «65 anni e oltre» includes them.
-  const pooled = fileF.age.status === "released" && fileF.age.cells.some((cell) => cell.id === "85+" && cell.label !== "85+");
+  const pooled = fileF.ageUnknownPooled;
   return <Panel title={`File F 2025 · ${unitLabel}: identificativi, concentrazione e frequenza`} description={`${C_EXT_SOURCE.fileF}. Identificativi distinti nel flusso, non pazienti certificati; nessun confronto con le altre ASL.`}>
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {[["Identificativi distinti nell’anno", num(fileF.identifiers)], [pooled ? "65 anni e oltre, incluse le età non note" : "65 anni e oltre", pct(over65(fileF.age))], ["Importo per identificativo, mediana", eur0(c.median)],
@@ -197,8 +198,10 @@ function AttributionNarrowing({ view }: { view: CExtensionView }) {
     <ExactTable caption="Spesa per prova di attribuzione" headers={["Segmento", ...units.map((u) => u.label)]} rows={[
       ...SEGMENTS.map((s) => [s.label, ...units.map((u) => pct(u.data.january.attribution[s.key]))]),
       ["Accordo esenzione–portafoglio sui prodotti a candidato singolo", ...units.map((u) => pct(u.data.january.attribution.agreementLines))],
-      ["Destinatari con prodotti condivisi che hanno almeno una riga ristretta a un candidato (quota dei destinatari)", ...units.map((u) => pct(u.data.january.attribution.sharedRecipientsNarrowed))],
     ]} />
+    {units.some((u) => u.data.january.attribution.sharedRecipientsNarrowed !== null) && <ExactTable caption="Destinatari con prodotti condivisi" headers={["Quota dei destinatari con prodotti condivisi", ...units.map((u) => u.label)]} rows={[
+      ["Con almeno una riga ristretta a un candidato da un’esenzione coerente", ...units.map((u) => pct(u.data.january.attribution.sharedRecipientsNarrowed))],
+    ]} />}
     {agreement.length > 0 && <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Sui prodotti a un solo candidato l’esenzione coerente indica lo stesso portafoglio nel ${agreement.length > 1 && Math.min(...agreement) !== Math.max(...agreement) ? `${pct(Math.min(...agreement))} – ${pct(Math.max(...agreement))}` : pct(agreement[0])} delle righe. È un controllo di coerenza fra segnali, non una conferma indipendente dell’attribuzione clinica: i portafogli restano candidati farmacologici.`}</p>}
   </Panel>;
 }
@@ -252,7 +255,7 @@ function FileFBridges({ f, label }: { f: NonNullable<CExtUnitPacket["fileF"]>; l
     <div className="overflow-x-auto"><table className="w-full min-w-[60rem] text-xs"><caption className="sr-only">Variazione mensile dell’importo riportato per componente</caption>
       <thead><tr>{cols.map((c) => <th key={c} scope="col" className={`${thUnit} first:text-left`}>{c}</th>)}</tr></thead>
       <tbody>{f.bridges.map((b) => <tr key={b.from}><th scope="row" className="whitespace-nowrap border-b border-border/50 px-2 py-2.5 text-left font-medium">{`${monthLabel(b.from)} → ${monthLabel(b.to)}`}</th>
-        {[signed0(b.change), signed0(b.continuingIncrease), signed0(b.continuingDecrease), signed0(b.entries), signed0(b.exits), b.mode09Change ? signed0(b.mode09Change) : "—", signed0(b.withoutMode09), num(b.products), pct(b.top10Share)]
+        {[signed0(b.change), signed0(b.continuingIncrease), signed0(b.continuingDecrease), signed0(b.entries), signed0(b.exits), signed0(b.mode09Change), signed0(b.withoutMode09), num(b.products), pct(b.top10Share)]
           .map((v, i) => <td key={cols[i + 1]} className={td}>{v}</td>)}</tr>)}</tbody></table></div>
     <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Contributi a una variazione contabile, non effetti di prezzo o di volume. Un prodotto in entrata o in uscita manca in uno dei due mesi del flusso: non indica un nuovo paziente né una terapia sospesa. Le righe in modalità 09 sono contate a parte per prodotto.${concentrated.length ? ` Dove i 10 prodotti con variazione maggiore portano metà o più della variazione lorda (${concentrated.join(", ")}), la variazione dipende da pochi prodotti.` : ""}`}</p>
   </Panel>;
@@ -269,12 +272,12 @@ export function PillarCUnitCosts({ view }: { view: CExtensionView }) {
   if (!holder?.data.unitCosts) return null;
   const all = holder.data.unitCosts.products, q = query.trim().toLowerCase();
   const rows = q ? all.filter((r) => `${r.name} ${r.pack} ${r.atc} ${r.aic}`.toLowerCase().includes(q)) : all;
-  return <Panel title={`Costo per confezione sugli stessi prodotti · ${holder.label} · gennaio 2026`} description={`Flussi NSIS DPC, gennaio 2026. Componenti riportate per confezione registrata sui ${num(all.length)} prodotti presenti in tutte e quattro le ASL, arrotondate al centesimo. Non sono prezzi negoziati né una misura di efficienza d’acquisto.`}
+  return <Panel title={`Costo per confezione sugli stessi prodotti · ${holder.label} · gennaio 2026`} description={`Flussi NSIS DPC, gennaio 2026. Componenti riportate per confezione registrata sui ${num(all.length)} prodotti presenti in tutte e quattro le ASL e ricevuti da almeno 5 destinatari in ciascuna, arrotondate al centesimo. Non sono prezzi negoziati né una misura di efficienza d’acquisto.`}
     controls={holders.length > 1 ? <label className="min-w-40 text-xs font-medium text-muted-foreground">Azienda<select aria-label="Azienda dei costi per confezione" className={SELECT} value={holder.key} onChange={(e) => setSelected(e.target.value)}>{holders.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}</select></label> : undefined}>
     <label className="mb-3 block max-w-md text-xs font-medium text-muted-foreground">Cerca per nome, ATC o AIC<input type="search" value={query} onChange={(e) => setQuery(e.target.value)} className={SELECT} /></label>
     <p role="status" className="mb-2 text-xs text-muted-foreground">{q ? `${num(rows.length)} prodotti su ${num(all.length)}` : `${num(all.length)} prodotti`}</p>
     <div className="max-h-[32rem] overflow-auto rounded-xl border border-border"><table className="w-full min-w-[46rem] text-xs"><caption className="sr-only">{`Costo per confezione, ${holder.label}`}</caption>
-      <thead className="sticky top-0 bg-card"><tr>{["Prodotto", "Confezione", "ATC", "AIC", "Acquisto", "Servizio", "Totale"].map((c, i) => <th key={c} scope="col" className={`${thUnit} ${i < 4 ? "text-left" : ""}`}>{c}</th>)}</tr></thead>
+      <thead className="sticky top-0 bg-card"><tr>{["Prodotto", "Confezione", "ATC", "AIC", "Acquisto", "Servizio", "Totale"].map((c, i) => <th key={c} scope="col" className={i < 4 ? thLeft : thUnit}>{c}</th>)}</tr></thead>
       <tbody>{rows.map((r) => <tr key={r.aic}><th scope="row" className="border-b border-border/50 px-2 py-2 text-left font-medium">{r.name}</th>
         <td className="min-w-64 border-b border-border/50 px-2 py-2 text-left text-muted-foreground">{r.pack}</td><td className="border-b border-border/50 px-2 py-2 text-left">{r.atc}</td><td className="border-b border-border/50 px-2 py-2 text-left tabular-nums">{r.aic}</td>
         <td className={td}>{eur2(r.acquisition)}</td><td className={td}>{eur2(r.service)}</td><td className={td}>{eur2(r.combined)}</td></tr>)}</tbody></table></div>

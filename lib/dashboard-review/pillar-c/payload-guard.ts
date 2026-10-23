@@ -73,7 +73,7 @@ const EXT_BRIDGE: Spec = { obj: { from: "id", to: "id", opening: "num", closing:
   mode09Change: "num", withoutMode09: "num", products: "int", top10Share: "share" } };
 const EXT_FILEF: Spec = { nullable: { obj: {
   year: { lit: [2025] }, identifiers: "count", identifiersByMonth: { list: { obj: { month: "id", count: "count" } }, max: 12 },
-  age: EXT_DIST, sex: EXT_SEX,
+  age: EXT_DIST, ageUnknownPooled: "bool", sex: EXT_SEX,
   concentration: { obj: { q1: "num", median: "num", q3: "num", top10: "share", top1: "share", gini: "share", top10WithoutMode09: "share", top1WithoutMode09: "share" } },
   contacts: EXT_DIST, monthsActive: EXT_DIST, medianContacts: "num", medianMonths: "num",
   portfolioShares: { obj: { single: "share", shared: "share", unmapped: "share" } },
