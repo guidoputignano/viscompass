@@ -528,7 +528,10 @@ test('11. copy lint and source pins of the two workspaces',()=>{
   for(const line of [
     'const label = (key: string) => cAudienceLabel(audience, key) ?? "";',
     'if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;',
-    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} /> : null;',
+    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} /> : null;',
+    // An extension that does not match the audience is refused, and then reads as unavailable (ext-v2, 23 Oct 2026).
+    'const shown = cScopedExtensionFor(checked, extension ?? null);',
+    '{extension && audience.kind === "azienda" && <PillarCUnitCosts view={extension} />}',
     'if (!extension || extension.drivers || extension.baskets || extension.fileFBasket || extension.findings) return null;',
     'return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;',
     '&& packet.orgs.length === audience.orgs.length && packet.orgs.every((unit, i) => unit === audience.orgs[i].key);',

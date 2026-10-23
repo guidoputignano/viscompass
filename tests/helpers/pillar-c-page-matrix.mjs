@@ -10,9 +10,9 @@ export const PAGE_STUBS={
   // The reviewer workspace's mandatory audience (interface step) is recorded apart, so the rest of the branch is still
   // compared with the page before recommendation 5. The page imports it through its dynamic wrapper
   // (reviewer-workspace.tsx, review finding UI-4), which exports the same component name.
-  'components/dashboard-review/pillar-c/reviewer-workspace.tsx':`export function PillarCAnalyticalWorkspace({audience,extension,...props}){globalThis.__pcs.rendered.push(['PillarCAnalyticalWorkspace',props]);(globalThis.__pcs.audiences??=[]).push(audience);(globalThis.__pcs.extensions??=[]).push(extension);return null;}`,
+  'components/dashboard-review/pillar-c/reviewer-workspace.tsx':`export function PillarCAnalyticalWorkspace({audience,extension,extensionUnavailable,...props}){globalThis.__pcs.rendered.push(['PillarCAnalyticalWorkspace',props]);(globalThis.__pcs.extensionUnavailable??=[]).push(extensionUnavailable);(globalThis.__pcs.audiences??=[]).push(audience);(globalThis.__pcs.extensions??=[]).push(extension);return null;}`,
   'components/dashboard-review/pillar-c/regional-forecast-workspace.tsx':`export function PillarCRegionalForecastWorkspace(props){globalThis.__pcs.rendered.push(['PillarCRegionalForecastWorkspace',props]);return null;}`,
-  'components/dashboard-review/pillar-c/scoped-workspace.tsx':`export function PillarCScopedWorkspace({extension,...props}){globalThis.__pcs.rendered.push(['PillarCScopedWorkspace',props]);(globalThis.__pcs.extensions??=[]).push(extension);return null;}`,
+  'components/dashboard-review/pillar-c/scoped-workspace.tsx':`export function PillarCScopedWorkspace({extension,extensionUnavailable,...props}){globalThis.__pcs.rendered.push(['PillarCScopedWorkspace',props]);(globalThis.__pcs.extensionUnavailable??=[]).push(extensionUnavailable);(globalThis.__pcs.extensions??=[]).push(extension);return null;}`,
 };
 
 /** Renders the page for every reviewer-path and no-membership identity; returns one canonical JSON string. */

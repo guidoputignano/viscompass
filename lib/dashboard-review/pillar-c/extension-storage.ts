@@ -2,9 +2,10 @@ import "server-only";
 import type { CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 
 /**
- * Pillar C extension objects (points 15-16): January 2026 DPC and File F 2025, built privately (build ext-v1,
- * outputs/pillar-c/extension-release-20261022/PINS.json). Hashes and sizes only: no figure. 23 Oct 2026: the File F
- * quarterly index moved from the asl-3 object to the reviewer object (O1), so those two pins changed; the others did not.
+ * Pillar C extension objects (points 15-16): January 2026 DPC and File F 2025, built privately (build ext-v2,
+ * outputs/pillar-c/extension-release-20261022/PINS_V2.json). Hashes and sizes only: no figure. ext-v2 (23 Oct 2026,
+ * owner decisions D1-D3 and D7) adds the File F month-to-month bridges, each Azienda's own per-pack costs, the Lorenz
+ * deciles and the pharmacy fee quartiles, and pools the File F unknown age into 85+. The ext-v1 objects stay in storage.
  *
  *   - scoped: one object per unit in bucket pillar-c-scoped under its own root v9 (v9/<unit>/estensione-<sha>.json), so
  *     the rec5 root v1 keeps exactly its manifest. The storage.objects policy of migration 20261020120000 admits every
@@ -12,20 +13,20 @@ import type { CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
  *   - reviewer: one object in the private review bucket, read only by the reviewer gate (service role), as the R5 packet.
  */
 export const C_EXTENSION_STORAGE = {
-  build: "ext-v1",
+  build: "ext-v2",
   root: "v9",
   scoped: {
-    "asl-1": { name: "estensione-8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a.json", sha256: "8da3a9b9c34d0f5c77d728db949e9fd6bf01e908ddceb314002612d05f8ab64a", bytes: 4490 },
-    "asl-2": { name: "estensione-1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818.json", sha256: "1a832dca5e6db62b0e0ec276803699505a9627374b6007100f450daa4aacb818", bytes: 4492 },
-    "asl-3": { name: "estensione-541fe4842d7813ba5dde5ab7fa38b16ae414a9cc4ec7eb440501135e42cf68cd.json", sha256: "541fe4842d7813ba5dde5ab7fa38b16ae414a9cc4ec7eb440501135e42cf68cd", bytes: 8780 },
-    "asl-4": { name: "estensione-7c9b9d4a76394e5c734b4d70a0d1ac28a5abaa079877fe7f5013cb2e8810ac0c.json", sha256: "7c9b9d4a76394e5c734b4d70a0d1ac28a5abaa079877fe7f5013cb2e8810ac0c", bytes: 4491 },
-    aggregato: { name: "estensione-c81948a7c2a72bdd2e94f3fc24864a8324bcd54747125fc71caffa8edb8993d9.json", sha256: "c81948a7c2a72bdd2e94f3fc24864a8324bcd54747125fc71caffa8edb8993d9", bytes: 4398 },
+    "asl-1": { name: "estensione-f1f5c1734f5107e8d11dc00153d4660ce15319195a7239f3e93c2930308f9120.json", sha256: "f1f5c1734f5107e8d11dc00153d4660ce15319195a7239f3e93c2930308f9120", bytes: 56337 },
+    "asl-2": { name: "estensione-146df3703f9ec951e993c606109e47d9d29c4117940569bb78e25254e81f26e2.json", sha256: "146df3703f9ec951e993c606109e47d9d29c4117940569bb78e25254e81f26e2", bytes: 56321 },
+    "asl-3": { name: "estensione-7b1c2e7b7c217d774dcc4e4b5d1875921bf09d89419611503420bcd1bbe360b2.json", sha256: "7b1c2e7b7c217d774dcc4e4b5d1875921bf09d89419611503420bcd1bbe360b2", bytes: 63673 },
+    "asl-4": { name: "estensione-2eb474f724f97e92be791dd74dce3d62d5b18fae80d2a060dcb8db019fef677e.json", sha256: "2eb474f724f97e92be791dd74dce3d62d5b18fae80d2a060dcb8db019fef677e", bytes: 56278 },
+    aggregato: { name: "estensione-5818863bc804c49dde30df118df5c5286fa98e2218a9f1b6a30c7ae30ff39646.json", sha256: "5818863bc804c49dde30df118df5c5286fa98e2218a9f1b6a30c7ae30ff39646", bytes: 4496 },
   } satisfies Record<CScopedUnit, { name: string; sha256: string; bytes: number }>,
   reviewer: {
     bucket: "pillar-c-review",
-    object: "ext1/226de30d3f63bbbb48d561018489d489251713f097a0ab7ff81ad6d05cd04356.json",
-    sha256: "226de30d3f63bbbb48d561018489d489251713f097a0ab7ff81ad6d05cd04356",
-    bytes: 31632,
+    object: "ext1/42975256e1fd403a8bea5d628042b862381aadcf5467b925a3ecbd31014c4cbc.json",
+    sha256: "42975256e1fd403a8bea5d628042b862381aadcf5467b925a3ecbd31014c4cbc",
+    bytes: 242086,
   },
   /** Point 18 cases bind to the release of the findings, not to the reviewer object's bytes: findings ext-v1 were first
    * published in reviewer object 59ad3da7… and are unchanged since (SHA-256 of their compact JSON). New text needs a new
@@ -36,4 +37,5 @@ export const C_EXTENSION_STORAGE = {
     snapshot: "59ad3da74072ac52476492639aca142352d75746162455ee8ed6a873eb9cfa54",
   },
 } as const;
-export const C_EXTENSION_MAX_BYTES = 200_000;
+/** Largest object read: the reviewer object carries the four Aziende's per-pack lists (about a quarter of this cap). */
+export const C_EXTENSION_MAX_BYTES = 1_000_000;

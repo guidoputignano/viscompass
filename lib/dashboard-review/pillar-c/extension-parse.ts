@@ -29,10 +29,22 @@ function checkUnit(p: CExtUnitPacket) {
   if (j.recipientsAreSum !== aggregate) fail("SUM_FLAG");
   for (const [name, d] of [["age", j.age], ["cost", j.cost.bins], ["packs", j.use.packs.bins], ["prescriptions", j.use.prescriptions.bins], ["products", j.use.distinctAICs.bins], ["ingredients", j.ingredients]] as const) checkDist(d, name, j.recipients);
   // The aggregate is a sum of four Aziende: quantiles, concentration, intervals and pharmacy statistics are not additive.
-  const perAsl = [j.cost.quartiles, j.cost.top10, j.cost.top20, j.cost.gini, j.use.packs.quartiles, j.use.prescriptions.quartiles, j.use.distinctAICs.quartiles,
+  const perAsl = [j.cost.quartiles, j.cost.top10, j.cost.top20, j.cost.gini, j.cost.lorenz, j.use.packs.quartiles, j.use.prescriptions.quartiles, j.use.distinctAICs.quartiles,
     j.attribution.agreementLines, j.attribution.sharedRecipientsNarrowed, j.services.under10Packs, j.services.under10Service, j.services.pharmacies, j.services.pharmacyTop10,
-    j.services.intervalQ1, j.services.intervalMedian, j.services.intervalQ3, j.services.within7, j.services.sameDay];
+    j.services.intervalQ1, j.services.intervalMedian, j.services.intervalQ3, j.services.within7, j.services.sameDay,
+    j.services.pharmacyFeeQ1, j.services.pharmacyFeeMedian, j.services.pharmacyFeeQ3, p.unitCosts];
   if (aggregate ? perAsl.some((v) => v !== null) : perAsl.some((v) => v === null)) fail("ADDITIVITY");
+  // Lorenz: eleven points from 0 to 1 that never fall; quartiles of the pharmacy fee in order.
+  const l = j.cost.lorenz;
+  if (l && (l.length !== 11 || l[0] !== 0 || l[10] !== 1 || l.some((v, i) => i > 0 && v < l[i - 1]))) fail("LORENZ");
+  const fee = [j.services.pharmacyFeeQ1, j.services.pharmacyFeeMedian, j.services.pharmacyFeeQ3];
+  if (fee[0] !== null && (fee[0] < 0 || fee[0] > fee[1]! || fee[1]! > fee[2]!)) fail("PHARMACY_FEE");
+  // Per-pack components (D2): one row per AIC, none negative, the total the sum of its two parts within rounding.
+  if (p.unitCosts) {
+    const rows = p.unitCosts.products, aics = rows.map((r) => r.aic);
+    if (!rows.length || new Set(aics).size !== aics.length || aics.some((a) => !/^[0-9]{9}$/.test(a))) fail("UNIT_COSTS");
+    if (rows.some((r) => r.acquisition < 0 || r.service < 0 || Math.abs(r.combined - r.acquisition - r.service) > 0.011)) fail("UNIT_COSTS_SUM");
+  }
   // Recipient groups shown as «n (x %)»: each share is its count over the recipients, within half a unit of rounding.
   for (const [name, list] of [["portfolioStatus", j.portfolioStatus], ["singleCandidateReach", j.singleCandidateReach]] as const)
     if (list.some((c) => Math.abs(c.share - (j.recipients ? c.count / j.recipients : 0)) > 0.0005 + 1e-9)) fail(`SHARE_${name}`);
@@ -47,6 +59,16 @@ function checkUnit(p: CExtUnitPacket) {
     // absent, never zero-filled.
     for (const months of [f.months.map((m) => m.month), f.identifiersByMonth.map((m) => m.month)])
       if (!months.length || months.some((m, i) => !FILEF_MONTH.test(m) || (i > 0 && m <= months[i - 1]))) fail("FILEF_MONTHS");
+    // Bridges (D1): between calendar-adjacent months of the series, in order, each ending on the months' amounts; the four
+    // components add up to the change and so do the mode-09 split, within rounding (each value is rounded to the cent).
+    const amount = new Map(f.months.map((m) => [m.month, m.amount]));
+    f.bridges.forEach((b, i) => {
+      const next = `2025-${String(Number(b.from.slice(5, 7)) + 1).padStart(2, "0")}`;
+      if (!FILEF_MONTH.test(b.from) || b.to !== next || (i > 0 && b.from <= f.bridges[i - 1].from) || !amount.has(b.from) || !amount.has(b.to)) fail("FILEF_BRIDGE_MONTHS");
+      if (Math.abs(b.opening - amount.get(b.from)!) > 0.011 || Math.abs(b.closing - amount.get(b.to)!) > 0.011 || Math.abs(b.closing - b.opening - b.change) > 0.021) fail("FILEF_BRIDGE_ENDS");
+      if (Math.abs(b.continuingIncrease + b.continuingDecrease + b.entries + b.exits - b.change) > 0.041 || Math.abs(b.mode09Change + b.withoutMode09 - b.change) > 0.021) fail("FILEF_BRIDGE_SUM");
+      if (b.continuingIncrease < 0 || b.continuingDecrease > 0) fail("FILEF_BRIDGE_SIGN");
+    });
   }
 }
 

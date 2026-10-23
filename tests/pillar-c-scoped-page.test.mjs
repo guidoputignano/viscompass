@@ -43,6 +43,7 @@ test('reviewer and no-membership branches are byte-identical to the page before 
   assert.deepEqual(state.audiences,[C_REVIEWER_CLIENT_AUDIENCE]);assert.equal(state.audiences[0].kind,'reviewer');
   // Extension (points 15-16): read through the reviewer gate with the same arguments; an unavailable extension is passed as null.
   assert.deepEqual(state.extReads,[['extension-reviewer',true,true]]);assert.deepEqual(state.extensions,[null]);
+  assert.deepEqual(state.extensionUnavailable,[true],'an extension that could not be read is «not available», never «not counted»');
   const ready={state:'ready',view:{units:[],drivers:null,baskets:null,fileFBasket:null}};
   const again=reviewerPageCases({as,ORGS,viewer,packet})[3][1]();again.rendered=[];again.extension=ready;
   await withProduction(render);assert.equal(again.extensions[0],ready.view,'the loaded view, not a copy');
@@ -118,7 +119,7 @@ test('an enabled Azienda receives its own unit and the aggregate, its client aud
   assert.ok(calls.downloads.every(d=>/^v1\/(asl-3|aggregato)\//.test(d.path)&&d.params.cache==='no-store'));
   // Extension: the audience's own units, labelled by its client audience, under the same session; never the reviewer read.
   assert.deepEqual(state.extReads,[['extension-scoped',['asl-3','aggregato'],['Azienda sintetica Tre','Aggregato delle quattro Aziende']]]);
-  assert.deepEqual(state.extensions,[null]);
+  assert.deepEqual(state.extensions,[null]);assert.deepEqual(state.extensionUnavailable,[true],'unreadable, so «not available»');
 });
 
 test('an enabled Regione receives the aggregate and ASL 1–4 under opaque keys, with no province key anywhere',async()=>{

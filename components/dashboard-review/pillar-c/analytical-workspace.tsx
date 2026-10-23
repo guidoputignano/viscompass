@@ -14,7 +14,7 @@ import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
-import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCUnitCosts, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
 import { PillarCFileFBasket, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { PillarCAudienceProvider, usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
@@ -82,17 +82,17 @@ function OutputLineage({ packet }: { packet: CReviewPacket }) {
 
 /** The reviewer workspace. The audience is mandatory and must be the reviewer's: the reviewer packet (all four
  * Aziende, workbook, lineage and receipts) is never rendered under another audience, and nothing renders without one. */
-export function PillarCAnalyticalWorkspace({ audience, packet, workbook, extension }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension?: CExtensionView | null }) {
+export function PillarCAnalyticalWorkspace({ audience, packet, workbook, extension, extensionUnavailable = false }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension?: CExtensionView | null; extensionUnavailable?: boolean }) {
   if (audience?.kind !== "reviewer") return null;
-  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} extension={extension ?? null} /></PillarCAudienceProvider>;
+  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} extension={extension ?? null} extensionUnavailable={!extension && extensionUnavailable} /></PillarCAudienceProvider>;
 }
-function ReviewerGate({ packet, workbook, extension }: { packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null }) {
+function ReviewerGate({ packet, workbook, extension, extensionUnavailable }: { packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean }) {
   const audience = usePillarCAudience();
-  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} extension={extension} /> : null;
+  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} extension={extension} extensionUnavailable={extensionUnavailable} /> : null;
 }
 /** The six sections of the page (docs/PILLAR_C_SIX_SECTIONS_20261022.md §1), each a frame with its numeral, heading and
  * question; the review blocks, the dossier, the attribution and the workbook insights sit inside the frames by topic. */
-function ReviewerWorkspace({ audience, packet, workbook, extension }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null }) {
+function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUnavailable }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean }) {
   const search = useSearchParams(), filters = cReviewFilters(search), data = selectCReview(packet, filters);
   const budgetFilters = cBudgetFilters(packet, new URLSearchParams(search));
   const budgetData = selectCReview(packet, budgetFilters);
@@ -121,7 +121,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension }: { audience
   const decisionCards: PillarCDecisionOverviewProps["cards"] = [
     { title: "Variazione contabile", value: decision.change === null ? "Non disponibile" : signed(decision.change), detail: `${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}` },
     { title: "Contributo dei prodotti presenti nei due periodi", value: decision.continuing === null ? "Non disponibile" : signed(decision.continuing), detail: "Contributo alla variazione, non un effetto causale o clinico." },
-    cExtensionRecipientsCard(extension),
+    cExtensionRecipientsCard(extension, extensionUnavailable),
   ];
   const comparison = `Confronto: ${filters.comparison === "K1" ? "2024 → 2025" : "Gen–mag 2025 → 2026"}`;
   const forecastDecision = (() => { if (!packet.forecast) return null; try { return cForecastDecision(packet.forecast, "TOT"); } catch { return null; } })();
@@ -134,12 +134,12 @@ function ReviewerWorkspace({ audience, packet, workbook, extension }: { audience
 
     <PillarCSectionFrame {...frameOf(QUADRO)}>
       <PillarCScopeBar orgOptions={orgOptions} org={filters.org} channelOptions={SCOPE_CHANNELS} channel={filters.channel} onChange={updateScope} onReset={() => update({}, true)} tamperedText={C_AUDIENCE_COPY.tampered} scope={scope} />
-      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">{`La spesa osservata e i prodotti che la compongono sono misurabili. ${cDecisionPeopleLine(extension)} Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.`}</p></div>
+      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">{`La spesa osservata e i prodotti che la compongono sono misurabili. ${cDecisionPeopleLine(extension, extensionUnavailable)} Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.`}</p></div>
       <PillarCDecisionOverview cards={decisionCards} comparison={comparison} regional={regional} links={OVERVIEW_LINKS} />
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(DESTINATARI)}>
-      {extension ? <PillarCRecipientsSection view={extension} /> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
+      {extension ? <PillarCRecipientsSection view={extension} /> : extensionUnavailable ? <PillarCSectionEmpty>I dati su destinatari e utilizzo non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
       <a href="#numerosita" className={crossLink}>Scenario di numerosità stimata →</a>
     </PillarCSectionFrame>
 
@@ -168,6 +168,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension }: { audience
       {extension && <PillarCResidentDrivers view={extension} />}
       {extension && <PillarCFileFMonthly view={extension} />}
       {extension && <PillarCFileFBasket view={extension} />}
+      {extension && <PillarCUnitCosts view={extension} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
     </PillarCSectionFrame>
 

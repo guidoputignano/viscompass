@@ -59,13 +59,18 @@ const EXT_USE: Spec = { obj: { quartiles: EXT_QUART, bins: EXT_DIST } };
 const N_SHARE: Spec = { nullable: "share" }, N_NUM: Spec = { nullable: "num" };
 const EXT_JANUARY: Spec = { obj: {
   recipients: "count", recipientsAreSum: "bool", age: EXT_DIST, sex: EXT_SEX,
-  cost: { obj: { quartiles: EXT_QUART, bins: EXT_DIST, top10: N_SHARE, top20: N_SHARE, gini: N_SHARE } },
+  cost: { obj: { quartiles: EXT_QUART, bins: EXT_DIST, top10: N_SHARE, top20: N_SHARE, gini: N_SHARE, lorenz: { nullable: { list: "share", max: 11 } } } },
   use: { obj: { packs: EXT_USE, prescriptions: EXT_USE, distinctAICs: EXT_USE } },
   ingredients: EXT_DIST, portfolioStatus: { list: EXT_CELL, max: 8 }, singleCandidateReach: { list: EXT_CELL, max: 12 },
   attribution: { obj: { single: "share", narrowed: "share", indicative: "share", notInformative: "share", agreementLines: N_SHARE, sharedRecipientsNarrowed: N_SHARE } },
   services: { obj: { serviceShare: "share", servicePerPack: "num", under10Packs: N_SHARE, under10Service: N_SHARE, pharmacies: { nullable: "int" }, pharmacyTop10: N_SHARE,
-    intervalQ1: N_NUM, intervalMedian: N_NUM, intervalQ3: N_NUM, within7: N_SHARE, sameDay: N_SHARE } },
+    intervalQ1: N_NUM, intervalMedian: N_NUM, intervalQ3: N_NUM, within7: N_SHARE, sameDay: N_SHARE, pharmacyFeeQ1: N_NUM, pharmacyFeeMedian: N_NUM, pharmacyFeeQ3: N_NUM } },
 } };
+// Owner decision D2 (23 Oct 2026): the unit's own per-pack components on the products common to the four ASLs; public product descriptors.
+const EXT_UNIT_COSTS: Spec = { nullable: { obj: { products: { list: { obj: { aic: "id", name: "desc", pack: "desc", atc: "desc", acquisition: "num", service: "num", combined: "num" } }, max: 1000 } } } };
+// Owner decision D1: File F month-to-month bridges, amounts with sign.
+const EXT_BRIDGE: Spec = { obj: { from: "id", to: "id", opening: "num", closing: "num", change: "num", continuingIncrease: "num", continuingDecrease: "num", entries: "num", exits: "num",
+  mode09Change: "num", withoutMode09: "num", products: "int", top10Share: "share" } };
 const EXT_FILEF: Spec = { nullable: { obj: {
   year: { lit: [2025] }, identifiers: "count", identifiersByMonth: { list: { obj: { month: "id", count: "count" } }, max: 12 },
   age: EXT_DIST, sex: EXT_SEX,
@@ -75,15 +80,16 @@ const EXT_FILEF: Spec = { nullable: { obj: {
   singleCandidateReach: { list: { obj: { id: "id", label: "desc", share: "share" } }, max: 12 },
   months: { list: { obj: { month: "id", amount: "num", mode09: "num", withoutMode09: "num" } }, max: 12 },
   modes: { list: { obj: { id: "id", label: "desc", rowsShare: "share", amountShare: "share" } }, max: 8 },
+  bridges: { list: EXT_BRIDGE, max: 11 },
 } } };
-const EXT_UNIT: Spec = { obj: { schema: { lit: ["pillar-c-extension-unit-v1"] }, unit: "org", period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, january: EXT_JANUARY, fileF: EXT_FILEF,
+const EXT_UNIT: Spec = { obj: { schema: { lit: ["pillar-c-extension-unit-v2"] }, unit: "org", period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, january: EXT_JANUARY, unitCosts: EXT_UNIT_COSTS, fileF: EXT_FILEF,
   notes: { obj: { fileFMode09: { nullable: "text" } } } } };
 const EXT_FINDING: Spec = { obj: { id: "id", title: "text", scope: "text", source: "text", detail: "text", action: "text" } };
 
 export const C_SCOPED_PAYLOAD_SPECS = {
   extension: EXT_UNIT,
   extensionReviewer: { obj: {
-    schema: { lit: ["pillar-c-extension-reviewer-v2"] }, units: { list: EXT_UNIT, max: 5 },
+    schema: { lit: ["pillar-c-extension-reviewer-v3"] }, units: { list: EXT_UNIT, max: 5 },
     drivers: { obj: { supportProducts: "int", referencePer1000: "num", units: { list: { obj: { unit: "org", per1000: "num", difference: "num", reach: "num", intensity: "num", mix: "num",
       acquisition: "num", service: "num", reachPer1000: "num", packsPerRecipient: "num", coverage: "share" } }, max: 4 } } },
     baskets: { obj: { products: "int", units: { list: { obj: { unit: "org", acquisition: "num", service: "num", combined: "num" } }, max: 4 } } },

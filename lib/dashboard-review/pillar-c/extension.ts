@@ -11,13 +11,16 @@ export type CExtSex = { female: number; male: number; unknownLeftOut: boolean };
 export type CExtUse = { quartiles: CExtQuartiles; bins: CExtDist };
 export type CExtJanuary = {
   recipients: number; recipientsAreSum: boolean; age: CExtDist; sex: CExtSex;
-  cost: { quartiles: CExtQuartiles; bins: CExtDist; top10: number | null; top20: number | null; gini: number | null };
+  /** lorenz: the cumulative cost share of the recipients with the lowest cost, at 0, 10, …, 100 % of recipients (per ASL only). */
+  cost: { quartiles: CExtQuartiles; bins: CExtDist; top10: number | null; top20: number | null; gini: number | null; lorenz: number[] | null };
   use: { packs: CExtUse; prescriptions: CExtUse; distinctAICs: CExtUse };
   ingredients: CExtDist; portfolioStatus: CExtCell[]; singleCandidateReach: CExtCell[];
   attribution: { single: number; narrowed: number; indicative: number; notInformative: number; agreementLines: number | null; sharedRecipientsNarrowed: number | null };
   services: {
     serviceShare: number; servicePerPack: number; under10Packs: number | null; under10Service: number | null; pharmacies: number | null; pharmacyTop10: number | null;
     intervalQ1: number | null; intervalMedian: number | null; intervalQ3: number | null; within7: number | null; sameDay: number | null;
+    /** The service fee per pack across the unit's pharmacies (per ASL only). */
+    pharmacyFeeQ1: number | null; pharmacyFeeMedian: number | null; pharmacyFeeQ3: number | null;
   };
 };
 export type CExtFileF = {
@@ -28,9 +31,25 @@ export type CExtFileF = {
   singleCandidateReach: { id: string; label: string; share: number }[];
   months: { month: string; amount: number; mode09: number; withoutMode09: number }[];
   modes: { id: string; label: string; rowsShare: number; amountShare: number }[];
+  /** Adjacent-month bridges of the reported amount (owner decision D1, 23 Oct 2026): four product components that add up
+   * to the change, the mode-09 rows' change and the change without them, products with a change and the share of the
+   * gross change carried by the ten largest. */
+  bridges: CExtFileFBridge[];
 };
+export type CExtFileFBridge = {
+  from: string; to: string; opening: number; closing: number; change: number;
+  continuingIncrease: number; continuingDecrease: number; entries: number; exits: number;
+  mode09Change: number; withoutMode09: number; products: number; top10Share: number;
+};
+/** One product's acquisition and service component per recorded pack in the unit's January 2026 DPC (owner decision D2). */
+export type CExtUnitCost = { aic: string; name: string; pack: string; atc: string; acquisition: number; service: number; combined: number };
 /** notes: interpretive sentences written in the private build (the public code states methods, never a private finding). */
-export type CExtUnitPacket = { schema: "pillar-c-extension-unit-v1"; unit: CScopedUnit; period: "2026-01"; channel: "DPC"; january: CExtJanuary; fileF: CExtFileF | null; notes: { fileFMode09: string | null } };
+/** unitCosts: the unit's own per-pack components on the products present in all four ASLs (null for the aggregate, and
+ * removed by the server for the Regione audience, whose page does not show them). */
+export type CExtUnitPacket = {
+  schema: "pillar-c-extension-unit-v2"; unit: CScopedUnit; period: "2026-01"; channel: "DPC"; january: CExtJanuary;
+  unitCosts: { products: CExtUnitCost[] } | null; fileF: CExtFileF | null; notes: { fileFMode09: string | null };
+};
 export type CExtDrivers = {
   supportProducts: number; referencePer1000: number;
   units: { unit: CScopedUnit; per1000: number; difference: number; reach: number; intensity: number; mix: number; acquisition: number; service: number; reachPer1000: number; packsPerRecipient: number; coverage: number }[];
@@ -46,8 +65,10 @@ export type CExtensionView = { units: { key: CScopedUnit; label: string; data: C
 
 /** The sentence on treated persons under «La domanda di gestione». Persons are counted only in the extension's sources
  * (January DPC; File F 2025 for one Azienda), not in the spending series the page explains: a change over time is still
- * not attributed to more patients. Without the extension nothing counts persons. */
-export function cDecisionPeopleLine(view: CExtensionView | null): string {
+ * not attributed to more patients. Without the extension nothing counts persons; an extension that could not be read
+ * is «not available», never «not counted». */
+export function cDecisionPeopleLine(view: CExtensionView | null, unavailable = false): string {
+  if (!view && unavailable) return "I dati su destinatari e utilizzo non sono disponibili in questo momento: non possiamo attribuire la variazione a un aumento dei pazienti.";
   if (!view) return "I dati disponibili non contano le persone trattate: non possiamo attribuire la variazione a un aumento dei pazienti.";
   const fileF = view.units.some((u) => u.data.fileF);
   return `Le persone trattate sono contate solo nella DPC di gennaio 2026${fileF ? " e, per un’Azienda, nel File F 2025" : ""}: fonti e periodi diversi dalla serie della spesa, quindi non possiamo attribuire la variazione a un aumento dei pazienti.`;

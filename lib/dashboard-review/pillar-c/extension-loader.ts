@@ -67,7 +67,10 @@ export async function loadCExtensionScoped(audience: PillarCScopedAudience, db: 
       return { key: unit, label, data: parseCExtensionUnit(decode(read.bytes), unit, units) };
     }));
     cExtComplementCheck(out.map((u) => u.data));
-    return { state: "ready", view: { units: out, drivers: null, baskets: null, fileFBasket: null, findings: null } };
+    // Owner decision D2 covers an Azienda's own per-pack costs: the Regione page does not show the ASLs' lists, so they
+    // never reach its browser. (Storage RLS still admits the Regione to each ASL object; that is a policy question.)
+    const shown = audience.kind === "regione" ? out.map((u) => ({ ...u, data: { ...u.data, unitCosts: null } })) : out;
+    return { state: "ready", view: { units: shown, drivers: null, baskets: null, fileFBasket: null, findings: null } };
   } catch (error) {
     pcsLog(error instanceof Error && error.message === "PCS-ABSENT" ? "PCS-ABSENT" : "PCS-GUARD");
     return { state: "unavailable" };

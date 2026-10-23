@@ -7,7 +7,7 @@ import {createRequire,register} from 'node:module';
 import {fileURLToPath} from 'node:url';
 import {IDENTITY_STUBS,registerPillarCStubs,as} from './helpers/pillar-c-scoped-stubs.mjs';
 import {fakeSessionClient} from './fixtures/pillar-c-scoped.mjs';
-import {extUnit,extReviewer,extFixture,EXT_UNITS} from './fixtures/pillar-c-extension.mjs';
+import {extUnit,extReviewer,extFixture,extBridges,EXT_UNITS} from './fixtures/pillar-c-extension.mjs';
 
 registerPillarCStubs({...IDENTITY_STUBS,
   'lib/dashboard-review/pillar-c/extension-storage.ts':`export const C_EXTENSION_STORAGE=new Proxy({},{get:(_,k)=>globalThis.__pcs.ext[k]});export const C_EXTENSION_MAX_BYTES=200000;`,
@@ -17,9 +17,9 @@ register('data:text/javascript,'+encodeURIComponent(`export async function resol
 const root=fileURLToPath(new URL('..',import.meta.url));
 const req=createRequire(`${root}package.json`),React=req('react'),{renderToStaticMarkup}=req('react-dom/server');
 const {parseCExtensionUnit,parseCExtensionReviewer,cExtComplementCheck}=await import('../lib/dashboard-review/pillar-c/extension-parse.ts');
-const {C_EXT_UNIT_LABELS}=await import('../lib/dashboard-review/pillar-c/extension.ts');
+const {C_EXT_UNIT_LABELS,cDecisionPeopleLine}=await import('../lib/dashboard-review/pillar-c/extension.ts');
 const {loadCExtensionReviewer,loadCExtensionScoped}=await import('../lib/dashboard-review/pillar-c/extension-loader.ts');
-const {PillarCRecipientsSection,PillarCAttributionEvidence,PillarCFileFMonthly,cExtensionRecipientsCard}=await import('../components/dashboard-review/pillar-c/extension-sections.tsx');
+const {PillarCRecipientsSection,PillarCAttributionEvidence,PillarCFileFMonthly,PillarCUnitCosts,cExtensionRecipientsCard}=await import('../components/dashboard-review/pillar-c/extension-sections.tsx');
 const {PillarCResidentDrivers}=await import('../components/dashboard-review/pillar-c/extension-reviewer.tsx');
 const {cScopedExtensionFor}=await import('../components/dashboard-review/pillar-c/scoped-workspace.tsx');
 
@@ -88,7 +88,7 @@ test('R20-09: File F months and quarterly-index quarters come from a closed cale
     const q=extUnit('asl-3',1000);q.fileF.months=bad.map(month=>({month,amount:1000,mode09:0,withoutMode09:1000}));
     refuse(()=>parseCExtensionUnit(q,'asl-3',ALL),'PCE_FILEF_MONTHS|PCS_GUARD');
   }
-  const gap=extUnit('asl-3',1000);gap.fileF.months=gap.fileF.months.filter(m=>m.month!=='2025-06');
+  const gap=extUnit('asl-3',1000);gap.fileF.months=gap.fileF.months.filter(m=>m.month!=='2025-06');gap.fileF.bridges=extBridges(gap.fileF.months);
   assert.equal(parseCExtensionUnit(gap,'asl-3',ALL).fileF.months.length,11,'a month the source did not report is absent, not refused');
   const ids=extUnit('asl-3',1000);ids.fileF.identifiersByMonth[0].month='0000-00';refuse(()=>parseCExtensionUnit(ids,'asl-3',ALL),'PCE_FILEF_MONTHS');
   // Quarters: at least one, each of Q1..Q4 once, in order.
@@ -232,7 +232,7 @@ test('R20-04: admitted January use, service and File F fields already in the pac
 
 test('R20-09: a File F month the source lacks is absent, and every month row is labelled and joined by its own key',()=>{
   const v=viewOf(AZ),f=v.units.find(u=>u.key==='asl-3').data.fileF;
-  f.months=f.months.filter(m=>m.month!=='2025-06').map(m=>m.month==='2025-07'?{...m,amount:1200,withoutMode09:1200}:m);
+  f.months=f.months.filter(m=>m.month!=='2025-06').map(m=>m.month==='2025-07'?{...m,amount:1200,withoutMode09:1200}:m);f.bridges=extBridges(f.months);
   f.identifiersByMonth=f.identifiersByMonth.map(m=>m.month==='2025-07'?{...m,count:2100}:m);
   const html=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:v}));
   assert.match(html,/Mesi presenti nel flusso: 11 su 12; un mese assente non vale zero\./);
@@ -268,4 +268,95 @@ test('the extension root is a policy root of its own; any other root string is r
   assert.equal(cScopedObjectPath('asl-2',name,sha,'v9'),`v9/asl-2/${name}`);
   assert.equal(cScopedObjectPath('asl-2',name,sha),`v1/asl-2/${name}`,'the rec5 default is unchanged');
   for(const root of ['x9','v0','v1000','v9/asl-1','../v9','',null])assert.equal(cScopedObjectPath('asl-2',name,sha,root),null,String(root));
+});
+
+// ---------------------------------------------------------------- ext-v2 (owner decisions D1, D2, D3, D7 of 23 Oct 2026)
+test('ext-v2 parser: Lorenz deciles, pharmacy fee quartiles and own per-pack costs are per-ASL only and internally consistent',()=>{
+  const ok=parseCExtensionUnit(extUnit('asl-2'),'asl-2',ALL);assert.equal(ok.unitCosts.products.length,3);assert.equal(ok.january.cost.lorenz.length,11);
+  for(const bad of [[0,0.5,1],[0.01,0.02,0.05,0.09,0.14,0.2,0.27,0.36,0.47,0.6,1],[0,0.02,0.05,0.09,0.14,0.2,0.27,0.36,0.47,0.6,0.99],[0,0.02,0.05,0.04,0.14,0.2,0.27,0.36,0.47,0.6,1]])
+    refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.january.cost.lorenz=bad;}),'asl-1',ALL),'PCE_LORENZ');
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.january.services.pharmacyFeeQ1=9;}),'asl-1',ALL),'PCE_PHARMACY_FEE');
+  // The aggregate carries no Lorenz curve, fee quartile or per-pack list; an ASL carries all three.
+  refuse(()=>parseCExtensionUnit(mutate('aggregato',p=>{p.january.cost.lorenz=extUnit('asl-1').january.cost.lorenz;}),'aggregato',ALL),'PCE_ADDITIVITY');
+  refuse(()=>parseCExtensionUnit(mutate('aggregato',p=>{p.unitCosts=extUnit('asl-1').unitCosts;}),'aggregato',ALL),'PCE_ADDITIVITY');
+  refuse(()=>parseCExtensionUnit(mutate('asl-4',p=>{p.unitCosts=null;}),'asl-4',ALL),'PCE_ADDITIVITY');
+  refuse(()=>parseCExtensionUnit(mutate('asl-4',p=>{p.january.services.pharmacyFeeMedian=null;}),'asl-4',ALL),'PCE_ADDITIVITY');
+  // One row per AIC, nine digits, no negative component, total = acquisition + service within rounding.
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.products[1].aic=p.unitCosts.products[0].aic;}),'asl-1',ALL),'PCE_UNIT_COSTS');
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.products[0].aic='12345';}),'asl-1',ALL),'PCE_UNIT_COSTS');
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.products=[];}),'asl-1',ALL),'PCE_UNIT_COSTS');
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.products[0].service=-1;p.unitCosts.products[0].combined=4.1;}),'asl-1',ALL),'PCE_UNIT_COSTS_SUM');
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.products[0].combined+=0.02;}),'asl-1',ALL),'PCE_UNIT_COSTS_SUM');
+  // Closed shape: no quantity, amount or another unit's value can ride along; a product name is screened like any descriptor.
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.products[0].quantity=12;}),'asl-1',ALL),'UNKNOWN_FIELD');
+  refuse(()=>parseCExtensionUnit(mutate('asl-1',p=>{p.unitCosts.otherUnits=[];}),'asl-1',ALL),'UNKNOWN_FIELD');
+  refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>{p.unitCosts.products[0].name='Prodotto di Pescara';}),'asl-3',AZ),'PCS_GUARD_PLACE');
+});
+
+test('ext-v2 parser: File F bridges join calendar-adjacent months of the series and add up within rounding',()=>{
+  const ok=parseCExtensionUnit(extUnit('asl-3'),'asl-3',AZ);assert.equal(ok.fileF.bridges.length,11);
+  const bad=(f,reason)=>refuse(()=>parseCExtensionUnit(mutate('asl-3',p=>f(p.fileF)),'asl-3',AZ),reason);
+  bad(f=>{f.bridges[3].to='2025-06';},'PCE_FILEF_BRIDGE_MONTHS');
+  bad(f=>{f.bridges[3]={...f.bridges[3],from:'2025-04',to:'2025-06'};},'PCE_FILEF_BRIDGE_MONTHS');
+  bad(f=>{f.bridges=[f.bridges[1],f.bridges[0]];},'PCE_FILEF_BRIDGE_MONTHS');
+  bad(f=>{f.bridges[0]=f.bridges[1];},'PCE_FILEF_BRIDGE_MONTHS');
+  bad(f=>{f.bridges.push({...f.bridges[10],from:'2025-12',to:'2025-13'});},'PCE_FILEF_BRIDGE_MONTHS|PCS_GUARD_LIST');
+  bad(f=>{f.bridges[2].opening+=1;},'PCE_FILEF_BRIDGE_ENDS');
+  bad(f=>{f.bridges[2].change+=1;},'PCE_FILEF_BRIDGE_ENDS');
+  bad(f=>{f.bridges[5].entries+=0.05;},'PCE_FILEF_BRIDGE_SUM');
+  bad(f=>{f.bridges[10].mode09Change+=1;},'PCE_FILEF_BRIDGE_SUM');
+  bad(f=>{f.bridges[4].continuingIncrease=-1;f.bridges[4].entries+=121;},'PCE_FILEF_BRIDGE_SIGN');
+  bad(f=>{f.bridges[0].top10Share=1.2;},'PCS_GUARD_SHARE');
+  // A month the source lacks has no bridge into or out of it; the remaining bridges still parse.
+  const gap=extUnit('asl-3');gap.fileF.months=gap.fileF.months.filter(m=>m.month!=='2025-06');gap.fileF.bridges=extBridges(gap.fileF.months);
+  assert.deepEqual(parseCExtensionUnit(gap,'asl-3',AZ).fileF.bridges.map(b=>b.from),['2025-01','2025-02','2025-03','2025-04','2025-07','2025-08','2025-09','2025-10','2025-11']);
+});
+
+test('ext-v2 loader: a Regione view never receives the ASLs’ per-pack lists; an Azienda keeps its own',async()=>{
+  const fx=extFixture();as({pins:{root:'v1',bucket:'pillar-c-scoped'},client:()=>null});globalThis.__pcs.ext=fx.pins;
+  const r=await loadCExtensionScoped(REGIONE,fakeSessionClient(fx,{visible:ALL}).client,u=>u==='aggregato'?'Aggregato regionale':`ASL ${u.slice(4)}`);
+  assert.equal(r.state,'ready');assert.deepEqual(r.view.units.map(u=>u.data.unitCosts),[null,null,null,null,null]);
+  assert.equal(JSON.stringify(r.view).includes('PRODOTTO SINTETICO'),false,'no product row anywhere in the Regione view');
+  const a=await loadCExtensionScoped(AZIENDA,fakeSessionClient(fx,{visible:AZ}).client,u=>({'asl-3':'Azienda sintetica Tre',aggregato:'Aggregato delle quattro Aziende'})[u]??null);
+  assert.equal(a.state,'ready');assert.equal(a.view.units[0].data.unitCosts.products.length,3);assert.equal(a.view.units[1].data.unitCosts,null);
+});
+
+test('ext-v2 panels: Lorenz deciles per ASL, fee quartiles, File F tiles and pooled age, shared-recipient narrowing',()=>{
+  const html=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)}));
+  assert.match(html,/Come si distribuisce il costo fra i destinatari/);assert.match(html,/Il 50 % con costo più basso/);
+  assert.match(html,/Per l’aggregato non si calcola/);
+  const lorenz=html.slice(html.indexOf('Quota cumulata del costo per decimo'));
+  assert.match(lorenz,/<th scope="col"[^>]*>Unità 3<\/th><\/tr>/,'one column, the ASL: the aggregate has no curve');
+  assert.match(html,/Quota di costo del 20 % con costo maggiore<\/th><td[^>]*>55,0 %<\/td><td[^>]*>—<\/td>/);
+  assert.match(html,/Servizio per confezione fra le farmacie, mediana<\/th><td[^>]*>7,25 €<\/td><td[^>]*>—<\/td>/);
+  assert.match(html,/Servizio per confezione fra le farmacie, 1° – 3° quartile<\/th><td[^>]*>6,50 € – 8,75 €<\/td>/);
+  assert.match(html,/Indice di Gini<\/dt><dd[^>]*>0,80<\/dd>/);assert.match(html,/Senza modalità 09: quota dell’1 %<\/dt><dd[^>]*>29,0 %/);
+  assert.match(html,/Importo per identificativo, 1° – 3° quartile<\/dt><dd[^>]*>50 € – 800 €/);
+  // D3: when the unknown ages are pooled into 85+, the band and the 65+ tile say so.
+  const pooled=viewOf(AZ);const f=pooled.units[0].data.fileF;f.age={status:'released',total:5000,cells:[{id:'0-64',label:'0-64',count:2000,share:0.4},{id:'85+',label:'85 e oltre, incluse le età non note',count:3000,share:0.6}]};
+  const p=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:pooled}));
+  assert.match(p,/65 anni e oltre, incluse le età non note/);assert.match(p,/Età 85 e oltre, incluse le età non note/);
+  const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
+  assert.match(attr,/almeno una riga ristretta a un candidato \(quota dei destinatari\)<\/th><td[^>]*>15,0 %<\/td><td[^>]*>—<\/td>/);
+});
+
+test('ext-v2 panels: File F bridges with signed components; own per-pack costs, one Azienda at a time',()=>{
+  const b=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:viewOf(AZ)}));
+  assert.match(b,/variazione da un mese all’altro/);assert.match(b,/>Nov → Dic<\/th><td[^>]*>\+500 €<\/td><td[^>]*>\+120 €<\/td><td[^>]*>-100 €<\/td>/);
+  assert.match(b,/>Gen → Feb<\/th><td[^>]*>0 €<\/td>/);assert.match(b,/non indica un nuovo paziente/);
+  assert.equal((b.match(/→/g)||[]).length,11);
+  const own=renderToStaticMarkup(React.createElement(PillarCUnitCosts,{view:viewOf(AZ)}));
+  assert.match(own,/Costo per confezione sugli stessi prodotti · Unità 3/);assert.match(own,/PRODOTTO SINTETICO B/);assert.match(own,/39,45 €/);
+  assert.doesNotMatch(own,/<select/,'one Azienda: no selector');assert.doesNotMatch(own,/Unità 1|Unità 2|Unità 4/);
+  const reviewer=renderToStaticMarkup(React.createElement(PillarCUnitCosts,{view:viewOf(ALL,true)}));
+  assert.match(reviewer,/<select aria-label="Azienda dei costi per confezione"/);assert.equal((reviewer.match(/<option /g)||[]).length,4,'the four ASLs, never the aggregate');
+  const regione=viewOf(ALL);regione.units.forEach(u=>{u.data.unitCosts=null;});
+  assert.equal(renderToStaticMarkup(React.createElement(PillarCUnitCosts,{view:regione})),'');
+});
+
+test('ext-v2 wording: an extension that could not be read is «not available», never «not counted»',()=>{
+  assert.equal(cExtensionRecipientsCard(null,true).value,'Non disponibili in questo momento');
+  assert.match(cExtensionRecipientsCard(null,true).detail,/non è riuscita/);
+  assert.equal(cExtensionRecipientsCard(null).value,'Non disponibili');
+  assert.match(cDecisionPeopleLine(null,true),/non sono disponibili in questo momento/);assert.match(cDecisionPeopleLine(null),/non contano le persone trattate/);
 });
