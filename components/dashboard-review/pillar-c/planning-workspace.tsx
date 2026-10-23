@@ -278,7 +278,7 @@ function VariantCard({ result, band, names, onRead }: { result: CPlanningVariant
     </dl>
     <p className={`mt-3 ${small}`}>{L.variants.compact}</p>
     <p className={`mt-1 ${small}`}>{L.variants.unvaried}</p>
-    {result.members.length > 1 && <details className="mt-2"><summary className="cursor-pointer text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary">{L.variants.members}</summary><ul className={`mt-2 space-y-1 ${small}`}>{result.members.map(m => <li key={m.id}><Live>{`${names(m.id)}: ${range(m.lower1, m.upper1)} · ${L.variants.fixedPart}: ${m.zero ? L.observed.zeroFixed : money(m.fixed)}`}</Live></li>)}</ul></details>}
+    {result.members.length > 1 && <details className="mt-2"><summary className="cursor-pointer py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary">{L.variants.members}</summary><ul className={`mt-2 space-y-1 ${small}`}>{result.members.map(m => <li key={m.id}><Live>{`${names(m.id)}: ${range(m.lower1, m.upper1)} · ${L.variants.fixedPart}: ${m.zero ? L.observed.zeroFixed : money(m.fixed)}`}</Live></li>)}</ul></details>}
   </article>;
 }
 

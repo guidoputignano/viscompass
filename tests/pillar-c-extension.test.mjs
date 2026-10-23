@@ -203,7 +203,7 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   // Each row reads its own field (the fixture gives every measure a different value).
   const row=(label)=>{const m=html.match(new RegExp(`>${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}</th><td[^>]*>([^<]*)</td>`));return m?m[1]:null;};
   assert.equal(row('Prescrizioni registrate, mediana'),'1,0');assert.equal(row('Prodotti AIC distinti, mediana'),'1,5');
-  assert.equal(row('Prodotti AIC distinti, 1° – 3° quartile'),'1,0 – 2,5');assert.equal(row('Prescrizioni registrate, 1° – 3° quartile'),'1,0 – 2,0');
+  assert.equal(row('Prodotti AIC distinti, 1° – 3° quartile'),'1,2 – 2,5');assert.equal(row('Prescrizioni registrate, 1° – 3° quartile'),'0,9 – 2,0');
   assert.equal(row('Quota di costo del 10\u00a0% di farmacie con costo maggiore'),'25,0\u00a0%','pharmacy concentration, not recipient cost concentration');
   assert.equal(row('Prescrizione ed erogazione nello stesso giorno'),'12,0\u00a0%','same day, not within seven days');
   assert.equal(row('Uomini (sul sesso noto)'),'49,0\u00a0%');assert.equal(row('Età 0-64'),'40,0\u00a0%');assert.equal(row('Età 65+'),'60,0\u00a0%');
@@ -217,6 +217,12 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.match(attr,/L’aggregato somma i destinatari delle quattro ASL: non è un conteggio di persone uniche regionali\./,'the summed aggregate is said to be a sum');
   assert.match(attr,/Ogni gruppo riunisce più portafogli candidati/);assert.doesNotMatch(attr,/Portafoglio candidato \(prodotti a candidato singolo\)/);
   assert.match(attr,/Identificativi raggiunti per gruppo di portafogli candidati[\s\S]*?Oncologia<\/th><td[^>]*>5,0 %/,'the File F reach table is present and reads its own field');
+  // Every cell of the group and status tables reads its own field (review of 55593a1).
+  const group=attr.slice(attr.indexOf('<caption class="sr-only">Destinatari per gruppo di portafogli candidati</caption>'));
+  assert.ok(attr.includes('<caption class="sr-only">Destinatari per gruppo di portafogli candidati</caption>'),'the screen-reader caption names groups');
+  assert.match(group,/Cardiovascolare<\/th><td[^>]*>100 \(10,0 %\)<\/td><td[^>]*>400 \(10,0 %\)<\/td>/,'group reach, not product status');
+  assert.match(attr,/Più portafogli candidati<\/th><td[^>]*>29,0 %/);assert.match(attr,/Non mappati o evidenza insufficiente<\/th><td[^>]*>1,0 %/);
+  assert.match(attr,/Ogni gruppo riunisce più portafogli candidati\. Le quote di identificativi si sovrappongono/,'the File F note keeps the group sentence');
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(['asl-3'])})),/somma i destinatari delle quattro ASL/,'no sum caveat without an aggregate column');
   assert.ok(attr.includes('600 (60,0 %)')&&attr.includes('2.400 (60,0 %)'),'counts and shares per unit, the aggregate as a sum');
   assert.match(attr,/File F 2025 · Unità 3: portafogli candidati/);assert.match(attr,/Un solo portafoglio candidato<\/th><td[^>]*>70,0 %/);
@@ -244,6 +250,9 @@ test('review of 9545a68: identifiersByMonth must be non-empty too; recipient-gro
   const s=extUnit('asl-1',1000);s.january.portfolioStatus[0].share=0.9;refuse(()=>parseCExtensionUnit(s,'asl-1',ALL),'PCE_SHARE_portfolioStatus');
   const r=extUnit('asl-1',1000);r.january.singleCandidateReach[0].share=0.5;refuse(()=>parseCExtensionUnit(r,'asl-1',ALL),'PCE_SHARE_singleCandidateReach');
   const ok=extUnit('aggregato',4000);assert.equal(parseCExtensionUnit(ok,'aggregato',ALL).unit,'aggregato','the aggregate: summed counts over summed recipients');
+  // The tolerance is half a unit of the third decimal: 0.6006 over 600/1000 is refused, 0.6004 accepted.
+  const t1=extUnit('asl-1',1000);t1.january.portfolioStatus[0].share=0.6006;refuse(()=>parseCExtensionUnit(t1,'asl-1',ALL),'PCE_SHARE_portfolioStatus');
+  const t2=extUnit('asl-1',1000);t2.january.portfolioStatus[0].share=0.6004;assert.equal(parseCExtensionUnit(t2,'asl-1',ALL).unit,'asl-1');
 });
 
 test('the decision card counts recipients only when the extension is present, and never claims a change',()=>{

@@ -216,10 +216,27 @@ test('a finding case whose pinned release cannot be read is «unavailable», nev
   assert.doesNotMatch(page,/<form|<textarea|<select/,'still read only');
   // findingsUnavailable never reaches a current case.
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCEvidenceCase,{detail:{case:fileF,attachments:[],events:[],current:true,findingsUnavailable:true},owners,busy:false,onSave:async()=>true})),/non leggibili/);
-  // The archive list: unavailable finding cases apart; each earlier row worded and decided by its own kind.
-  assert.ok(workflow.includes('const unavailableRows=archived.filter(a=>a.unavailable),olderRows=archived.filter(a=>!a.unavailable),olderCount=archivedCount-unavailableRows.length;'));
-  assert.ok(workflow.includes('(a.kind==="finding"?C_EVIDENCE_FINDING_DECISION_LABELS:C_EVIDENCE_DECISION_LABELS)[a.decision]'));
-  assert.ok(workflow.includes('`${a.kind==="finding"?"Rilievo":"Prodotto"} ${a.product_key}'));
-  assert.match(workflow,/Rilievi non leggibili in questo momento · \$\{unavailableRows\.length\} verifiche in sola lettura/);
-  assert.match(workflow,/Una nuova versione dell’attribuzione o dei rilievi avvia una nuova coda\./);
+});
+
+test('the archive renders unavailable finding cases apart and in full, and words and decides every earlier case by its own kind',async()=>{
+  const {PillarCEvidenceArchive}=await import('../components/dashboard-review/pillar-c/evidence-workflow.tsx');
+  const row=(id,kind,decision,updated='2026-10-22T10:00:00Z')=>({id,product_key:kind==='finding'?'F0'+id.slice(-1):'90000000'+id.slice(-1),product_label:`Voce ${id}`,state:'decision_recorded',decision,updated_at:updated,source_snapshot:'1'.repeat(64),kind});
+  const render=props=>renderToStaticMarkup(React.createElement(PillarCEvidenceArchive,{busy:false,onOpen:()=>{},...props}));
+  // 230 earlier cases in the 200-row window, 3 unavailable finding cases sent apart: the counts never mix.
+  const older=Array.from({length:200},(_,i)=>row(`o${i}`,i%2?'finding':'priority','needs_local_allocation'));
+  const unavailable=[row('u1','finding','remains_uncertain'),row('u2','finding',null),row('u3','finding','evidence_sufficient')];
+  const html=render({archived:older,archivedCount:230,unavailable});
+  assert.match(html,/Rilievi non leggibili in questo momento · 3 verifiche in sola lettura/);
+  assert.match(html,/Verifiche di una versione precedente \(sola lettura\) · 230/);
+  assert.match(html,/Sono elencate le 200 aggiornate più di recente su 230\./);
+  const box=html.slice(html.indexOf('data-c-evidence-unavailable'),html.indexOf('<details'));
+  assert.equal((box.match(/<li /g)??[]).length,3,'every unavailable case listed in its own box');
+  assert.doesNotMatch(box,/Voce o\d/);assert.doesNotMatch(html.slice(html.indexOf('<details')),/Voce u\d/,'and none of them among the earlier versions');
+  // Each kind keeps its own wording and decision labels.
+  assert.match(html,/Rilievo F01 · [^·]+ · Serve un’azione locale/);assert.match(html,/Prodotto 900000000 · [^·]+ · Serve una ripartizione locale/);
+  assert.match(box,/Questione ancora aperta/);assert.match(box,/Evidenza sufficiente per chiudere il rilievo/);
+  assert.match(html,/Una nuova versione dell’attribuzione o dei rilievi avvia una nuova coda\./);
+  // Nothing to show: nothing renders.
+  assert.equal(render({archived:[],archivedCount:0,unavailable:[]}),'');
+  assert.doesNotMatch(render({archived:older.slice(0,2),archivedCount:2,unavailable:[]}),/non leggibili/);
 });

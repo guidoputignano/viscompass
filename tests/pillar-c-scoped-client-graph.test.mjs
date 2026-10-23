@@ -198,6 +198,8 @@ test('point 19: every chart drawing loads after hydration, with ssr:false and a 
     if(f!=='chart-canvases.tsx')assert.doesNotMatch(src,/from "recharts"|from 'recharts'/,`${f} imports the chart library directly`);
   }
   assert.deepEqual(canvases.sort(),['AttributionDonutCanvas','AttributionParetoCanvas','ForecastCanvas','InsightLineCanvas','PortfolioMonthlyCanvas','SpendCanvas']);
+  // R20-09: the donut sits in a named role="img" with an exact table beside it; its pie group is not an unnamed tab stop.
+  assert.match(readFileSync(path.join(dir,'chart-canvases.tsx'),'utf8'),/<Pie [^>]*rootTabIndex=\{-1\}>/);
 });
 
 test('points 15-16: the guard vocabulary and the extension parsers stay on the server',()=>{

@@ -431,6 +431,8 @@ test('URL clamps match keys exactly; the budget is always the published act; the
 
 // ---------------------------------------------------------------- reviewer regression
 test('reviewer: the workspace and every shared view render the markup recorded at point 19 under the reviewer audience',async()=>{
+  // Re-recorded for R20-09 (reason: 24 px targets — py-1 on 7 product summaries, a 24 px reset button in 4 dossier cases;
+  // across the 59 cases nothing else differs; data hash unchanged; earlier ec64b124…).
   // Re-recorded at point 19, lazy charts (reason: the chart drawing loads after hydration; across the 59 cases the 55 empty
   // recharts containers the server used to emit are replaced by 55 data-chart-slot markers and nothing else differs;
   // data hash unchanged; earlier 021f0914…).
@@ -457,7 +459,7 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   assert.match(noAct,REVIEWER_ONLY_1_2B[1],'the empty variant is live');assert.doesNotMatch(noAct,REVIEWER_ONLY_1_2B[0]);
   assert.equal(out.cases,59);
   assert.equal(out.data,'bebe2d2b3c1d254353cd668e6b67e61c1c5c4b91ec1f15f465ebcccc2aa4e9be','the same synthetic data as the baseline');
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'ec64b1245039f449e16bccf4209701ba433b95c6de0eafae9e07f490e11eec38');
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'7d738ccc694b00c79f1736546960c715404343732c18b4d57f0616dff1220260');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout

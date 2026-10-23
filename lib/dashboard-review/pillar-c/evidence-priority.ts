@@ -76,9 +76,8 @@ export type CEvidenceCurrentSet = {sourceSnapshot:string;groups:ReadonlySet<stri
 export function cEvidenceIsCurrent(row:{source_snapshot:string;source_group:string},s:CEvidenceCurrentSet){return cEvidenceCurrent(row,s.sourceSnapshot,s.groups)||(s.findingSnapshot!==null&&cEvidenceCurrent(row,s.findingSnapshot,s.findingGroups));}
 /** Decision labels of a finding case: the same four decisions, worded for a finding rather than a product's attribution. */
 export const C_EVIDENCE_FINDING_DECISION_LABELS:Record<string,string>={remains_uncertain:"Questione ancora aperta",evidence_sufficient:"Evidenza sufficiente per chiudere il rilievo",needs_local_allocation:"Serve un’azione locale",identifier_corrected:"Dato della fonte chiarito"};
-/** kind: a point 18 finding (source_state F) or a product of the attribution priority. unavailable: a finding case of
- * the pinned findings release while that release cannot be read (not superseded: it becomes current again on its own). */
-export type CEvidenceArchived = {id:string;product_key:string;product_label:string;state:string;decision:string|null;updated_at:string;source_snapshot:string;kind:"finding"|"priority";unavailable?:boolean};
+/** kind: a point 18 finding (source_state F) or a product of the attribution priority. */
+export type CEvidenceArchived = {id:string;product_key:string;product_label:string;state:string;decision:string|null;updated_at:string;source_snapshot:string;kind:"finding"|"priority"};
 type CEvidenceArchiveSource = {id:string;product_key:string;source?:unknown;state:string;decision?:string|null;updated_at:string;source_snapshot:string};
 export const C_EVIDENCE_ARCHIVE_LIMIT = 200;
 export function cEvidenceKind(source:unknown):"finding"|"priority"{return source&&typeof source==='object'&&(source as Record<string,unknown>).source_state==='F'?"finding":"priority";}

@@ -74,7 +74,7 @@ export function ForecastCanvas({ chart, ticks, tick, divisor, firstForecast }: {
 
 // ---------------------------------------------------------------- attribution-analysis.tsx: composition and Pareto
 export function AttributionDonutCanvas({ data, colors }: { data: { id: string; name: string; value: number; raw: string }[]; colors: Record<string, string> }) {
-  return <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="value" nameKey="name" innerRadius="63%" outerRadius="88%" paddingAngle={2} isAnimationActive={false}>{data.map((r) => <Cell key={r.id} fill={colors[r.id]} />)}</Pie><Tooltip formatter={(_value, name, entry) => [money(entry.payload.raw, 2), String(name)]} /></PieChart></ResponsiveContainer>;
+  return <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="value" nameKey="name" innerRadius="63%" outerRadius="88%" paddingAngle={2} isAnimationActive={false} rootTabIndex={-1}>{data.map((r) => <Cell key={r.id} fill={colors[r.id]} />)}</Pie><Tooltip formatter={(_value, name, entry) => [money(entry.payload.raw, 2), String(name)]} /></PieChart></ResponsiveContainer>;
 }
 type ParetoRow = { rank: number; amount: number; cumulativeShare: number; abs: string; cumulative: string; label: string };
 export function AttributionParetoCanvas({ plotted, total }: { plotted: ParetoRow[]; total: string }) {

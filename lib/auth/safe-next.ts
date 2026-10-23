@@ -47,7 +47,14 @@ export const LOGIN_DEFAULT_NEXT = "/dashboard-review/spend";
 /** A sign-in destination: a safe same-site page, never an auth or API route (no loop, no JSON response). */
 export function loginNext(value: unknown): string {
   const next = safeNext(value, LOGIN_DEFAULT_NEXT);
-  return /^\/(auth|api)(\/|\?|#|$)/.test(next) ? LOGIN_DEFAULT_NEXT : next;
+  // The route is matched on the decoded path (Next decodes it), so "/%61uth/login" or "/api%2Fx" are refused too.
+  let path: string;
+  try {
+    path = decodeURIComponent(new URL(next, BASE).pathname);
+  } catch {
+    return LOGIN_DEFAULT_NEXT;
+  }
+  return /^\/(auth|api)(\/|$)/.test(path) ? LOGIN_DEFAULT_NEXT : next;
 }
 
 /** The sign-in URL for an unauthenticated request (R20-05): the requested page and its query come back as `next`,

@@ -38,6 +38,10 @@ test('loginNext: a safe page or the default, never an auth or API route',()=>{
   assert.equal(loginNext('https://evil.example/dashboard-review/pillar-c'),LOGIN_DEFAULT_NEXT);
   for(const loop of ['/auth/login','/auth/login?next=/x','/auth','/api/pillar-c/evidence','/api'])assert.equal(loginNext(loop),LOGIN_DEFAULT_NEXT,loop);
   assert.equal(loginNext('/authors'),'/authors','only the auth tree itself is refused');
+  // Next matches routes on the decoded path: encoded forms of the auth and API trees are refused too (review of 55593a1).
+  for(const enc of ['/%61uth/login','/au%74h/login','/auth%2Flogin','/%61pi/pillar-c/evidence','/api%2Fpillar-c%2Fevidence','/ap%69/pillar-a/series','/%E0%A4%A','/x/%2e%2e/auth/login'])
+    assert.equal(loginNext(enc),LOGIN_DEFAULT_NEXT,enc);
+  assert.equal(loginNext('/dashboard-review/pillar-c?q=%2Fauth'),'/dashboard-review/pillar-c?q=%2Fauth','a query that merely mentions auth is fine');
   assert.equal(loginNext('/dashboard-review/pillar-c?org=asl-3&period=FY2025#fattori'),'/dashboard-review/pillar-c?org=asl-3&period=FY2025#fattori');
 });
 
@@ -90,6 +94,11 @@ test('admin pages: the dashboard shell for an approved administrator only; the C
   assert.ok(page.includes('const embedded = Boolean(await getCurrentOrg());')&&page.includes('<AccessControlCenter adminEmail={adminEmail} data={data} embedded={embedded} />'));
   const center=read('components/admin/access-control-center.tsx');
   assert.ok(center.includes('{!embedded && <VisLogoLink size="sm" />}')&&center.includes('{!embedded && <div className="flex items-center gap-2">'));
+  // One main landmark: inside the shell the shell owns it, so the Control Center body is a div there.
+  assert.ok(center.includes('const Body = embedded ? "div" : "main";')&&center.includes('<Body className="mx-auto flex max-w-7xl')&&center.includes('</Body>'));
+  assert.doesNotMatch(center,/<main[\s>]/,'no literal main element left in the component');
+  // A repeated code parameter (an array) is never exchanged.
+  assert.ok(read('app/auth/login/page.tsx').includes('if (typeof code === "string" && code) {'));
   const nav=read('components/dashboard-review/nav.tsx');
   assert.ok(nav.includes('aria-current={pathname === "/admin/control-center" ? "page" : undefined}'));
 });

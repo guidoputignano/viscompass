@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {createServiceRoleClient} from "@/lib/supabase/service-role";
 import {cEvidenceActor,cEvidenceOwners,cEvidenceSource,cEvidenceSourceRecord,cEvidenceFindingRecord,cEvidenceGroup,cEvidenceSameOrigin,cEvidenceJson,C_EVIDENCE_HEADERS,C_EVIDENCE_UUID} from "@/lib/dashboard-review/pillar-c/evidence-server";
-import {cEvidenceFindingsUnavailable,cEvidenceIsCurrent,cEvidenceQueue,cEvidenceRpcError,C_EVIDENCE_ARCHIVE_LIMIT} from "@/lib/dashboard-review/pillar-c/evidence-priority";
+import {cEvidenceArchivedRow,cEvidenceFindingsUnavailable,cEvidenceIsCurrent,cEvidenceKind,cEvidenceQueue,cEvidenceRpcError,C_EVIDENCE_ARCHIVE_LIMIT} from "@/lib/dashboard-review/pillar-c/evidence-priority";
 
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:C_EVIDENCE_HEADERS});
 const failed=(error:Parameters<typeof cEvidenceRpcError>[0])=>{const e=cEvidenceRpcError(error);return reply({error:e.code},e.status);};
@@ -11,15 +11,18 @@ export async function GET(){
     const service=createServiceRoleClient(),[source,owners]=await Promise.all([cEvidenceSource(),cEvidenceOwners()]);
     // Cases from an earlier data version stay readable as `archived`; they are never carried into the current queue.
     // The current versions: the attribution priority and, when its object is available, the point 18 findings.
-    const current=[source.sourceSnapshot,...(source.findingSnapshot?[source.findingSnapshot]:[])];
+    // The pinned findings release is always read with the current cases (equal to findingSnapshot whenever its object is
+    // readable), so its cases never fall into the limited archive of earlier versions.
+    const current=[...new Set([source.sourceSnapshot,source.pinnedFindingSnapshot])];
     const [cases,older]=await Promise.all([service.from('c_evidence_cases').select('*').in('source_snapshot',current).order('created_at'),
       service.from('c_evidence_cases').select('id,product_key,source,state,decision,updated_at,source_snapshot',{count:'exact'}).not('source_snapshot','in',`(${current.join(',')})`).order('updated_at',{ascending:false}).order('id').limit(C_EVIDENCE_ARCHIVE_LIMIT)]);
     if(cases.error||older.error||typeof older.count!=='number'||!Number.isSafeInteger(older.count))throw Error('storage');
-    const queue=cEvidenceQueue(cases.data??[],older.data??[],older.count,source.sourceSnapshot,source.groups,r=>cEvidenceIsCurrent(r,source));
+    // Finding cases of the pinned release while its object cannot be read: listed apart, in full, never as superseded.
+    const fetched=cases.data??[],unavailableIds=new Set(fetched.filter(r=>cEvidenceFindingsUnavailable({source_snapshot:r.source_snapshot,kind:cEvidenceKind(r.source)},source)).map(r=>r.id));
+    const queue=cEvidenceQueue(fetched.filter(r=>!unavailableIds.has(r.id)),older.data??[],older.count,source.sourceSnapshot,source.groups,r=>cEvidenceIsCurrent(r,source));
+    const unavailable=fetched.filter(r=>unavailableIds.has(r.id)).map(cEvidenceArchivedRow);
     const findings=source.findingSnapshot?{snapshot:source.findingSnapshot,version:source.findingVersion,rows:source.findingRows}:null;
-    // A finding case of the pinned release while its object cannot be read is marked, so it is never shown as superseded.
-    const archived=queue.archived.map(a=>({...a,unavailable:cEvidenceFindingsUnavailable(a,source)}));
-    return reply({schema:'pillar-c-evidence-workspace-v1',sourceSnapshot:source.sourceSnapshot,priority:{...source.priority,rows:source.priority.rows.map(r=>({...r,group:cEvidenceGroup(r)}))},portfolios:source.portfolios,owners,cases:queue.cases,archived,archivedCount:queue.archivedCount,findings});
+    return reply({schema:'pillar-c-evidence-workspace-v1',sourceSnapshot:source.sourceSnapshot,priority:{...source.priority,rows:source.priority.rows.map(r=>({...r,group:cEvidenceGroup(r)}))},portfolios:source.portfolios,owners,cases:queue.cases,archived:queue.archived,archivedCount:queue.archivedCount,unavailable,findings});
   }catch{return reply({error:'unavailable'},503);}
 }
 export async function POST(request:NextRequest){

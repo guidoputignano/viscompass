@@ -175,12 +175,17 @@ test('every evidence route stays gated and private, and archived cases are reada
   assert.doesNotMatch(detail.GET,/error:'archived'|\.eq\('source_snapshot'|\.in\('source_snapshot'/,'reads work for any existing case');
   assert.match(detail.GET,/current:cEvidenceIsCurrent\(found\.data,source\),findingsUnavailable\}/);
   assert.match(detail.GET,/const findingsUnavailable=cEvidenceFindingsUnavailable\(\{source_snapshot:found\.data\.source_snapshot,kind:cEvidenceKind\(found\.data\.source\)\},source\);/);
-  assert.match(list.GET,/schema:'pillar-c-evidence-workspace-v1'/);assert.match(list.GET,/archived,archivedCount:queue\.archivedCount/);
-  assert.match(list.GET,/const archived=queue\.archived\.map\(a=>\(\{\.\.\.a,unavailable:cEvidenceFindingsUnavailable\(a,source\)\}\)\);/);
-  assert.match(list.GET,/const current=\[source\.sourceSnapshot,\.\.\.\(source\.findingSnapshot\?\[source\.findingSnapshot\]:\[\]\)\];/);
+  assert.match(list.GET,/schema:'pillar-c-evidence-workspace-v1'/);assert.match(list.GET,/archived:queue\.archived,archivedCount:queue\.archivedCount,unavailable,findings/);
+  // The pinned findings release is read with the current cases, so its cases never fall into the 200-row archive window;
+  // those whose object cannot be read are split off in full and sent as `unavailable`.
+  assert.match(list.GET,/const current=\[\.\.\.new Set\(\[source\.sourceSnapshot,source\.pinnedFindingSnapshot\]\)\];/);
   assert.match(list.GET,/\.in\('source_snapshot',current\)\.order\('created_at'\)/);
   assert.match(list.GET,/\.not\('source_snapshot','in',`\(\$\{current\.join\(','\)\}\)`\)\.order\('updated_at',\{ascending:false\}\)\.order\('id'\)\.limit\(C_EVIDENCE_ARCHIVE_LIMIT\)/);
-  assert.match(list.GET,/cEvidenceQueue\(cases\.data\?\?\[\],older\.data\?\?\[\],older\.count,source\.sourceSnapshot,source\.groups,r=>cEvidenceIsCurrent\(r,source\)\)/);
+  assert.match(list.GET,/const fetched=cases\.data\?\?\[\],unavailableIds=new Set\(fetched\.filter\(r=>cEvidenceFindingsUnavailable\(\{source_snapshot:r\.source_snapshot,kind:cEvidenceKind\(r\.source\)\},source\)\)\.map\(r=>r\.id\)\);/);
+  assert.match(list.GET,/cEvidenceQueue\(fetched\.filter\(r=>!unavailableIds\.has\(r\.id\)\),older\.data\?\?\[\],older\.count,source\.sourceSnapshot,source\.groups,r=>cEvidenceIsCurrent\(r,source\)\)/);
+  assert.match(list.GET,/const unavailable=fetched\.filter\(r=>unavailableIds\.has\(r\.id\)\)\.map\(cEvidenceArchivedRow\);/);
+  // The pinned snapshot is the findings release of the storage pins, never the reviewer object's hash.
+  assert.match(read('lib/dashboard-review/pillar-c/evidence-server.ts'),/pinnedFindingSnapshot:C_EXTENSION_STORAGE\.findings\.snapshot as string,/);
   // A finding group is created only by its own SQL function, from the server's own record of the current version.
   assert.match(list.POST,/finding=cEvidenceFindingRecord\(source,body\.group\);\r?\n\s*if\(finding\)\{const saved=await createServiceRoleClient\(\)\.rpc\('c_evidence_create_finding',\{p_actor:actor\.id,p_source:finding\}\)/);
   for(const h of [list.POST,list.PATCH,files.POST])assert.match(h,/return reply\(\{case:saved\.data\}\)|return json\(\{case:saved\.data\}\)|\?failed\(saved\.error\):reply\(\{case:saved\.data\}\)/);
@@ -206,6 +211,16 @@ test('point 18: finding cases are current only on the current extension version,
   assert.equal(cEvidenceFindingsUnavailable({source_snapshot:F,kind:'finding'},{...pin,findingSnapshot:F}),false,'readable again: current, not unavailable');
   assert.equal(cEvidenceFindingsUnavailable({source_snapshot:'1'.repeat(64),kind:'finding'},pin),false,'an earlier findings release is superseded');
   assert.equal(cEvidenceFindingsUnavailable({source_snapshot:F,kind:'priority'},pin),false,'product cases are never «findings unavailable»');
+  // The route's split, with the real functions: 3 finding cases of the pinned release while unreadable, 230 earlier-version
+  // cases more recently updated. The unavailable ones are counted and listed apart, never inside the 200-row window.
+  const unread={...set,findingSnapshot:null,pinnedFindingSnapshot:F};
+  const fetchedRows=[stored('p',SNAP,G1,'2026-10-22T10:00:00+00:00'),...['a','b','c'].map(x=>({...stored(x,F,GF,'2026-10-01T10:00:00+00:00'),source:{source_state:'F',product_label:'Rilievo '+x}}))];
+  const ids=new Set(fetchedRows.filter(r=>cEvidenceFindingsUnavailable({source_snapshot:r.source_snapshot,kind:cEvidenceKind(r.source)},unread)).map(r=>r.id));
+  const olderRows=Array.from({length:200},(_,i)=>stored(`o${i}`,'2'.repeat(64),G1,new Date(Date.UTC(2026,9,20,0,i)).toISOString()));
+  const split=cEvidenceQueue(fetchedRows.filter(r=>!ids.has(r.id)),olderRows,230,SNAP,unread.groups,r=>cEvidenceIsCurrent(r,unread));
+  assert.deepEqual([...ids].sort(),['a','b','c']);
+  assert.equal(split.archivedCount,230,'earlier versions only');assert.ok(!split.archived.some(r=>['a','b','c'].includes(r.id)));
+  assert.deepEqual(split.cases.map(r=>r.id),['p'],'the product queue is untouched');
   const q=cEvidenceQueue([stored('p',SNAP,G1,'2026-10-22T10:00:00+00:00'),stored('f',F,GF,'2026-10-22T11:00:00+00:00'),stored('x',F,'7'.repeat(64),'2026-10-22T12:00:00+00:00')],[],0,SNAP,set.groups,r=>cEvidenceIsCurrent(r,set));
   assert.deepEqual(q.cases.map(r=>r.id),['p','f']);assert.deepEqual(q.archived.map(r=>r.id),['x']);
   const server=read('lib/dashboard-review/pillar-c/evidence-server.ts');
