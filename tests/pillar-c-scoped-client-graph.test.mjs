@@ -207,7 +207,13 @@ test('points 15-16: the guard vocabulary and the extension parsers stay on the s
   const graph=routeClientGraph();
   assert.ok(graph.entry.includes('components/dashboard-review/pillar-c/extension-sections.tsx'),'the extension blocks are client modules');
   assert.ok(graph.entry.includes('lib/dashboard-review/pillar-c/extension.ts'),'their browser-safe types and labels');
-  for(const m of ['components/dashboard-review/pillar-c/extension-reviewer.tsx','lib/dashboard-review/pillar-c/payload-guard.ts','lib/dashboard-review/pillar-c/extension-parse.ts','lib/dashboard-review/pillar-c/extension-loader.ts','lib/dashboard-review/pillar-c/extension-storage.ts'])
+  // Regional analytical parity (23 Oct 2026): the region-wide panels render for the Regione from the scoped workspace, so
+  // their component code is in the entry. It holds no data and no vocabulary (UI-4 scans it above); the data reach only
+  // the Regione, through its own regional object and cScopedExtensionFor.
+  assert.ok(graph.entry.includes('components/dashboard-review/pillar-c/extension-reviewer.tsx'),'the region-wide panels');
+  assert.deepEqual(findings(abs('components/dashboard-review/pillar-c/extension-reviewer.tsx')),[]);
+  for(const m of ['lib/dashboard-review/pillar-c/payload-guard.ts','lib/dashboard-review/pillar-c/extension-parse.ts','lib/dashboard-review/pillar-c/extension-loader.ts','lib/dashboard-review/pillar-c/extension-storage.ts',
+    'lib/dashboard-review/pillar-c/regional-loader.ts','lib/dashboard-review/pillar-c/regional-storage.ts'])
     assert.ok(!graph.entry.includes(m),`${m} is in the route's client entry`);
 });
 

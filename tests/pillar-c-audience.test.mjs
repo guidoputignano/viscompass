@@ -103,7 +103,12 @@ test('client audiences carry only strings for their own keys; the reviewer audie
   assert.deepEqual(re.orgs,[{key:'aggregato',label:'Aggregato regionale'},{key:'asl-1',label:'ASL 1'},{key:'asl-2',label:'ASL 2'},{key:'asl-3',label:'ASL 3'},{key:'asl-4',label:'ASL 4'}]);
   assert.deepEqual(re.budgetOrgs.map(o=>o.key),['asl-1','asl-2','asl-3','asl-4']);
   assert.equal(re.exportLabel,'Riservato alla Regione · dati delle quattro Aziende (ASL 1–4) e aggregato regionale');
-  for(const c of [az,re]){assert.doesNotMatch(JSON.stringify(c),/(^|[^A-Za-z])(AQ|CH|PE|TE)([^A-Za-z]|$)|"Regione"/);assert.equal(Object.values(c.capabilities).some(Boolean),false);}
+  for(const c of [az,re])assert.doesNotMatch(JSON.stringify(c),/(^|[^A-Za-z])(AQ|CH|PE|TE)([^A-Za-z]|$)|"Regione"/);
+  // Regional analytical parity (owner clarification of 23 Oct 2026; owner decision of 24 Oct 2026 for the modelled budgets
+  // and the lineage): the Regione has the price/quantity/mix decomposition, the modelled budgets and the lineage; an
+  // Azienda nothing; neither the shared evidence queue nor the workbook route.
+  assert.equal(Object.values(az.capabilities).some(Boolean),false);
+  assert.deepEqual(re.capabilities,{workbook:false,insights:false,evidence:false,pvm:true,lineage:true,syntheticBudgets:true});
 });
 
 const rpcClient=(answer,{error=null,throws=false}={})=>{const calls=[];return {calls,client:{rpc:async(name,args)=>{calls.push([name,args]);if(throws)throw new Error('network');return error?{data:null,error}:{data:answer,error:null};}}};};

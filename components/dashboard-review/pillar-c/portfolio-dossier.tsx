@@ -11,7 +11,7 @@ import type { CPortfolioView } from "@/lib/dashboard-review/pillar-c/portfolio";
 import { cPortfolioDrivers, cPortfolioPlanning } from "@/lib/dashboard-review/pillar-c/portfolio-insights";
 import { C_PLANNING_LABELS, cPlanningDossierHref, cPlanningPercentLabel } from "@/lib/dashboard-review/pillar-c/planning";
 import { C_PERIOD_LABELS } from "@/lib/dashboard-review/pillar-c/review";
-import { cWorkbookDecimal, type CWorkbookIndex } from "@/lib/dashboard-review/pillar-c/workbook";
+import { cWorkbookDecimal, type CWorkbookIndex, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
 import { itNumber } from "@/lib/format/it-number";
 import type { CClientAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
 import { C_AUDIENCE_COPY, cAudienceLabel, cAudienceScope, isCScopedClientAudience } from "@/lib/dashboard-review/pillar-c/audience-view";
@@ -49,11 +49,11 @@ function PortfolioPlanning({view,search}:{view:CPortfolioView;search:string}){
 }
 
 /** The audience is mandatory: without one, or for a view of an organisation the audience does not hold, nothing renders. */
-export function CPortfolioDossierView({view,workbook,search=""}:{view:CPortfolioView;workbook?:CWorkbookIndex|null;search?:string}){
+export function CPortfolioDossierView({view,workbook,pvmSection,search=""}:{view:CPortfolioView;workbook?:CWorkbookIndex|null;pvmSection?:CWorkbookSection|null;search?:string}){
   const audience=usePillarCAudience(),orgLabel=audience?cAudienceLabel(audience,view.scope.org):null;
-  return audience&&orgLabel!==null?<DossierValues view={view} workbook={workbook} search={search} orgLabel={orgLabel}/>:null;
+  return audience&&orgLabel!==null?<DossierValues view={view} workbook={workbook} pvmSection={pvmSection} search={search} orgLabel={orgLabel}/>:null;
 }
-function DossierValues({view,workbook,search,orgLabel}:{view:CPortfolioView;workbook?:CWorkbookIndex|null;search:string;orgLabel:string}){
+function DossierValues({view,workbook,pvmSection,search,orgLabel}:{view:CPortfolioView;workbook?:CWorkbookIndex|null;pvmSection?:CWorkbookSection|null;search:string;orgLabel:string}){
   const d=view.dossier,drivers=cPortfolioDrivers(view);
   const [lane,setLane]=useState<"fixed"|"shared">("fixed"),[query,setQuery]=useState(""),[page,setPage]=useState(0),[changeMode,setChangeMode]=useState<"all"|"up"|"down">("all"),[detailOpen,setDetailOpen]=useState(false);
   const other=view.comparison,chart=d.monthly.map((m,i)=>({month:monthNames[m.month-1],selected:m[lane]===null?null:Number(m[lane]!.net),comparison:other?.dossier.monthly[i]?.[lane]===null||!other?.dossier.monthly[i]?.[lane]?null:Number(other.dossier.monthly[i][lane]!.net),raw:m[lane]?.net??null,otherRaw:other?.dossier.monthly[i]?.[lane]?.net??null}));
@@ -68,7 +68,7 @@ function DossierValues({view,workbook,search,orgLabel}:{view:CPortfolioView;work
     <div className="rounded-2xl border border-primary/20 bg-primary/[0.03] p-5 md:p-6"><p className="text-xs font-medium text-primary">Il punto di partenza per la revisione</p><h3 className="mt-2 text-xl font-semibold">{cleanLabel(d.label)}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{`${scope} · ${C_PERIOD_LABELS[view.scope.period]}. ${d.fixed.n ? `La parte a portafoglio singolo è ${money(d.fixed.net)}.` : "Nessuna riga a portafoglio singolo osservata in questa selezione."} ${d.shared.n ? `${money(d.shared.abs)} di esposizione assoluta riguarda prodotti condivisi con altri portafogli.` : "Nessun prodotto condiviso osservato in questa selezione."}`}</p><p className="mt-3 text-xs leading-5 text-muted-foreground">Questi importi descrivono prodotti e raggruppamenti terapeutici, non costi osservati di un reparto. La variazione non permette di contare più persone trattate.</p></div>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Spesa a portafoglio singolo" value={d.fixed.n?money(d.fixed.net):"Nessun record"} detail={`${C_PERIOD_LABELS[view.scope.period]} · raggruppamento ATC in bozza · rettifiche incluse`}/><Metric label="Variazione nel confronto omogeneo" value={signed(view.change)} detail={`${C_PERIOD_LABELS[view.changePeriods.from]} → ${C_PERIOD_LABELS[view.changePeriods.to]}${drivers.relativeChange===null?"":` · ${drivers.relativeChange>0?"+":""}${cAttrPercent(drivers.relativeChange)}`}`}/><Metric label="Esposizione condivisa possibile" value={d.shared.n?money(d.shared.abs):"Nessun record"} detail="Valore assoluto, non assegnato all’area"/><Metric label="Voci prodotto a portafoglio singolo" value={itNumber(d.products.length)} detail={`${itNumber(d.fixed.n)} righe osservate nel periodo`}/></div>
     <CPortfolioChangeSummary view={view} onPickProduct={key=>{setQuery(key);setPage(0);setDetailOpen(true);}}/>
-    <CPortfolioPriceQuantityMix view={view} workbook={workbook}/>
+    <CPortfolioPriceQuantityMix view={view} workbook={workbook} pvmSection={pvmSection}/>
     <details className="rounded-xl border border-border bg-card">
       <summary className="cursor-pointer px-5 py-4 text-sm font-medium">Importi mensili del grafico · {lane === "fixed" ? "portafoglio singolo" : "esposizione condivisa"}</summary>
       <div className="overflow-x-auto px-5 pb-5"><table className="w-full text-left text-xs" aria-label="Importi mensili esatti del portafoglio">
@@ -90,11 +90,11 @@ function DossierValues({view,workbook,search,orgLabel}:{view:CPortfolioView;work
  * Mounted inside the section-3 frame of the six-section page on every reader's page: organisation and channel come from
  * the page scope bar (it writes c_port_org and c_port_channel), so only portfolio and period are chosen here, the title
  * is an h3 and the review plan carries the anchor `piano-revisione`. */
-export function PillarCPortfolioDossier({workbook}:{workbook?:CWorkbookIndex|null}){
+export function PillarCPortfolioDossier({workbook,pvmSection}:{workbook?:CWorkbookIndex|null;pvmSection?:CWorkbookSection|null}){
   const audience=usePillarCAudience();
-  return audience?<PortfolioDossier audience={audience} workbook={workbook}/>:null;
+  return audience?<PortfolioDossier audience={audience} workbook={workbook} pvmSection={pvmSection}/>:null;
 }
-function PortfolioDossier({audience,workbook}:{audience:CClientAudience;workbook?:CWorkbookIndex|null}){
+function PortfolioDossier({audience,workbook,pvmSection}:{audience:CClientAudience;workbook?:CWorkbookIndex|null;pvmSection?:CWorkbookSection|null}){
   const params=useSearchParams();
   // The organisation is one of the audience's own keys (exact match); any other value falls back to its default.
   // The page scope bar, not this dossier, sets organisation and channel.
@@ -108,7 +108,7 @@ function PortfolioDossier({audience,workbook}:{audience:CClientAudience;workbook
   const plan=result?<CPortfolioReviewPlan context={{period:result.view.scope.period,org:result.view.scope.org,channel:result.view.scope.channel,portfolioId:result.view.dossier.id,portfolioLabel:cleanLabel(result.view.dossier.label),sourceSha256:result.view.sourceSha256,classificationSha256:result.view.classificationSha256,mappingVersion:result.view.mappingVersion,sourceSnapshot:result.view.sourceSnapshot,fixedNet:result.view.dossier.fixed.net,sharedAbs:result.view.dossier.shared.abs}}/>:null;
   return <section id="portafogli" aria-labelledby="portfolio-dossier-title" className="scroll-mt-6 space-y-5 xl:scroll-mt-56" data-c-portfolio="v1"><div className="flex items-start gap-3"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary"><BriefcaseBusiness size={21} aria-hidden="true"/></span><div><p className="text-xs font-medium text-primary">Dossier di gestione</p><h3 className="mt-1 text-lg font-semibold" id="portfolio-dossier-title">Un portafoglio, le sue variazioni, il prossimo approfondimento</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">Riunisci spesa, contributi dei prodotti, attribuzione incerta e ipotesi di pianificazione. Il perimetro comprende tutti i farmaci, inclusi i biosimilari.</p></div></div>
     <div className={card}><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-medium">Portafoglio<select className={field} aria-label="Portafoglio del dossier" value={portfolio} onChange={e=>change('c_port_id',e.target.value)}>{available.map(p=><option key={p.id} value={p.id}>{cleanLabel(p.label)}</option>)}</select></label><label className="text-xs font-medium">Periodo<select className={field} aria-label="Periodo del dossier" value={period} onChange={e=>change('c_port_period',e.target.value)}>{C_ATTR_PERIODS.map(p=><option value={p} key={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label></div><p className="mt-3 text-xs text-muted-foreground">Organizzazione e canale si scelgono nell’ambito della pagina, nella sezione Quadro decisionale; il periodo scelto qui vale anche per l’attribuzione, lo spazio scenari e il piano di revisione. I raggruppamenti ATC non sono reparti o titolari di budget.</p>{tampered&&isCScopedClientAudience(audience)?<p role="note" className="mt-2 text-xs font-medium">{C_AUDIENCE_COPY.tampered}</p>:null}</div>
-    {result&&<div hidden={result.key!==key} className="space-y-5"><CPortfolioDossierView key={result.key} view={result.view} workbook={workbook} search={params.toString()}/><div id="piano-revisione">{plan}</div></div>}
+    {result&&<div hidden={result.key!==key} className="space-y-5"><CPortfolioDossierView key={result.key} view={result.view} workbook={workbook} pvmSection={pvmSection} search={params.toString()}/><div id="piano-revisione">{plan}</div></div>}
     {result?.key!==key&&<div role="status" className={card}>{failed===`${key}|${attempt}`?<><p>L’analisi non è disponibile per questa selezione. Nessun valore viene sostituito con zero.</p><div className="mt-3 flex gap-3"><button type="button" className={action} onClick={()=>setAttempt(attempt+1)}>Riprova</button><button type="button" className={action} onClick={()=>change('c_port_id','ONC')}>Portafoglio iniziale</button></div></>:<p className="text-sm text-muted-foreground">Caricamento del dossier selezionato…</p>}</div>}
   </section>;
 }

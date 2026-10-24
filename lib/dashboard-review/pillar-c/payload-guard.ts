@@ -13,6 +13,7 @@ import { C_ATTR_CHANNELS, C_ATTR_PERIODS } from "@/lib/dashboard-review/pillar-c
 import { C_COMPONENT_LABELS, C_PERIODS } from "@/lib/dashboard-review/pillar-c/review";
 import { isCScopedUnit, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 import type { PillarCScopedAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
+import { C_SCOPED_CAPABILITIES } from "@/lib/dashboard-review/pillar-c/scoped-capabilities";
 
 /** count: a person or identifier count, 0 or at least 5 (the small-cell rule of the January DPC and File F extension);
  * share: a proportion in [0, 1]; num: a finite number; bool: true or false. */
@@ -176,7 +177,8 @@ export function guardCScopedPayload<T>(kind: CScopedPayloadKind, value: unknown,
 
 const CLIENT_AUDIENCE_KEYS = ["schema", "kind", "monthlyMode", "aggregateKey", "orgs", "defaultOrg", "budgetOrgs", "capabilities", "scopeLine", "exportLabel"] as const;
 const CAPABILITY_KEYS = ["workbook", "insights", "evidence", "pvm", "lineage", "syntheticBudgets"] as const;
-/** The audience a scoped page receives: its own units only, every capability off, and no name but its own.
+/** The audience a scoped page receives: its own units only, exactly its kind's capabilities (an Azienda none, the
+ * Regione the price/quantity/mix decomposition: scoped-capabilities.ts), and no name but its own.
  * The viewer's own organisation name (O1) is the one string exempt from the place-name rule. */
 export function guardCClientAudience<T>(value: unknown, audience: PillarCScopedAudience): T {
   const units = audience.units as readonly CScopedUnit[], own = audience.kind === "azienda" ? audience.orgName : null;
@@ -202,9 +204,10 @@ export function guardCClientAudience<T>(value: unknown, audience: PillarCScopedA
   const c = closed(value, CLIENT_AUDIENCE_KEYS, "audience");
   if (c.schema !== "pillar-c-client-audience-v1" || c.kind !== audience.kind || c.monthlyMode !== "explicit" || c.aggregateKey !== "aggregato" || c.defaultOrg !== units[0]) fail("AUDIENCE_SHAPE");
   const capabilities = closed(c.capabilities, CAPABILITY_KEYS, "audience.capabilities");
-  if (!CAPABILITY_KEYS.every((k) => capabilities[k] === false)) fail("CAPABILITY");
+  const allowed = C_SCOPED_CAPABILITIES[audience.kind];
+  if (!CAPABILITY_KEYS.every((k) => capabilities[k] === allowed[k])) fail("CAPABILITY");
   const budgetKeys = audience.kind === "azienda" ? [audience.unit] : units.filter((u) => u !== "aggregato");
   return { schema: c.schema, kind: c.kind, monthlyMode: c.monthlyMode, aggregateKey: c.aggregateKey, orgs: options(c.orgs, units, "audience.orgs"), defaultOrg: c.defaultOrg,
-    budgetOrgs: options(c.budgetOrgs, budgetKeys, "audience.budgetOrgs"), capabilities: Object.fromEntries(CAPABILITY_KEYS.map((k) => [k, false])),
+    budgetOrgs: options(c.budgetOrgs, budgetKeys, "audience.budgetOrgs"), capabilities: Object.fromEntries(CAPABILITY_KEYS.map((k) => [k, allowed[k]])),
     scopeLine: line(c.scopeLine, "audience.scopeLine"), exportLabel: line(c.exportLabel, "audience.exportLabel") } as T;
 }

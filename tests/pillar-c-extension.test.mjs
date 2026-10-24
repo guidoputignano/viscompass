@@ -11,7 +11,8 @@ import {fakeSessionClient} from './fixtures/pillar-c-scoped.mjs';
 import {extUnit,extReviewer,extFixture,extBridges,EXT_UNITS} from './fixtures/pillar-c-extension.mjs';
 
 registerPillarCStubs({...IDENTITY_STUBS,
-  'lib/dashboard-review/pillar-c/extension-storage.ts':`export const C_EXTENSION_STORAGE=new Proxy({},{get:(_,k)=>globalThis.__pcs.ext[k]});export const C_EXTENSION_MAX_BYTES=200000;`,
+  'lib/dashboard-review/pillar-c/extension-storage.ts':`export const C_EXTENSION_STORAGE=new Proxy({},{get:(_,k)=>globalThis.__pcs.ext[k]});export const C_EXTENSION_MAX_BYTES=1000000;`,
+  'lib/dashboard-review/pillar-c/regional-storage.ts':`export const C_REGIONAL_STORAGE=new Proxy({},{get:(_,k)=>globalThis.__pcs.regional[k]});export const C_REGIONAL_MAX_BYTES=1000000;`,
 },{tsx:true});
 // next/link is a CommonJS entry without an exports map: resolve it by its file name (the dossier's Pillar B link).
 register('data:text/javascript,'+encodeURIComponent(`export async function resolve(s,c,n){return n(s==='next/link'?'next/link.js':s,c);}`),import.meta.url);
@@ -135,10 +136,11 @@ test('scoped loader: only the audience units, under the session, labelled by the
   // Storage refuses the own unit (RLS): the whole extension is unavailable, never partial.
   const refused=fakeSessionClient(fx,{visible:['aggregato']});
   assert.equal((await loadCExtensionScoped(AZIENDA,refused.client,labels)).state,'unavailable');
-  // A Regione reads its five units.
-  const all=fakeSessionClient(fx,{visible:ALL});
+  // A Regione (regional analytical parity) reads one object: the reviewer's own, from the regional folder.
+  globalThis.__pcs.regional=fx.regional;
+  const all=fakeSessionClient(fx,{visible:[...ALL,'regione']});
   const g=await loadCExtensionScoped(REGIONE,all.client,u=>u==='aggregato'?'Aggregato regionale':`ASL ${u.slice(4)}`);
-  assert.equal(g.state,'ready');assert.equal(all.calls.downloads.length,5);
+  assert.equal(g.state,'ready');assert.deepEqual(all.calls.downloads.map(d=>d.path),[`v9/regione/${fx.regional.extension.name}`]);
   // A label the audience does not give is a mismatch.
   assert.equal((await loadCExtensionScoped(AZIENDA,fakeSessionClient(fx,{visible:AZ}).client,()=>null)).state,'unavailable');
 });
@@ -170,7 +172,13 @@ test('the scoped workspace shows the extension only for exactly its units, in or
   assert.equal(cScopedExtensionFor(audienceOf(AZ),viewOf(AZ,true)),null);
   assert.equal(cScopedExtensionFor(audienceOf(AZ),{...viewOf(AZ),fileFBasket:extReviewer().fileFBasket}),null,'the File F quarterly index is reviewer-only');
   assert.equal(cScopedExtensionFor(audienceOf(AZ),{...viewOf(AZ),findings:extReviewer().findings}),null);
+  assert.equal(cScopedExtensionFor(audienceOf(AZ),{...viewOf(AZ),drivers:extReviewer().drivers}),null);
+  assert.equal(cScopedExtensionFor(audienceOf(AZ),{...viewOf(AZ),baskets:extReviewer().baskets}),null,'the basket indices alone');
   assert.equal(cScopedExtensionFor(audienceOf(AZ),null),null);
+  // The Regione's view must still be exactly its units, in its order.
+  const reg={...audienceOf(ALL),kind:'regione'};
+  assert.equal(cScopedExtensionFor(reg,viewOf(['asl-1','asl-2','asl-3','asl-4','aggregato'],true)),null);
+  assert.equal(cScopedExtensionFor(reg,viewOf(['aggregato','asl-1','asl-2','asl-3'],true)),null);
 });
 
 test('rendered blocks: units in the given order, File F only with asl-3, drivers only with the reviewer block, no colour-only value',()=>{
@@ -184,7 +192,7 @@ test('rendered blocks: units in the given order, File F only with asl-3, drivers
   const monthly=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:viewOf(AZ)}));
   assert.match(monthly,/Modalità 09/);assert.match(monthly,/l’ultimo mese è il più basso/);assert.match(monthly,/presenti in: Dic/);assert.match(monthly,/Nota sintetica sulla modalità 09\./);
   assert.equal(renderToStaticMarkup(React.createElement(PillarCResidentDrivers,{view:viewOf(AZ)})),'');
-  assert.match(renderToStaticMarkup(React.createElement(PillarCResidentDrivers,{view:viewOf(['aggregato','asl-1','asl-2','asl-3','asl-4'],true)})),/Solo revisori/);
+  assert.match(renderToStaticMarkup(React.createElement(PillarCResidentDrivers,{view:viewOf(['aggregato','asl-1','asl-2','asl-3','asl-4'],true)})),/Non mostrato alle singole Aziende/);
   const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
   assert.match(attr,/role="img" aria-label="Unità 3: Prodotti a un solo portafoglio candidato 50,0/);
   assert.match(attr,/99,8 %/);
@@ -313,13 +321,33 @@ test('ext-v2 parser: File F bridges join calendar-adjacent months of the series 
   assert.deepEqual(parseCExtensionUnit(gap,'asl-3',AZ).fileF.bridges.map(b=>b.from),['2025-01','2025-02','2025-03','2025-04','2025-07','2025-08','2025-09','2025-10','2025-11']);
 });
 
-test('ext-v2 loader: a Regione view never receives the ASLs’ per-pack lists; an Azienda keeps its own',async()=>{
-  const fx=extFixture();as({pins:{root:'v1',bucket:'pillar-c-scoped'},client:()=>null});globalThis.__pcs.ext=fx.pins;
-  const r=await loadCExtensionScoped(REGIONE,fakeSessionClient(fx,{visible:ALL}).client,u=>u==='aggregato'?'Aggregato regionale':`ASL ${u.slice(4)}`);
-  assert.equal(r.state,'ready');assert.deepEqual(r.view.units.map(u=>u.data.unitCosts),[null,null,null,null,null]);
-  assert.equal(JSON.stringify(r.view).includes('PRODOTTO SINTETICO'),false,'no product row anywhere in the Regione view');
-  const a=await loadCExtensionScoped(AZIENDA,fakeSessionClient(fx,{visible:AZ}).client,u=>({'asl-3':'Azienda sintetica Tre',aggregato:'Aggregato delle quattro Aziende'})[u]??null);
+test('regional parity: the Regione view is the reviewer view, read under its own session; an Azienda keeps only its own list',async()=>{
+  const fx=extFixture();as({pins:{root:'v1',bucket:'pillar-c-scoped'},client:()=>null});globalThis.__pcs.ext=fx.pins;globalThis.__pcs.regional=fx.regional;
+  const regionLabels=u=>u==='aggregato'?'Aggregato regionale':`ASL ${u.slice(4)}`;
+  const s=fakeSessionClient(fx,{visible:[...ALL,'regione']});
+  const r=await loadCExtensionScoped(REGIONE,s.client,regionLabels);
+  const rv=await loadCExtensionReviewer(true,true,async()=>({state:'ready',bytes:new Uint8Array(fx.reviewerBytes)}));
+  assert.equal(r.state,'ready');assert.equal(rv.state,'ready');
+  // Exact parity: every unit's data and every region-wide block equal the reviewer's; only the labels are the audience's.
+  assert.deepEqual(r.view.units.map(u=>u.key),rv.view.units.map(u=>u.key));
+  assert.deepEqual(r.view.units.map(u=>u.data),rv.view.units.map(u=>u.data));
+  for(const k of ['drivers','baskets','fileFBasket','findings'])assert.deepEqual(r.view[k],rv.view[k],k);
+  assert.deepEqual(r.view.units.map(u=>u.label),['Aggregato regionale','ASL 1','ASL 2','ASL 3','ASL 4']);
+  assert.deepEqual(r.view.units.map(u=>u.data.unitCosts?.products.length??null),[null,3,3,3,3],'the four ASLs\u2019 lists, none on the aggregate');
+  assert.equal(s.calls.downloads.every(d=>d.bucket==='pillar-c-scoped'&&d.params.cache==='no-store'),true);
+  // Storage refuses the regional folder (migration not applied, or not an enabled Regione member): unavailable, never partial.
+  assert.equal((await loadCExtensionScoped(REGIONE,fakeSessionClient(fx,{visible:ALL}).client,regionLabels)).state,'unavailable');
+  // Other bytes under the pinned name: unavailable.
+  const tampered=extFixture();const body=Buffer.from(tampered.reviewerBytes);body[20]^=1;tampered.files.set(`v9/regione/${fx.regional.extension.name}`,body);
+  assert.equal((await loadCExtensionScoped(REGIONE,fakeSessionClient(tampered,{visible:[...ALL,'regione']}).client,regionLabels)).state,'unavailable');
+  // A label the Regione does not give is a mismatch.
+  assert.equal((await loadCExtensionScoped(REGIONE,fakeSessionClient(fx,{visible:[...ALL,'regione']}).client,u=>u==='asl-2'?null:regionLabels(u))).state,'unavailable');
+  // The Azienda never requests the regional folder, keeps its own list and receives no region-wide block.
+  const az=fakeSessionClient(fx,{visible:[...AZ,'regione']});
+  const a=await loadCExtensionScoped(AZIENDA,az.client,u=>({'asl-3':'Azienda sintetica Tre',aggregato:'Aggregato delle quattro Aziende'})[u]??null);
   assert.equal(a.state,'ready');assert.equal(a.view.units[0].data.unitCosts.products.length,3);assert.equal(a.view.units[1].data.unitCosts,null);
+  assert.deepEqual([a.view.drivers,a.view.baskets,a.view.fileFBasket,a.view.findings],[null,null,null,null]);
+  assert.equal(az.calls.downloads.some(d=>d.path.split('/')[1]==='regione'),false);
 });
 
 test('ext-v2 panels: Lorenz deciles per ASL, fee quartiles, File F tiles and pooled age, shared-recipient narrowing',()=>{
@@ -398,10 +426,15 @@ test('review L5 and L6: per-pack lists only for the own Azienda unit; one produc
   assert.ok(cScopedExtensionFor(az,viewOf(['asl-3','aggregato'])),'own list kept');
   const leaked=viewOf(['asl-3','aggregato']);leaked.units[1].data={...leaked.units[1].data,unitCosts:extUnit('asl-1').unitCosts};
   assert.equal(cScopedExtensionFor(az,leaked),null);
+  // Regional analytical parity: the Regione receives each ASL's list and the region-wide blocks, never a list on the aggregate.
   const reg={...audienceOf(ALL),kind:'regione'};
-  assert.equal(cScopedExtensionFor(reg,viewOf(ALL)),null,'a Regione view with lists is refused');
+  assert.ok(cScopedExtensionFor(reg,viewOf(ALL)),'the four ASLs\u2019 lists');
+  assert.ok(cScopedExtensionFor(reg,viewOf(ALL,true)),'with the region-wide blocks');
+  const onAggregate=viewOf(ALL);onAggregate.units[0].data={...onAggregate.units[0].data,unitCosts:extUnit('asl-1').unitCosts};
+  assert.equal(cScopedExtensionFor(reg,onAggregate),null,'a list on the aggregate is refused');
   const stripped=viewOf(ALL);stripped.units.forEach(u=>{u.data={...u.data,unitCosts:null};});
   assert.ok(cScopedExtensionFor(reg,stripped));
+  assert.equal(cScopedExtensionFor({...reg,kind:'reviewer'},viewOf(ALL)),null,'never the reviewer audience');
 });
 
 test('review test gap: every pinned extension object fits under the read cap',()=>{

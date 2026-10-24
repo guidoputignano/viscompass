@@ -465,7 +465,7 @@ test('12. the organisation-scoped page mounts the dossier and the attribution in
   assert.equal(count(under(regione,el(PillarCPortfolioDossier),'c_port_org=TE'),C_AUDIENCE_COPY.tampered),1);
   assert.equal(count(under(regione,el(PillarCAttributionAnalysis),'c_attr_org=TE'),C_AUDIENCE_COPY.tampered),0);
   const scopedWs=read('components/dashboard-review/pillar-c/scoped-workspace.tsx');
-  assert.equal(count(scopedWs,'<PillarCPortfolioDossier />'),1);
+  assert.equal(count(scopedWs,'<PillarCPortfolioDossier pvmSection={pvmSection} />'),1);
   assert.equal(count(scopedWs,'<PillarCAttributionAnalysis />'),1);
   for(const f of ['scoped-workspace.tsx','regional-forecast-workspace.tsx','analytical-workspace.tsx','portfolio-dossier.tsx','attribution-analysis.tsx'])assert.equal(count(read(`components/dashboard-review/pillar-c/${f}`),'pageScope'),0,f);
 });
@@ -616,8 +616,13 @@ test('16. no positive tabindex; every new link and the workspace’s own selects
   assert.doesNotMatch(source,/\btransition\b|transition-/);
   assert.equal(count(source,'const { selectClass } = C_REVIEW_UI;'),1);
   // M14: every summary of the workspace is a 44 px target; the summary strings stay verbatim (REVIEWER_ONLY matches them).
-  const summaries=[...source.matchAll(/<summary className="([^"]*)">([^<]*)<\/summary>/g)];
-  assert.equal(count(source,'<summary'),2);
+  // The two provenance panels moved to provenance-panels.tsx (shared with the Regione, 24 Oct 2026): the workspace has
+  // no summary of its own and mounts the shared panels once.
+  assert.equal(count(source,'<summary'),0);
+  assert.equal(count(source,'<PillarCProvenance '),1);
+  const provenance=read('components/dashboard-review/pillar-c/provenance-panels.tsx');
+  const summaries=[...provenance.matchAll(/<summary className="([^"]*)">([^<]*)<\/summary>/g)];
+  assert.equal(count(provenance,'<summary'),2);
   assert.deepEqual(summaries.map(m=>m[2]),['Fonti e significato delle analisi','Versione e tracciabilità']);
   for(const [,cls] of summaries)assert.match(cls,/(^|\s)(py-3|min-h-11)(\s|$)/);
   assert.deepEqual(summaries.map(m=>m[1]),['cursor-pointer py-3 text-sm font-medium','cursor-pointer py-3 text-sm font-medium']);

@@ -262,8 +262,9 @@ function FileFBridges({ f, label }: { f: NonNullable<CExtUnitPacket["fileF"]>; l
 }
 
 /** Section 4 addition (owner decision D2, 23 Oct 2026): an Azienda's own acquisition and service component per recorded
- * pack, January 2026 DPC, on the products present in all four ASLs. One unit at a time and no other ASL's value: gaps
- * between Aziende stay with the reviewers (O1). The Regione view receives no list (the server removes it). */
+ * pack, January 2026 DPC, on the products present in all four ASLs. One unit at a time and no other ASL's value beside
+ * it. An Azienda receives only its own list (O1); the reviewer and, under regional analytical parity, the Regione receive
+ * each ASL's and choose one with the selector. */
 export function PillarCUnitCosts({ view }: { view: CExtensionView }) {
   const holders = view.units.filter((u) => u.data.unitCosts);
   const [selected, setSelected] = useState<string>("");

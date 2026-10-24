@@ -86,8 +86,8 @@ const channels = ["CO", "DD", "DPC"] as const;
 // dropped, the R5 pins are optional). Both serialize only these keys, so
 // nothing can hitchhike into the RSC payload.
 const TOP_LEVEL_KEYS = ["schema", "state", "workbookSha256", "workbookVersion", "generatedAt", "evidence", "lineage", "monthly", "baseline", "bridges", "budgets", "counts"] as const;
-const EVIDENCE_REQUIRED = ["financial", "budgetCount"] as const;
-const EVIDENCE_OPTIONAL = ["financialR5Review", "budgetCountR5Review", "forecast", "forecastInputs", "forecastWorkbookIntegration"] as const;
+export const EVIDENCE_REQUIRED = ["financial", "budgetCount"] as const;
+export const EVIDENCE_OPTIONAL = ["financialR5Review", "budgetCountR5Review", "forecast", "forecastInputs", "forecastWorkbookIntegration"] as const;
 const LINEAGE_REQUIRED = ["section", "numericState", "acceptance", "verification", "outputIds", "workbookRanges", "checkedFields", "sourceHashes", "methodHashes", "receiptSha256", "claim"] as const;
 const LINEAGE_OPTIONAL = ["crossSystemReceiptSha256", "workbookSha256"] as const;
 const ROW_KEYS = {

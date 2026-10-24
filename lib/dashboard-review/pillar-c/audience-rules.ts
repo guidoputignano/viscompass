@@ -16,6 +16,7 @@ import type { Organization } from "@/lib/dashboard-review/types";
 import { C_ORGS } from "@/lib/dashboard-review/pillar-c/review";
 import { C_ORG_LABELS } from "@/lib/dashboard-review/pillar-c/reviewer-labels";
 import { C_PLANNING_LABELS } from "@/lib/dashboard-review/pillar-c/planning";
+import { C_SCOPED_CAPABILITIES } from "@/lib/dashboard-review/pillar-c/scoped-capabilities";
 import {
   C_SCOPED_AGGREGATE, C_SCOPED_ASL_UNITS, C_SCOPED_REGION_CODE, C_SCOPED_REGIONE_CODE, C_SCOPED_UNITS, C_SCOPED_UNIT_OF_CODE,
   isCScopedAslCode, isCScopedUnit, type CScopedAslCode, type CScopedAslUnit, type CScopedUnit,
@@ -161,7 +162,6 @@ export type CClientAudience = {
 };
 
 const ALL = { workbook: true, insights: true, evidence: true, pvm: true, lineage: true, syntheticBudgets: true } as const;
-const NONE = { workbook: false, insights: false, evidence: false, pvm: false, lineage: false, syntheticBudgets: false } as const;
 
 /** The reviewer audience: today's constants, unchanged. */
 export const C_REVIEWER_CLIENT_AUDIENCE: CClientAudience = {
@@ -180,7 +180,7 @@ export function toClientAudience(audience: { kind: "reviewer" } | PillarCScopedA
     return {
       schema: "pillar-c-client-audience-v1", kind: "azienda", monthlyMode: "explicit", aggregateKey: C_SCOPED_AGGREGATE,
       orgs: [own, { key: C_SCOPED_AGGREGATE, label: C_SCOPED_AGGREGATE_LABEL_AZIENDA }], defaultOrg: audience.unit,
-      budgetOrgs: [{ ...own }], capabilities: { ...NONE },
+      budgetOrgs: [{ ...own }], capabilities: { ...C_SCOPED_CAPABILITIES.azienda },
       scopeLine: `${audience.orgName} e aggregato delle quattro Aziende · analisi in revisione`,
       exportLabel: cScopedExportLabelAzienda(audience.orgName),
     };
@@ -189,7 +189,7 @@ export function toClientAudience(audience: { kind: "reviewer" } | PillarCScopedA
     schema: "pillar-c-client-audience-v1", kind: "regione", monthlyMode: "explicit", aggregateKey: C_SCOPED_AGGREGATE,
     orgs: [{ key: C_SCOPED_AGGREGATE, label: C_SCOPED_AGGREGATE_LABEL_REGIONE }, ...C_SCOPED_ASL_UNITS.map((key) => ({ key, label: aslLabel(key) }))],
     defaultOrg: C_SCOPED_AGGREGATE,
-    budgetOrgs: C_SCOPED_ASL_UNITS.map((key) => ({ key, label: aslLabel(key) })), capabilities: { ...NONE },
+    budgetOrgs: C_SCOPED_ASL_UNITS.map((key) => ({ key, label: aslLabel(key) })), capabilities: { ...C_SCOPED_CAPABILITIES.regione },
     scopeLine: "Aggregato regionale e ASL 1–4 · analisi in revisione", exportLabel: C_SCOPED_EXPORT_LABEL_REGIONE,
   };
 }

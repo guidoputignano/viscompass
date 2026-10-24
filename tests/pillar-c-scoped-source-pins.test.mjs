@@ -35,11 +35,13 @@ test('the scoped transport reads only through the session client it is given, wi
   assert.match(transport,/^import type \{ createClient \} from "@\/lib\/supabase\/server";\r?$/m,'a type only: the transport cannot create a client');
   assert.doesNotMatch(transport,/fetch\(|Authorization|apikey/);
   for(const file of ['scoped-loader.ts','scoped-review.ts','payload-guard.ts','audience-rules.ts'])assert.doesNotMatch(read(`lib/dashboard-review/pillar-c/${file}`),/^import [^;]*"@\/lib\/supabase\//m,file);
-  const migration=read('supabase/migrations/20261020120000_pillar_c_scoped_storage.sql');
+  // The effective policy is the latest migration that recreates it (20261023200000 adds the folder «regione»).
+  const migration=read('supabase/migrations/20261023200000_pillar_c_scoped_regione_folder.sql');
   const policy=/ and name ~ '(\^v[^']+)'/.exec(migration)[1];
   const {source}=/C_SCOPED_POLICY_NAME = (\/.+\/);/.exec(transport).slice(1).map(s=>({source:s.slice(1,-1).replaceAll('\\/','/')}))[0];
   assert.equal(source,policy,'the transport refuses exactly what the policy refuses');
   assert.match(migration,/'pillar-c-scoped'/);
+  assert.equal(/ and name ~ '(\^v[^']+)'/.exec(read('supabase/migrations/20261020120000_pillar_c_scoped_storage.sql'))[1],policy.replace('|regione',''),'the successor only adds the regional folder');
 });
 
 test('no province key and no Azienda mapping in the scoped modules (the mapping lives only in the private builder)',()=>{

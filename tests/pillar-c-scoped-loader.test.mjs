@@ -79,7 +79,8 @@ test('the object path is built only from the pinned root, a unit and a pinned na
   as({pins:base.pins,client:()=>null});
   const sha='a'.repeat(64);
   assert.equal(cScopedObjectPath('asl-2',`review-${sha}.json`,sha),`v1/asl-2/review-${sha}.json`);
-  for(const [unit,name] of [['asl-5',`review-${sha}.json`],['Regione',`review-${sha}.json`],['asl-2',`review-${'b'.repeat(64)}.json`],['asl-2',`../asl-1/review-${sha}.json`],['asl-2',`sub/review-${sha}.json`],['asl-2',`review-${sha}.JSON`],['asl-2',`review--${sha}.json`],['asl-2',`review-${sha}.json?x=1`]])
+  // «regione» is a folder, never a unit: the unit path builder refuses it.
+  for(const [unit,name] of [['asl-5',`review-${sha}.json`],['Regione',`review-${sha}.json`],['regione',`review-${sha}.json`],['asl-2',`review-${'b'.repeat(64)}.json`],['asl-2',`../asl-1/review-${sha}.json`],['asl-2',`sub/review-${sha}.json`],['asl-2',`review-${sha}.JSON`],['asl-2',`review--${sha}.json`],['asl-2',`review-${sha}.json?x=1`]])
     assert.equal(cScopedObjectPath(unit,name,sha),null,`${unit} ${name}`);
   const {client,calls}=session(base,{visible:SCOPED_UNITS});
   assert.deepEqual(await readCScopedObject(client,'asl-2',`../asl-1/review-${sha}.json`,{sha256:sha,maxBytes:100}),{state:'invalid'});

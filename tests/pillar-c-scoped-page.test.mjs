@@ -9,8 +9,12 @@ import {IDENTITY_STUBS,registerPillarCStubs,as,ORGS,viewer} from './helpers/pill
 import {PAGE_STUBS,reviewerPageMatrix,reviewerPageCases} from './helpers/pillar-c-page-matrix.mjs';
 import {scopedFixture,fakeSessionClient,SCOPED_UNITS,SENTINEL} from './fixtures/pillar-c-scoped.mjs';
 import {cReviewV2Fixture} from './fixtures/pillar-c-review.mjs';
+import {regionalFixture,regionalReviewObject} from './fixtures/pillar-c-regional.mjs';
 
-registerPillarCStubs({...IDENTITY_STUBS,...PAGE_STUBS},{tsx:true});
+// The regional pins (regional analytical parity) come from each test: synthetic objects, never the private ones.
+registerPillarCStubs({...IDENTITY_STUBS,...PAGE_STUBS,
+  'lib/dashboard-review/pillar-c/regional-storage.ts':`export const C_REGIONAL_STORAGE=new Proxy({},{get:(_,k)=>globalThis.__pcs.regional[k]});export const C_REGIONAL_MAX_BYTES=1000000;`,
+},{tsx:true});
 const {renderToStaticMarkup}=createRequire(new URL('../package.json',import.meta.url))('react-dom/server');
 const {default:PillarCPage}=await import('../app/dashboard-review/pillar-c/page.tsx');
 const {parseCReviewPacket}=await import('../lib/dashboard-review/pillar-c/review.ts');
@@ -18,9 +22,10 @@ const {parseCReviewPacket}=await import('../lib/dashboard-review/pillar-c/review
 const fixture=scopedFixture();
 const FORECAST={state:'ready',data:{forecast:{fixture:'public regional forecast'}}};
 async function withProduction(fn){const before=process.env.VERCEL_ENV;process.env.VERCEL_ENV='production';try{return await fn();}finally{if(before===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=before;}}
+const regional=regionalFixture();
 function member(orgKey,{units,visible=units,forecast=FORECAST,rpcError=null}={}){
-  const session=fakeSessionClient(fixture,{units,visible,rpcError});
-  const state=Object.assign(as({org:ORGS[orgKey],viewer:viewer(false),client:()=>session.client,pins:fixture.pins}),{rendered:[],forecast,review:{state:'ready',packet:{reviewerOnly:true}},workbook:{state:'ready',index:{reviewerOnly:true}}});
+  const session=fakeSessionClient({...fixture,files:new Map([...fixture.files,...regional.files])},{units,visible,rpcError});
+  const state=Object.assign(as({org:ORGS[orgKey],viewer:viewer(false),client:()=>session.client,pins:fixture.pins}),{rendered:[],forecast,review:{state:'ready',packet:{reviewerOnly:true}},workbook:{state:'ready',index:{reviewerOnly:true}},regional:regional.pins});
   return {state,calls:session.calls};
 }
 const render=async()=>renderToStaticMarkup(await PillarCPage());
@@ -107,8 +112,10 @@ test('an enabled Azienda receives its own unit and the aggregate, its client aud
   await withProduction(render);
   assert.equal(state.rendered.length,1);
   const [name,props]=state.rendered[0];
-  assert.equal(name,'PillarCScopedWorkspace');assert.deepEqual(Object.keys(props),['audience','packet','forecast']);
+  assert.equal(name,'PillarCScopedWorkspace');assert.deepEqual(Object.keys(props),['audience','packet','forecast','pvmSection','provenance','regionalReviewUnavailable']);
   assert.equal(props.forecast,FORECAST.data.forecast);
+  assert.equal(props.pvmSection,null,'an Azienda never receives the price/quantity/mix output');
+  assert.equal(props.provenance,null,'nor the provenance panels');assert.equal(props.regionalReviewUnavailable,false,'nor a regional object to miss');
   assert.deepEqual(props.audience.orgs,[{key:'asl-3',label:'Azienda sintetica Tre'},{key:'aggregato',label:'Aggregato delle quattro Aziende'}]);
   assert.equal(props.audience.kind,'azienda');assert.equal(props.audience.exportLabel,'Riservato a Azienda sintetica Tre · dati della propria Azienda e aggregato delle quattro Aziende');
   assert.deepEqual(props.packet.orgs,['asl-3','aggregato']);assert.equal(props.packet.monthlyMode,'explicit');
@@ -116,17 +123,25 @@ test('an enabled Azienda receives its own unit and the aggregate, its client aud
   for(const unit of SCOPED_UNITS)assert.equal(json.includes(SENTINEL[unit]),['asl-3','aggregato'].includes(unit),unit);
   assert.doesNotMatch(json,/"(asl-1|asl-2|asl-4|Regione|AQ|CH|PE|TE)"|"lineage":\[|"evidence":\{|workbookSha256|"synthetic"/);
   assert.deepEqual(state.reads,[['forecast',true]],'never the reviewer packet or workbook');assert.equal(state.serviceRole,0);
-  assert.ok(calls.downloads.every(d=>/^v1\/(asl-3|aggregato)\//.test(d.path)&&d.params.cache==='no-store'));
+  assert.ok(calls.downloads.every(d=>/^v1\/(asl-3|aggregato)\//.test(d.path)&&d.params.cache==='no-store'),'never the regional folder');
   // Extension: the audience's own units, labelled by its client audience, under the same session; never the reviewer read.
   assert.deepEqual(state.extReads,[['extension-scoped',['asl-3','aggregato'],['Azienda sintetica Tre','Aggregato delle quattro Aziende']]]);
   assert.deepEqual(state.extensions,[null]);assert.deepEqual(state.extensionUnavailable,[true],'unreadable, so «not available»');
 });
 
 test('an enabled Regione receives the aggregate and ASL 1–4 under opaque keys, with no province key anywhere',async()=>{
-  const {state}=member('regione',{units:SCOPED_UNITS});
-  await withProduction(render);
+  const {state,calls}=member('regione',{units:SCOPED_UNITS});
+  await quiet(()=>withProduction(render));
   const [name,props]=state.rendered[0];
   assert.equal(name,'PillarCScopedWorkspace');
+  // Regional analytical parity: two more reads under the same session, the price/quantity/mix object and the review
+  // object (modelled budgets, provenance) of the regional folder; here the folder is not readable (as before the
+  // migration), so the panels receive nothing, the page says so, and the packet keeps only the published acts.
+  assert.deepEqual(calls.downloads.filter(d=>d.path.split('/')[1]==='regione').map(d=>[d.bucket,d.path.replace(/[0-9a-f]{64}/,'<sha>'),d.params.cache]).sort(),
+    [['pillar-c-scoped','v9/regione/pvm-<sha>.json','no-store'],['pillar-c-scoped','v9/regione/revisione-<sha>.json','no-store']]);
+  assert.equal(props.pvmSection,null);assert.equal(props.provenance,null);assert.equal(props.regionalReviewUnavailable,true);
+  assert.equal(props.audience.capabilities.lineage,true);assert.equal(props.audience.capabilities.syntheticBudgets,true);
+  assert.equal(props.audience.capabilities.pvm,true);assert.equal(props.audience.capabilities.evidence,false);
   assert.deepEqual(props.packet.orgs,['aggregato','asl-1','asl-2','asl-3','asl-4']);
   assert.deepEqual(props.audience.orgs.map(o=>o.label),['Aggregato regionale','ASL 1','ASL 2','ASL 3','ASL 4']);
   assert.ok(props.packet.budgets.length>0&&props.packet.budgets.every(b=>b.basis==='published'));
@@ -141,4 +156,25 @@ test('an entitled unit that cannot be read shows the honest unavailable line and
   assert.match(html,/Le analisi di Pillar C per la tua organizzazione non sono disponibili in questo momento\. Nessun valore viene sostituito\./);
   assert.deepEqual(state.rendered,[['PillarCRegionalForecastWorkspace',{forecast:FORECAST.data.forecast}]]);
   assert.deepEqual(state.reads,[['forecast',true]]);
+});
+
+test('an enabled Regione whose regional objects are readable receives the price/quantity/mix output, the provenance and the modelled rows',async()=>{
+  const {state,calls}=member('regione',{units:SCOPED_UNITS,visible:[...SCOPED_UNITS,'regione']});
+  await withProduction(render);
+  const [name,props]=state.rendered[0];
+  assert.equal(name,'PillarCScopedWorkspace');
+  assert.equal(props.pvmSection.outputs[0].id,'ML-4-PORT-REAL');assert.equal(props.pvmSection.section,'costi');
+  assert.deepEqual(props.provenance,{workbookVersion:'R5',workbookSha256:regionalReviewObject().workbookSha256,evidence:regionalReviewObject().evidence,sections:['spend','change','budget','counts','forecast']});
+  assert.equal(props.regionalReviewUnavailable,false);
+  // The modelled rows join the published acts of the unit files, unchanged; nothing else in the packet moves.
+  const modelled=props.packet.budgets.filter(b=>b.basis==='synthetic'),published=props.packet.budgets.filter(b=>b.basis==='published');
+  assert.deepEqual(modelled,regionalReviewObject().budgets);assert.ok(published.length>0&&published.every(b=>b.org==='asl-4'));
+  assert.deepEqual(props.packet.orgs,['aggregato','asl-1','asl-2','asl-3','asl-4']);
+  assert.ok(calls.downloads.every(d=>d.params.cache==='no-store'));assert.equal(state.serviceRole,0);
+  // An Azienda that could read the folder (it cannot: the policy refuses it) is never even sent there.
+  const az=member('asl-3',{units:['aggregato','asl-3'],visible:['aggregato','asl-3','regione']});
+  await withProduction(render);
+  assert.equal(az.calls.downloads.some(d=>d.path.split('/')[1]==='regione'),false);
+  const [,ap]=az.state.rendered[0];assert.equal(ap.pvmSection,null);assert.equal(ap.provenance,null);
+  assert.ok(ap.packet.budgets.every(b=>b.basis==='published'));
 });

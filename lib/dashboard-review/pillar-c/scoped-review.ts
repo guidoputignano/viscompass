@@ -7,20 +7,29 @@
 import type { CAttrView } from "@/lib/dashboard-review/pillar-c/attribution-loader";
 import type { CAttrPortfolio, CAttrScope } from "@/lib/dashboard-review/pillar-c/attribution";
 import type { CPortfolioDossier, CPortfolioScopeSummary, CPortfolioView } from "@/lib/dashboard-review/pillar-c/portfolio";
-import type { CBaseline, CBridge, CBudget, CCount, CMonthly, CReviewFilters } from "@/lib/dashboard-review/pillar-c/review";
+import { C_REVIEW_SECTIONS, EVIDENCE_OPTIONAL, EVIDENCE_REQUIRED, type CBaseline, type CBridge, type CBudget, type CCount, type CEvidence, type CMonthly, type CReviewFilters, type CSection } from "@/lib/dashboard-review/pillar-c/review";
 import { C_SCOPED_AGGREGATE, C_SCOPED_ASL_UNITS, isCScopedUnit, type CScopedAslUnit, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 
 export type CScopedMonthly = Omit<CMonthly, "org"> & { org: CScopedUnit };
 export type CScopedBaseline = Omit<CBaseline, "org"> & { org: CScopedUnit };
 export type CScopedBridge = Omit<CBridge, "org"> & { org: CScopedUnit };
-/** Published acts only (owner decision O4): modelled budgets never reach a scoped audience. */
+/** Published acts only in the unit files (owner decision O4): an Azienda never receives a modelled budget. */
 export type CScopedBudget = Omit<CBudget, "org" | "basis"> & { org: CScopedAslUnit; basis: "published" };
+/** A modelled budget row of the Regione's regional object (owner decision of 24 Oct 2026: O4 lifted for the Regione). */
+export type CScopedModelledBudget = Omit<CBudget, "org" | "basis"> & { org: CScopedAslUnit; basis: "synthetic" };
 export type CScopedCount = Omit<CCount, "org"> & { org: CScopedUnit };
 export type CScopedReviewRows = { monthly: CScopedMonthly[]; baseline: CScopedBaseline[]; bridges: CScopedBridge[]; budgets: CScopedBudget[]; counts: CScopedCount[] };
 export type CScopedReviewFile = { schema: "pillar-c-review-scoped-v1"; state: "review_only"; unit: CScopedUnit; monthlyBasis: "source_rows" | "derived_exact_sum_of_asl_units" } & CScopedReviewRows;
 /** What a scoped page receives. `monthlyMode: "explicit"`: every series is read from the rows carrying exactly the
  * selected key; the aggregate has its own rows and nothing is summed across organisations in the browser. */
-export type CScopedClientReview = { schema: "pillar-c-review-client-v1"; state: "review_only"; monthlyMode: "explicit"; orgs: CScopedUnit[] } & CScopedReviewRows;
+export type CScopedClientReview = { schema: "pillar-c-review-client-v1"; state: "review_only"; monthlyMode: "explicit"; orgs: CScopedUnit[] } & Omit<CScopedReviewRows, "budgets"> & {
+  /** Published acts of the unit files; for the Regione also the modelled rows of its regional object. */
+  budgets: (CScopedBudget | CScopedModelledBudget)[];
+};
+/** What the reviewer's «Fonti e significato delle analisi» and «Versione e tracciabilità» panels render. */
+export type CScopedProvenance = { workbookVersion: string; workbookSha256: string; evidence: CEvidence; sections: CSection[] };
+/** The Regione's regional review object (pillar-c-regional-review-v1): modelled budgets and provenance. */
+export type CScopedRegionalReview = { provenance: CScopedProvenance; budgets: CScopedModelledBudget[] };
 export type CScopedReviewFilters = Omit<CReviewFilters, "org"> & { org: CScopedUnit };
 
 export type CScopedRef = { name: string; sha256: string; bytes: number };
@@ -233,4 +242,38 @@ export function mergeCScopedReview(units: readonly CScopedUnit[], files: readonl
   const all = <K extends keyof CScopedReviewRows>(key: K) => files.flatMap((f) => f[key] as unknown[]) as CScopedReviewRows[K];
   return structuredClone({ schema: "pillar-c-review-client-v1", state: "review_only", monthlyMode: "explicit", orgs: [...units],
     monthly: all("monthly"), baseline: all("baseline"), bridges: all("bridges"), budgets: all("budgets"), counts: all("counts") } as CScopedClientReview);
+}
+
+const REGIONAL_REVIEW_KEYS = ["schema", "workbookVersion", "workbookSha256", "evidence", "sections", "budgets"] as const;
+/** The Regione's regional review object, closed (regional analytical parity; owner decision of 24 Oct 2026 lifting O4
+ * and the lineage restriction for the Regione). The modelled rows are the reviewer's, re-keyed to their unit, with ids
+ * <unit>-m-NNNN; the provenance is what the reviewer's two provenance panels render. `workbookSha256` is the pinned
+ * workbook the reviewer packet names. */
+export function parseCRegionalReview(raw: unknown, workbookSha256: string): CScopedRegionalReview {
+  const p = object(raw); exact(p, REGIONAL_REVIEW_KEYS);
+  need(p.schema === "pillar-c-regional-review-v1" && HASH.test(workbookSha256) && p.workbookSha256 === workbookSha256, "REGIONAL_SCHEMA");
+  need(typeof p.workbookVersion === "string" && /^[A-Za-z0-9. -]{1,50}$/.test(p.workbookVersion), "REGIONAL_VERSION");
+  const evidence = object(p.evidence);
+  need(Object.keys(evidence).every((k) => (EVIDENCE_REQUIRED as readonly string[]).includes(k) || (EVIDENCE_OPTIONAL as readonly string[]).includes(k)), "REGIONAL_EVIDENCE");
+  for (const k of EVIDENCE_REQUIRED) hash(evidence[k]);
+  for (const k of Object.keys(evidence)) hash(evidence[k]);
+  need(Array.isArray(p.sections) && p.sections.length > 0 && p.sections.length <= Object.keys(C_REVIEW_SECTIONS).length
+    && p.sections.every((s) => Object.prototype.hasOwnProperty.call(C_REVIEW_SECTIONS, s as string)) && new Set(p.sections).size === p.sections.length, "REGIONAL_SECTIONS");
+  const budgets = rows(p.budgets, LIMITS.budgets * 2);
+  need(budgets.length > 0, "REGIONAL_BUDGETS");
+  for (const r of budgets) {
+    exact(r, C_SCOPED_ROW_KEYS.budgets);
+    oneOf(r.org, C_SCOPED_ASL_UNITS);
+    identifier(r.id); need(typeof r.id === "string" && new RegExp(`^${r.org}-m-\\d{4}$`).test(r.id), "BUDGET_ID");
+    oneOf(r.period, ["FY2024", "FY2025", "JM2026"]); oneOf(r.channel, LOCAL_CHANNELS); oneOf(r.level, ["Disciplina", "Dipartimento"]);
+    need(typeof r.area === "string" && /^\d{2,4}$/.test(r.area), "NON_AREA");
+    need(r.basis === "synthetic", "PUBLISHED_IN_MODELLED");
+    money(r.budget); money(r.actual, true); money(r.alternative, true);
+    need((r.actual === null) === (r.alternative === null), "ALLOCATION_PAIR");
+  }
+  unique(budgets, ["id"]); unique(budgets, ["period", "org", "channel", "level", "area"]);
+  return {
+    provenance: { workbookVersion: p.workbookVersion as string, workbookSha256, evidence: Object.fromEntries(Object.keys(evidence).map((k) => [k, evidence[k]])) as CEvidence, sections: [...p.sections] as CSection[] },
+    budgets: pick(budgets, C_SCOPED_ROW_KEYS.budgets) as CScopedModelledBudget[],
+  };
 }

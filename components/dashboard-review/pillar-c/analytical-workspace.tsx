@@ -16,6 +16,7 @@ import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCUnitCosts, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
 import { PillarCFileFBasket, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
+import { PillarCProvenance } from "@/components/dashboard-review/pillar-c/provenance-panels";
 import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { PillarCAudienceProvider, usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 import { cBudgetFilters, cBudgetSearch, cDecisionAnswer, cInsightResetSearch } from "@/lib/dashboard-review/pillar-c/insights";
@@ -25,7 +26,7 @@ import { C_AUDIENCE_COPY, cAudienceLabel, cAudienceScope } from "@/lib/dashboard
 import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-decision";
 import { PILLAR_C_SECTIONS, type PillarCSection } from "@/lib/dashboard-review/pillar-c/section-navigation";
 import { itNumber } from "@/lib/format/it-number";
-import { C_FORECAST_LABEL, C_PERIOD_LABELS, C_PERIODS, C_REVIEW_SECTIONS, cMoneyLabel, cReviewFilters, cReviewSearch, selectCReview, type COrg, type CPeriod, type CReviewFilters, type CReviewPacket } from "@/lib/dashboard-review/pillar-c/review";
+import { C_FORECAST_LABEL, C_PERIOD_LABELS, C_PERIODS, cMoneyLabel, cReviewFilters, cReviewSearch, selectCReview, type COrg, type CPeriod, type CReviewFilters, type CReviewPacket } from "@/lib/dashboard-review/pillar-c/review";
 import { C_ORG_LABELS } from "@/lib/dashboard-review/pillar-c/reviewer-labels";
 import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendCoverage, SpendKpis, cSpendCell } from "@/components/dashboard-review/pillar-c/review-blocks";
 
@@ -74,10 +75,6 @@ export function cReviewerScopeSearch(search: string, patch: { org?: string; chan
   if (channel === "Tutti") params.delete("c_port_channel"); else params.set("c_port_channel", channel);
   params.delete("c_attr_org"); params.delete("c_attr_channel");
   return params.size ? `?${params}` : "";
-}
-
-function OutputLineage({ packet }: { packet: CReviewPacket }) {
-  return <details className="mt-5 rounded-xl border border-border p-4"><summary className="cursor-pointer py-3 text-sm font-medium">Fonti e significato delle analisi</summary><div className="mt-4 grid gap-5 md:grid-cols-2">{packet.lineage.map(row => <div key={row.section}><h4 className="text-sm font-semibold">{C_REVIEW_SECTIONS[row.section].label}</h4><p className="mt-2 text-xs leading-5 text-muted-foreground">{row.section === "budget" ? "Budget pubblicati o modellati, affiancati alla spesa allocata per area. Perimetri non coincidenti: nessun giudizio di sovra o sottospesa." : row.section === "counts" ? "Scenari CO con numerosità stimata. Non sono conteggi osservati di persone trattate." : row.section === "forecast" ? "Serie regionali storiche pubbliche AIFA e previsione con intervalli. Non è un budget aziendale." : "Importi e contributi contabili del rilascio autorizzato, con periodi omogenei e rettifiche conservate."}</p></div>)}</div></details>;
 }
 
 /** The reviewer workspace. The audience is mandatory and must be the reviewer's: the reviewer packet (all four
@@ -201,7 +198,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
     <PillarCSectionFrame {...frameOf(PRIORITA)}>
       <div className="flex flex-wrap gap-x-4 gap-y-1">{workbook ? <a href="#attribuzione" className={crossLink}>Quali prodotti approfondire per primi? →</a> : null}<a href="#piano-revisione" className={crossLink}>Piano di revisione del portafoglio →</a></div>
       {workbook && <PillarCEvidenceWorkflow />}
-      <PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}><OutputLineage packet={packet} /><details className="mt-6 rounded-xl border border-border p-4"><summary className="cursor-pointer py-3 text-sm font-medium">Versione e tracciabilità</summary><dl className="mt-4 space-y-3 text-xs"><div><dt className="font-semibold">Workbook</dt><dd className="mt-1 break-all">{packet.workbookVersion} · {packet.workbookSha256}</dd></div><div><dt className="font-semibold">Ricevute numeriche</dt><dd className="mt-1 break-all">Spesa: {packet.evidence.financial}<br />Budget e numerosità: {packet.evidence.budgetCount}{packet.evidence.financialR5Review && <><br />{`Spesa, controllo incrociato: ${packet.evidence.financialR5Review}`}</>}{packet.evidence.budgetCountR5Review && <><br />{`Budget e numerosità, controllo incrociato: ${packet.evidence.budgetCountR5Review}`}</>}{packet.evidence.forecast && <><br />{`Previsione: ${packet.evidence.forecast}`}</>}{packet.evidence.forecastInputs && <><br />{`Previsione, input: ${packet.evidence.forecastInputs}`}</>}{packet.evidence.forecastWorkbookIntegration && <><br />{`Previsione, integrazione nel workbook: ${packet.evidence.forecastWorkbookIntegration}`}</>}</dd></div><div><dt className="font-semibold">Ambito dei controlli</dt><dd className="mt-1">Controlli numerici dei campi indicati. L’accettazione indipendente e di dominio resta distinta dal controllo dell’interfaccia.</dd></div></dl></details></PillarCEvidenceSources>
+      <PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}><PillarCProvenance sections={packet.lineage.map((row) => row.section)} workbookVersion={packet.workbookVersion} workbookSha256={packet.workbookSha256} evidence={packet.evidence} /></PillarCEvidenceSources>
     </PillarCSectionFrame>
   </div>;
 }

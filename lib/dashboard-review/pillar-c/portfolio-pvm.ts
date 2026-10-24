@@ -1,7 +1,7 @@
 /** Frozen real-unit estimates for the admitted continuing subset of a portfolio. */
 import { cAttrAtoms, cAttrDecimal } from "./attribution.ts";
 import type { CPortfolioView } from "./portfolio.ts";
-import { C_WORKBOOK_HASH, type CWorkbookCell, type CWorkbookSection } from "./workbook.ts";
+import { C_WORKBOOK_HASH, parseCWorkbookSection, type CWorkbookCell, type CWorkbookIndex, type CWorkbookOutput, type CWorkbookSection } from "./workbook.ts";
 
 const SOURCE = "ff084e85af09c38df52445019af479397ea8313df79c736c4098c60f7edb8eac";
 const CLASSIFICATION = "e2b3c5900036eec54fc01134d32d0f19bd9341db790916ced99b5152f9ad50aa";
@@ -40,9 +40,10 @@ function roundedCent(value: bigint) {
   return ((magnitude + cent / BigInt(2)) / cent) * cent * sign;
 }
 
-/** A view adapter only: never decomposes the dossier's product bridge or imputes units. */
-export function cPortfolioPvm(section: CWorkbookSection, view: CPortfolioView): CPortfolioPvm {
-  if (view.scope.org !== "Regione" || view.scope.channel !== "Tutti" || !["FY2024", "FY2025"].includes(view.scope.period)) return { status: "unsupported", reason: "scope" };
+/** A view adapter only: never decomposes the dossier's product bridge or imputes units. The workbook output covers the
+ * aggregate of the four Aziende: the reviewer names it «Regione», a scoped Regione view «aggregato» (`aggregateKey`). */
+export function cPortfolioPvm(section: CWorkbookSection, view: CPortfolioView, aggregateKey = "Regione"): CPortfolioPvm {
+  if (view.scope.org !== aggregateKey || view.scope.channel !== "Tutti" || !["FY2024", "FY2025"].includes(view.scope.period)) return { status: "unsupported", reason: "scope" };
   try {
     if (section.schema !== "pillar-c-workbook-section-v1" || section.workbookSha256 !== C_WORKBOOK_HASH || section.section !== "costi"
       || view.sourceSha256 !== SOURCE || view.classificationSha256 !== CLASSIFICATION || view.mappingVersion !== "v0.1-2026-10-12"
@@ -83,4 +84,20 @@ export function cPortfolioPvm(section: CWorkbookSection, view: CPortfolioView): 
       effects: { quantity: quantity.raw, mix: mix.raw, unitCost: unitCost.raw },
       rounding: { rawResidual: cAttrDecimal(rawResidual), displayResidual: cAttrDecimal(roundedCent(quantity.atoms) + roundedCent(mix.atoms) + roundedCent(unitCost.atoms) - roundedCent(delta.atoms)) } };
   } catch { return { status: "unavailable", reason: "shape" }; }
+}
+
+/** The Regione's price/quantity/mix source (regional analytical parity, 23 Oct 2026): the reviewer's ML-4-PORT-REAL
+ * output, verbatim, with the cell formats it uses, read from the regional folder under the Regione's own session. It is checked by the same section
+ * parser the reviewer's fetch uses and returned as a one-output «costi» section, so cPortfolioPvm reads it unchanged. */
+export function parseCRegionalPvm(value: unknown, costiSha256: string): CWorkbookSection {
+  const fail = () => { throw new Error("PILLAR_C_REGIONAL_PVM"); };
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail();
+  const p = value as Record<string, unknown>;
+  if (Object.keys(p).length !== 5 || p.schema !== "pillar-c-regional-pvm-v1" || p.workbookSha256 !== C_WORKBOOK_HASH || p.costiSha256 !== costiSha256
+    || !/^[a-f0-9]{64}$/.test(costiSha256) || !p.formats || typeof p.formats !== "object" || !p.output || typeof p.output !== "object" || Array.isArray(p.output)) fail();
+  const meta = Object.fromEntries(Object.entries(p.output as Record<string, unknown>).filter(([k]) => k !== "tables")) as unknown as CWorkbookOutput;
+  if (meta.id !== "ML-4-PORT-REAL" || meta.section !== "costi") fail();
+  const index: CWorkbookIndex = { schema: "pillar-c-workbook-index-v1", workbookSha256: C_WORKBOOK_HASH, outputs: [meta], sections: { costi: { sha256: costiSha256, bytes: 2, outputs: 1 } } };
+  // The cell formats of the section, limited to those the output's cells use (the parser requires each to be present).
+  return parseCWorkbookSection({ schema: "pillar-c-workbook-section-v1", workbookSha256: C_WORKBOOK_HASH, section: "costi", formats: p.formats, outputs: [p.output] }, "costi", index);
 }

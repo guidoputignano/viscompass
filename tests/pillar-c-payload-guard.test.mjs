@@ -83,7 +83,7 @@ test('product and portfolio descriptors keep their legitimate tokens, but never 
   for(const word of ['Avezzanese 1','Vastità','Pescare','Teramolo','Atrio','Ortonale','Chietino'])assert.doesNotMatch(word,C_PLACE_NAME,`${word} is not a place name`);
 });
 
-test('client audience: own units, every capability off, and the own name as the only exempt string',()=>{
+test('client audience: own units, exactly its kind\u2019s capabilities, and the own name as the only exempt string',()=>{
   const az={kind:'azienda',orgCode:'204',orgName:'ASL sintetica di Teramo',unit:'asl-4',units:['asl-4','aggregato']};
   const re={kind:'regione',orgCode:'130',units:['aggregato','asl-1','asl-2','asl-3','asl-4']};
   for(const a of [az,re]){const c=toClientAudience(a);assert.deepEqual(guardCClientAudience(c,a),c);}
@@ -92,6 +92,10 @@ test('client audience: own units, every capability off, and the own name as the 
     [az,c=>{c.capabilities.workbook=true;},'CAPABILITY'],[az,c=>{c.extra=1;},'FIELDS'],[az,c=>{c.defaultOrg='aggregato';},'AUDIENCE_SHAPE'],
     [az,c=>{c.budgetOrgs.push({key:'aggregato',label:'Aggregato delle quattro Aziende'});},'OPTIONS'],[re,c=>{c.orgs[1].label='Teramo';},'PLACE'],
     [re,c=>{c.orgs[2].label='TE';},'PROVINCE'],[re,c=>{c.exportLabel+=' · Abruzzo';},'PLACE'],[re,c=>{c.kind='azienda';},'AUDIENCE_SHAPE'],[re,c=>{c.monthlyMode='summed';},'AUDIENCE_SHAPE'],
+    // Regional analytical parity: the Regione holds the price/quantity/mix decomposition and nothing else; an Azienda none.
+    [az,c=>{c.capabilities.pvm=true;},'CAPABILITY'],[re,c=>{c.capabilities.pvm=false;},'CAPABILITY'],[re,c=>{c.capabilities.evidence=true;},'CAPABILITY'],
+    [re,c=>{c.capabilities.workbook=true;},'CAPABILITY'],[re,c=>{c.capabilities.insights=true;},'CAPABILITY'],[re,c=>{c.capabilities.lineage=false;},'CAPABILITY'],[re,c=>{c.capabilities.syntheticBudgets=false;},'CAPABILITY'],
+    [az,c=>{c.capabilities.lineage=true;},'CAPABILITY'],[az,c=>{c.capabilities.syntheticBudgets=true;},'CAPABILITY'],
   ];
   for(const [a,mutate,reason] of bad){const c=toClientAudience(a);mutate(c);assert.throws(()=>guardCClientAudience(c,a),new RegExp(`PCS_GUARD_${reason}`),reason);}
 });

@@ -125,6 +125,9 @@ const INTERNAL_CODE=/\b(?:O-\d{2}-\d{2}|PC-\d{2}|PUB-\d{2}|ML-\d|SG-\d|T\d{2}|B-
 
 // ---------------------------------------------------------------- the copy 1.2c pins
 const SCOPED_LEAD='La spesa osservata e i prodotti che la compongono sono misurabili. I dati disponibili non contano le persone trattate: non possiamo attribuire la variazione a un aumento dei pazienti.';
+// Regional analytical parity: the Regione, which has the price/quantity/mix decomposition, reads the reviewer's sentence on it.
+const PVM_SENTENCE=' Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.';
+const leadOf=k=>k==='regione'?SCOPED_LEAD+PVM_SENTENCE:SCOPED_LEAD;
 const DESTINATARI_EMPTY='Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.';
 // The forecast_only sentence speaks about the page, never about the organisation (lead amendment K1).
 const FORECAST_ONLY_SENTENCE='Quadro decisionale, Destinatari e utilizzo, Portafogli e attribuzione, Fattori di spesa e Priorità ed evidenza non sono disponibili in questa pagina; in Budget e scenari è disponibile solo la previsione regionale. Nessun valore viene sostituito.';
@@ -200,8 +203,8 @@ test('2. Azienda and Regione: each frame holds the scoped blocks in the recorded
   assert.equal(C_PLANNING_LABELS.section.dossierScope,DOSSIER_SCOPE,'the registered Spazio scenari copy (K3)');
   for(const {k,search,forecast:f,label,html} of SCOPED_RENDERS){
     const fr=frames(html);
-    // Section 1: the scope bar, the decision heading block (the scoped lead: no price-quantity-mix sentence), the overview.
-    const decision=`<div><p class="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" class="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p class="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">${SCOPED_LEAD}</p></div>`;
+    // Section 1: the scope bar, the decision heading block (the scoped lead; the price-quantity-mix sentence for the Regione only), the overview.
+    const decision=`<div><p class="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" class="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p class="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">${leadOf(k)}</p></div>`;
     assert.equal(count(fr.quadro,'<div class="space-y-5"><section aria-label="Ambito di revisione" class="'),1,`${label}: the scope bar opens section 1`);
     assert.equal(count(fr.quadro,`</section>${decision}<div class="rounded-2xl border border-primary/20 bg-card p-5 md:p-6">`),1,`${label}: the decision block between the bar and the overview`);
     assert.ok(fr.quadro.endsWith('>Vai a Budget e scenari</a></div></div></div></section>'),`${label}: the overview closes section 1`);
@@ -354,7 +357,8 @@ test('5. forecast_only: the forecast exactly as before inside section 5, one bar
 // identifier; another unit's figure; an internal code in visible text (all four readers).
 test('6. no reviewer-only content, no province token in keys and attributes, no foreign figure, no internal code in text',()=>{
   for(const {k,label,html} of SCOPED_RENDERS){
-    for(const r of REVIEWER_ONLY)assert.doesNotMatch(html,r,`${label}: ${r}`);
+    // The Regione also reads the modelled budget source and the provenance panels (owner decision of 24 Oct 2026).
+    for(const r of REVIEWER_ONLY.filter(r=>k!=='regione'||!['Budget modellato','Versione e tracciabilità','Fonti e significato delle analisi','Ricevute numeriche'].some(t=>r.source.includes(t))))assert.doesNotMatch(html,r,`${label}: ${r}`);
     identifiers(html,SERVER[k].units,label);
     for(const [,l] of [...html.matchAll(/<option value="[^"]*"[^>]*>([^<]*)<\/option>/g)])assert.doesNotMatch(l,C_PROVINCE_TOKEN,`${label}: ${l}`);
     for(const unit of ['asl-1','asl-2','asl-3','asl-4','aggregato'].filter(u=>!SERVER[k].units.includes(u)))assert.ok(!text(html).includes(eur(SENTINEL[unit])),`${label}: no ${unit} figure`);
@@ -528,24 +532,37 @@ test('11. copy lint and source pins of the two workspaces',()=>{
   for(const line of [
     'const label = (key: string) => cAudienceLabel(audience, key) ?? "";',
     'if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;',
-    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} /> : null;',
+    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} granted={granted} /> : null;',
+    // Owner decision of 24 Oct 2026: provenance and modelled budgets only with their capabilities; a modelled row in the
+    // packet of an audience without syntheticBudgets refuses the whole page.
+    'const trace = checked.capabilities.lineage ? provenance : null;',
+    'if (!checked.capabilities.syntheticBudgets && packet.budgets.some((r) => r.basis !== "published")) return null;',
     // An extension that does not match the audience is refused, and then reads as unavailable (ext-v2, 23 Oct 2026).
     'const shown = cScopedExtensionFor(checked, extension ?? null);',
-    '{extension && audience.kind === "azienda" && <PillarCUnitCosts view={extension} />}',
-    'if (!extension || extension.drivers || extension.baskets || extension.fileFBasket || extension.findings) return null;',
+    // Regional analytical parity (owner clarification of 23 Oct 2026): the Regione reads the region-wide blocks and every
+    // ASL's per-pack list; an Azienda no region-wide block and only its own list; the price/quantity/mix output only with pvm.
+    'const pvm = checked.capabilities.pvm ? pvmSection : null;',
+    'if (regionWide || extension.units.some((u) => u.data.unitCosts && u.key !== audience.defaultOrg)) return null;',
+    'if (extension.units.some((u) => u.data.unitCosts && u.key === audience.aggregateKey)) return null;',
+    '} else return null;',
+    '{extension && audience.kind === "regione" && <PillarCResidentDrivers view={extension} />}',
+    '{extension && audience.kind === "regione" && <PillarCFileFBasket view={extension} />}',
+    '{extension && audience.kind === "regione" && <PillarCFindings view={extension} />}',
+    '{extension && <PillarCUnitCosts view={extension} />}',
     'return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;',
     '&& packet.orgs.length === audience.orgs.length && packet.orgs.every((unit, i) => unit === audience.orgs[i].key);',
     'data-pillar-c-review={`scoped-${audience.kind}`} data-release-state="review_only"',
     'const publishedActs = useMemo(() => cScopedPublishedActs(packet), [packet]);',
     '<CountRows countRows={countRows} labels={C_AUDIENCE_COPY.countsLabels} />',
-    '{budgets.length > 0 && <p className="mt-5 text-xs font-medium leading-5" data-c-scoped-note="budget">{C_AUDIENCE_COPY.budgetNote}</p>}',
+    '{budgets.length > 0 && <p className="mt-5 text-xs font-medium leading-5" data-c-scoped-note="budget">{modelled ? C_AUDIENCE_COPY.budgetModelledNote : C_AUDIENCE_COPY.budgetNote}</p>}',
     '{countRows.length > 0 && <p className="mt-4 text-xs font-medium leading-5" data-c-scoped-note="counts">{C_AUDIENCE_COPY.countsNote}</p>}',
     '<div className="text-xs font-medium text-muted-foreground"><span>Fonte del budget</span><p className={staticField}>{C_AUDIENCE_COPY.budgetSource}</p></div>',
     '{forecast ? <PillarCForecastPanel forecast={forecast} series={filters.forecastSeries} onSeries={(forecastSeries) => update({ forecastSeries })} published /> : <Empty>{C_AUDIENCE_COPY.forecastUnavailable}</Empty>}',
     '<PillarCPlanningWorkspace publishedActs={publishedActs} />',
-    '<PillarCPortfolioDossier />',
+    '<PillarCPortfolioDossier pvmSection={pvmSection} />',
     '<PillarCAttributionAnalysis />',
-    '<PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources} />',
+    // The provenance panels (Regione, with the lineage capability) sit inside the evidence block, or its honest state.
+    '<PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}>{provenance ? <PillarCProvenance {...provenance} /> : regionalUnavailable && audience.capabilities.lineage ? <p role="status" className="mt-5 text-xs text-muted-foreground">{C_AUDIENCE_COPY.provenanceUnavailable}</p> : null}</PillarCEvidenceSources>',
     '<PillarCDecisionOverview cards={decisionCards} comparison={comparison} regional={regional} links={OVERVIEW_LINKS} />',
     '<PillarCSectionBar />',
   ])assert.equal(count(src,line),1,line);

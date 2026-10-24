@@ -17,6 +17,7 @@ import {IDENTITY_STUBS,registerPillarCStubs,as} from './helpers/pillar-c-scoped-
 import {reviewerUiMatrix} from './helpers/pillar-c-ui-matrix.mjs';
 import {scopedFixture,fakeSessionClient,SENTINEL,TOKEN_LABEL} from './fixtures/pillar-c-scoped.mjs';
 import {cReviewV2Fixture} from './fixtures/pillar-c-review.mjs';
+import {extUnit,extReviewer} from './fixtures/pillar-c-extension.mjs';
 
 registerPillarCStubs({'lib/dashboard-review/pillar-c/scoped-storage.ts':IDENTITY_STUBS['lib/dashboard-review/pillar-c/scoped-storage.ts']},{tsx:true});
 // next/link is a CommonJS entry without an exports map: resolve it by its file name (the dossier's Pillar B link).
@@ -90,6 +91,10 @@ function identifiers(html,units,label){
 const REVIEWER_ONLY_1_2B=[/Atti di budget dipartimentali pubblicati nel pacchetto/,/Nessun atto di budget dipartimentale pubblicato nel pacchetto/,/Aggregato delle quattro Aziende e ASL 1–4/];
 const REVIEWER_ONLY=[/id="evidence-workflow"/,/href="#evidence-workflow"/,/coda condivisa|Assegna le verifiche/i,/href="#costi"/,/Versione e tracciabilità/,/Fonti e significato delle analisi/,/Ricevute numeriche/,/Budget modellato/,/Piano modellato/,/data-pillar-c-review="v[12]"/,/\/api\/pillar-c\/workbook/,/id="(composizione|costi|confronti|attivita|tendenze|sensibilita|priorita)"/,/Riservato ai revisori del progetto/,...REVIEWER_ONLY_1_2B];
 const NEVER=/NaN|Infinity|undefined|\b[Dd]emo\b|[Dd]imostra|[Vv]erificat/;
+/** What the Regione reads besides (owner decision of 24 Oct 2026): the modelled budget source and the provenance panels.
+ * Everything else in REVIEWER_ONLY (queue, workbook route, reviewer header copy) stays refused for it too. */
+const REGIONE_GRANTED=['Budget modellato','Versione e tracciabilità','Fonti e significato delle analisi','Ricevute numeriche'];
+const REVIEWER_ONLY_REGIONE=REVIEWER_ONLY.filter(r=>!REGIONE_GRANTED.some(t=>r.source.includes(t)));
 /** The project's money label, read the way text() reads the page (whitespace, no-break included, collapsed). */
 const euro=v=>cMoneyLabel(v).replace(/\s+/g,' ');
 
@@ -127,10 +132,10 @@ test('without an audience, or with an incomplete one, every audience-bound compo
   const src=p=>readFileSync(`${root}${p}`,'utf8').replace(/\r\n/g,'\n');
   for(const [file,guard,inner] of [
     ['attribution-analysis.tsx',/export function PillarCAttributionAnalysis\([^)]*\) \{\n  const audience=usePillarCAudience\(\);\n  return audience\?<AttributionAnalysis audience=\{audience\}\/>:null;\n\}/,/function AttributionAnalysis\(\{audience\}:\{audience:CClientAudience\}\)/],
-    ['portfolio-dossier.tsx',/export function PillarCPortfolioDossier\([^)]*\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?<PortfolioDossier audience=\{audience\} workbook=\{workbook\}\/>:null;\n\}/,/function PortfolioDossier\(\{audience,workbook\}:\{audience:CClientAudience;/],
+    ['portfolio-dossier.tsx',/export function PillarCPortfolioDossier\([^)]*\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?<PortfolioDossier audience=\{audience\} workbook=\{workbook\} pvmSection=\{pvmSection\}\/>:null;\n\}/,/function PortfolioDossier\(\{audience,workbook,pvmSection\}:\{audience:CClientAudience;/],
     ['planning-workspace.tsx',/export function PillarCPlanningWorkspace\(props: CPlanningWorkspaceProps\) \{\n  const audience = usePillarCAudience\(\);\n  return audience \? <PlanningWorkspace \{\.\.\.props\} audience=\{audience\}\/> : null;\n\}/,/function PlanningWorkspace\(\{ publishedActs, evidenceAnchor = false, audience \}: CPlanningWorkspaceProps & \{ audience: CClientAudience \}\)/],
     ['evidence-workflow.tsx',/export function PillarCEvidenceWorkflow\(\)\{\n  const audience=usePillarCAudience\(\);\n  return audience\?\.capabilities\.evidence===true\?<EvidenceWorkflow\/>:null;\n\}/,/function EvidenceWorkflow\(\)\{/],
-    ['portfolio-pvm.tsx',/const audience=usePillarCAudience\(\);\n  if\(!audience\)return null;\n  if\(!audience\.capabilities\.pvm\)return <p [^\n]*\{C_AUDIENCE_COPY\.pvm\}<\/p>;\n  return <PriceQuantityMix view=\{view\} workbook=\{workbook\}\/>;/,/function PriceQuantityMix\(/],
+    ['portfolio-pvm.tsx',/const audience=usePillarCAudience\(\);\n  if\(!audience\)return null;\n  if\(!audience\.capabilities\.pvm\)return <p [^\n]*\{C_AUDIENCE_COPY\.pvm\}<\/p>;\n  return <PriceQuantityMix view=\{view\} workbook=\{audience\.kind==="reviewer"\?workbook:null\} loaded=\{audience\.kind==="reviewer"\?null:pvmSection\?\?null\} regional=\{audience\.kind!=="reviewer"\} aggregateKey=\{audience\.aggregateKey\}\/>;/,/function PriceQuantityMix\(/],
   ]){
     const s=src(`components/dashboard-review/pillar-c/${file}`);
     assert.match(s,guard,`${file}: the exported mount is a guard`);assert.match(s,inner,`${file}: the fetching component takes the audience`);
@@ -142,6 +147,14 @@ test('without an audience, or with an incomplete one, every audience-bound compo
   assert.match(src('components/dashboard-review/pillar-c/audience-context.tsx'),/createContext<CClientAudience \| null>\(null\)/);
   for(const file of ['attribution-analysis.tsx','portfolio-dossier.tsx','planning-workspace.tsx','change-summary.tsx','review-plan.tsx','scoped-workspace.tsx','regional-forecast-workspace.tsx'])
     assert.doesNotMatch(src(`components/dashboard-review/pillar-c/${file}`),/\bC_ORG_LABELS\b|\bC_ATTR_ORGS\b|\bC_ORGS\b/,file);
+});
+
+test('the client validator holds each scoped kind to exactly its capabilities (regional parity, 24 Oct 2026)',()=>{
+  const a=client('azienda4'),r=client('regione');
+  assert.ok(AV.cClientAudience(a)&&AV.cClientAudience(r));
+  for(const k of ['pvm','lineage','syntheticBudgets','evidence','workbook','insights'])assert.equal(AV.cClientAudience({...a,capabilities:{...a.capabilities,[k]:true}}),null,`Azienda with ${k}`);
+  for(const k of ['pvm','lineage','syntheticBudgets'])assert.equal(AV.cClientAudience({...r,capabilities:{...r.capabilities,[k]:false}}),null,`Regione without ${k}`);
+  for(const k of ['evidence','workbook','insights'])assert.equal(AV.cClientAudience({...r,capabilities:{...r.capabilities,[k]:true}}),null,`Regione with ${k}`);
 });
 
 test('the client audience validator accepts the guarded audiences and the reviewer\'s, and nothing else',()=>{
@@ -211,7 +224,7 @@ test('Regione: «Aggregato regionale» and ASL 1–4 under opaque keys, no provi
     identifiers(h,SERVER.regione.units,`regione ?${search}`);
     for(const [,label] of [...h.matchAll(/<option value="[^"]*"[^>]*>([^<]*)<\/option>/g)])assert.doesNotMatch(label,C_PROVINCE_TOKEN,label);
     assert.doesNotMatch(t,/Azienda sintetica|Aggregato delle quattro Aziende/,'no Azienda name and not the Azienda wording');
-    for(const r of REVIEWER_ONLY)assert.doesNotMatch(h,r,`${r} ?${search}`);
+    for(const r of REVIEWER_ONLY_REGIONE)assert.doesNotMatch(h,r,`${r} ?${search}`);
     assert.doesNotMatch(h,NEVER);
     // The O4 notes accompany rows only (UI-2): ASL 1 has no published act, so its budget panel has none.
     assert.equal(t.includes(AV.C_AUDIENCE_COPY.budgetNote),t.includes('Scala comune · euro'),`budget note iff budget rows ?${search}`);
@@ -409,7 +422,9 @@ test('URL clamps match keys exactly; the budget is always the published act; the
   assert.deepEqual([f(a,'').filters.org,f(a,'').tampered],['asl-4',false]);
   assert.deepEqual([f(a,'c_org=aggregato').filters.org,f(a,'c_org=aggregato').tampered],['aggregato',false]);
   for(const bad of ['TE','asl-1','Regione','ASL-4','asl-4 ',' aggregato','asl-4,aggregato',''])assert.deepEqual([f(a,`c_org=${encodeURIComponent(bad)}`).filters.org,f(a,`c_org=${encodeURIComponent(bad)}`).tampered],['asl-4',true],bad);
-  assert.equal(f(r,'c_budget=synthetic').filters.budget,'published');
+  // The modelled source: the Regione may read it (owner decision of 24 Oct 2026); an Azienda never (O4).
+  assert.equal(f(r,'c_budget=synthetic').filters.budget,'synthetic');assert.equal(f(a,'c_budget=synthetic').filters.budget,'published');
+  assert.equal(f(r,'c_budget=modelled').filters.budget,'published','an unknown source is the published act');
   assert.deepEqual([...new URLSearchParams(AV.cScopedReviewSearch(r,'?c_org=asl-2&c_channel=CO',{channel:'DD'}))].sort(),[['c_channel','DD'],['c_org','asl-2']]);
   assert.equal(AV.cScopedReviewSearch(r,'?c_org=asl-2',{org:'aggregato'}),'','the default key is not written');
   assert.equal(AV.cScopedReviewSearch(a,'?c_org=TE&c_budget=synthetic',{period:'FY2024'}),'?c_period=FY2024','a foreign key and a modelled source are dropped');
@@ -484,4 +499,102 @@ test('copy and translation safety: keyed or single-child changing text, no demo 
   assert.doesNotMatch(s,/\b(?:min-)?w-\[\d+px\]/);
   // The forecast-only branch composes the section bar and section 5 (1.2c); it still reads no audience.
   assert.doesNotMatch(readFileSync(`${root}components/dashboard-review/pillar-c/regional-forecast-workspace.tsx`,'utf8'),/audience/i);
+});
+
+// ---------------------------------------------------------------- regional analytical parity (owner clarification of 23 Oct 2026)
+/** The extension view a loader hands each audience: the Regione's from the reviewer object (every unit, the four ASLs'
+ * per-pack lists and the region-wide blocks), an Azienda's from its own unit and the aggregate (only its own list). */
+function extensionOf(k){
+  const labels=client(k).orgs;
+  if(k==='regione'){const r=extReviewer();return {units:labels.map(o=>({key:o.key,label:o.label,data:r.units.find(u=>u.unit===o.key)})),drivers:r.drivers,baskets:r.baskets,fileFBasket:r.fileFBasket,findings:r.findings};}
+  return {units:labels.map(o=>({key:o.key,label:o.label,data:o.key===SERVER[k].unit?extUnit(o.key):{...extUnit(o.key,4000),unitCosts:null}})),drivers:null,baskets:null,fileFBasket:null,findings:null};
+}
+/** A synthetic one-output costi section (invented values), as loadCRegionalPvm returns it. */
+const PVM_SECTION={schema:'pillar-c-workbook-section-v1',workbookSha256:'f8fe8b13f10eab51194b057f52dd11a599d28d827ce92438b1043837c60894bb',section:'costi',formats:{164:'#,##0.00 "€"'},
+  outputs:[{id:'ML-4-PORT-REAL',title:'Invented test only',section:'costi',tier:'Solo descrittivo',qualifier:'mappatura in bozza',grain:'portafoglio',ranges:['12A_ML4_Price_Vol_Mix!A209:L234'],availability:'snapshot',reason:null,sourceState:'WAIT-W',
+    tables:[{sheet:'12A_ML4_Price_Vol_Mix',range:'A209:L234',startColumn:1,columns:['Portafoglio','Nome','Esito','Copertura t0','Copertura t1','Δ ammesso (€)','Quantità · Shapley (€)','Mix · Shapley (€)','Mix · LMDI (€)','Costo unitario · Shapley (€)','Livello','Stato di verifica'],
+      headerRow:209,rows:[['AA','Portafoglio sintetico A','parziale (50–80 %)',['0.6',164],['0.7',164],['4',164],['6',164],['1',164],['0.8',164],['-3',164],'Solo descrittivo','V2_IN_ATTESA']],sourceRows:[210],notes:[],numericColumns:[3,4,5,6,7,8,9]}]}]};
+
+test('regional parity: the Regione sees the reviewer\u2019s region-wide analyses; an Azienda sees none of them',()=>{
+  const r=workspace('regione','',{extension:extensionOf('regione'),pvmSection:PVM_SECTION}),rt=text(r);
+  assert.ok(rt.includes('Perché la spesa DPC per residente differisce fra le ASL?'),'per-resident drivers');
+  assert.ok(rt.includes('Indici del paniere comune'),'common-basket indices');
+  assert.ok(rt.includes('Importo unitario sugli stessi prodotti, trimestre per trimestre'),'File F quarterly index');
+  assert.deepEqual(options(r,'Azienda dei costi per confezione'),[['asl-1','ASL 1'],['asl-2','ASL 2'],['asl-3','ASL 3'],['asl-4','ASL 4']],'each ASL\u2019s list, never the aggregate');
+  assert.ok(rt.includes('Rilievi delle nuove analisi')&&rt.includes('F01 · Rilievo sintetico')&&rt.includes('Azione proposta:'),'the findings, read only');
+  assert.ok(rt.includes('Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.'),'the decision lead names the decomposition');
+  // Still none of the reviewer's workflow: no queue, owner, case, workbook route, lineage or modelled budget.
+  for(const re of REVIEWER_ONLY_REGIONE)assert.doesNotMatch(r,re,String(re));
+  assert.doesNotMatch(r,/Avvia la verifica|Apri la verifica|Referente|Non assegnato/);
+  // The extension's attribution copy says «non dimostra» (does not prove): NEVER's «dimostra» targets demo wording, so
+  // the extension renders are read with the same pattern minus that one word.
+  const NEVER_EXT=/NaN|Infinity|undefined|[Dd]emo|[Dd]imostrazion|[Dd]imostrativ|[Vv]erificat/;
+  identifiers(r,SERVER.regione.units,'regione with extension');assert.doesNotMatch(r,NEVER_EXT);
+  // The Azienda: its own list only, no selector, no region-wide block, no findings, no decomposition sentence.
+  const a=workspace('azienda4','',{extension:extensionOf('azienda4'),pvmSection:PVM_SECTION}),at_=text(a);
+  assert.ok(at_.includes(`Costo per confezione sugli stessi prodotti · ${ORG_NAME}`));assert.doesNotMatch(a,/aria-label="Azienda dei costi per confezione"/);
+  assert.doesNotMatch(at_,/per residente differisce|Indici del paniere comune|trimestre per trimestre|Rilievi delle nuove analisi|scomponibili soltanto/);
+  for(const re of REVIEWER_ONLY)assert.doesNotMatch(a,re,String(re));
+  // An Azienda handed a region-wide block reads «not available», never the block.
+  const leaked=workspace('azienda4','',{extension:{...extensionOf('azienda4'),drivers:extReviewer().drivers}});
+  assert.doesNotMatch(text(leaked),/per residente differisce/);assert.ok(text(leaked).includes('non sono disponibili in questo momento'));
+});
+
+test('regional parity: the price/quantity/mix panel reads the Regione\u2019s own object; an Azienda keeps the short note',async()=>{
+  const view=await portView('regione','aggregato');
+  // The view carries the source contract the decomposition is pinned to (the reviewer's fixture values), so the panel
+  // must show the reading itself, not an «unavailable» state (review of 24 Oct 2026).
+  const pinned={...view,sourceSha256:'ff084e85af09c38df52445019af479397ea8313df79c736c4098c60f7edb8eac',classificationSha256:'e2b3c5900036eec54fc01134d32d0f19bd9341db790916ced99b5152f9ad50aa',
+    mappingVersion:'v0.1-2026-10-12',mappingStatus:'draft',attributionBasis:'atc-portfolio-proxy',changeSemantic:'later-minus-earlier',changePeriods:{from:'FY2024',to:'FY2025'},dossier:{...view.dossier,id:'AA',label:'Portafoglio sintetico A'}};
+  const r=under(client('regione'),React.createElement(CPortfolioDossierView,{view:pinned,pvmSection:PVM_SECTION}));
+  assert.match(r,/<details class="rounded-xl border border-border bg-card" data-c-portfolio-pvm="true"><summary[^>]*>Quantità, mix e costo unitario · evidenza disponibile<\/summary>/);
+  assert.doesNotMatch(r,/data-c-portfolio-pvm="withheld"/);
+  assert.match(r,/data-c-pvm-status="ready"/);assert.match(r,/data-c-pvm-admitted-change="4"/);
+  assert.deepEqual([...r.matchAll(/data-c-pvm-effect="([a-zA-Z]+)" data-value="([^"]+)"/g)].map(m=>[m[1],m[2]]),[['quantity','6'],['mix','1'],['unitCost','-3']]);
+  // Another organisation than the aggregate: the decomposition does not apply, and says so.
+  const asl=under(client('regione'),React.createElement(CPortfolioDossierView,{view:await portView('regione','asl-2'),pvmSection:PVM_SECTION}));
+  assert.match(asl,/data-c-pvm-status="unsupported"/);
+  // Without its object (unreadable), the panel says the decomposition is not available, never «none exists»; nothing is fetched.
+  const none=under(client('regione'),React.createElement(CPortfolioDossierView,{view}));
+  assert.ok(text(none).includes('La scomposizione non è disponibile in questo momento. Nessun valore viene sostituito.'));
+  assert.doesNotMatch(none,/Nessuna scomposizione compatibile/);
+  const a=under(client('azienda4'),React.createElement(CPortfolioDossierView,{view:await portView('azienda4','aggregato'),pvmSection:PVM_SECTION}));
+  assert.match(a,/data-c-portfolio-pvm="withheld"/);assert.doesNotMatch(a,/data-c-pvm-status=/);
+});
+
+// ---------------------------------------------------------------- modelled budgets and provenance (owner decision of 24 Oct 2026)
+const MODELLED=[{id:'asl-1-m-0001',period:'FY2025',org:'asl-1',channel:'CO',level:'Disciplina',area:'08',basis:'synthetic',budget:'1200.00',actual:'1000.5',alternative:'1100.25'},
+  {id:'asl-1-m-0002',period:'FY2025',org:'asl-1',channel:'CO',level:'Disciplina',area:'09',basis:'synthetic',budget:'800.00',actual:'900.5',alternative:'850.25'}];
+const PROVENANCE={workbookVersion:'R5',workbookSha256:'f'.repeat(64),evidence:{financial:'a'.repeat(64),budgetCount:'b'.repeat(64)},sections:['spend','change','budget','counts','forecast']};
+const MODELLED_SEARCH='c_budget=synthetic&c_budget_org=asl-1&c_budget_channel=CO&c_budget_period=FY2025&c_level=Disciplina';
+
+test('modelled budgets and provenance: the Regione reads them with their own note; an Azienda never',()=>{
+  const packet={...packetOf('regione'),budgets:[...packetOf('regione').budgets,...MODELLED]};
+  const view=(search,props={})=>bare(React.createElement(PillarCScopedWorkspace,{audience:client('regione'),packet,forecast,provenance:PROVENANCE,...props}),search);
+  const opened=view(''),t0=text(opened);
+  assert.deepEqual(options(opened,'Fonte del budget'),[['published','Budget pubblicato'],['synthetic','Budget modellato']]);
+  assert.match(opened,/<select aria-label="Fonte del budget" class="[^"]*"><option value="published" selected="">/,'opens on the published act');
+  assert.ok(t0.includes(AV.C_AUDIENCE_COPY.budgetNote)&&!t0.includes(AV.C_AUDIENCE_COPY.budgetModelledNote));
+  const m=view(MODELLED_SEARCH),t=text(m);
+  assert.match(m,/<option value="synthetic" selected="">Budget modellato<\/option>/);
+  assert.ok(t.includes('Disciplina 08')&&t.includes('Disciplina 09'),'the two modelled areas');
+  assert.ok(t.includes(AV.C_AUDIENCE_COPY.budgetModelledNote));assert.ok(!t.includes(AV.C_AUDIENCE_COPY.budgetNote),'the modelled note replaces the O4 note');
+  // Provenance: the reviewer's two panels, the receipts and the workbook version, and nothing of the reviewer's workflow.
+  assert.ok(t.includes('Fonti e significato delle analisi')&&t.includes('Versione e tracciabilità')&&t.includes(`R5 · ${'f'.repeat(64)}`)&&t.includes(`Spesa: ${'a'.repeat(64)}`));
+  for(const re of REVIEWER_ONLY_REGIONE)assert.doesNotMatch(m,re,String(re));
+  identifiers(m,SERVER.regione.units,'regione modelled');assert.doesNotMatch(m,NEVER);
+  // Its regional object unreadable: an honest state for both, never a value.
+  const u=text(bare(React.createElement(PillarCScopedWorkspace,{audience:client('regione'),packet:packetOf('regione'),forecast,regionalReviewUnavailable:true}),MODELLED_SEARCH));
+  assert.ok(u.includes(AV.C_AUDIENCE_COPY.budgetModelledUnavailable));assert.ok(u.includes(AV.C_AUDIENCE_COPY.provenanceUnavailable));
+  assert.doesNotMatch(u,/Versione e tracciabilità/);
+  // An Azienda: the static published source, no provenance even if handed one, and a modelled row refuses the page.
+  const a=workspace('azienda4',MODELLED_SEARCH,{provenance:PROVENANCE}),at_=text(a);
+  assert.doesNotMatch(a,/<select aria-label="Fonte del budget"/);assert.ok(at_.includes('Fonte del budget Budget pubblicato'));
+  assert.doesNotMatch(at_,/Versione e tracciabilità|Fonti e significato delle analisi|Budget modellato/);
+  const leaked={...packetOf('azienda4'),budgets:[...packetOf('azienda4').budgets,{...MODELLED[0],id:'asl-4-m-0001',org:'asl-4'}]};
+  assert.equal(bare(React.createElement(PillarCScopedWorkspace,{audience:client('azienda4'),packet:leaked,forecast})),'','a modelled row in an Azienda packet');
+  // URL: the Regione's source is written and kept; an Azienda's is dropped.
+  const q=new URLSearchParams(AV.cScopedBudgetSearch(client('regione'),packet,`?${MODELLED_SEARCH}`,{area:'08'}));
+  assert.equal(q.get('c_budget'),'synthetic');
+  assert.equal(new URLSearchParams(AV.cScopedBudgetSearch(client('azienda4'),packetOf('azienda4'),`?${MODELLED_SEARCH}`,{area:'all'})).get('c_budget'),null);
 });

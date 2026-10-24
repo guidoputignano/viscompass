@@ -18,6 +18,7 @@ import { guardCClientAudience } from "@/lib/dashboard-review/pillar-c/payload-gu
 import { loadCScopedReview } from "@/lib/dashboard-review/pillar-c/scoped-loader";
 import { PillarCScopedWorkspace } from "@/components/dashboard-review/pillar-c/scoped-workspace";
 import { loadCExtensionReviewer, loadCExtensionScoped } from "@/lib/dashboard-review/pillar-c/extension-loader";
+import { loadCRegionalPvm, loadCRegionalReview } from "@/lib/dashboard-review/pillar-c/regional-loader";
 
 export const instant = false;
 export const metadata: Metadata = {
@@ -35,15 +36,23 @@ function ForecastUnavailable() {
 }
 
 /** Organisation-scoped delivery (Pillar C recommendation 5): the audience's own units only, read under the user's
- * own session so that Storage RLS decides every object. Never the reviewer loaders, the workbook or the service
- * role. The public forecast comes through the same projection every approved member receives. */
+ * own session so that Storage RLS decides every object; for the Regione also the region-wide objects of the regional
+ * folder (regional analytical parity). Never the reviewer loaders, the workbook route or the service role. The public
+ * forecast comes through the same projection every approved member receives. */
 async function scopedPillarC(audience: PillarCScopedAudience) {
   const db = await createClient(), client = scopedClientAudience(audience);
-  // The extension (January 2026 DPC, File F 2025) is read under the same session, unit by unit; labels come from the audience.
-  const [review, forecast, extension] = await Promise.all([loadCScopedReview(audience, db), loadCRegionalForecast(true),
-    client ? loadCExtensionScoped(audience, db, (unit) => client.orgs.find((o) => o.key === unit)?.label ?? null) : Promise.resolve({ state: "unavailable" as const })]);
+  // The extension (January 2026 DPC, File F 2025) is read under the same session; labels come from the audience. The
+  // Regione (regional analytical parity) also reads its price/quantity/mix object and its review object (modelled
+  // budgets, provenance: owner decision of 24 Oct 2026) from the regional folder; an Azienda never.
+  const regione = audience.kind === "regione";
+  const [review, forecast, extension, pvm, regional] = await Promise.all([loadCScopedReview(audience, db), loadCRegionalForecast(true),
+    client ? loadCExtensionScoped(audience, db, (unit) => client.orgs.find((o) => o.key === unit)?.label ?? null) : Promise.resolve({ state: "unavailable" as const }),
+    regione ? loadCRegionalPvm(audience, db) : Promise.resolve({ state: "forbidden" as const }),
+    regione ? loadCRegionalReview(audience, db) : Promise.resolve({ state: "forbidden" as const })]);
   if (review.state === "ready" && client) {
-    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCScopedWorkspace audience={client} packet={review.packet} forecast={forecast.state === "ready" ? forecast.data.forecast : null} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} /></Suspense>;
+    // The modelled rows join the unit files' published acts; nothing else in the packet changes.
+    const packet = regional.state === "ready" ? { ...review.packet, budgets: [...review.packet.budgets, ...regional.review.budgets] } : review.packet;
+    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCScopedWorkspace audience={client} packet={packet} forecast={forecast.state === "ready" ? forecast.data.forecast : null} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} pvmSection={pvm.state === "ready" ? pvm.section : null} provenance={regional.state === "ready" ? regional.review.provenance : null} regionalReviewUnavailable={regione && regional.state !== "ready"} /></Suspense>;
   }
   // An entitled unit that cannot be read is unavailable, never «not entitled», and no value is substituted.
   return <div data-pillar-c-scope={`scoped-${audience.kind}-unavailable`}><p role="status" className="mb-6 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">Le analisi di Pillar C per la tua organizzazione non sono disponibili in questo momento. Nessun valore viene sostituito.</p>{forecast.state === "ready"

@@ -14,6 +14,7 @@ import { cMoneyDifference, cReviewFilters, cReviewSearch, type CReviewFilters } 
 import { cPlanningFilters, type CPlanningOrg } from "@/lib/dashboard-review/pillar-c/planning";
 import type { CScopedClientReview, CScopedReviewFilters } from "@/lib/dashboard-review/pillar-c/scoped-review";
 import { C_SCOPED_AGGREGATE, isCScopedUnit, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
+import { C_SCOPED_CAPABILITIES } from "@/lib/dashboard-review/pillar-c/scoped-capabilities";
 
 /** Copy of the organisation-scoped interface. Short, visible, and never a claim the data does not support. */
 export const C_AUDIENCE_COPY = {
@@ -24,6 +25,11 @@ export const C_AUDIENCE_COPY = {
   budgetEmpty: "Nessuna coppia disponibile per questo ambito nel pacchetto di revisione. Nessun valore viene sostituito con zero.",
   budgetSingle: "Il budget si legge per singola Azienda. Dipartimenti e discipline non vengono sommati tra loro.",
   budgetSource: "Budget pubblicato",
+  /** The Regione's modelled budgets (owner decision of 24 Oct 2026): the note beside modelled rows, and the honest state
+   * when its regional object cannot be read. */
+  budgetModelledNote: "Contiene un budget modellato e allocazioni modellate: né il budget né la spesa per area sono osservati. Non è un atto approvato e le differenze non misurano sovra/sottospesa organizzativa.",
+  budgetModelledUnavailable: "Il budget modellato non è disponibile in questo momento. Nessun valore viene sostituito.",
+  provenanceUnavailable: "Le informazioni su fonti, versione e ricevute non sono disponibili in questo momento.",
   /** The CO count panel: a ratio to an estimated count, never a figure per patient (review finding UI-3). */
   countsTitle: "Spesa rapportata alla numerosità stimata · scenario",
   /** The same panel's scale caption, row unit and exact-table headers: every euro value is a ratio to the estimated
@@ -49,8 +55,8 @@ function options(list: unknown): list is CClientAudienceOrg[] {
   return valid && new Set(list.map((o: CClientAudienceOrg) => o.key)).size === list.length;
 }
 
-/** A complete client audience, or null. A scoped audience holds only its own units, reads explicit rows and has every
- * reviewer capability off; the reviewer audience sums the four Aziende. Anything else is no audience. */
+/** A complete client audience, or null. A scoped audience holds only its own units, reads explicit rows and has exactly
+ * its kind's capabilities (scoped-capabilities.ts); the reviewer audience sums the four Aziende. Anything else is no audience. */
 export function cClientAudience(value: unknown): CClientAudience | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   const a = value as Partial<CClientAudience>;
@@ -64,7 +70,8 @@ export function cClientAudience(value: unknown): CClientAudience | null {
   if (!caps || typeof caps !== "object" || !CAPABILITIES.every((k) => typeof caps[k] === "boolean")) return null;
   if (a.kind === "reviewer") return a.monthlyMode === "summed" ? a as CClientAudience : null;
   const units = [...orgs, ...budgetOrgs].every((o) => isCScopedUnit(o.key));
-  if (a.monthlyMode !== "explicit" || a.aggregateKey !== C_SCOPED_AGGREGATE || !units || a.scopeLine === null || CAPABILITIES.some((k) => caps[k] !== false)) return null;
+  const allowed = C_SCOPED_CAPABILITIES[a.kind];
+  if (a.monthlyMode !== "explicit" || a.aggregateKey !== C_SCOPED_AGGREGATE || !units || a.scopeLine === null || CAPABILITIES.some((k) => caps[k] !== allowed[k])) return null;
   return a as CClientAudience;
 }
 export const isCScopedClientAudience = (audience: CClientAudience): boolean => audience.kind === "azienda" || audience.kind === "regione";
@@ -94,24 +101,31 @@ export function cAudienceScope(audience: CClientAudience, params: URLSearchParam
 }
 
 // ---------------------------------------------------------------- review sections of a scoped audience
+/** The budget source an audience may read: the modelled budget only with the syntheticBudgets capability (the Regione,
+ * owner decision of 24 Oct 2026); otherwise always the published act (owner decision O4, still the Azienda's rule). */
+export function cScopedBudgetSource(audience: CClientAudience, requested: CReviewFilters["budget"] | undefined): CReviewFilters["budget"] {
+  return audience.capabilities.syntheticBudgets && requested === "synthetic" ? "synthetic" : "published";
+}
 /** The review filters of a scoped audience: today's parser for every key but the organisation, which is clamped to the
- * audience, and the budget source, which is always the published act (owner decision O4: modelled budgets withheld). */
+ * audience, and the budget source, clamped by cScopedBudgetSource. */
 export function cScopedReviewFilters(audience: CClientAudience, params: URLSearchParams): { filters: CScopedReviewFilters; tampered: boolean } {
   const { key, tampered } = cAudienceKey(params.get("c_org"), audience.orgs, audience.defaultOrg);
-  return { filters: { ...cReviewFilters(params), org: unit(key), budget: "published" }, tampered };
+  const base = cReviewFilters(params);
+  return { filters: { ...base, org: unit(key), budget: cScopedBudgetSource(audience, base.budget) }, tampered };
 }
 /** cReviewSearch for a scoped audience: c_org is written only when it differs from the audience's default. */
 export function cScopedReviewSearch(audience: CClientAudience, search: string, patch: Partial<CScopedReviewFilters>, reset = false): string {
   const { org, ...rest } = patch;
-  const current = cScopedReviewFilters(audience, new URLSearchParams(search)).filters.org;
-  const params = new URLSearchParams(cReviewSearch(search, { ...(rest as Partial<CReviewFilters>), budget: "published" }, reset));
+  const filters = cScopedReviewFilters(audience, new URLSearchParams(search)).filters, current = filters.org;
+  const budget = cScopedBudgetSource(audience, reset ? undefined : rest.budget ?? filters.budget);
+  const params = new URLSearchParams(cReviewSearch(search, { ...(rest as Partial<CReviewFilters>), budget }, reset));
   const next = reset ? audience.defaultOrg : org ?? current;
   if (next === audience.defaultOrg) params.delete("c_org"); else params.set("c_org", next);
   return params.size ? `?${params}` : "";
 }
 /** The budget panel's own scope (c_budget_org, c_budget_channel), as cBudgetFilters does for the reviewer, but for the
- * audience's budget organisations only and for published acts only. With no explicit budget key the panel opens on the
- * first published departmental act the packet carries. The aggregate is never a budget scope. */
+ * audience's budget organisations only and for the budget source the audience may read. With no explicit budget key
+ * the panel opens on the first published departmental act the packet carries. The aggregate is never a budget scope. */
 export function cScopedBudgetFilters(audience: CClientAudience, packet: CScopedClientReview, params: URLSearchParams): { filters: CScopedReviewFilters; tampered: boolean } {
   const base = cScopedReviewFilters(audience, params).filters;
   const own = (org: string) => audience.budgetOrgs.some((o) => o.key === org);
@@ -121,17 +135,17 @@ export function cScopedBudgetFilters(audience: CClientAudience, packet: CScopedC
   const { key, tampered } = cAudienceKey(params.get("c_budget_org"), audience.budgetOrgs, own(opened.org) ? opened.org : audience.budgetOrgs[0].key);
   const raw = params.get("c_budget_channel");
   const channel: LocalChannel = LOCAL_CHANNELS.includes(raw as LocalChannel) ? raw as LocalChannel : LOCAL_CHANNELS.includes(opened.channel as LocalChannel) ? opened.channel as LocalChannel : "CO";
-  return { filters: { ...opened, org: unit(key), channel, budget: "published" }, tampered };
+  return { filters: { ...opened, org: unit(key), channel, budget: explicit ? base.budget : "published" }, tampered };
 }
 export function cScopedBudgetSearch(audience: CClientAudience, packet: CScopedClientReview, search: string, patch: Partial<CScopedReviewFilters>): string {
   const local = { ...cScopedBudgetFilters(audience, packet, new URLSearchParams(search)).filters, ...patch };
-  const { org, channel, budgetPeriod, level, budgetOrder, area } = local;
-  const params = new URLSearchParams(cScopedReviewSearch(audience, search, { budgetPeriod, level, budgetOrder, area }));
+  const { org, channel, budgetPeriod, level, budgetOrder, area, budget } = local;
+  const params = new URLSearchParams(cScopedReviewSearch(audience, search, { budgetPeriod, level, budgetOrder, area, budget }));
   params.set("c_budget_org", org); params.set("c_budget_channel", channel);
   return `?${params}`;
 }
-/** Whether an audience's budget organisation has any published act in the packet at all (else an honest empty state). */
-export const cScopedHasActs = (packet: CScopedClientReview, org: string) => packet.budgets.some((r) => r.org === org && r.basis === "published");
+/** Whether an audience's budget organisation has any row of the given source in the packet at all (else an honest empty state). */
+export const cScopedHasActs = (packet: CScopedClientReview, org: string, basis: CReviewFilters["budget"] = "published") => packet.budgets.some((r) => r.org === org && r.basis === basis);
 /** The decision panel's two figures, read from the explicit rows of exactly the selected key (cDecisionAnswer for the reviewer). */
 export function cScopedDecision(packet: CScopedClientReview, f: CScopedReviewFilters, scope: string) {
   const [p0, p1] = f.comparison === "K1" ? ["FY2024", "FY2025"] : ["JM2025", "JM2026"];

@@ -33,17 +33,21 @@ export function CPortfolioPvmReading({result}:{result:CPortfolioPvm}) {
   </div>;
 }
 
-/** Mandatory audience. The decomposition stays in the project review: an audience without the capability gets one short
- * note, with no fetch and no link to the workbook section; without an audience nothing renders. */
-export function CPortfolioPriceQuantityMix({view,workbook}:{view:CPortfolioView;workbook?:CWorkbookIndex|null}) {
+/** Mandatory audience. An audience without the capability gets one short note, with no fetch and no link to the workbook
+ * section; without an audience nothing renders. The reviewer fetches the workbook section on opening; the Regione
+ * (regional analytical parity) receives the same output with the page, read under its own session (`pvmSection`). */
+export function CPortfolioPriceQuantityMix({view,workbook,pvmSection}:{view:CPortfolioView;workbook?:CWorkbookIndex|null;pvmSection?:CWorkbookSection|null}) {
   const audience=usePillarCAudience();
   if(!audience)return null;
   if(!audience.capabilities.pvm)return <p className="rounded-xl border border-border bg-card px-5 py-4 text-sm leading-6 text-muted-foreground" data-c-portfolio-pvm="withheld">{C_AUDIENCE_COPY.pvm}</p>;
-  return <PriceQuantityMix view={view} workbook={workbook}/>;
+  return <PriceQuantityMix view={view} workbook={audience.kind==="reviewer"?workbook:null} loaded={audience.kind==="reviewer"?null:pvmSection??null} regional={audience.kind!=="reviewer"} aggregateKey={audience.aggregateKey}/>;
 }
-function PriceQuantityMix({view,workbook}:{view:CPortfolioView;workbook?:CWorkbookIndex|null}) {
-  const [open,setOpen]=useState(false),[section,setSection]=useState<CWorkbookSection|null>(null),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
-  const supported=view.scope.org==="Regione"&&view.scope.channel==="Tutti"&&["FY2024","FY2025"].includes(view.scope.period);
+/** regional: the section comes with the page (the Regione's own object); its absence is «not available», never «no
+ * compatible decomposition», which only the reviewer's missing workbook index means. */
+function PriceQuantityMix({view,workbook,loaded,regional,aggregateKey}:{view:CPortfolioView;workbook?:CWorkbookIndex|null;loaded:CWorkbookSection|null;regional:boolean;aggregateKey:string}) {
+  const [open,setOpen]=useState(false),[fetched,setSection]=useState<CWorkbookSection|null>(null),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
+  const section=loaded??fetched;
+  const supported=view.scope.org===aggregateKey&&view.scope.channel==="Tutti"&&["FY2024","FY2025"].includes(view.scope.period);
   useEffect(()=>{
     if(!open||!supported||!workbook||section)return;
     let active=true;const controller=new AbortController();
@@ -52,10 +56,10 @@ function PriceQuantityMix({view,workbook}:{view:CPortfolioView;workbook?:CWorkbo
       .then(data=>{if(active){setSection(data);setFailed(false);}}).catch(()=>{if(active)setFailed(true);});
     return()=>{active=false;controller.abort();};
   },[open,supported,workbook,section,attempt]);
-  const result=!supported?{status:'unsupported' as const,reason:'scope' as const}:section?cPortfolioPvm(section,view):null;
+  const result=!supported?{status:'unsupported' as const,reason:'scope' as const}:section?cPortfolioPvm(section,view,aggregateKey):null;
   return <details className="rounded-xl border border-border bg-card" onToggle={e=>setOpen(e.currentTarget.open)} data-c-portfolio-pvm>
     <summary className="cursor-pointer px-5 py-4 text-sm font-medium">Quantità, mix e costo unitario · evidenza disponibile</summary>
-    <div className="space-y-4 border-t border-border p-5">{result?<CPortfolioPvmReading result={result}/>:!workbook?<p className="text-sm text-muted-foreground">Nessuna scomposizione compatibile è disponibile.</p>:failed?<div role="status"><p className="text-sm">La scomposizione non è disponibile al momento.</p><button type="button" className="mt-3 min-h-10 rounded-lg border border-border px-3 text-xs" onClick={()=>{setFailed(false);setAttempt(n=>n+1);}}>Riprova</button></div>:<p role="status" className="text-sm text-muted-foreground">Caricamento della scomposizione…</p>}
+    <div className="space-y-4 border-t border-border p-5">{result?<CPortfolioPvmReading result={result}/>:regional&&!loaded?<p role="status" className="text-sm text-muted-foreground" data-c-pvm-status="unavailable">La scomposizione non è disponibile in questo momento. Nessun valore viene sostituito.</p>:!workbook&&!loaded?<p className="text-sm text-muted-foreground">Nessuna scomposizione compatibile è disponibile.</p>:failed?<div role="status"><p className="text-sm">La scomposizione non è disponibile al momento.</p><button type="button" className="mt-3 min-h-10 rounded-lg border border-border px-3 text-xs" onClick={()=>{setFailed(false);setAttempt(n=>n+1);}}>Riprova</button></div>:<p role="status" className="text-sm text-muted-foreground">Caricamento della scomposizione…</p>}
     </div>
   </details>;
 }

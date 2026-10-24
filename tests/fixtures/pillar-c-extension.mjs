@@ -69,10 +69,13 @@ export function extReviewer(){
 }
 
 export const sha256=b=>createHash('sha256').update(b).digest('hex');
-/** Serialised objects, their bucket paths and the pins a test installs in place of extension-storage.ts. */
+/** Serialised objects, their bucket paths and the pins a test installs in place of extension-storage.ts and, for the
+ * Regione (regional analytical parity), regional-storage.ts: the reviewer object's own bytes in the regional folder. */
 export function extFixture(){
   const files=new Map(),scoped={};
   for(const u of EXT_UNITS){const body=Buffer.from(JSON.stringify(extUnit(u,u==='aggregato'?4000:1000)));const sha=sha256(body);const name=`estensione-${sha}.json`;files.set(`v9/${u}/${name}`,body);scoped[u]={name,sha256:sha,bytes:body.length};}
   const reviewerBytes=Buffer.from(JSON.stringify(extReviewer()));
-  return {files,reviewerBytes,pins:{build:'ext-test',root:'v9',scoped,reviewer:{bucket:'pillar-c-review',object:`ext1/${sha256(reviewerBytes)}.json`,sha256:sha256(reviewerBytes),bytes:reviewerBytes.length}}};
+  const regionalName=`ext1-${sha256(reviewerBytes)}.json`;files.set(`v9/regione/${regionalName}`,reviewerBytes);
+  return {files,reviewerBytes,pins:{build:'ext-test',root:'v9',scoped,reviewer:{bucket:'pillar-c-review',object:`ext1/${sha256(reviewerBytes)}.json`,sha256:sha256(reviewerBytes),bytes:reviewerBytes.length}},
+    regional:{root:'v9',extension:{name:regionalName,sha256:sha256(reviewerBytes),bytes:reviewerBytes.length}}};
 }

@@ -15,6 +15,9 @@ import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCUnitCosts, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { PillarCFileFBasket, PillarCFindings, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
+import type { CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
+import { PillarCProvenance } from "@/components/dashboard-review/pillar-c/provenance-panels";
 import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 // The shared blocks come from review-blocks.tsx, never from the reviewer workspace: nothing this component reaches
 // carries a province key (review finding UI-4; tests/pillar-c-scoped-client-graph.test.mjs).
@@ -25,7 +28,7 @@ import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-deci
 import { cInsightResetSearch } from "@/lib/dashboard-review/pillar-c/reset-search";
 import { PILLAR_C_SECTIONS, type PillarCSection } from "@/lib/dashboard-review/pillar-c/section-navigation";
 import { C_FORECAST_LABEL, C_PERIOD_LABELS, C_PERIODS, cMoneyLabel, selectCReview, type CForecast } from "@/lib/dashboard-review/pillar-c/review";
-import type { CScopedClientReview, CScopedReviewFilters } from "@/lib/dashboard-review/pillar-c/scoped-review";
+import type { CScopedClientReview, CScopedProvenance, CScopedReviewFilters } from "@/lib/dashboard-review/pillar-c/scoped-review";
 import { itNumber } from "@/lib/format/it-number";
 
 /** What the page hands to the scoped Pillar C interface (recommendation 5). Every value is already entitled and guarded
@@ -40,6 +43,12 @@ export type PillarCScopedWorkspaceProps = {
   extension?: CExtensionView | null;
   /** The extension is published for this audience but could not be read: «not available», never «not counted». */
   extensionUnavailable?: boolean;
+  /** Regione only (regional analytical parity): the price/quantity/mix output read from its regional object, or null. */
+  pvmSection?: CWorkbookSection | null;
+  /** Regione only (owner decision of 24 Oct 2026): the reviewer's provenance panels, read from its regional object. */
+  provenance?: CScopedProvenance | null;
+  /** Regione only: its regional review object (modelled budgets, provenance) could not be read: «not available». */
+  regionalReviewUnavailable?: boolean;
 };
 
 const { monthNames } = C_REVIEW_UI;
@@ -100,40 +109,63 @@ export function cScopedPageScopeSearch(audience: CClientAudience, search: string
  *     with a visible note; the API refuses that key anyway.
  *   - Every series reads the rows of exactly the selected key (explicit mode): nothing is summed or subtracted across
  *     organisations here, and there is no «altre Aziende» series and no ranking of Aziende.
+ *   - Regione (regional analytical parity, owner clarification of 23 Oct 2026): also the reviewer's region-wide analyses
+ *     (per-resident drivers and basket indices, File F quarterly index, the four ASLs' per-pack costs, the findings read
+ *     only, the price/quantity/mix decomposition), from objects read under its own session; an Azienda never.
  *   - Budgets are published acts only, with the modelled-allocation note; the CO count scenario carries its estimate note.
  *     Each note is shown only with the rows it describes, never under an empty state.
  *   - No per-person or per-patient wording: the CO count panel's title, scale, row unit and table headers read as a
  *     ratio to the estimated count («€ per unità di numerosità stimata»).
- *   - The workbook, the shared review queue, the lineage and the price/quantity/mix decomposition are not part of it.
+ *   - Regione (owner decision of 24 Oct 2026): also the modelled budgets, with a source selector and their own note, and
+ *     the reviewer's provenance panels, both from its regional review object.
+ *   - The workbook route and the shared review queue are not part of it, and for an Azienda neither are the
+ *     price/quantity/mix decomposition, the modelled budgets and the provenance panels.
  */
-export function PillarCScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable = false }: PillarCScopedWorkspaceProps) {
+export function PillarCScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable = false, pvmSection = null, provenance = null, regionalReviewUnavailable = false }: PillarCScopedWorkspaceProps) {
   const checked = cClientAudience(audience);
   if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;
   // An extension that does not match the audience is refused like an unreadable one: «not available».
   const shown = cScopedExtensionFor(checked, extension ?? null);
-  return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} extension={shown} extensionUnavailable={!shown && (extensionUnavailable || Boolean(extension))} /></PillarCAudienceProvider>;
+  // The price/quantity/mix output reaches the panel only for an audience allowed to read it (the Regione).
+  const pvm = checked.capabilities.pvm ? pvmSection : null;
+  // Provenance and modelled budgets reach the page only for an audience allowed to read them (the Regione); a modelled
+  // row in the packet of any other audience is refused like a foreign row.
+  const trace = checked.capabilities.lineage ? provenance : null;
+  if (!checked.capabilities.syntheticBudgets && packet.budgets.some((r) => r.basis !== "published")) return null;
+  const granted = { pvmSection: pvm, provenance: trace, regionalUnavailable: (checked.capabilities.lineage || checked.capabilities.syntheticBudgets) && regionalReviewUnavailable };
+  return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} extension={shown} extensionUnavailable={!shown && (extensionUnavailable || Boolean(extension))} granted={granted} /></PillarCAudienceProvider>;
 }
-function ScopedGate({ packet, forecast, extension, extensionUnavailable }: { packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean }) {
+type CScopedRegionalProps = { pvmSection: CWorkbookSection | null; provenance: CScopedProvenance | null; regionalUnavailable: boolean };
+function ScopedGate({ packet, forecast, extension, extensionUnavailable, granted }: { packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps }) {
   const audience = usePillarCAudience();
-  return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} /> : null;
+  return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} granted={granted} /> : null;
 }
-/** The extension is shown only when it holds exactly the audience's units, in its order, with no reviewer-only block. */
+/** The extension is shown only when it holds exactly the audience's units, in its order, and what that audience may read:
+ *   - Azienda: no region-wide block, and a per-pack list only on its own unit (D2, O1);
+ *   - Regione (regional analytical parity): the region-wide blocks, and a per-pack list on each ASL, never on the aggregate.
+ * Anything else is refused like an unreadable extension. */
 export function cScopedExtensionFor(audience: CClientAudience, extension: CExtensionView | null): CExtensionView | null {
-  if (!extension || extension.drivers || extension.baskets || extension.fileFBasket || extension.findings) return null;
-  // A per-pack list belongs only to the Azienda's own unit (D2): any other is refused like a reviewer-only block.
-  if (extension.units.some((u) => u.data.unitCosts && !(audience.kind === "azienda" && u.key === audience.defaultOrg))) return null;
+  if (!extension) return null;
+  const regionWide = Boolean(extension.drivers || extension.baskets || extension.fileFBasket || extension.findings);
+  if (audience.kind === "azienda") {
+    if (regionWide || extension.units.some((u) => u.data.unitCosts && u.key !== audience.defaultOrg)) return null;
+  } else if (audience.kind === "regione") {
+    if (extension.units.some((u) => u.data.unitCosts && u.key === audience.aggregateKey)) return null;
+  } else return null;
   const keys = audience.orgs.map((o) => o.key);
   return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;
 }
 
-function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable }: { audience: CClientAudience; packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean }) {
+function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable, granted }: { audience: CClientAudience; packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps }) {
+  const { pvmSection, provenance, regionalUnavailable } = granted;
   const search = useSearchParams();
   const { filters, tampered } = cScopedReviewFilters(audience, new URLSearchParams(search));
   const data = selectCReview(packet, filters);
   const label = (key: string) => cAudienceLabel(audience, key) ?? "";
   const budget = cScopedBudgetFilters(audience, packet, new URLSearchParams(search)), budgetFilters = budget.filters;
   const budgetData = selectCReview(packet, budgetFilters), budgets = budgetData.budgets;
-  const budgetLabel = label(budgetFilters.org), hasActs = cScopedHasActs(packet, budgetFilters.org);
+  const budgetLabel = label(budgetFilters.org), modelled = budgetFilters.budget === "synthetic", hasActs = cScopedHasActs(packet, budgetFilters.org, budgetFilters.budget);
+  const budgetEmptyText = modelled ? (regionalUnavailable ? C_AUDIENCE_COPY.budgetModelledUnavailable : C_AUDIENCE_COPY.budgetEmpty) : hasActs ? C_AUDIENCE_COPY.budgetEmpty : C_AUDIENCE_COPY.budgetNone;
   // The planning workspace receives only which Azienda|period|channel has a published departmental act: never a budget row or amount.
   const publishedActs = useMemo(() => cScopedPublishedActs(packet), [packet]);
   const update = (patch: Partial<CScopedReviewFilters>, reset = false) => {
@@ -171,7 +203,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
 
     <PillarCSectionFrame {...frameOf(QUADRO)}>
       <PillarCScopeBar orgOptions={orgOptions} org={filters.org} channelOptions={SCOPE_CHANNELS} channel={filters.channel} onChange={updateScope} onReset={() => update({}, true)} tampered={tampered} tamperedText={C_AUDIENCE_COPY.tampered} scope={scope} />
-      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">{`La spesa osservata e i prodotti che la compongono sono misurabili. ${cDecisionPeopleLine(extension, extensionUnavailable)}`}</p></div>
+      <div><p className="text-xs font-medium text-primary">La domanda di gestione</p><h3 id="c-decision-title" className="mt-1 text-lg font-semibold">Più persone trattate o prodotti più costosi?</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">{`La spesa osservata e i prodotti che la compongono sono misurabili. ${cDecisionPeopleLine(extension, extensionUnavailable)}${audience.capabilities.pvm ? " Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili." : ""}`}</p></div>
       <PillarCDecisionOverview cards={decisionCards} comparison={comparison} regional={regional} links={OVERVIEW_LINKS} />
     </PillarCSectionFrame>
 
@@ -181,7 +213,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
-      <PillarCPortfolioDossier />
+      <PillarCPortfolioDossier pvmSection={pvmSection} />
       <PillarCAttributionAnalysis />
       {extension && <PillarCAttributionEvidence view={extension} />}
       {extensionUnavailable && <PillarCSectionEmpty>Le prove di attribuzione della DPC di gennaio 2026 non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
@@ -205,8 +237,11 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
       </section>
       {extension && <PillarCFileFMonthly view={extension} />}
       {extensionUnavailable && <PillarCSectionEmpty>I dati aggiuntivi della DPC di gennaio 2026 e del File F non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
-      {/* Owner decision D2: an Azienda sees its own per-pack costs; the Regione page shows none (and receives none). */}
-      {extension && audience.kind === "azienda" && <PillarCUnitCosts view={extension} />}
+      {/* Region-wide comparisons (regional analytical parity): the Regione's extension carries them, an Azienda's never. */}
+      {extension && audience.kind === "regione" && <PillarCResidentDrivers view={extension} />}
+      {extension && audience.kind === "regione" && <PillarCFileFBasket view={extension} />}
+      {/* Per-pack costs (D2): an Azienda sees its own; the Regione each ASL's, one at a time, as the reviewer does. */}
+      {extension && <PillarCUnitCosts view={extension} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
     </PillarCSectionFrame>
 
@@ -219,11 +254,13 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
             <label className="text-xs font-medium text-muted-foreground">Canale del budget<select aria-label="Canale del budget" className={selectClass} value={budgetFilters.channel} onChange={(e) => updateBudget({ channel: e.target.value as CScopedReviewFilters["channel"], area: "all" })}>{["CO", "DD", "DPC"].map((c) => <option key={c} value={c}>{c}</option>)}</select></label></div>
           <p className="mb-4 text-xs text-muted-foreground">{`Ambito del budget: ${budgetLabel} · ${budgetFilters.channel}. Questi controlli sono indipendenti dalle altre analisi.`}</p>
           {budget.tampered ? <p role="note" className="mb-4 text-xs font-medium">{C_AUDIENCE_COPY.tampered}</p> : null}
-          <div className="mb-6 grid gap-4 sm:grid-cols-3"><label className="text-xs font-medium text-muted-foreground">Periodo del budget<select aria-label="Periodo del budget" className={selectClass} value={budgetFilters.budgetPeriod} onChange={(e) => updateBudget({ budgetPeriod: e.target.value as CScopedReviewFilters["budgetPeriod"], area: "all" })}>{(["FY2024", "FY2025", "JM2026"] as const).map((p) => <option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label><div className="text-xs font-medium text-muted-foreground"><span>Fonte del budget</span><p className={staticField}>{C_AUDIENCE_COPY.budgetSource}</p></div><label className="text-xs font-medium text-muted-foreground">Livello organizzativo<select aria-label="Livello organizzativo del budget" className={selectClass} value={budgetFilters.level} onChange={(e) => updateBudget({ level: e.target.value as CScopedReviewFilters["level"], area: "all" })}><option value="Dipartimento">Dipartimento</option><option value="Disciplina">Disciplina</option></select></label></div>
+          <div className="mb-6 grid gap-4 sm:grid-cols-3"><label className="text-xs font-medium text-muted-foreground">Periodo del budget<select aria-label="Periodo del budget" className={selectClass} value={budgetFilters.budgetPeriod} onChange={(e) => updateBudget({ budgetPeriod: e.target.value as CScopedReviewFilters["budgetPeriod"], area: "all" })}>{(["FY2024", "FY2025", "JM2026"] as const).map((p) => <option key={p} value={p}>{C_PERIOD_LABELS[p]}</option>)}</select></label>{audience.capabilities.syntheticBudgets
+            ? <label className="text-xs font-medium text-muted-foreground">Fonte del budget<select aria-label="Fonte del budget" className={selectClass} value={budgetFilters.budget} onChange={(e) => updateBudget({ budget: e.target.value as CScopedReviewFilters["budget"], area: "all" })}><option value="published">Budget pubblicato</option><option value="synthetic">Budget modellato</option></select></label>
+            : <div className="text-xs font-medium text-muted-foreground"><span>Fonte del budget</span><p className={staticField}>{C_AUDIENCE_COPY.budgetSource}</p></div>}<label className="text-xs font-medium text-muted-foreground">Livello organizzativo<select aria-label="Livello organizzativo del budget" className={selectClass} value={budgetFilters.level} onChange={(e) => updateBudget({ level: e.target.value as CScopedReviewFilters["level"], area: "all" })}><option value="Dipartimento">Dipartimento</option><option value="Disciplina">Disciplina</option></select></label></div>
           {budgetData.availableBudgets.length > 0 && <label className="mb-6 block max-w-sm text-xs font-medium text-muted-foreground">Area da esplorare<select aria-label="Area da esplorare del budget" value={budgetFilters.area} className={selectClass} onChange={(e) => updateBudget({ area: e.target.value })}><option value="all">Tutte le aree dell’ambito</option>{budgetData.availableBudgets.map((r) => <option key={r.id} value={r.area}>{`${r.level} ${r.area}`}</option>)}</select></label>}
-          {budgets.length ? <BudgetRows budgets={budgets} /> : <Empty>{hasActs ? C_AUDIENCE_COPY.budgetEmpty : C_AUDIENCE_COPY.budgetNone}</Empty>}
-          {/* The O4 note describes rows: an empty state gets none (review finding UI-2). */}
-          {budgets.length > 0 && <p className="mt-5 text-xs font-medium leading-5" data-c-scoped-note="budget">{C_AUDIENCE_COPY.budgetNote}</p>}
+          {budgets.length ? <BudgetRows budgets={budgets} /> : <Empty>{budgetEmptyText}</Empty>}
+          {/* The O4 note describes rows: an empty state gets none (review finding UI-2). A modelled budget has its own. */}
+          {budgets.length > 0 && <p className="mt-5 text-xs font-medium leading-5" data-c-scoped-note="budget">{modelled ? C_AUDIENCE_COPY.budgetModelledNote : C_AUDIENCE_COPY.budgetNote}</p>}
         </Panel>
       </section>
       <PillarCPlanningWorkspace publishedActs={publishedActs} />
@@ -242,7 +279,8 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
 
     <PillarCSectionFrame {...frameOf(PRIORITA)}>
       <div className="flex flex-wrap gap-x-4 gap-y-1"><a href="#attribuzione" className={crossLink}>Quali prodotti approfondire per primi? →</a><a href="#piano-revisione" className={crossLink}>Piano di revisione del portafoglio →</a></div>
-      <PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources} />
+      {extension && audience.kind === "regione" && <PillarCFindings view={extension} />}
+      <PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}>{provenance ? <PillarCProvenance {...provenance} /> : regionalUnavailable && audience.capabilities.lineage ? <p role="status" className="mt-5 text-xs text-muted-foreground">{C_AUDIENCE_COPY.provenanceUnavailable}</p> : null}</PillarCEvidenceSources>
     </PillarCSectionFrame>
   </div>;
 }

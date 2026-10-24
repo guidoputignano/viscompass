@@ -4,7 +4,8 @@ import { C_EXTENSION_MAX_BYTES, C_EXTENSION_STORAGE } from "@/lib/dashboard-revi
 import { C_EXT_UNIT_LABELS, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { cExtComplementCheck, parseCExtensionReviewer, parseCExtensionUnit } from "@/lib/dashboard-review/pillar-c/extension-parse";
 import { cScopedKeyAllowed, type PillarCScopedAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
-import { pcsLog, readCScopedObject, type CScopedStorageClient } from "@/lib/dashboard-review/pillar-c/scoped-transport";
+import { pcsLog, readCScopedObject, readCScopedRegionalObject, type CScopedStorageClient } from "@/lib/dashboard-review/pillar-c/scoped-transport";
+import { C_REGIONAL_MAX_BYTES, C_REGIONAL_STORAGE } from "@/lib/dashboard-review/pillar-c/regional-storage";
 import { C_SCOPED_UNITS, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 
 /**
@@ -52,11 +53,16 @@ export async function loadCExtensionReviewer(approved: boolean, projectReviewer:
   } catch { return { state: "unavailable" }; }
 }
 
-/** Azienda or Regione: the audience's own units, each read under the request's session (Storage RLS), labelled as the
- * audience names them. No reviewer-only block. */
+/** Azienda or Regione, read under the request's session (Storage RLS), labelled as the audience names them.
+ *   - Azienda: its own unit and the aggregate, one object each; no per-pack list but its own, no region-wide block.
+ *   - Regione (regional analytical parity, owner clarification of 23 Oct 2026): the reviewer's own extension object,
+ *     the same bytes, read from the regional folder that the storage policy admits only to an enabled member of the
+ *     Regione, and parsed by the reviewer parser. Its numbers are the reviewer's: the five units with the four
+ *     per-pack lists, the per-resident drivers, the common-basket indices, the File F quarterly index and the findings. */
 export async function loadCExtensionScoped(audience: PillarCScopedAudience, db: CScopedStorageClient, labels: (unit: CScopedUnit) => string | null): Promise<CExtensionLoad> {
   const units = [...audience.units] as CScopedUnit[];
   if (!units.every((u) => cScopedKeyAllowed(audience, u) && (C_SCOPED_UNITS as readonly string[]).includes(u))) return { state: "forbidden" };
+  if (audience.kind === "regione") return loadCExtensionRegional(units, db, labels);
   try {
     const out = await Promise.all(units.map(async (unit) => {
       const pin = C_EXTENSION_STORAGE.scoped[unit];
@@ -68,10 +74,30 @@ export async function loadCExtensionScoped(audience: PillarCScopedAudience, db: 
     }));
     cExtComplementCheck(out.map((u) => u.data));
     // Owner decision D2 covers an Azienda's own per-pack costs: a list reaches the browser only for the Azienda's own
-    // unit, so the Regione (and any audience kind added later) receives none. Allow-list, fail closed (review L5).
-    // (Storage RLS still admits the Regione to each ASL object; that is a policy question.)
+    // unit. Allow-list, fail closed (review L5): any audience kind added later receives none.
     const shown = out.map((u) => (audience.kind === "azienda" && u.key === audience.unit ? u : { ...u, data: { ...u.data, unitCosts: null } }));
     return { state: "ready", view: { units: shown, drivers: null, baskets: null, fileFBasket: null, findings: null } };
+  } catch (error) {
+    pcsLog(error instanceof Error && error.message === "PCS-ABSENT" ? "PCS-ABSENT" : "PCS-GUARD");
+    return { state: "unavailable" };
+  }
+}
+
+async function loadCExtensionRegional(units: CScopedUnit[], db: CScopedStorageClient, labels: (unit: CScopedUnit) => string | null): Promise<CExtensionLoad> {
+  // Exactly the Regione's units, in its order (the aggregate, then ASL 1-4): anything else is not this audience.
+  const order: CScopedUnit[] = ["aggregato", "asl-1", "asl-2", "asl-3", "asl-4"];
+  if (units.length !== order.length || units.some((u, i) => u !== order[i])) return { state: "forbidden" };
+  const pin = C_REGIONAL_STORAGE.extension;
+  try {
+    const read = await readCScopedRegionalObject(db, pin.name, { sha256: pin.sha256, maxBytes: C_REGIONAL_MAX_BYTES, bytes: pin.bytes, root: C_REGIONAL_STORAGE.root });
+    if (read.state !== "ready") throw new Error(read.state === "absent" ? "PCS-ABSENT" : "PCS-TRANSPORT");
+    const p = parseCExtensionReviewer(decode(read.bytes));
+    const shown = order.map((key) => {
+      const label = labels(key), data = p.units.find((u) => u.unit === key);
+      if (!label || !data) throw new Error("PCS-MISMATCH");
+      return { key, label, data };
+    });
+    return { state: "ready", view: { units: shown, drivers: p.drivers, baskets: p.baskets, fileFBasket: p.fileFBasket, findings: p.findings } };
   } catch (error) {
     pcsLog(error instanceof Error && error.message === "PCS-ABSENT" ? "PCS-ABSENT" : "PCS-GUARD");
     return { state: "unavailable" };

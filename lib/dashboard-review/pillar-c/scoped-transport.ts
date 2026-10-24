@@ -23,22 +23,41 @@ export function pcsLog(code: PCSCode, unit?: CScopedUnit): void {
   console.warn(`[pillar-c-scoped] ${code}${unit && isCScopedUnit(unit) ? ` unit=${unit}` : ""}`);
 }
 
-/** The storage.objects policy's name pattern (migration 20261020120000), verbatim. */
-export const C_SCOPED_POLICY_NAME = /^v[1-9][0-9]{0,2}\/(asl-[1-4]|aggregato)\/[A-Za-z0-9]+(-[A-Za-z0-9]+)*-[0-9a-f]{64}[.]json$/;
+/** The storage.objects policy's name pattern (migration 20261023200000, which adds the folder «regione» to the unit
+ * folders of 20261020120000), verbatim. */
+export const C_SCOPED_POLICY_NAME = /^v[1-9][0-9]{0,2}\/(asl-[1-4]|aggregato|regione)\/[A-Za-z0-9]+(-[A-Za-z0-9]+)*-[0-9a-f]{64}[.]json$/;
 const FILE_NAME = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*-([0-9a-f]{64})\.json$/;
+/** The folder of the region-wide objects. Not a unit: no URL, payload or audience ever carries it as a key. */
+export const C_SCOPED_REGIONAL_FOLDER = "regione";
 
-/** Builds an object path from a pinned root (the rec5 root by default), a validated unit and a pinned file name, or null. */
-export function cScopedObjectPath(unit: CScopedUnit, name: string, sha256: string, root: string = C_SCOPED_STORAGE.root): string | null {
-  if (!isCScopedUnit(unit) || typeof name !== "string" || typeof sha256 !== "string" || !/^[0-9a-f]{64}$/.test(sha256) || typeof root !== "string" || !/^v[1-9][0-9]{0,2}$/.test(root)) return null;
+function objectPath(folder: string, name: string, sha256: string, root: string): string | null {
+  if (typeof name !== "string" || typeof sha256 !== "string" || !/^[0-9a-f]{64}$/.test(sha256) || typeof root !== "string" || !/^v[1-9][0-9]{0,2}$/.test(root)) return null;
   const match = FILE_NAME.exec(name);
   if (!match || match[1] !== sha256) return null;
-  const path = `${root}/${unit}/${name}`;
+  const path = `${root}/${folder}/${name}`;
   return C_SCOPED_POLICY_NAME.test(path) ? path : null;
 }
 
-export async function readCScopedObject(db: CScopedStorageClient, unit: CScopedUnit, name: string,
-  expected: { sha256: string; maxBytes: number; bytes?: number; root?: string }, timeoutMs = 12_000): Promise<CScopedRead> {
-  const path = cScopedObjectPath(unit, name, expected.sha256, expected.root);
+/** Builds an object path from a pinned root (the rec5 root by default), a validated unit and a pinned file name, or null. */
+export function cScopedObjectPath(unit: CScopedUnit, name: string, sha256: string, root: string = C_SCOPED_STORAGE.root): string | null {
+  return isCScopedUnit(unit) ? objectPath(unit, name, sha256, root) : null;
+}
+/** The path of a region-wide object (regional analytical parity): <root>/regione/<pinned name>, or null. The storage
+ * policy admits it only to an enabled member of the Regione; the caller still reads it under the request's session. */
+export function cScopedRegionalPath(name: string, sha256: string, root: string): string | null {
+  return objectPath(C_SCOPED_REGIONAL_FOLDER, name, sha256, root);
+}
+
+type Expected = { sha256: string; maxBytes: number; bytes?: number; root?: string };
+export async function readCScopedObject(db: CScopedStorageClient, unit: CScopedUnit, name: string, expected: Expected, timeoutMs = 12_000): Promise<CScopedRead> {
+  return readPath(db, cScopedObjectPath(unit, name, expected.sha256, expected.root), expected, timeoutMs);
+}
+/** A region-wide object, read like a unit object: the request's own session, the pinned size and hash, no cache. */
+export async function readCScopedRegionalObject(db: CScopedStorageClient, name: string, expected: Expected & { root: string }, timeoutMs = 12_000): Promise<CScopedRead> {
+  return readPath(db, cScopedRegionalPath(name, expected.sha256, expected.root), expected, timeoutMs);
+}
+
+async function readPath(db: CScopedStorageClient, path: string | null, expected: Expected, timeoutMs: number): Promise<CScopedRead> {
   if (!path || !Number.isSafeInteger(expected.maxBytes) || expected.maxBytes < 2) return { state: "invalid" };
   if (expected.bytes !== undefined && (!Number.isSafeInteger(expected.bytes) || expected.bytes < 2 || expected.bytes > expected.maxBytes)) return { state: "invalid" };
   let blob: Blob;
