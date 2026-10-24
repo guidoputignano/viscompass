@@ -10,6 +10,7 @@ import { PillarCScopeBar } from "@/components/dashboard-review/pillar-c/scope-ba
 import { PillarCDecisionOverview, type PillarCDecisionOverviewProps } from "@/components/dashboard-review/pillar-c/decision-overview";
 import { PillarCEvidenceSources, type PillarCEvidenceCriterion, type PillarCEvidenceSource } from "@/components/dashboard-review/pillar-c/evidence-sources";
 import { PillarCForecastPanel } from "@/components/dashboard-review/pillar-c/forecast-section";
+import { PillarCPublicComparators } from "@/components/dashboard-review/pillar-c/public-comparators";
 import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar-c/attribution-analysis";
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
@@ -205,6 +206,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
       </section>
       <section id="previsione" aria-labelledby="previsione-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading inner id="previsione" title="Che cosa indica la previsione regionale per il 2026?">{"Serie pubblica AIFA del flusso tracciabilità a livello regionale, con intervalli all’80\u00a0% e al 95\u00a0%. Non segue l’ambito aziendale né il canale selezionati."}</Heading>
         <PillarCForecastPanel forecast={packet.forecast} series={filters.forecastSeries} onSeries={(forecastSeries) => update({ forecastSeries })} published />
+        <PillarCPublicComparators workbook={workbook ?? null} />
       </section>
     </PillarCSectionFrame>
 

@@ -6,6 +6,7 @@ import { pcsLog, readCScopedRegionalObject, type CScopedStorageClient } from "@/
 import type { PillarCScopedAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
 import { C_WORKBOOK_HASH, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
 import { parseCRegionalReview, type CScopedRegionalReview } from "@/lib/dashboard-review/pillar-c/scoped-review";
+import { parseCRegionalPublic } from "@/lib/dashboard-review/pillar-c/public-comparators";
 
 /** The Regione's price/quantity/mix source (regional analytical parity, owner clarification of 23 Oct 2026): one
  * region-wide object, read under the request's own session from the regional folder, pinned by size and hash, checked
@@ -47,6 +48,26 @@ export async function loadCRegionalReview(audience: PillarCScopedAudience, db: C
     const review = parseCRegionalReview(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(read.bytes)), C_WORKBOOK_HASH);
     if (strings(review).some((s) => C_PLACE_NAME.test(s) || C_NSIS_CODE.test(s) || C_PROVINCE_TOKEN.test(s))) throw new Error("PCS-GUARD");
     return { state: "ready", review };
+  } catch (error) {
+    pcsLog(error instanceof Error && error.message === "PCS-ABSENT" ? "PCS-ABSENT" : "PCS-GUARD");
+    return { state: "unavailable" };
+  }
+}
+
+/** The Regione's public comparators (owner clarification of 23 Oct 2026): the public-tier outputs of the workbook, read
+ * like the price/quantity/mix object. Region names are expected here (public regional statistics, «Abruzzo» among
+ * them), so the screen refuses only Azienda place names, province keys and NSIS codes. */
+const C_AZIENDA_PLACE = /(^|[^\p{L}])(l['’]?aquila|aquila|avezzano|sulmona|chieti|lanciano|vasto|pescara|teramo|atri|giulianova|sant['’]?omero|ortona|marsica)(?=$|[^\p{L}])/iu;
+export type CRegionalPublicLoad = { state: "ready"; section: CWorkbookSection } | { state: "unavailable" | "forbidden" };
+export async function loadCRegionalPublic(audience: PillarCScopedAudience, db: CScopedStorageClient): Promise<CRegionalPublicLoad> {
+  if (audience.kind !== "regione") return { state: "forbidden" };
+  const pin = C_REGIONAL_STORAGE.public;
+  try {
+    const read = await readCScopedRegionalObject(db, pin.name, { sha256: pin.sha256, maxBytes: C_REGIONAL_MAX_BYTES, bytes: pin.bytes, root: C_REGIONAL_STORAGE.root });
+    if (read.state !== "ready") throw new Error(read.state === "absent" ? "PCS-ABSENT" : "PCS-TRANSPORT");
+    const section = parseCRegionalPublic(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(read.bytes)), C_REGIONAL_STORAGE.attivitaSha256);
+    if (strings(section).some((s) => C_AZIENDA_PLACE.test(s) || C_NSIS_CODE.test(s) || C_PROVINCE_TOKEN.test(s))) throw new Error("PCS-GUARD");
+    return { state: "ready", section };
   } catch (error) {
     pcsLog(error instanceof Error && error.message === "PCS-ABSENT" ? "PCS-ABSENT" : "PCS-GUARD");
     return { state: "unavailable" };

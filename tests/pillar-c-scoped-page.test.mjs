@@ -112,7 +112,8 @@ test('an enabled Azienda receives its own unit and the aggregate, its client aud
   await withProduction(render);
   assert.equal(state.rendered.length,1);
   const [name,props]=state.rendered[0];
-  assert.equal(name,'PillarCScopedWorkspace');assert.deepEqual(Object.keys(props),['audience','packet','forecast','pvmSection','provenance','regionalReviewUnavailable']);
+  assert.equal(name,'PillarCScopedWorkspace');assert.deepEqual(Object.keys(props),['audience','packet','forecast','pvmSection','provenance','regionalReviewUnavailable','publicSection','publicUnavailable']);
+  assert.equal(props.publicSection,null,'an Azienda never receives the public comparators');assert.equal(props.publicUnavailable,false);
   assert.equal(props.forecast,FORECAST.data.forecast);
   assert.equal(props.pvmSection,null,'an Azienda never receives the price/quantity/mix output');
   assert.equal(props.provenance,null,'nor the provenance panels');assert.equal(props.regionalReviewUnavailable,false,'nor a regional object to miss');
@@ -212,7 +213,7 @@ test('additions: an Azienda reads its own unit and the aggregate, the Regione it
   await withProduction(render);
   assert.deepEqual(state.addReads,[['additions-scoped',['asl-3','aggregato'],['Azienda sintetica Tre','Aggregato delle quattro Aziende']]],'never the reviewer read');
   assert.deepEqual(state.additionsShown,[null]);assert.deepEqual(state.additionsUnavailable,[true],'unreadable, so «not available»');
-  assert.deepEqual(Object.keys(state.rendered[0][1]),['audience','packet','forecast','pvmSection','provenance','regionalReviewUnavailable'],'the other props unchanged');
+  assert.deepEqual(Object.keys(state.rendered[0][1]),['audience','packet','forecast','pvmSection','provenance','regionalReviewUnavailable','publicSection','publicUnavailable'],'the other props unchanged');
   // Readable and coherent with the extension: the Azienda's own view reaches the workspace.
   const az=member('asl-3',{units:['aggregato','asl-3']}),AZ=['asl-3','aggregato'],view=addViewOf(AZ);
   Object.assign(az.state,{extension:{state:'ready',view:extViewOf(AZ)},additions:{state:'ready',view}});

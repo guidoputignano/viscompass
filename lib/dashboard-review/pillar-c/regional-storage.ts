@@ -21,5 +21,9 @@ export const C_REGIONAL_STORAGE = {
   review: { name: "revisione-b086347e4f229703f28905a78341ee719800c03c228ff3d1eff83e36a3103071.json", sha256: "b086347e4f229703f28905a78341ee719800c03c228ff3d1eff83e36a3103071", bytes: 153832 },
   /** The costi section the pvm output was taken from (workbook index 737a2ba7…). */
   costiSha256: "d75e8c506ce2dae6ad9b2fb8edec64532429437a17c1eb46b9835ddaa0a9fd84",
+  /** The public-tier comparators of the same workbook (PUB-04, -01, -02, -03, -05, -07-10, -07-11, -07-03 of section
+   * «attivita», verbatim with their formats; outputs/pillar-c/public-comparators-20261024/PINS_PUBLIC.json). */
+  public: { name: "pubblico-078832a2d92f441b8114cf13e6405866a5e03e78163e7437455a2765e4806446.json", sha256: "078832a2d92f441b8114cf13e6405866a5e03e78163e7437455a2765e4806446", bytes: 34485 },
+  attivitaSha256: "592a5df3056e04ffb52d0f1038029a44a2b5cf03454cc2e0d5fd3707334c042d",
 } as const;
 export const C_REGIONAL_MAX_BYTES = 1_000_000;

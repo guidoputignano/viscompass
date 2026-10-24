@@ -474,7 +474,8 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   assert.match(noAct,REVIEWER_ONLY_1_2B[1],'the empty variant is live');assert.doesNotMatch(noAct,REVIEWER_ONLY_1_2B[0]);
   assert.equal(out.cases,59);
   assert.equal(out.data,'bebe2d2b3c1d254353cd668e6b67e61c1c5c4b91ec1f15f465ebcccc2aa4e9be','the same synthetic data as the baseline');
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'7d738ccc694b00c79f1736546960c715404343732c18b4d57f0616dff1220260');
+  // Re-recorded on 24 Oct 2026: the reviewer's section 5 gains «Confronti pubblici fra Regioni» after the forecast.
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'211ea0079f497eb790e83a463ac385c223983999aa28b28225ce85ff85f51335');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout
@@ -600,4 +601,42 @@ test('modelled budgets and provenance: the Regione reads them with their own not
   const q=new URLSearchParams(AV.cScopedBudgetSearch(client('regione'),packet,`?${MODELLED_SEARCH}`,{area:'08'}));
   assert.equal(q.get('c_budget'),'synthetic');
   assert.equal(new URLSearchParams(AV.cScopedBudgetSearch(client('azienda4'),packetOf('azienda4'),`?${MODELLED_SEARCH}`,{area:'all'})).get('c_budget'),null);
+});
+
+// ---------------------------------------------------------------- public comparators (owner clarification of 23 Oct 2026)
+const PUB=await at('lib/dashboard-review/pillar-c/public-comparators.ts');
+const {C_WORKBOOK_HASH}=await at('lib/dashboard-review/pillar-c/workbook.ts');
+const ATTIVITA='a'.repeat(64);
+/** Synthetic public object: the eight outputs, one two-column table each, made-up values. */
+function publicObject(){
+  const outputs=PUB.C_PUBLIC_OUTPUTS.map((id,i)=>({id,title:`Uscita sintetica ${i+1}`,section:'attivita',tier:'Fonte pubblica',qualifier:'sintetico',grain:'unità',ranges:[`S${i}!A1:B4`],availability:'snapshot',reason:null,sourceState:'stato congelato',
+    tables:[{sheet:`S${i}`,range:'A1:B4',startColumn:1,columns:['Unità','Valore (€)'],headerRow:1,rows:[['Abruzzo',[`${i+1}.25`,7]],['Italia (21 unità)',['10.5',7]],['MOLISE',null]],sourceRows:[2,3,4],notes:[],numericColumns:[1]}]}));
+  return {schema:'pillar-c-regional-public-v1',workbookSha256:C_WORKBOOK_HASH,attivitaSha256:ATTIVITA,formats:{'7':'#,##0.00\ "€"'},outputs};
+}
+test('public comparators: the closed parser; the Regione reads them beside the forecast, an Azienda never',()=>{
+  const section=PUB.parseCRegionalPublic(publicObject(),ATTIVITA);
+  assert.deepEqual(section.outputs.map(o=>o.id),[...PUB.C_PUBLIC_OUTPUTS]);
+  for(const [label,mutate] of [
+    ['another attivita hash',o=>{o.attivitaSha256='b'.repeat(64);}],
+    ['outputs out of order',o=>{[o.outputs[0],o.outputs[1]]=[o.outputs[1],o.outputs[0]];}],
+    ['a ledger tier',o=>{o.outputs[2].tier='Ledger privato — V2 in attesa';}],
+    ['an extra output',o=>{o.outputs.push({...o.outputs[0],id:'O-15-03'});}],
+    ['an extra key',o=>{o.lineage=[];}],
+    ['an unknown cell format',o=>{o.outputs[0].tables[0].rows[0][1]=['1',9];}],
+  ]){const o=publicObject();mutate(o);assert.throws(()=>PUB.parseCRegionalPublic(o,ATTIVITA),/PILLAR_C_/,label);}
+  // Regione: the panel after the forecast, the eight choices, the first table formatted, missing cells as «—».
+  const html=workspace('regione','',{publicSection:section}),t=text(html);
+  assert.equal(html.split('data-c-public-comparators="ready"').length-1,1);
+  assert.deepEqual(options(html,'Confronto pubblico').map(([v])=>v),[...PUB.C_PUBLIC_OUTPUTS]);
+  assert.ok(t.includes('1,25 €')&&t.includes('10,50 €')&&t.includes(PUB.C_PUBLIC_COPY.source)&&t.includes(PUB.C_PUBLIC_NOTES['PUB-04']));
+  assert.match(html,/<tr class="font-semibold"><th scope="row"[^>]*>Abruzzo<\/th>/,'the Abruzzo row stands out, the order is the source order');
+  assert.ok(html.indexOf('data-c-public-comparators')>html.indexOf('id="previsione"'),'beside the forecast, in section 5');
+  assert.doesNotMatch(html,/stato congelato|sintetico/,'the frozen source state and qualifier are never shown');
+  assert.doesNotMatch(html,NEVER);
+  // Unreadable object: the honest state, no value.
+  const u=text(workspace('regione','',{publicUnavailable:true}));
+  assert.ok(u.includes(PUB.C_PUBLIC_COPY.unavailable));assert.ok(!u.includes('1,25 €'));
+  // An Azienda: nothing, even if handed a section.
+  const a=workspace('azienda4','',{publicSection:section,publicUnavailable:true});
+  assert.doesNotMatch(a,/data-c-public-comparators|Confronti pubblici fra Regioni/);
 });
