@@ -193,6 +193,28 @@ without understanding them:
 
 ## Current state (update this section when it changes)
 
+**24 October 2026, regional analytical access — current owner requirement.**
+This supersedes earlier reviewer-only restrictions on a Regione's own-region
+analyses, including the regional interpretation of O1, O4, D2 and D4 below.
+An enabled regional account receives every admitted organization-level analysis
+within its region and its regional aggregate: product costs, supported
+comparisons and decompositions, modelled budgets (explicitly labelled), and
+the provenance shown to reviewers. It remains a regional account, not a
+platform reviewer or administrator. The shared evidence workflow and the
+reviewer workbook route remain separately restricted. Azienda access remains
+own organization plus permitted aggregate comparators, never peer detail.
+Other-region aggregates and national benchmarks require verified compatible
+sources; this requirement does not invent missing comparisons or grant other
+regions' private organization-level data. Current organization labels remain
+ASL 1–4 for the Regione. Unsupported and disclosure-restricted outputs stay
+withheld regardless of sign-in.
+
+The regional parity implementation is being released separately from customer
+activation. The rollout tables remain the authorization gate; actual-role
+acceptance and revocation tests must pass before real members are enabled.
+Read the deployed commit and live database state for production status. The
+dated checkpoints below are historical, not proof of current deployment.
+
 **20 October 2026, Pillar C recommendation 5 (organisation-scoped
 delivery): implemented and integrated locally, production rollout not live.**
 - The scoped delivery and current production-main onboarding are integrated
