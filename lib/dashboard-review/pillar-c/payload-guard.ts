@@ -14,11 +14,13 @@ import { C_COMPONENT_LABELS, C_PERIODS } from "@/lib/dashboard-review/pillar-c/r
 import { isCScopedUnit, type CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 import type { PillarCScopedAudience } from "@/lib/dashboard-review/pillar-c/audience-rules";
 import { C_SCOPED_CAPABILITIES } from "@/lib/dashboard-review/pillar-c/scoped-capabilities";
+import { C_ADD_AREAS, C_ADD_CLASSES, C_ADD_FILEF_CATEGORIES, C_ADD_HIDDEN, C_ADD_RESIDENCE } from "@/lib/dashboard-review/pillar-c/additions";
 
 /** count: a person or identifier count, 0 or at least 5 (the small-cell rule of the January DPC and File F extension);
- * share: a proportion in [0, 1]; num: a finite number; bool: true or false. */
+ * share: a proportion in [0, 1]; num: a finite number; bool: true or false.
+ * hidden: a screened cell, either the one uniform marker of the additions (C_ADD_HIDDEN) or the cell's own shape. */
 type Leaf = "org" | "id" | "text" | "desc" | "hash" | "int" | "money" | "null" | "count" | "share" | "num" | "bool";
-type Spec = Leaf | { lit: readonly (string | number)[] } | { nullable: Spec } | { list: Spec; max: number } | { obj: Readonly<Record<string, Spec>> };
+type Spec = Leaf | { lit: readonly (string | number | boolean)[] } | { nullable: Spec } | { hidden: Spec } | { list: Spec; max: number } | { obj: Readonly<Record<string, Spec>> };
 
 /** A province key standing alone (not inside a word): AQ, CH, PE or TE. */
 export const C_PROVINCE_TOKEN = /(^|[^A-Za-z])(AQ|CH|PE|TE)([^A-Za-z]|$)/;
@@ -86,8 +88,29 @@ const EXT_FILEF: Spec = { nullable: { obj: {
 const EXT_UNIT: Spec = { obj: { schema: { lit: ["pillar-c-extension-unit-v2"] }, unit: "org", period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, january: EXT_JANUARY, unitCosts: EXT_UNIT_COSTS, fileF: EXT_FILEF,
   notes: { obj: { fileFMode09: { nullable: "text" } } } } };
 const EXT_FINDING: Spec = { obj: { id: "id", title: "text", scope: "text", source: "text", detail: "text", action: "text" } };
+// Additions (build add-v1, owner decision D24-4 of 24 Oct 2026): exactly the projections of the delivery disclosure review.
+// No euro amount in P10-04 (its eligible spend is not delivered), no rule internals, no label, no free text anywhere.
+const ADD_JANUARY = { period: { lit: ["2026-01"] }, channel: { lit: ["DPC"] }, recipientsAreSum: "bool" } as const satisfies Record<string, Spec>;
+const ADD_COUNT_SHARE: Spec = { obj: { count: "count", share: "share" } };
+const ADD_RESIDENCE: Spec = { obj: { ...ADD_JANUARY, eligible: "count", ...Object.fromEntries(C_ADD_RESIDENCE.map((k) => [k, ADD_COUNT_SHARE])) } };
+const ADD_AREA: Spec = { hidden: { obj: { recipients: "count", shareOfNarrowedSpend: "share", shareOfEligibleSpend: "share" } } };
+const ADD_NARROWING: Spec = { obj: {
+  ...ADD_JANUARY, domainReviewPending: { lit: [true] }, eligibleRecipients: "count",
+  narrowed: { obj: { total: { obj: { recipients: "count", shareOfEligibleSpend: "share" } }, byArea: { obj: Object.fromEntries(C_ADD_AREAS.map((k) => [k, ADD_AREA])) } } },
+  lineClasses: { obj: Object.fromEntries(C_ADD_CLASSES.map((k) => [k, { obj: { recipients: "count", shareOfEligibleSpend: "share" } } satisfies Spec])) },
+} };
+// P10-05: File F rows (never persons), the reported amount as a decimal string, both shares; one Azienda only.
+const ADD_FILEF: Spec = { nullable: { obj: {
+  scope: { obj: { period: { lit: ["2025"] }, organisationUnit: "org", countedUnit: { lit: ["rows"] } } },
+  categories: { obj: Object.fromEntries(C_ADD_FILEF_CATEGORIES.map((k) => [k, { obj: { rows: "count", amountEUR: "money", rowShare: "share", amountShare: "share" } } satisfies Spec])) },
+} } };
+const ADD_ENTRY = { unit: "org", residence: ADD_RESIDENCE, narrowing: ADD_NARROWING, fileFFields: ADD_FILEF } as const satisfies Record<string, Spec>;
 
 export const C_SCOPED_PAYLOAD_SPECS = {
+  /** One unit's additions object (an Azienda reads its own and the aggregate's). */
+  additionsUnit: { obj: { schema: { lit: ["pillar-c-additions-unit-v1"] }, build: { lit: ["add-v1"] }, ...ADD_ENTRY } },
+  /** The full additions object: the five units, the same bytes for the reviewer and the Regione. */
+  additions: { obj: { schema: { lit: ["pillar-c-additions-v1"] }, build: { lit: ["add-v1"] }, units: { list: { obj: ADD_ENTRY }, max: 5 } } },
   extension: EXT_UNIT,
   extensionReviewer: { obj: {
     schema: { lit: ["pillar-c-extension-reviewer-v3"] }, units: { list: EXT_UNIT, max: 5 },
@@ -149,8 +172,9 @@ function rebuild(value: unknown, spec: Spec, units: readonly CScopedUnit[], path
       case "bool": return typeof value === "boolean" ? value : fail(`BOOL ${path}`);
     }
   }
-  if ("lit" in spec) return spec.lit.includes(value as string | number) ? value : fail(`VALUE ${path}`);
+  if ("lit" in spec) return spec.lit.includes(value as string | number | boolean) ? value : fail(`VALUE ${path}`);
   if ("nullable" in spec) return value === null ? null : rebuild(value, spec.nullable, units, path);
+  if ("hidden" in spec) return value === C_ADD_HIDDEN ? C_ADD_HIDDEN : rebuild(value, spec.hidden, units, path);
   if ("list" in spec) {
     if (!Array.isArray(value) || value.length > spec.max) fail(`LIST ${path}`);
     return (value as unknown[]).map((v, i) => rebuild(v, spec.list, units, `${path}[${i}]`));

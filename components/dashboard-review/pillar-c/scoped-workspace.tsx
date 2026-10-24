@@ -16,6 +16,8 @@ import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCUnitCosts, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
 import { PillarCFileFBasket, PillarCFindings, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
+import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
+import { cAdditionsFor, cAdditionsHoldsFileF, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
 import type { CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
 import { PillarCProvenance } from "@/components/dashboard-review/pillar-c/provenance-panels";
 import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
@@ -51,6 +53,11 @@ export type PillarCScopedWorkspaceProps = {
   provenance?: CScopedProvenance | null;
   /** Regione only: its regional review object (modelled budgets, provenance) could not be read: «not available». */
   regionalReviewUnavailable?: boolean;
+  /** The additions (P8-03 residence, P10-04 narrowing by area, P10-05 File F fields) of the audience's own units,
+   * guarded on the server and checked against the extension's January recipients; null when unavailable. */
+  additions?: CAdditionsView | null;
+  /** The additions are published for this audience but could not be read or checked: «not available». */
+  additionsUnavailable?: boolean;
 };
 
 const { monthNames } = C_REVIEW_UI;
@@ -125,14 +132,19 @@ export function cScopedPageScopeSearch(audience: CClientAudience, search: string
  *     ratio to the estimated count («€ per unità di numerosità stimata»).
  *   - Regione (owner decision of 24 Oct 2026): also the modelled budgets, with a source selector and their own note, and
  *     the reviewer's provenance panels, both from its regional review object.
+ *   - Both (owner decision D24-4 of 24 Oct 2026): the additions of the audience's own units, residence beside the
+ *     January recipients, the narrowed spend by area with the attribution evidence, and the File F attribution fields
+ *     where the audience holds that Azienda; hidden cells stay «dato oscurato» for every audience.
  *   - The workbook route and the shared review queue are not part of it, and for an Azienda neither are the
  *     price/quantity/mix decomposition, the modelled budgets and the provenance panels.
  */
-export function PillarCScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable = false, pvmSection = null, provenance = null, regionalReviewUnavailable = false }: PillarCScopedWorkspaceProps) {
+export function PillarCScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable = false, pvmSection = null, provenance = null, regionalReviewUnavailable = false, additions = null, additionsUnavailable = false }: PillarCScopedWorkspaceProps) {
   const checked = cClientAudience(audience);
   if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;
   // An extension that does not match the audience is refused like an unreadable one: «not available».
   const shown = cScopedExtensionFor(checked, extension ?? null);
+  // So are additions that hold a unit outside the audience, or not exactly its units in its order: «not available».
+  const added = cAdditionsFor(checked, additions);
   // The price/quantity/mix output reaches the panel only for an audience allowed to read it (the Regione).
   const pvm = checked.capabilities.pvm ? pvmSection : null;
   // Provenance and modelled budgets reach the page only for an audience allowed to read them (the Regione); a modelled
@@ -140,12 +152,13 @@ export function PillarCScopedWorkspace({ audience, packet, forecast, extension, 
   const trace = checked.capabilities.lineage ? provenance : null;
   if (!checked.capabilities.syntheticBudgets && packet.budgets.some((r) => r.basis !== "published")) return null;
   const granted = { pvmSection: pvm, provenance: trace, regionalUnavailable: (checked.capabilities.lineage || checked.capabilities.syntheticBudgets) && regionalReviewUnavailable };
-  return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} extension={shown} extensionUnavailable={!shown && (extensionUnavailable || Boolean(extension))} granted={granted} /></PillarCAudienceProvider>;
+  return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} extension={shown} extensionUnavailable={!shown && (extensionUnavailable || Boolean(extension))} additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))} granted={granted} /></PillarCAudienceProvider>;
 }
 type CScopedRegionalProps = { pvmSection: CWorkbookSection | null; provenance: CScopedProvenance | null; regionalUnavailable: boolean };
-function ScopedGate({ packet, forecast, extension, extensionUnavailable, granted }: { packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps }) {
+type CScopedAdditionsProps = { additions: CAdditionsView | null; additionsUnavailable: boolean };
+function ScopedGate({ packet, forecast, extension, extensionUnavailable, additions, additionsUnavailable, granted }: { packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps } & CScopedAdditionsProps) {
   const audience = usePillarCAudience();
-  return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} granted={granted} /> : null;
+  return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} additions={additions} additionsUnavailable={additionsUnavailable} granted={granted} /> : null;
 }
 /** The extension is shown only when it holds exactly the audience's units, in its order, and what that audience may read:
  *   - Azienda: no region-wide block, and a per-pack list only on its own unit (D2, O1);
@@ -163,8 +176,13 @@ export function cScopedExtensionFor(audience: CClientAudience, extension: CExten
   return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;
 }
 
-function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable, granted }: { audience: CClientAudience; packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps }) {
+function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable, additions, additionsUnavailable, granted }: { audience: CClientAudience; packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps } & CScopedAdditionsProps) {
   const { pvmSection, provenance, regionalUnavailable } = granted;
+  // The additions' three panels (owner decision D24-4): P8-03 beside the January recipients, P10-04 with the attribution
+  // evidence, P10-05 beside the File F blocks for an audience that holds the File F unit (the Regione, ASL 3).
+  const residence = <PillarCAdditionsResidence view={additions} unavailable={additionsUnavailable} />;
+  const narrowing = <PillarCAdditionsNarrowing view={additions} unavailable={additionsUnavailable} />;
+  const fileFFields = cAdditionsHoldsFileF(audience) ? <PillarCAdditionsFileF view={additions} unavailable={additionsUnavailable} /> : null;
   const search = useSearchParams();
   const { filters, tampered } = cScopedReviewFilters(audience, new URLSearchParams(search));
   const data = selectCReview(packet, filters);
@@ -216,15 +234,18 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(DESTINATARI)}>
-      {extension ? <PillarCRecipientsSection view={extension} /> : extensionUnavailable ? <PillarCSectionEmpty>I dati su destinatari e utilizzo non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
+      {extension ? <PillarCRecipientsSection view={extension} residence={residence} /> : extensionUnavailable ? <PillarCSectionEmpty>I dati su destinatari e utilizzo non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
+      {!extension && residence}
       <a href="#numerosita" className={crossLink}>Scenario di numerosità stimata →</a>
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
       <PillarCPortfolioDossier pvmSection={pvmSection} />
       <PillarCAttributionAnalysis />
-      {extension && <PillarCAttributionEvidence view={extension} />}
+      {extension && <PillarCAttributionEvidence view={extension} narrowing={narrowing} fileF={fileFFields} />}
       {extensionUnavailable && <PillarCSectionEmpty>Le prove di attribuzione della DPC di gennaio 2026 non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
+      {!extension && narrowing}
+      {!extension && fileFFields}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>

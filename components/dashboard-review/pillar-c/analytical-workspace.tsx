@@ -16,6 +16,8 @@ import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCUnitCosts, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
 import { PillarCFileFBasket, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
+import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
+import { cAdditionsFor, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
 import { PillarCProvenance } from "@/components/dashboard-review/pillar-c/provenance-panels";
 import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { PillarCAudienceProvider, usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
@@ -79,18 +81,26 @@ export function cReviewerScopeSearch(search: string, patch: { org?: string; chan
 
 /** The reviewer workspace. The audience is mandatory and must be the reviewer's: the reviewer packet (all four
  * Aziende, workbook, lineage and receipts) is never rendered under another audience, and nothing renders without one. */
-export function PillarCAnalyticalWorkspace({ audience, packet, workbook, extension, extensionUnavailable = false }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension?: CExtensionView | null; extensionUnavailable?: boolean }) {
+export function PillarCAnalyticalWorkspace({ audience, packet, workbook, extension, extensionUnavailable = false, additions = null, additionsUnavailable = false }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension?: CExtensionView | null; extensionUnavailable?: boolean; additions?: CAdditionsView | null; additionsUnavailable?: boolean }) {
   if (audience?.kind !== "reviewer") return null;
-  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} extension={extension ?? null} extensionUnavailable={!extension && extensionUnavailable} /></PillarCAudienceProvider>;
+  // Additions that are not exactly the five units under the reviewed labels are refused like unreadable ones.
+  const added = cAdditionsFor(audience, additions);
+  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} extension={extension ?? null} extensionUnavailable={!extension && extensionUnavailable} additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))} /></PillarCAudienceProvider>;
 }
-function ReviewerGate({ packet, workbook, extension, extensionUnavailable }: { packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean }) {
+type CReviewerAdditionsProps = { additions: CAdditionsView | null; additionsUnavailable: boolean };
+function ReviewerGate({ packet, workbook, extension, extensionUnavailable, additions, additionsUnavailable }: { packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean } & CReviewerAdditionsProps) {
   const audience = usePillarCAudience();
-  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} extension={extension} extensionUnavailable={extensionUnavailable} /> : null;
+  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} extension={extension} extensionUnavailable={extensionUnavailable} additions={additions} additionsUnavailable={additionsUnavailable} /> : null;
 }
 /** The six sections of the page (docs/PILLAR_C_SIX_SECTIONS_20261022.md §1), each a frame with its numeral, heading and
  * question; the review blocks, the dossier, the attribution and the workbook insights sit inside the frames by topic. */
-function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUnavailable }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean }) {
+function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUnavailable, additions, additionsUnavailable }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean } & CReviewerAdditionsProps) {
   const search = useSearchParams(), filters = cReviewFilters(search), data = selectCReview(packet, filters);
+  // The additions' three panels (owner decision D24-4), beside what they extend: P8-03 after the January recipients,
+  // P10-04 after the narrowing evidence, P10-05 after the File F portfolios.
+  const residence = <PillarCAdditionsResidence view={additions} unavailable={additionsUnavailable} />;
+  const narrowing = <PillarCAdditionsNarrowing view={additions} unavailable={additionsUnavailable} />;
+  const fileFFields = <PillarCAdditionsFileF view={additions} unavailable={additionsUnavailable} />;
   const budgetFilters = cBudgetFilters(packet, new URLSearchParams(search));
   const budgetData = selectCReview(packet, budgetFilters);
   const updateBudget = (patch: Partial<CReviewFilters>) => {
@@ -136,15 +146,18 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(DESTINATARI)}>
-      {extension ? <PillarCRecipientsSection view={extension} /> : extensionUnavailable ? <PillarCSectionEmpty>I dati su destinatari e utilizzo non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
+      {extension ? <PillarCRecipientsSection view={extension} residence={residence} /> : extensionUnavailable ? <PillarCSectionEmpty>I dati su destinatari e utilizzo non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
+      {!extension && residence}
       <a href="#numerosita" className={crossLink}>Scenario di numerosità stimata →</a>
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
       <PillarCPortfolioDossier workbook={workbook} />
       {workbook && <PillarCAttributionAnalysis />}
-      {extension && <PillarCAttributionEvidence view={extension} />}
+      {extension && <PillarCAttributionEvidence view={extension} narrowing={narrowing} fileF={fileFFields} />}
       {extensionUnavailable && <PillarCSectionEmpty>Le prove di attribuzione della DPC di gennaio 2026 non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
+      {!extension && narrowing}
+      {!extension && fileFFields}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>

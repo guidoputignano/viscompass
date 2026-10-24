@@ -178,3 +178,52 @@ test('an enabled Regione whose regional objects are readable receives the price/
   const [,ap]=az.state.rendered[0];assert.equal(ap.pvmSection,null);assert.equal(ap.provenance,null);
   assert.ok(ap.packet.budgets.every(b=>b.basis==='published'));
 });
+
+// ---------------------------------------------------------------- additions (owner decision D24-4, 24 Oct 2026)
+/** A minimal synthetic extension view and additions view of the given units (invented counts): the page's check reads
+ * only each unit's January recipients and its sum flag. */
+const extViewOf=(units,n=1000)=>({units:units.map(u=>({key:u,label:u,data:{unit:u,january:{recipients:u==='aggregato'?4*n:n,recipientsAreSum:u==='aggregato'}}})),drivers:null,baskets:null,fileFBasket:null,findings:null});
+const addViewOf=(units,n=1000)=>({units:units.map(u=>({key:u,label:u,entry:{unit:u,residence:{eligible:u==='aggregato'?4*n:n,recipientsAreSum:u==='aggregato'}}}))});
+
+test('additions: the reviewer reads them after the gate; they reach the workspace only when they agree with the extension',async()=>{
+  const packet=parseCReviewPacket(cReviewV2Fixture()),ALL5=['aggregato','asl-1','asl-2','asl-3','asl-4'];
+  const run=async(extra)=>{const state=reviewerPageCases({as,ORGS,viewer,packet})[3][1]();state.rendered=[];Object.assign(state,extra);await withProduction(render);return state;};
+  // Nothing readable: «not available», never a value; one reviewer read with the gate's arguments.
+  const none=await run({});
+  assert.deepEqual(none.addReads,[['additions-reviewer',true,true]]);assert.deepEqual(none.additionsShown,[null]);assert.deepEqual(none.additionsUnavailable,[true]);
+  assert.deepEqual(Object.keys(none.rendered[0][1]),['packet','workbook'],'the rest of the branch is unchanged');
+  // Readable and equal to the extension's January recipients: the loaded view itself.
+  const view=addViewOf(ALL5),ok=await run({extension:{state:'ready',view:extViewOf(ALL5)},additions:{state:'ready',view}});
+  assert.equal(ok.additionsShown[0],view,'the loaded view, not a copy');assert.deepEqual(ok.additionsUnavailable,[false]);
+  // Readable but the extension is not: the check cannot run, so the additions are not shown.
+  const alone=await run({additions:{state:'ready',view}});
+  assert.deepEqual(alone.additionsShown,[null]);assert.deepEqual(alone.additionsUnavailable,[true]);
+  // One unit's eligible recipients differ from the extension's (P8-H5): not shown.
+  const off=addViewOf(ALL5);off.units[2].entry.residence.eligible+=5;
+  const mismatch=await run({extension:{state:'ready',view:extViewOf(ALL5)},additions:{state:'ready',view:off}});
+  assert.deepEqual(mismatch.additionsShown,[null]);assert.deepEqual(mismatch.additionsUnavailable,[true]);
+  // A sum flag that disagrees is a mismatch too.
+  const flag=addViewOf(ALL5);flag.units[0].entry.residence.recipientsAreSum=false;
+  assert.deepEqual((await run({extension:{state:'ready',view:extViewOf(ALL5)},additions:{state:'ready',view:flag}})).additionsShown,[null]);
+});
+
+test('additions: an Azienda reads its own unit and the aggregate, the Regione its five units, under the session and their own labels',async()=>{
+  const {state}=member('asl-3',{units:['aggregato','asl-3']});
+  await withProduction(render);
+  assert.deepEqual(state.addReads,[['additions-scoped',['asl-3','aggregato'],['Azienda sintetica Tre','Aggregato delle quattro Aziende']]],'never the reviewer read');
+  assert.deepEqual(state.additionsShown,[null]);assert.deepEqual(state.additionsUnavailable,[true],'unreadable, so «not available»');
+  assert.deepEqual(Object.keys(state.rendered[0][1]),['audience','packet','forecast','pvmSection','provenance','regionalReviewUnavailable'],'the other props unchanged');
+  // Readable and coherent with the extension: the Azienda's own view reaches the workspace.
+  const az=member('asl-3',{units:['aggregato','asl-3']}),AZ=['asl-3','aggregato'],view=addViewOf(AZ);
+  Object.assign(az.state,{extension:{state:'ready',view:extViewOf(AZ)},additions:{state:'ready',view}});
+  await withProduction(render);
+  assert.equal(az.state.additionsShown[0],view);assert.deepEqual(az.state.additionsUnavailable,[false]);
+  const r=member('regione',{units:SCOPED_UNITS});
+  await quiet(()=>withProduction(render));
+  assert.deepEqual(r.state.addReads,[['additions-scoped',['aggregato','asl-1','asl-2','asl-3','asl-4'],['Aggregato regionale','ASL 1','ASL 2','ASL 3','ASL 4']]]);
+  assert.equal(r.state.serviceRole,0);
+  // A forecast-only member never reads them.
+  const off=member('asl-4',{units:[]});
+  await quiet(()=>withProduction(render));
+  assert.equal(off.state.addReads,undefined);
+});

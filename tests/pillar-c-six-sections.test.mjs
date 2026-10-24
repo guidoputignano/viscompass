@@ -532,7 +532,13 @@ test('11. copy lint and source pins of the two workspaces',()=>{
   for(const line of [
     'const label = (key: string) => cAudienceLabel(audience, key) ?? "";',
     'if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;',
-    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} granted={granted} /> : null;',
+    'return audience && audience.kind !== "reviewer" && coherent(audience, packet) ? <ScopedWorkspace audience={audience} packet={packet} forecast={forecast} extension={extension} extensionUnavailable={extensionUnavailable} additions={additions} additionsUnavailable={additionsUnavailable} granted={granted} /> : null;',
+    // Owner decision D24-4 (24 Oct 2026): additions that are not exactly the audience's units, in its order and under its
+    // labels, are refused and then read as unavailable; the File F fields only for an audience that holds that Azienda.
+    'const added = cAdditionsFor(checked, additions);',
+    'additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))}',
+    'const fileFFields = cAdditionsHoldsFileF(audience) ? <PillarCAdditionsFileF view={additions} unavailable={additionsUnavailable} /> : null;',
+    '{extension && <PillarCAttributionEvidence view={extension} narrowing={narrowing} fileF={fileFFields} />}',
     // Owner decision of 24 Oct 2026: provenance and modelled budgets only with their capabilities; a modelled row in the
     // packet of an audience without syntheticBudgets refuses the whole page.
     'const trace = checked.capabilities.lineage ? provenance : null;',

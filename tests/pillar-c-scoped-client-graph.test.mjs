@@ -217,6 +217,21 @@ test('points 15-16: the guard vocabulary and the extension parsers stay on the s
     assert.ok(!graph.entry.includes(m),`${m} is in the route's client entry`);
 });
 
+test('additions (D24-4): the panels and their browser-safe vocabulary are client modules; the parser, loader and pins stay on the server',()=>{
+  const graph=routeClientGraph();
+  // The three panels render in both workspaces, so their code is in the entry every audience loads: it holds no data and
+  // no vocabulary of the province map; the data reach each audience through its own loader and cAdditionsFor.
+  for(const m of ['components/dashboard-review/pillar-c/additions-sections.tsx','lib/dashboard-review/pillar-c/additions.ts']){
+    assert.ok(graph.entry.includes(m),`${m} is a client module of the route`);
+    assert.deepEqual(findings(abs(m)),[],m);
+  }
+  for(const m of ['lib/dashboard-review/pillar-c/additions-parse.ts','lib/dashboard-review/pillar-c/additions-loader.ts','lib/dashboard-review/pillar-c/additions-storage.ts'])
+    assert.ok(!graph.entry.includes(m)&&!graph.lazy.includes(m),`${m} is in a client chunk of the route`);
+  // The client vocabulary module names no place, no Region and no NSIS code (it is served to every audience).
+  const vocabulary=readFileSync(abs('lib/dashboard-review/pillar-c/additions.ts'),'utf8');
+  assert.doesNotMatch(vocabulary,/13020[1-4]|abruzz|pescara|chieti|teramo|aquila/i);
+});
+
 test('UI-4: the scoped workspace names organisations only through the audience the server sends',()=>{
   const source=readFileSync(abs('components/dashboard-review/pillar-c/scoped-workspace.tsx'),'utf8');
   assert.match(source,/from "@\/components\/dashboard-review\/pillar-c\/review-blocks"/);

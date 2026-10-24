@@ -95,9 +95,32 @@ test('page: reviewer loaders only after the reviewer gate; the scoped branch nev
   const s=read('app/dashboard-review/pillar-c/page.tsx');
   const member=s.indexOf('if (org && !projectReviewer) {'),resolve=s.indexOf('await resolvePillarCMemberAudience(org)'),gate=s.indexOf('if (!projectReviewer) {');
   assert.ok(member>0&&member<resolve&&resolve<gate);
-  for(const name of ['loadCReviewPacket(Boolean(org)','loadCWorkbookIndex(Boolean(org)','loadCExtensionReviewer(Boolean(org)'])assert.ok(s.indexOf(name)>gate,name);
+  for(const name of ['loadCReviewPacket(Boolean(org)','loadCWorkbookIndex(Boolean(org)','loadCExtensionReviewer(Boolean(org)','loadCAdditionsReviewer(Boolean(org)'])assert.ok(s.indexOf(name)>gate,name);
   const scoped=s.slice(s.indexOf('async function scopedPillarC'),s.indexOf('export default async function PillarCPage'));
-  assert.ok(scoped.length>200);assert.doesNotMatch(scoped,/loadCReviewPacket|loadCWorkbookIndex|loadCExtensionReviewer|PillarCAnalyticalWorkspace|workbook/);
-  // One session client for the review and the extension: both read under Storage RLS.
+  assert.ok(scoped.length>200);assert.doesNotMatch(scoped,/loadCReviewPacket|loadCWorkbookIndex|loadCExtensionReviewer|loadCAdditionsReviewer|PillarCAnalyticalWorkspace|workbook/);
+  // One session client for the review, the extension and the additions: all read under Storage RLS.
   assert.match(scoped,/const db = await createClient\(\)/);assert.match(scoped,/loadCScopedReview\(audience, db\)/);assert.match(scoped,/loadCExtensionScoped\(audience, db, /);
+  assert.match(scoped,/loadCAdditionsScoped\(audience, db, /);
+  // Additions (owner decision D24-4): in both branches, checked against the extension's January recipients before any render.
+  const reviewer=s.slice(s.indexOf('if (!projectReviewer) {'));
+  for(const branch of [scoped,reviewer])assert.equal(branch.split('= cAdditionsWithExtension(added, extension);').length-1,1);
+});
+
+test('additions (D24-4): the parser and the pins stay on the server, with no cache, service role or environment switch',()=>{
+  for(const file of ['additions-parse.ts','additions-storage.ts'].map(f=>`lib/dashboard-review/pillar-c/${f}`)){
+    const source=read(file);
+    assert.match(source,/^import "server-only";/,file);
+    assert.doesNotMatch(source,/SUPABASE_SERVICE_ROLE_KEY|createServiceRoleClient|process\.env|createServerCache|unstable_noStore/,file);
+    assert.doesNotMatch(source,/^(?:export )?(?:let|var) |^(?:export )?const \w+ ?= ?new (?:Map|WeakMap|Set)\(/m,`${file}: no module-level mutable state`);
+    assert.doesNotMatch(source,/["'`](AQ|CH|PE|TE)["'`]/,file);
+  }
+  // The loader: the service role only in the reviewer read, behind the gate; the scoped reads through the session transport.
+  const loader=read('lib/dashboard-review/pillar-c/additions-loader.ts');
+  assert.match(loader,/^import "server-only";/);
+  assert.equal(loader.split('process.env.SUPABASE_SERVICE_ROLE_KEY').length-1,1,'one service-role read');
+  assert.ok(loader.indexOf('process.env.SUPABASE_SERVICE_ROLE_KEY')<loader.indexOf('export async function loadCAdditionsReviewer'),'inside the reviewer object reader');
+  assert.match(loader,/if \(!approved \|\| !projectReviewer\) return \{ state: "forbidden" \};\r?\n  const read = await remote\(\);/,'the gate before the read');
+  const scoped=loader.slice(loader.indexOf('export async function loadCAdditionsScoped'));
+  assert.doesNotMatch(scoped,/remote\(|fetch\(|process\.env/);assert.match(scoped,/readCScopedObject\(db, unit, /);assert.match(scoped,/readCScopedRegionalObject\(db, pin\.name, /);
+  assert.doesNotMatch(loader,/["'`]use cache|unstable_cache|new Map\(/);
 });

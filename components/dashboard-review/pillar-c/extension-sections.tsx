@@ -4,7 +4,7 @@
  * Shared by the reviewer and the organisation-scoped workspaces. They read the units they are given, labelled by the
  * server for the audience, and import nothing reviewer-only (tests/pillar-c-scoped-client-graph.test.mjs). Tables with
  * inline bars, no chart library: every value is text, so nothing is conveyed by colour alone. */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { itNumber } from "@/lib/format/it-number";
 import { cMoneyLabel } from "@/lib/dashboard-review/pillar-c/review";
 import { CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel } from "@/components/dashboard-review/pillar-c/review-blocks";
@@ -54,8 +54,9 @@ const range = (q1: number | null, q3: number | null, digits = 0) => (q1 === null
 const monthLabel = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? month;
 const USE = [["packs", "Confezioni"], ["prescriptions", "Prescrizioni registrate"], ["distinctAICs", "Prodotti AIC distinti"]] as const;
 
-/** Section 2, «Destinatari e utilizzo». */
-export function PillarCRecipientsSection({ view }: { view: CExtensionView }) {
+/** Section 2, «Destinatari e utilizzo». `residence` (the additions' P8-03 panel, or its honest state) sits right after
+ * the January recipients it describes. */
+export function PillarCRecipientsSection({ view, residence }: { view: CExtensionView; residence?: ReactNode }) {
   const units = view.units, asl = units.filter((u) => u.key !== "aggregato"), hasAggregate = units.some((u) => u.key === "aggregato");
   const fileF = units.find((u) => u.data.fileF)?.data.fileF ?? null;
   return <div className="space-y-6">
@@ -73,6 +74,7 @@ export function PillarCRecipientsSection({ view }: { view: CExtensionView }) {
       ]} />
       <p className="mt-4 text-xs leading-5 text-muted-foreground">Costo registrato nel flusso: acquisto più compenso di servizio. Età raggiunta nel 2026, ricavata dall’anno di nascita; fasce OsMed.</p>
     </Panel>
+    {residence}
     <div className="grid gap-6 xl:grid-cols-2">
       <Panel title="Fasce d’età" description="Quota dei destinatari di ciascuna colonna."><DistMatrix caption="Destinatari per fascia d’età" units={units} pick={(u) => u.january.age} /></Panel>
       <Panel title="Classi di costo per destinatario" description="Quota dei destinatari per costo registrato nel mese."><DistMatrix caption="Destinatari per classe di costo" units={units} pick={(u) => u.january.cost.bins} /></Panel>
@@ -152,9 +154,11 @@ const SEGMENTS = [
   { key: "notInformative", label: "Condivisi, senza esenzione informativa", className: "bg-muted-foreground/35" },
 ] as const;
 
-/** Section 3 addition: how far an exemption code narrows the candidate portfolios of January DPC spending (wording per Codex review, 22 Oct 2026). */
-export function PillarCAttributionEvidence({ view }: { view: CExtensionView }) {
-  return <div className="space-y-6"><AttributionNarrowing view={view} /><CandidateReach view={view} /><FileFPortfolios view={view} /></div>;
+/** Section 3 addition: how far an exemption code narrows the candidate portfolios of January DPC spending (wording per Codex review, 22 Oct 2026).
+ * The additions' panels sit beside what they extend: `narrowing` (P10-04, the narrowed spend by area) after the
+ * narrowing evidence, `fileF` (P10-05, the File F attribution fields) after the File F portfolios. */
+export function PillarCAttributionEvidence({ view, narrowing, fileF }: { view: CExtensionView; narrowing?: ReactNode; fileF?: ReactNode }) {
+  return <div className="space-y-6"><AttributionNarrowing view={view} />{narrowing}<CandidateReach view={view} /><FileFPortfolios view={view} />{fileF}</div>;
 }
 
 /** Recipients by the status of the products they received, and by single-candidate portfolio (R20-04). Overlapping:
