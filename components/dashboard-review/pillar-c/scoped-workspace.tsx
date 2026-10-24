@@ -32,8 +32,10 @@ import type { CScopedClientReview, CScopedProvenance, CScopedReviewFilters } fro
 import { itNumber } from "@/lib/format/it-number";
 
 /** What the page hands to the scoped Pillar C interface (recommendation 5). Every value is already entitled and guarded
- * on the server: the audience's own units only, published budgets only, no lineage, evidence or workbook block, no
- * province key and no other Azienda's name. */
+ * on the server: the audience's own units only (an Azienda: its own unit and the aggregate; the Regione: the aggregate
+ * and the four ASLs), never the shared review queue or a workbook block and never a province key. An Azienda gets published
+ * budgets only and no lineage; the Regione also gets the modelled budgets and the reviewer's provenance panels (owner
+ * decisions of 24 Oct 2026). */
 export type PillarCScopedWorkspaceProps = {
   audience: CClientAudience;
   packet: CScopedClientReview;
@@ -61,13 +63,17 @@ const [QUADRO, DESTINATARI, PORTAFOGLI, FATTORI, BUDGET, PRIORITA] = PILLAR_C_SE
 const frameOf = (s: PillarCSection) => ({ id: s.id, number: s.number, title: s.label, question: s.question });
 const OVERVIEW_LINKS = [PORTAFOGLI, FATTORI, BUDGET].map((s) => ({ href: `#${s.id}`, label: s.label }));
 const crossLink = "inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-primary";
-// «Come leggere le analisi»: the four reading cards of this page, published acts only (owner decision O4).
+// «Come leggere le analisi»: the four reading cards of this page. The budget card names published acts only (owner
+// decision O4) unless the packet carries modelled budgets, which only the Regione receives (owner decision of 24 Oct 2026):
+// then it reads as the reviewer's card.
 const EVIDENCE_CRITERIA: readonly PillarCEvidenceCriterion[] = [
   { title: "Spesa e variazioni", text: "Importi riportati, rettifiche conservate e confronto fra periodi omogenei. Il ponte descrive contributi contabili." },
   { title: "Budget per area", text: "Atti di budget pubblicati affiancati alla spesa ripartita con due chiavi. Le differenze sono neutrali rispetto alla performance." },
   { title: "Scenario CO", text: "Rapporto fra spesa e numerosità stimata, con sensibilità esplicita del denominatore e portafogli non sommabili." },
   { title: "Previsione regionale", text: "Dati pubblici AIFA a livello regionale, non aziendali. Intervalli all’80\u00a0% e al 95\u00a0%; totale annuo supplementare; la classe C non è ammessa." },
 ];
+const EVIDENCE_CRITERIA_MODELLED: readonly PillarCEvidenceCriterion[] = EVIDENCE_CRITERIA.map((c) => c.title === "Budget per area"
+  ? { ...c, text: "Budget pubblicati o modellati affiancati alla spesa ripartita con due chiavi. Le differenze sono neutrali rispetto alla performance." } : c);
 /** «Fonti e versione»: each row repeats what this page already states (R5). The CO row repeats the lead of the count
  * scenario verbatim and adds nothing about the estimate, which this page states only in the note beside the count rows
  * and never under the count empty state (UI-2). The forecast row is kept only when the public forecast is available
@@ -112,7 +118,8 @@ export function cScopedPageScopeSearch(audience: CClientAudience, search: string
  *   - Regione (regional analytical parity, owner clarification of 23 Oct 2026): also the reviewer's region-wide analyses
  *     (per-resident drivers and basket indices, File F quarterly index, the four ASLs' per-pack costs, the findings read
  *     only, the price/quantity/mix decomposition), from objects read under its own session; an Azienda never.
- *   - Budgets are published acts only, with the modelled-allocation note; the CO count scenario carries its estimate note.
+ *   - An Azienda's budgets are published acts only, with the modelled-allocation note; the CO count scenario carries its
+ *     estimate note.
  *     Each note is shown only with the rows it describes, never under an empty state.
  *   - No per-person or per-patient wording: the CO count panel's title, scale, row unit and table headers read as a
  *     ratio to the estimated count («€ per unità di numerosità stimata»).
@@ -197,6 +204,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
   const forecastDecision = (() => { if (!forecast) return null; try { return cForecastDecision(forecast, "TOT"); } catch { return null; } })();
   const regional = forecastDecision === null ? null : { annual: eur(forecastDecision.annual.total), band: `${eur(forecastDecision.annual.low80)} – ${eur(forecastDecision.annual.high80)}`, href: "#previsione" };
   const evidenceSources = forecast ? EVIDENCE_SOURCES : EVIDENCE_SOURCES.filter((s) => s.term !== "Previsione regionale");
+  const criteria = packet.budgets.some((r) => r.basis !== "published") ? EVIDENCE_CRITERIA_MODELLED : EVIDENCE_CRITERIA;
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={`scoped-${audience.kind}`} data-release-state="review_only">
     <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope={audience.scopeLine ?? undefined} />
     <PillarCSectionBar />
@@ -280,7 +288,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
     <PillarCSectionFrame {...frameOf(PRIORITA)}>
       <div className="flex flex-wrap gap-x-4 gap-y-1"><a href="#attribuzione" className={crossLink}>Quali prodotti approfondire per primi? →</a><a href="#piano-revisione" className={crossLink}>Piano di revisione del portafoglio →</a></div>
       {extension && audience.kind === "regione" && <PillarCFindings view={extension} />}
-      <PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}>{provenance ? <PillarCProvenance {...provenance} /> : regionalUnavailable && audience.capabilities.lineage ? <p role="status" className="mt-5 text-xs text-muted-foreground">{C_AUDIENCE_COPY.provenanceUnavailable}</p> : null}</PillarCEvidenceSources>
+      <PillarCEvidenceSources criteria={criteria} sources={evidenceSources}>{provenance ? <PillarCProvenance {...provenance} /> : regionalUnavailable && audience.capabilities.lineage ? <p role="status" className="mt-5 text-xs text-muted-foreground">{C_AUDIENCE_COPY.provenanceUnavailable}</p> : null}</PillarCEvidenceSources>
     </PillarCSectionFrame>
   </div>;
 }

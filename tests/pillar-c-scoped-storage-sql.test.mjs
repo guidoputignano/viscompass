@@ -879,7 +879,9 @@ const MUTANTS = [
 ];
 const withoutPostConditions = (text) => text.replace(/do \$post\$[\s\S]*?\$post\$;\n/, "");
 
-test("real PostgreSQL: every SQL mutant of the migration is caught", { skip: SKIP }, async (t) => {
+// About 50 fresh-database passes (the control, 35 mutants, and a second pass for each mutant a post-condition refuses):
+// about 85 s alone, so a suite-wide --test-timeout of 60 s would cancel it. Its own bound overrides that default.
+test("real PostgreSQL: every SQL mutant of the migration is caught", { skip: SKIP, timeout: 300_000 }, async (t) => {
   // Runs the scenarios on a migrated database; returns the first failure.
   const behaviour = async (text) => {
     const db = await fresh();

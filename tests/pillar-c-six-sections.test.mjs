@@ -562,7 +562,9 @@ test('11. copy lint and source pins of the two workspaces',()=>{
     '<PillarCPortfolioDossier pvmSection={pvmSection} />',
     '<PillarCAttributionAnalysis />',
     // The provenance panels (Regione, with the lineage capability) sit inside the evidence block, or its honest state.
-    '<PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}>{provenance ? <PillarCProvenance {...provenance} /> : regionalUnavailable && audience.capabilities.lineage ? <p role="status" className="mt-5 text-xs text-muted-foreground">{C_AUDIENCE_COPY.provenanceUnavailable}</p> : null}</PillarCEvidenceSources>',
+    '<PillarCEvidenceSources criteria={criteria} sources={evidenceSources}>{provenance ? <PillarCProvenance {...provenance} /> : regionalUnavailable && audience.capabilities.lineage ? <p role="status" className="mt-5 text-xs text-muted-foreground">{C_AUDIENCE_COPY.provenanceUnavailable}</p> : null}</PillarCEvidenceSources>',
+    // The budget reading card names modelled budgets only when the packet holds them (the Regione, 24 Oct 2026).
+    'const criteria = packet.budgets.some((r) => r.basis !== "published") ? EVIDENCE_CRITERIA_MODELLED : EVIDENCE_CRITERIA;',
     '<PillarCDecisionOverview cards={decisionCards} comparison={comparison} regional={regional} links={OVERVIEW_LINKS} />',
     '<PillarCSectionBar />',
   ])assert.equal(count(src,line),1,line);

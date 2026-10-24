@@ -583,10 +583,13 @@ test('modelled budgets and provenance: the Regione reads them with their own not
   assert.ok(t.includes('Fonti e significato delle analisi')&&t.includes('Versione e tracciabilità')&&t.includes(`R5 · ${'f'.repeat(64)}`)&&t.includes(`Spesa: ${'a'.repeat(64)}`));
   for(const re of REVIEWER_ONLY_REGIONE)assert.doesNotMatch(m,re,String(re));
   identifiers(m,SERVER.regione.units,'regione modelled');assert.doesNotMatch(m,NEVER);
+  // The «Budget per area» reading card names both sources once the packet holds modelled rows, whichever is selected.
+  for(const html of [opened,m])assert.ok(text(html).includes('Budget pubblicati o modellati affiancati alla spesa ripartita con due chiavi.')&&!text(html).includes('Atti di budget pubblicati affiancati'));
   // Its regional object unreadable: an honest state for both, never a value.
   const u=text(bare(React.createElement(PillarCScopedWorkspace,{audience:client('regione'),packet:packetOf('regione'),forecast,regionalReviewUnavailable:true}),MODELLED_SEARCH));
   assert.ok(u.includes(AV.C_AUDIENCE_COPY.budgetModelledUnavailable));assert.ok(u.includes(AV.C_AUDIENCE_COPY.provenanceUnavailable));
   assert.doesNotMatch(u,/Versione e tracciabilità/);
+  assert.ok(u.includes('Atti di budget pubblicati affiancati alla spesa ripartita con due chiavi.')&&!u.includes('Budget pubblicati o modellati'),'without modelled rows the card names published acts only');
   // An Azienda: the static published source, no provenance even if handed one, and a modelled row refuses the page.
   const a=workspace('azienda4',MODELLED_SEARCH,{provenance:PROVENANCE}),at_=text(a);
   assert.doesNotMatch(a,/<select aria-label="Fonte del budget"/);assert.ok(at_.includes('Fonte del budget Budget pubblicato'));
