@@ -366,7 +366,7 @@ test('reviewer: the three panels where they belong, the five units under the rev
   const s2=h.indexOf('<section id="destinatari"'),s3=h.indexOf('<section id="portafogli-attribuzione"'),s4=h.indexOf('<section id="fattori"');
   const at=a=>h.indexOf(`data-c-additions="${a}"`);
   assert.ok(s2<at('residence')&&at('residence')<s3,'residence in section 2');
-  assert.ok(h.indexOf('Destinatari, età e costo per destinatario')<at('residence')&&at('residence')<h.indexOf('Fasce d’età'),'right after the January recipients');
+  assert.ok(h.indexOf('Quanti sono i destinatari e chi sono')>0&&h.indexOf('Quanti sono i destinatari e chi sono')<at('residence')&&at('residence')<h.indexOf('Come si distribuiscono i destinatari'),'right after the January recipient totals');
   assert.ok(s3<at('narrowing')&&at('narrowing')<at('filef-fields')&&at('filef-fields')<s4,'narrowing and File F fields in section 3');
   assert.ok(h.indexOf('Quanto si restringe il campo dei portafogli candidati?')<at('narrowing')&&at('narrowing')<h.indexOf('Destinatari per stato del prodotto e gruppo'),'beside the narrowing evidence');
   assert.ok(h.indexOf('File F 2025 · ASL 3: portafogli candidati')<at('filef-fields'),'beside the File F portfolios');

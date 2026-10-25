@@ -6,111 +6,45 @@
  * inline bars, no chart library: every value is text, so nothing is conveyed by colour alone. */
 import { useState, type ReactNode } from "react";
 import { itNumber } from "@/lib/format/it-number";
-import { cMoneyLabel } from "@/lib/dashboard-review/pillar-c/review";
 import { CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel } from "@/components/dashboard-review/pillar-c/review-blocks";
 import { C_EXT_SOURCE, type CExtDist, type CExtensionView, type CExtUnitPacket } from "@/lib/dashboard-review/pillar-c/extension";
+import { PillarCCostConcentration, PillarCCostPerRecipient, PillarCDispensingIntervals, PillarCDistributionExplorer, PillarCPharmacyFees, PillarCRecipientCoverage, PillarCRecipientSummary, PillarCServiceBurden, PillarCTypicalUse } from "@/components/dashboard-review/pillar-c/recipient-views";
 
 type Unit = CExtensionView["units"][number];
 const pct = (v: number | null, digits = 1) => (v === null ? "—" : `${itNumber(v * 100, { minimumFractionDigits: digits, maximumFractionDigits: digits })}\u00a0%`);
 const num = (v: number | null, digits = 0) => (v === null ? "—" : itNumber(v, { minimumFractionDigits: digits, maximumFractionDigits: digits }));
-const eur = (v: number | null) => (v === null ? "—" : cMoneyLabel(v));
 const eur0 = (v: number) => itNumber(v, { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const signed0 = (v: number) => itNumber(v, { style: "currency", currency: "EUR", maximumFractionDigits: 0, signDisplay: "exceptZero" });
 const eur2 = (v: number) => itNumber(v, { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const MONTHS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
-const th = "whitespace-nowrap border-b border-border px-2 py-3 text-right font-semibold first:text-left";
 const thUnit = "border-b border-border px-2 py-3 text-right align-bottom font-semibold";
 const thLeft = "border-b border-border px-2 py-3 text-left align-bottom font-semibold";
 const td = "whitespace-nowrap border-b border-border/50 px-2 py-2.5 text-right tabular-nums";
 const SELECT = "mt-2 h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
-/** Rows of values, one column per unit. */
-function Matrix({ caption, units, rows }: { caption: string; units: Unit[]; rows: { label: string; values: string[] }[] }) {
-  return <div className="overflow-x-auto"><table className="w-full min-w-[34rem] text-xs"><caption className="sr-only">{caption}</caption>
-    <thead><tr><th scope="col" className={th}>Misura</th>{units.map((u) => <th key={u.key} scope="col" className={thUnit}>{u.label}</th>)}</tr></thead>
-    <tbody>{rows.map((r) => <tr key={r.label}><th scope="row" className="border-b border-border/50 px-2 py-2.5 text-left font-medium">{r.label}</th>{r.values.map((v, i) => <td key={units[i].key} className={td}>{v}</td>)}</tr>)}</tbody></table></div>;
-}
-
-/** A distribution as shares, one column per unit, with a bar under each share scaled to the largest share shown. */
-function DistMatrix({ caption, units, pick }: { caption: string; units: Unit[]; pick: (u: CExtUnitPacket) => CExtDist }) {
-  const dists = units.map((u) => pick(u.data));
-  const first = dists.find((d) => d.status === "released");
-  if (!first) return <Empty>La distribuzione non è mostrata: almeno una classe conta meno di 5 persone. Nessun valore viene sostituito.</Empty>;
-  const max = Math.max(0.0001, ...dists.flatMap((d) => d.cells.map((c) => c.share)));
-  // A class with no person in any column is named under the table instead of drawn as a row of zeros.
-  const empty = first.cells.filter((_, k) => dists.every((d) => d.status !== "released" || d.cells[k].count === 0)).map((c) => c.label);
-  return <div className="overflow-x-auto"><table className="w-full min-w-[34rem] text-xs"><caption className="sr-only">{caption}</caption>
-    <thead><tr><th scope="col" className={th}>Classe</th>{units.map((u) => <th key={u.key} scope="col" className={thUnit}>{u.label}</th>)}</tr></thead>
-    <tbody>{first.cells.map((cell, k) => empty.includes(cell.label) ? null : <tr key={cell.id}><th scope="row" className="border-b border-border/50 px-2 py-2 text-left font-medium">{cell.label}</th>{dists.map((d, i) => {
-      const c = d.status === "released" ? d.cells[k] : null;
-      return <td key={units[i].key} className="border-b border-border/50 px-2 py-2 text-right tabular-nums"><span>{c ? pct(c.share) : "—"}</span>
-        {c && <span aria-hidden="true" className="ml-auto mt-1 block h-1.5 w-20 rounded-full bg-secondary"><span className="block h-1.5 rounded-full bg-primary" style={{ width: `${(c.share / max) * 100}%` }} /></span>}</td>;
-    })}</tr>)}</tbody></table>{empty.length > 0 && <p className="mt-2 text-xs text-muted-foreground">{`Nessun destinatario nelle classi: ${empty.join(", ")}.`}</p>}</div>;
-}
-
 const over65 = (d: CExtDist) => d.status === "released" ? d.cells.filter((c) => ["65-74", "75-84", "85+"].includes(c.id)).reduce((a, c) => a + c.count, 0) / (d.total || 1) : null;
-const range = (q1: number | null, q3: number | null, digits = 0) => (q1 === null || q3 === null ? "—" : `${num(q1, digits)} – ${num(q3, digits)}`);
 /** «2025-03» → «Mar»: a month is labelled from its own key, never from its position (a month the source lacks is absent). */
 const monthLabel = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? month;
-const USE = [["packs", "Confezioni"], ["prescriptions", "Prescrizioni registrate"], ["distinctAICs", "Prodotti AIC distinti"]] as const;
 
-/** Section 2, «Destinatari e utilizzo». `residence` (the additions' P8-03 panel, or its honest state) sits right after
- * the January recipients it describes. */
+/** Section 2, «Destinatari e utilizzo» (redesigned for Guido's feedback 1): what is counted, the totals that add up
+ * across the ASLs, then one view per question (distributions, cost per recipient, concentration, typical use, service
+ * burden, pharmacy fees, recorded intervals), each with its exact values. `residence` (the additions' P8-03 panel, or
+ * its honest state) sits right after the totals it describes. */
 export function PillarCRecipientsSection({ view, residence }: { view: CExtensionView; residence?: ReactNode }) {
-  const units = view.units, asl = units.filter((u) => u.key !== "aggregato"), hasAggregate = units.some((u) => u.key === "aggregato");
+  const units = view.units, asl = units.filter((u) => u.key !== "aggregato");
   const fileF = units.find((u) => u.data.fileF)?.data.fileF ?? null;
   return <div className="space-y-6">
-    <Heading inner id="destinatari-dpc" title="Chi riceve i medicinali DPC e con quale utilizzo?">{`${C_EXT_SOURCE.january}. Un solo mese di riferimento: le confezioni e i contatti dipendono anche dalla cadenza di dispensazione.`}</Heading>
-    <Panel title="Destinatari, età e costo per destinatario · gennaio 2026" description={hasAggregate ? "L’aggregato somma i destinatari delle quattro ASL: non è un conteggio di persone uniche regionali. Quartili e concentrazione sono calcolati per ASL e non si sommano." : "Destinatari ammissibili distinti entro l’ASL."}>
-      <Matrix caption="Destinatari e costo per destinatario" units={units} rows={[
-        { label: "Destinatari", values: units.map((u) => num(u.data.january.recipients)) },
-        { label: "65 anni e oltre", values: units.map((u) => pct(over65(u.data.january.age))) },
-        { label: "Donne (sul sesso noto)", values: units.map((u) => pct(u.data.january.sex.female)) },
-        { label: "Costo per destinatario, mediana", values: units.map((u) => eur(u.data.january.cost.quartiles?.median ?? null)) },
-        { label: "Costo per destinatario, 1° – 3° quartile", values: units.map((u) => u.data.january.cost.quartiles ? `${eur0(u.data.january.cost.quartiles.q1)} – ${eur0(u.data.january.cost.quartiles.q3)}` : "—") },
-        { label: "Quota di costo del 10\u00a0% con costo maggiore", values: units.map((u) => pct(u.data.january.cost.top10)) },
-        { label: "Quota di costo del 20\u00a0% con costo maggiore", values: units.map((u) => pct(u.data.january.cost.top20)) },
-        { label: "Indice di Gini", values: units.map((u) => num(u.data.january.cost.gini, 2)) },
-      ]} />
-      <p className="mt-4 text-xs leading-5 text-muted-foreground">Costo registrato nel flusso: acquisto più compenso di servizio. Età raggiunta nel 2026, ricavata dall’anno di nascita; fasce OsMed.</p>
-    </Panel>
+    <Heading inner id="destinatari-dpc" title="Chi riceve i medicinali DPC e con quale utilizzo?">{`${C_EXT_SOURCE.january}.`}</Heading>
+    <PillarCRecipientCoverage units={units} />
+    <PillarCRecipientSummary units={units} />
     {residence}
-    <div className="grid gap-6 xl:grid-cols-2">
-      <Panel title="Fasce d’età" description="Quota dei destinatari di ciascuna colonna."><DistMatrix caption="Destinatari per fascia d’età" units={units} pick={(u) => u.january.age} /></Panel>
-      <Panel title="Classi di costo per destinatario" description="Quota dei destinatari per costo registrato nel mese."><DistMatrix caption="Destinatari per classe di costo" units={units} pick={(u) => u.january.cost.bins} /></Panel>
-    </div>
-    <CostConcentration units={units} hasAggregate={hasAggregate} />
-    <div className="grid gap-6 xl:grid-cols-2">
-      <Panel title="Confezioni per destinatario" description="Confezioni registrate nel mese, con segno; non dosi né giorni di terapia."><DistMatrix caption="Destinatari per numero di confezioni" units={units} pick={(u) => u.january.use.packs.bins} /></Panel>
-      <Panel title="Sostanze e combinazioni ATC5 per destinatario" description="Codici ATC di quinto livello distinti nel mese: una combinazione può contenere più principi attivi, quindi non è un conteggio di ingredienti unici."><DistMatrix caption="Destinatari per numero di sostanze e combinazioni ATC5" units={units} pick={(u) => u.january.ingredients} /></Panel>
-    </div>
-    <div className="grid gap-6 xl:grid-cols-2">
-      <Panel title="Prescrizioni registrate per destinatario" description="Contatti di prescrizione distinti nel flusso del mese: non visite né nuove terapie."><DistMatrix caption="Destinatari per numero di prescrizioni registrate" units={units} pick={(u) => u.january.use.prescriptions.bins} /></Panel>
-      <Panel title="Prodotti AIC distinti per destinatario" description="Confezioni commerciali distinte per codice AIC: più AIC possono contenere la stessa sostanza."><DistMatrix caption="Destinatari per numero di prodotti AIC distinti" units={units} pick={(u) => u.january.use.distinctAICs.bins} /></Panel>
-    </div>
-    <Panel title="Utilizzo tipico e dispersione" description={`Mediana e intervallo fra primo e terzo quartile per destinatario.${hasAggregate ? " Per l’aggregato non si calcolano: i quartili delle singole ASL non si sommano." : ""}`}>
-      <Matrix caption="Mediane e quartili di utilizzo per destinatario" units={units} rows={USE.flatMap(([key, label]) => [
-        { label: `${label}, mediana`, values: units.map((u) => num(u.data.january.use[key].quartiles?.median ?? null, 1)) },
-        { label: `${label}, 1° – 3° quartile`, values: units.map((u) => range(u.data.january.use[key].quartiles?.q1 ?? null, u.data.january.use[key].quartiles?.q3 ?? null, 1)) },
-      ])} />
-    </Panel>
-    <Panel title="Servizio di distribuzione e tempi di erogazione" description="Compenso DPC su tutte le righe del flusso; intervallo fra prescrizione ed erogazione sui contatti ammissibili (date registrate, non tempi di attesa).">
-      <Matrix caption="Servizio di distribuzione e tempi" units={units} rows={[
-        { label: "Quota del servizio sul costo", values: units.map((u) => pct(u.data.january.services.serviceShare)) },
-        { label: "Servizio per confezione", values: units.map((u) => eur(u.data.january.services.servicePerPack)) },
-        { label: "Confezioni sotto 10\u00a0€ di acquisto", values: units.map((u) => pct(u.data.january.services.under10Packs)) },
-        { label: "… quota del servizio sul loro costo", values: units.map((u) => pct(u.data.january.services.under10Service)) },
-        { label: "Farmacie che erogano", values: units.map((u) => num(u.data.january.services.pharmacies)) },
-        { label: "Quota di costo del 10 % di farmacie con costo maggiore", values: units.map((u) => pct(u.data.january.services.pharmacyTop10)) },
-        { label: "Servizio per confezione fra le farmacie, mediana", values: units.map((u) => eur(u.data.january.services.pharmacyFeeMedian)) },
-        { label: "Servizio per confezione fra le farmacie, 1° – 3° quartile", values: units.map((u) => { const s = u.data.january.services; return s.pharmacyFeeQ1 === null || s.pharmacyFeeQ3 === null ? "—" : `${eur2(s.pharmacyFeeQ1)} – ${eur2(s.pharmacyFeeQ3)}`; }) },
-        { label: "Giorni fra prescrizione ed erogazione, mediana", values: units.map((u) => num(u.data.january.services.intervalMedian)) },
-        { label: "Giorni fra prescrizione ed erogazione, 1° – 3° quartile", values: units.map((u) => range(u.data.january.services.intervalQ1, u.data.january.services.intervalQ3)) },
-        { label: "Prescrizione ed erogazione nello stesso giorno", values: units.map((u) => pct(u.data.january.services.sameDay)) },
-        { label: "Erogato entro 7 giorni", values: units.map((u) => pct(u.data.january.services.within7)) },
-      ]} />
-      <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${units.some((u) => (u.data.january.services.under10Service ?? 0) > 0.5) ? "Dove la quota del servizio supera la metà del costo, il compenso di distribuzione pesa più del medicinale: è un tema di scelta del canale, non una misura di inefficienza. " : ""}Nessuna farmacia è indicata.`}</p>
-    </Panel>
+    <PillarCDistributionExplorer units={units} />
+    <PillarCCostPerRecipient units={units} />
+    <PillarCCostConcentration units={units} />
+    <PillarCTypicalUse units={units} />
+    <PillarCServiceBurden units={units} />
+    <PillarCPharmacyFees units={units} />
+    <PillarCDispensingIntervals units={units} />
     {fileF && <FileFRecipients fileF={fileF} unitLabel={units.find((u) => u.data.fileF)?.label ?? ""} januaryTop10={units.find((u) => u.data.fileF)?.data.january.cost.top10 ?? null} />}
     {asl.length === 0 && <Empty>Nessuna ASL in questa vista.</Empty>}
   </div>;
@@ -233,20 +167,6 @@ export function PillarCFileFMonthly({ view }: { view: CExtensionView }) {
     <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${f.months.length < 12 ? `Mesi presenti nel flusso: ${f.months.length} su 12; un mese assente non vale zero. ` : ""}${lowestWithout === f.months.length - 1 && withMode09.includes(monthLabel(f.months[f.months.length - 1].month)) ? "Senza la modalità 09 l’ultimo mese è il più basso. " : ""}${note}`}</p>
     <ExactTable caption="Modalità di erogazione" headers={["Modalità", "Quota delle righe", "Quota dell’importo"]} rows={f.modes.map((m) => [m.label, pct(m.rowsShare), pct(m.amountShare)])} />
   </Panel>{f.bridges.length > 0 && <FileFBridges f={f} label={holder?.label ?? ""} />}</>;
-}
-
-/** Section 2 addition (D7): how the cost is spread over the recipients, from the per-ASL Lorenz deciles. The aggregate has
- * none (a sum of four Aziende is not one distribution). */
-function CostConcentration({ units, hasAggregate }: { units: Unit[]; hasAggregate: boolean }) {
-  const curves = units.filter((u) => u.data.january.cost.lorenz);
-  if (!curves.length) return null;
-  const tenths = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  return <Panel title="Come si distribuisce il costo fra i destinatari · gennaio 2026" description={`Quota cumulata del costo ricevuta dai destinatari con il costo più basso: più la quota è bassa, più il costo è concentrato su pochi destinatari.${hasAggregate ? " Per l’aggregato non si calcola: le distribuzioni delle singole ASL non si sommano." : ""}`}>
-    <Matrix caption="Quota cumulata del costo per decimo di destinatari" units={curves} rows={tenths.map((k) => ({
-      label: `Il ${k * 10}\u00a0% con costo più basso`, values: curves.map((u) => pct(u.data.january.cost.lorenz![k])),
-    }))} />
-    <p className="mt-4 text-xs leading-5 text-muted-foreground">Destinatari ordinati per costo registrato nel mese, dal più basso. Un solo mese: chi ritira a gennaio una confezione per più mesi compare fra i costi più alti.</p>
-  </Panel>;
 }
 
 /** Section 4 addition (owner decision D1, 23 Oct 2026): each month-to-month change of the File F reported amount in four
