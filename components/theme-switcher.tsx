@@ -10,16 +10,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Laptop, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const subscribeNothing = () => () => {};
 
 const ThemeSwitcher = () => {
-  const [mounted, setMounted] = useState(false);
+  // False on the server and during hydration, true on the client: the theme is known only there.
+  const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
   const { theme, setTheme } = useTheme();
-
-  // useEffect only runs on the client, so now we can safely show the UI
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) {
     return null;

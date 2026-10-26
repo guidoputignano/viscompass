@@ -26,15 +26,16 @@ const compact=(v:number)=>new Intl.NumberFormat("it-IT",{notation:"compact",maxi
 const labelOf=(data:Atc4,code:string)=>data.codes.find(c=>c.code===code)?.label??"";
 
 export function PillarAAtc4({region,regionName,group,channel}:{region:string;regionName:string;group:string;channel:string}){
-  const [data,setData]=useState<Atc4|null>(null);
+  const requestKey=`${region}/${channel}/${group}`;
+  const [loaded,setLoaded]=useState<{key:string;data:Atc4}|null>(null);
+  const data=loaded?.key===requestKey?loaded.data:null;
   const [view,setView]=useState<"trend"|"abc"|"ribbon">("trend");
   useEffect(()=>{
     const c=new AbortController();
-    setData(null);
     const q=new URLSearchParams({region,channel,group});
-    fetch(`/api/pillar-a/atc4?${q}`,{signal:c.signal}).then(r=>r.ok?r.json():Promise.reject()).then(setData).catch(()=>{});
+    fetch(`/api/pillar-a/atc4?${q}`,{signal:c.signal}).then(r=>r.ok?r.json():Promise.reject()).then((d:Atc4)=>setLoaded({key:requestKey,data:d})).catch(()=>{});
     return()=>c.abort();
-  },[region,channel,group]);
+  },[region,channel,group,requestKey]);
 
   const model=useMemo(()=>{
     if(!data||!data.codes.length)return null;

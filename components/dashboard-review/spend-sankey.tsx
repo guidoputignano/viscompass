@@ -46,7 +46,8 @@ export function SpendSankey({ data }: { data: SpendFlowData }) {
   // Node and link identity come from the index recharts hands back rather than
   // from its computed payload, so the mapping does not depend on which of our
   // own fields survive its internal reshaping.
-  const FlowNode = ({ x = 0, y = 0, width = 0, height = 0, index = 0, payload }: NodeProps) => {
+  // Render functions, not components: Recharts calls them with the node or link props (react-hooks static-components).
+  const renderFlowNode = ({ x = 0, y = 0, width = 0, height = 0, index = 0, payload }: NodeProps) => {
     const node = data.nodes[index];
     if (!node) return <Layer />;
     const onLeft = node.kind === "class";
@@ -78,7 +79,7 @@ export function SpendSankey({ data }: { data: SpendFlowData }) {
     );
   };
 
-  const FlowLink = ({
+  const renderFlowLink = ({
     sourceX = 0,
     targetX = 0,
     sourceY = 0,
@@ -160,8 +161,8 @@ export function SpendSankey({ data }: { data: SpendFlowData }) {
           <ResponsiveContainer width="100%" height={Math.max(420, data.nodes.length * 58)}>
             <Sankey
               data={data}
-              node={<FlowNode />}
-              link={<FlowLink />}
+              node={renderFlowNode}
+              link={renderFlowLink}
               nodePadding={38}
               nodeWidth={12}
               linkCurvature={0.5}

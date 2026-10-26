@@ -34,7 +34,7 @@ export function PrivatePillarCharts({facts,regional,orgNames={}}:{facts:PrivateF
  const peers=available.filter(r=>r.year===year).map(r=>({...r,name:label(r.org)}));
  const composition=current.categories.map(r=>({name:{A:'Access',W:'Watch',R:'Reserve'}[r.category],value:measure==='cf'?r.cf:measure==='ddd'?r.ddd:(r.dddShare??0)*100}));
  const total=composition.reduce((s,r)=>s+r.value,0);
- let used=0;
+ const offsets=composition.map((_,i)=>composition.slice(0,i).reduce((s,r)=>s+(total?r.value/total*220:0),0));
  const waterfall=chosen?benchmarkWaterfall(chosen):[];
  const trajectories=years.map(y=>Object.fromEntries([['year',y],...orgs.map(o=>[o,available.find(r=>r.org===o&&r.year===y)?.intensityDeviation??null])]));
  return <div className="space-y-6">
@@ -46,7 +46,7 @@ export function PrivatePillarCharts({facts,regional,orgNames={}}:{facts:PrivateF
    <div className="overflow-auto"><svg viewBox="0 0 850 330" className="min-w-[650px] w-full" role="img" aria-label="Sankey della composizione AWaRe">
     <rect x="170" y="45" width="14" height="220" fill="#173b49"/><text x="155" y="140" textAnchor="end" fill="currentColor">Totale {year}</text>
     <text x="155" y="163" textAnchor="end" fill="currentColor">{n(total)} {measure==='cf'?'€':measure==='share'?'%':'DDD'}</text>
-    {composition.map((r,i)=>{const h=total?r.value/total*220:0,a=45+used,b=a+i*14;used+=h;return <g key={r.name}><path d={`M184 ${a} C370 ${a},400 ${b},620 ${b} L620 ${b+h} C400 ${b+h},370 ${a+h},184 ${a+h}Z`} fill={colors[i]} opacity=".5"/><rect x="620" y={b} width="14" height={h} fill={colors[i]}/><text x="650" y={b+h/2} fill="currentColor">{r.name}: {n(r.value)}</text></g>;})}
+    {composition.map((r,i)=>{const h=total?r.value/total*220:0,a=45+offsets[i],b=a+i*14;return <g key={r.name}><path d={`M184 ${a} C370 ${a},400 ${b},620 ${b} L620 ${b+h} C400 ${b+h},370 ${a+h},184 ${a+h}Z`} fill={colors[i]} opacity=".5"/><rect x="620" y={b} width="14" height={h} fill={colors[i]}/><text x="650" y={b+h/2} fill="currentColor">{r.name}: {n(r.value)}</text></g>;})}
    </svg></div>
    <details><summary>Valori della composizione · {year}</summary><table className="w-full text-left text-sm [&_td]:p-2 [&_th]:p-2"><caption className="text-left">{measure==='cf'?'Spesa CF (€)':measure==='ddd'?'DDD':'Quota DDD (%)'} · {selection==='all'?'Perimetro autorizzato':label(selection)} · fino a sei decimali</caption><thead><tr><th>Categoria</th><th>Valore</th></tr></thead><tbody>{composition.map(r=><tr key={r.name}><td>{r.name}</td><td>{precise(r.value)}</td></tr>)}<tr><th>Totale</th><td>{precise(total)}</td></tr></tbody></table></details>
    <div className="h-64"><ResponsiveContainer><LineChart data={history}><CartesianGrid strokeDasharray="3 5"/><XAxis dataKey="year"/><YAxis width={80} tickFormatter={n}/><Tooltip formatter={v=>money(Number(v))}/><Line dataKey="cf" name="Spesa CF" stroke={colors[0]}/><Line dataKey="cmr" name="Valorizzazione CMR" stroke={colors[1]}/><Legend/></LineChart></ResponsiveContainer></div>

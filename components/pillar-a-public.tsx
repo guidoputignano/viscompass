@@ -35,7 +35,7 @@ function Panel({title,note,control,children}:{title:string;note:string;control?:
 function Select({label,value,onChange,options}:{label:string;value:string;onChange:(v:string)=>void;options:Record<string,string>}){return <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}<select className="h-11 rounded-lg border bg-background px-3 text-sm font-medium normal-case tracking-normal text-foreground" value={value} onChange={e=>onChange(e.target.value)}>{Object.entries(options).sort(([a],[b])=>/^\d+$/.test(a)&&/^\d+$/.test(b)?Number(a)-Number(b):0).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>;}
 
 export function PillarAPublic(){
-  const [data,setData]=useState<Data|null>(null),[error,setError]=useState(false);
+  const [data,setData]=useState<Data|null>(null),[errorKey,setErrorKey]=useState<string|null>(null);
   const [loadedKey,setLoadedKey]=useState('');
   const [region,setRegion]=useState("000"),[group,setGroup]=useState("antibiotics"),[channel,setChannel]=useState("direct"),[metric,setMetric]=useState("spend"),[activityRegion,setActivityRegion]=useState("ITALIA"),[query,setQuery]=useState("");
   // The territorial comparison owns its own ranking controls. Previously it was
@@ -44,7 +44,8 @@ export function PillarAPublic(){
   const [rankMetric,setRankMetric]=useState("spend"),[rankOrder,setRankOrder]=useState("desc");
   const [rankGeography,setRankGeography]=useState('regions');
   const requestKey=`${region}/${group}/${channel}`;
-  useEffect(()=>{const controller=new AbortController();setError(false);fetch(`/api/pillar-a/series?${new URLSearchParams({region,group,channel})}`,{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(result=>{if(!controller.signal.aborted){setData(result);setLoadedKey(requestKey);}}).catch(e=>{if(e.name!=="AbortError")setError(true);});return()=>controller.abort();},[region,group,channel,requestKey]);
+  useEffect(()=>{const controller=new AbortController();fetch(`/api/pillar-a/series?${new URLSearchParams({region,group,channel})}`,{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(result=>{if(!controller.signal.aborted){setData(result);setLoadedKey(requestKey);}}).catch(e=>{if(e.name!=="AbortError")setErrorKey(requestKey);});return()=>controller.abort();},[region,group,channel,requestKey]);
+  const error=errorKey===requestKey;
   const annual=useMemo(()=>data?.annual.filter(r=>r.region===region&&r.group===group&&r.channel===channel)??[],[data,region,group,channel]);
   if(error)return <div className="mx-auto max-w-7xl p-10" role="alert">Dati temporaneamente non disponibili. Ricarica la pagina.</div>;
   if(!data||loadedKey!==requestKey)return <div className="mx-auto max-w-7xl p-10" role="status">Caricamento delle serie verificate…</div>;
