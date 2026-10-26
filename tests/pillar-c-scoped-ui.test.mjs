@@ -616,7 +616,7 @@ function publicObject(){
     tables:[{sheet:`S${i}`,range:'A1:B4',startColumn:1,columns:['Unità','Valore (€)'],headerRow:1,rows:[['Abruzzo',[`${i+1}.25`,7]],['Italia (21 unità)',['10.5',7]],['MOLISE',null]],sourceRows:[2,3,4],notes:[],numericColumns:[1]}]}));
   return {schema:'pillar-c-regional-public-v1',workbookSha256:C_WORKBOOK_HASH,attivitaSha256:ATTIVITA,formats:{'7':'#,##0.00\ "€"'},outputs};
 }
-test('public comparators: the closed parser; the Regione reads them beside the forecast, an Azienda never',()=>{
+test('public comparators: the closed parser; the Regione reads them beside the forecast',()=>{
   const section=PUB.parseCRegionalPublic(publicObject(),ATTIVITA);
   assert.deepEqual(section.outputs.map(o=>o.id),[...PUB.C_PUBLIC_OUTPUTS]);
   for(const [label,mutate] of [
@@ -639,9 +639,7 @@ test('public comparators: the closed parser; the Regione reads them beside the f
   // Unreadable object: the honest state, no value.
   const u=text(workspace('regione','',{publicUnavailable:true}));
   assert.ok(u.includes(PUB.C_PUBLIC_COPY.unavailable));assert.ok(!u.includes('1,25 €'));
-  // An Azienda: nothing, even if handed a section.
-  const a=workspace('azienda4','',{publicSection:section,publicUnavailable:true});
-  assert.doesNotMatch(a,/data-c-public-comparators|Confronti pubblici fra Regioni/);
+  // An Azienda reads the same outputs as public context (owner decision of 26 Oct 2026, PR25-04): tested below.
 });
 
 // ---------------------------------------------------------------- Codex live check A26-01 (26 Oct 2026)
@@ -734,4 +732,21 @@ test('PR25-04: change columns show «+» on an increase; a zero or unavailable v
   assert.equal(PUB.cPublicCellLabel('n.a. (primo anno)',F,'Abruzzo: var. annua'),'n.a. (primo anno)');
   assert.equal(s(PUB.cPublicCellLabel(['0.094',167],F,'Quota A')),'9,4 %','a share is not a change');
   assert.equal(s(PUB.cPublicCellLabel(['2.5',168],F,'Δ 2024 (pp)')),'+2,5 pp','never a double sign');
+});
+
+test('PR25-04: an Azienda reads the public outputs as context, titled and introduced as such, beside the forecast',()=>{
+  const section=PUB.parseCRegionalPublic(publicObject(),ATTIVITA);
+  const html=workspace('azienda4','',{publicSection:section}),t=text(html);
+  assert.equal(html.split('data-c-public-comparators="ready" data-c-public-audience="azienda"').length-1,1);
+  assert.ok(t.includes(PUB.C_PUBLIC_COPY.aziendaTitle)&&t.includes(PUB.C_PUBLIC_COPY.aziendaLead));
+  assert.doesNotMatch(t,/Confronti pubblici fra Regioni/,'never the Regione’s comparison title');
+  assert.ok(t.includes(PUB.C_PUBLIC_COPY.aziendaLead)&&/non si confrontano con gli importi della tua Azienda/.test(t));
+  assert.deepEqual(options(html,'Confronto pubblico').map(([v])=>v),[...PUB.C_PUBLIC_OUTPUTS],'the same eight public outputs');
+  assert.ok(t.includes('1,25 €')&&t.includes('10,50 €')&&t.includes(PUB.C_PUBLIC_COPY.source));
+  assert.ok(html.indexOf('data-c-public-comparators')>html.indexOf('id="previsione"'),'beside the regional forecast, in section 5');
+  assert.doesNotMatch(html,/stato congelato|sintetico/);assert.doesNotMatch(html,NEVER);
+  // The Regione keeps its comparison title; an unreadable object is «not available» for either audience, with no value.
+  assert.match(workspace('regione','',{publicSection:section}),/data-c-public-audience="regione"/);
+  const u=text(workspace('azienda4','',{publicUnavailable:true}));
+  assert.ok(u.includes(PUB.C_PUBLIC_COPY.unavailable));assert.ok(!u.includes('1,25 €'));
 });

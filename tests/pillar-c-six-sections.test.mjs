@@ -236,8 +236,9 @@ test('2. Azienda and Regione: each frame holds the scoped blocks in the recorded
     assert.deepEqual(sectionIds(fr['budget-scenari']).slice(1),['pianificazione','scenari','numerosita','previsione'],label);
     const prev=between(fr['budget-scenari'],'<section id="previsione"','</div></section>');
     if(f)assert.ok(text(prev).includes(f.labels.forecast),label);
-    else if(k==='regione')assert.ok(prev.includes(`</div>${STATUS_P}${C_AUDIENCE_COPY.forecastUnavailable}</p><details class="mt-6 rounded-xl border border-border bg-card" data-c-public-comparators="unavailable">`)&&prev.endsWith('</details></section>'),`${label}: the forecast's honest empty state, then the public comparators (24 Oct 2026)`);
-    else assert.ok(prev.endsWith(`</div>${STATUS_P}${C_AUDIENCE_COPY.forecastUnavailable}</p></section>`),`${label}: the forecast's honest empty state, alone in its block`);
+    // The public comparators follow the forecast for both scoped audiences: the Regione's comparisons (24 Oct 2026), an
+    // Azienda's public context (PR25-04, 26 Oct 2026); here without an object, so «not available».
+    else assert.ok(prev.includes(`</div>${STATUS_P}${C_AUDIENCE_COPY.forecastUnavailable}</p><details class="mt-6 rounded-xl border border-border bg-card" data-c-public-comparators="unavailable" data-c-public-audience="${k==='regione'?'regione':'azienda'}">`)&&prev.endsWith('</details></section>'),`${label}: the forecast's honest empty state, then the public comparators`);
     // Section 6: the two cross-links, then the evidence block; no queue and no traceability.
     assert.equal(count(fr['priorita-evidenza'],`<div class="space-y-5"><div class="flex flex-wrap gap-x-4 gap-y-1">${PARETO}${PLAN}</div><section id="evidenza" `),1,label);
     assert.deepEqual(sectionIds(fr['priorita-evidenza']).slice(1),['evidenza'],label);

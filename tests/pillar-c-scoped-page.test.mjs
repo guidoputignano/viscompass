@@ -113,7 +113,9 @@ test('an enabled Azienda receives its own unit and the aggregate, its client aud
   assert.equal(state.rendered.length,1);
   const [name,props]=state.rendered[0];
   assert.equal(name,'PillarCScopedWorkspace');assert.deepEqual(Object.keys(props),['audience','packet','forecast','pvmSection','provenance','regionalReviewUnavailable','publicSection','publicUnavailable']);
-  assert.equal(props.publicSection,null,'an Azienda never receives the public comparators');assert.equal(props.publicUnavailable,false);
+  // PR25-04 (owner decision of 26 Oct 2026): an Azienda reads the public comparators as context, from the aggregate folder;
+  // this fixture holds no public object, so «not available», never a value, and never the regional folder (below).
+  assert.equal(props.publicSection,null);assert.equal(props.publicUnavailable,true);
   assert.equal(props.forecast,FORECAST.data.forecast);
   assert.equal(props.pvmSection,null,'an Azienda never receives the price/quantity/mix output');
   assert.equal(props.provenance,null,'nor the provenance panels');assert.equal(props.regionalReviewUnavailable,false,'nor a regional object to miss');

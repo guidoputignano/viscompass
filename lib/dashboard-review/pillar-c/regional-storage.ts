@@ -22,7 +22,9 @@ export const C_REGIONAL_STORAGE = {
   /** The costi section the pvm output was taken from (workbook index 737a2ba7…). */
   costiSha256: "d75e8c506ce2dae6ad9b2fb8edec64532429437a17c1eb46b9835ddaa0a9fd84",
   /** The public-tier comparators of the same workbook (PUB-04, -01, -02, -03, -05, -07-10, -07-11, -07-03 of section
-   * «attivita», verbatim with their formats; outputs/pillar-c/public-comparators-20261024/PINS_PUBLIC.json). */
+   * «attivita», verbatim with their formats; outputs/pillar-c/public-comparators-20261024/PINS_PUBLIC.json). The same
+   * bytes sit under <root>/regione/ for the Regione and under <root>/aggregato/ for the Aziende (owner decision of
+   * 26 Oct 2026, PR25-04): public, region-level data with no Azienda figure. */
   public: { name: "pubblico-078832a2d92f441b8114cf13e6405866a5e03e78163e7437455a2765e4806446.json", sha256: "078832a2d92f441b8114cf13e6405866a5e03e78163e7437455a2765e4806446", bytes: 34485 },
   attivitaSha256: "592a5df3056e04ffb52d0f1038029a44a2b5cf03454cc2e0d5fd3707334c042d",
 } as const;

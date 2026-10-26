@@ -164,3 +164,49 @@ test('the Regione reads its regional review object under its own session; an Azi
   const placed=regionalReview();placed.workbookVersion='R5 Pescara';const px=installReview(placed);
   assert.deepEqual(await quiet(()=>loadCRegionalReview(REGIONE,fakeSessionClient(px,{visible:[...ALL,'regione']}).client)),{state:'unavailable'},'a place name');
 });
+
+// ---------------------------------------------------------------- PR25-04: public context for the Aziende (26 Oct 2026)
+const {loadCRegionalPublic}=await import('../lib/dashboard-review/pillar-c/regional-loader.ts');
+const {C_PUBLIC_OUTPUTS}=await import('../lib/dashboard-review/pillar-c/public-comparators.ts');
+const ATTIVITA='a'.repeat(64);
+/** A synthetic public object (invented values): the eight outputs, one two-column table each. */
+function publicObject(){
+  const outputs=C_PUBLIC_OUTPUTS.map((id,i)=>({id,title:`Uscita sintetica ${i+1}`,section:'attivita',tier:'Fonte pubblica',qualifier:'sintetico',grain:'unità',ranges:[`S${i}!A1:B3`],availability:'snapshot',reason:null,sourceState:'stato congelato',
+    tables:[{sheet:`S${i}`,range:'A1:B3',startColumn:1,columns:['Unità','Valore (€)'],headerRow:1,rows:[['Abruzzo',[`${i+1}.25`,7]],['Italia (21 unità)',['10.5',7]]],sourceRows:[2,3],notes:[],numericColumns:[1]}]}));
+  return {schema:'pillar-c-regional-public-v1',workbookSha256:C_WORKBOOK_HASH,attivitaSha256:ATTIVITA,formats:{'7':'#,##0.00 "€"'},outputs};
+}
+/** The same bytes under the folders given: the pin names one object, wherever it is read from. */
+function installPublic(object,folders){
+  const body=Buffer.from(JSON.stringify(object)+'\n'),sha=sha256(body),name=`pubblico-${sha}.json`;
+  globalThis.__pcs.regional={root:'v9',public:{name,sha256:sha,bytes:body.length},attivitaSha256:ATTIVITA};
+  return {files:new Map(folders.map(f=>[`v9/${f}/${name}`,body])),name};
+}
+
+test('PR25-04: the Regione reads the public object from its regional folder, an Azienda the same bytes from the aggregate folder',async()=>{
+  as({pins:{root:'v1',bucket:'pillar-c-scoped'},client:()=>null});
+  const fx=installPublic(publicObject(),['regione','aggregato']);
+  const r=fakeSessionClient(fx,{visible:[...ALL,'regione']}),a=fakeSessionClient(fx,{visible:['asl-3','aggregato']});
+  const regione=await loadCRegionalPublic(REGIONE,r.client),azienda=await loadCRegionalPublic(AZIENDA,a.client);
+  assert.equal(regione.state,'ready');assert.equal(azienda.state,'ready');
+  assert.deepEqual(r.calls.downloads.map(d=>d.path),[`v9/regione/${fx.name}`]);
+  assert.deepEqual(a.calls.downloads.map(d=>[d.bucket,d.path,d.params.cache]),[['pillar-c-scoped',`v9/aggregato/${fx.name}`,'no-store']],'never the regional folder');
+  assert.deepEqual(azienda.section,regione.section,'one object, one reading');
+});
+
+test('PR25-04: an Azienda without the aggregate copy, or with other bytes, reads «unavailable», never the regional folder',async()=>{
+  as({pins:{root:'v1',bucket:'pillar-c-scoped'},client:()=>null});
+  const only=installPublic(publicObject(),['regione']);
+  const a=fakeSessionClient(only,{visible:['asl-3','aggregato','regione']});
+  assert.deepEqual(await quiet(()=>loadCRegionalPublic(AZIENDA,a.client)),{state:'unavailable'});
+  assert.ok(a.calls.downloads.every(d=>!d.path.includes('/regione/')),'an Azienda never asks for the regional folder');
+  // Storage refuses the aggregate folder (a revoked member): «unavailable».
+  const fx=installPublic(publicObject(),['aggregato']);
+  assert.deepEqual(await quiet(()=>loadCRegionalPublic(AZIENDA,fakeSessionClient(fx,{visible:['asl-3']}).client)),{state:'unavailable'});
+  // Other bytes under the pinned name.
+  const tampered=new Map(fx.files);const [path,body]=[...tampered][0];const b=Buffer.from(body);b[30]^=1;tampered.set(path,b);
+  assert.deepEqual(await quiet(()=>loadCRegionalPublic(AZIENDA,fakeSessionClient({files:tampered},{visible:['asl-3','aggregato']}).client)),{state:'unavailable'});
+  // A place name of an Azienda in a public row: the screen refuses it.
+  const placed=publicObject();placed.outputs[0].tables[0].rows[0][0]='Teramo';
+  const px=installPublic(placed,['aggregato']);
+  assert.deepEqual(await quiet(()=>loadCRegionalPublic(AZIENDA,fakeSessionClient(px,{visible:['asl-3','aggregato']}).client)),{state:'unavailable'});
+});

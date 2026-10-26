@@ -157,8 +157,9 @@ export function PillarCScopedWorkspace({ audience, packet, forecast, extension, 
   const trace = checked.capabilities.lineage ? provenance : null;
   if (!checked.capabilities.syntheticBudgets && packet.budgets.some((r) => r.basis !== "published")) return null;
   const granted = { pvmSection: pvm, provenance: trace, regionalUnavailable: (checked.capabilities.lineage || checked.capabilities.syntheticBudgets) && regionalReviewUnavailable,
-    // The public comparators reach the page only for the Regione; never for an Azienda (PC-14 §3.4).
-    publicSection: checked.kind === "regione" ? publicSection : null, publicUnavailable: checked.kind === "regione" && (publicUnavailable || !publicSection) };
+    // The public comparators reach both scoped audiences: the Regione as regional comparison, an Azienda as public
+    // context framed as such, never set against its own amounts (PC-14 §3.4; owner decision of 26 Oct 2026, PR25-04).
+    publicSection, publicUnavailable: publicUnavailable || !publicSection };
   return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} extension={shown} extensionUnavailable={!shown && (extensionUnavailable || Boolean(extension))} additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))} granted={granted} /></PillarCAudienceProvider>;
 }
 type CScopedRegionalProps = { pvmSection: CWorkbookSection | null; provenance: CScopedProvenance | null; regionalUnavailable: boolean; publicSection: CWorkbookSection | null; publicUnavailable: boolean };
@@ -310,7 +311,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
       </section>
       <section id="previsione" aria-labelledby="previsione-title" className="scroll-mt-6 xl:scroll-mt-36"><Heading inner id="previsione" title="Che cosa indica la previsione regionale per il 2026?">{"Serie pubblica AIFA del flusso tracciabilità a livello regionale, con intervalli all’80\u00a0% e al 95\u00a0%. Non segue l’ambito aziendale né il canale selezionati."}</Heading>
         {forecast ? <PillarCForecastPanel forecast={forecast} series={filters.forecastSeries} onSeries={(forecastSeries) => update({ forecastSeries })} published /> : <Empty>{C_AUDIENCE_COPY.forecastUnavailable}</Empty>}
-        {audience.kind === "regione" && <PillarCPublicComparators loaded={granted.publicSection} unavailable={granted.publicUnavailable} />}
+        <PillarCPublicComparators loaded={granted.publicSection} unavailable={granted.publicUnavailable} />
       </section>
     </PillarCSectionFrame>
 

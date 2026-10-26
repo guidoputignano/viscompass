@@ -61,19 +61,20 @@ async function scopedPillarC(audience: PillarCScopedAudience) {
   const regione = audience.kind === "regione";
   // The additions (owner decision D24-4: residence, narrowing by area, File F fields) are read the same way: an Azienda
   // its own unit and the aggregate, the Regione the full object of its regional folder.
-  // The Regione also reads the public comparators of its regional folder (owner clarification of 23 Oct 2026).
+  // The public comparators (owner clarification of 23 Oct 2026): the Regione reads them from its regional folder, an
+  // Azienda the same pinned bytes from the aggregate folder, as public context (owner decision of 26 Oct 2026, PR25-04).
   const [review, forecast, extension, pvm, regional, added, publicLoad] = await Promise.all([loadCScopedReview(audience, db), loadCRegionalForecast(true),
     client ? loadCExtensionScoped(audience, db, (unit) => client.orgs.find((o) => o.key === unit)?.label ?? null) : Promise.resolve({ state: "unavailable" as const }),
     regione ? loadCRegionalPvm(audience, db) : Promise.resolve({ state: "forbidden" as const }),
     regione ? loadCRegionalReview(audience, db) : Promise.resolve({ state: "forbidden" as const }),
     client ? loadCAdditionsScoped(audience, db, (unit) => client.orgs.find((o) => o.key === unit)?.label ?? null) : Promise.resolve({ state: "unavailable" as const }),
-    regione ? loadCRegionalPublic(audience, db) : Promise.resolve({ state: "forbidden" as const })]);
+    loadCRegionalPublic(audience, db)]);
   // Each unit's eligible recipients must be the extension's January recipients (P8-H5): otherwise «unavailable».
   const additions = cAdditionsWithExtension(added, extension);
   if (review.state === "ready" && client) {
     // The modelled rows join the unit files' published acts; nothing else in the packet changes.
     const packet = regional.state === "ready" ? { ...review.packet, budgets: [...review.packet.budgets, ...regional.review.budgets] } : review.packet;
-    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCPeriodCatalogProvider catalog={periodCatalogOf(extension.state === "ready" ? extension.view : null)}><PillarCScopedWorkspace audience={client} packet={packet} forecast={forecast.state === "ready" ? forecast.data.forecast : null} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} pvmSection={pvm.state === "ready" ? pvm.section : null} provenance={regional.state === "ready" ? regional.review.provenance : null} regionalReviewUnavailable={regione && regional.state !== "ready"} additions={additions.state === "ready" ? additions.view : null} additionsUnavailable={additions.state !== "ready"} publicSection={publicLoad.state === "ready" ? publicLoad.section : null} publicUnavailable={regione && publicLoad.state !== "ready"} /></PillarCPeriodCatalogProvider></Suspense>;
+    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCPeriodCatalogProvider catalog={periodCatalogOf(extension.state === "ready" ? extension.view : null)}><PillarCScopedWorkspace audience={client} packet={packet} forecast={forecast.state === "ready" ? forecast.data.forecast : null} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} pvmSection={pvm.state === "ready" ? pvm.section : null} provenance={regional.state === "ready" ? regional.review.provenance : null} regionalReviewUnavailable={regione && regional.state !== "ready"} additions={additions.state === "ready" ? additions.view : null} additionsUnavailable={additions.state !== "ready"} publicSection={publicLoad.state === "ready" ? publicLoad.section : null} publicUnavailable={publicLoad.state !== "ready"} /></PillarCPeriodCatalogProvider></Suspense>;
   }
   // An entitled unit that cannot be read is unavailable, never «not entitled», and no value is substituted.
   return <div data-pillar-c-scope={`scoped-${audience.kind}-unavailable`}><p role="status" className="mb-6 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">Le analisi di Pillar C per la tua organizzazione non sono disponibili in questo momento. Nessun valore viene sostituito.</p>{forecast.state === "ready"

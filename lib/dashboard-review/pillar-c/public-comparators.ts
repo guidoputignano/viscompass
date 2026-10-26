@@ -6,7 +6,9 @@ import { C_WORKBOOK_HASH, cWorkbookLabel, parseCWorkbookSection, type CWorkbookC
  * open data, the Ministry/ISTAT population and the Annuario statistico del SSN, region level only. Each output compares
  * like with like on one source and one definition; none carries a ledger value or an Azienda figure, and none is ever
  * set against an Azienda (PC-14 §3.4). Every value was recomputed from the raw public files
- * (outputs/pillar-c/public-comparators-20261024/VERIFY_PUBLIC.json). Shown to the reviewer and the Regione.
+ * (outputs/pillar-c/public-comparators-20261024/VERIFY_PUBLIC.json). Shown to the reviewer and the Regione as regional
+ * comparisons, and to an Azienda as public context only (owner decision of 26 Oct 2026, PR25-04): never set beside its
+ * own amounts and never presented as a comparison with another Azienda.
  */
 export const C_PUBLIC_OUTPUTS = ["PUB-04", "PUB-01", "PUB-02", "PUB-03", "PUB-05", "PUB-07-10", "PUB-07-11", "PUB-07-03"] as const;
 export type CPublicOutputId = typeof C_PUBLIC_OUTPUTS[number];
@@ -65,6 +67,8 @@ export const C_PUBLIC_COPY = {
   lead: "Dati pubblici a livello regionale: l’Abruzzo accanto all’Italia e alle altre Regioni, sulla stessa fonte e con la stessa definizione. Non sono la spesa delle Aziende e non si sommano né si confrontano con quella del dossier: la spesa AIFA descrive gli acquisti delle strutture, un flusso diverso.",
   source: "Fonte: AIFA, spesa e consumo relativi al flusso della farmaceutica convenzionata e degli acquisti diretti (open data, CC BY 4.0); popolazione: ISTAT tramite il Ministero della Salute; attività ospedaliera: Annuario statistico del SSN 2023. Elaborazione VIS. Definizioni dei campi dal manuale open data 2016–2017: il manuale corrente non è disponibile.",
   unavailable: "I confronti pubblici non sono disponibili in questo momento. Nessun valore viene sostituito.",
+  aziendaTitle: "Contesto pubblico: Abruzzo, Italia e altre Regioni",
+  aziendaLead: "Dati pubblici a livello regionale e nazionale: descrivono l’Abruzzo nel suo insieme, l’Italia e le altre Regioni, sulla stessa fonte e con la stessa definizione. Non contengono dati della tua Azienda né di altre Aziende e non si confrontano con gli importi della tua Azienda: la spesa AIFA descrive gli acquisti delle strutture, un flusso e un perimetro diversi.",
 } as const;
 
 function fail(): never { throw new Error("PILLAR_C_PUBLIC"); }

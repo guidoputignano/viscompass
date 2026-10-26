@@ -2,8 +2,9 @@
 
 /** «Confronti pubblici fra Regioni» (owner clarification of 23 Oct 2026), beside the regional forecast: the public-tier
  * outputs of the workbook, one at a time, each table as published (rows in the source's fixed order, never ranked).
- * The reviewer fetches its «attivita» section on opening; the Regione receives the same outputs with the page, read under
- * its own session. An Azienda never reads them (PC-14 §3.4: never a comparator for an Azienda). A change of output
+ * The reviewer fetches its «attivita» section on opening; the Regione and an Azienda receive the same outputs with the
+ * page, read under their own session. For an Azienda they are public context, titled and introduced as such: never a
+ * comparator for the Azienda (PC-14 §3.4) and never beside its own amounts (owner decision of 26 Oct 2026, PR25-04). A change of output
  * replaces the keyed block whole, so a page translated by the browser never keeps a stale value (AGENTS.md). */
 import { useEffect, useState } from "react";
 import { cWorkbookLabel, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
@@ -25,7 +26,8 @@ export function PillarCPublicComparators({ workbook = null, loaded = null, unava
       .then((s) => { if (active) { setFetched(s); setFailed(false); } }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; controller.abort(); };
   }, [reviewer, open, workbook, fetched, attempt]);
-  if (!audience || (audience.kind !== "reviewer" && audience.kind !== "regione")) return null;
+  if (!audience) return null;
+  const azienda = audience.kind === "azienda";
   const section = reviewer ? fetched : loaded;
   const output = section?.outputs.find((o) => o.id === selected);
   const table = output?.tables[0];
@@ -45,10 +47,10 @@ export function PillarCPublicComparators({ workbook = null, loaded = null, unava
     : !workbook ? <p role="status" className="text-sm text-muted-foreground">{C_PUBLIC_COPY.unavailable}</p>
     : failed ? <div role="status"><p className="text-sm">{C_PUBLIC_COPY.unavailable}</p><button type="button" className="mt-3 min-h-11 rounded-lg border border-border px-3 text-xs" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>Riprova</button></div>
     : <p role="status" className="text-sm text-muted-foreground">Caricamento dei confronti pubblici…</p>;
-  return <details className="mt-6 rounded-xl border border-border bg-card" onToggle={(e) => setOpen(e.currentTarget.open)} data-c-public-comparators={unavailable ? "unavailable" : "ready"}>
-    <summary className="cursor-pointer px-5 py-4 text-sm font-medium">{C_PUBLIC_COPY.title}</summary>
+  return <details className="mt-6 rounded-xl border border-border bg-card" onToggle={(e) => setOpen(e.currentTarget.open)} data-c-public-comparators={unavailable ? "unavailable" : "ready"} data-c-public-audience={audience.kind === "reviewer" ? undefined : audience.kind}>
+    <summary className="cursor-pointer px-5 py-4 text-sm font-medium">{azienda ? C_PUBLIC_COPY.aziendaTitle : C_PUBLIC_COPY.title}</summary>
     <div className="space-y-4 border-t border-border p-5">
-      <p className="text-sm leading-6">{C_PUBLIC_COPY.lead}</p>
+      <p className="text-sm leading-6">{azienda ? C_PUBLIC_COPY.aziendaLead : C_PUBLIC_COPY.lead}</p>
       {body}
       <p className="border-t border-border pt-3 text-xs leading-5 text-muted-foreground">{C_PUBLIC_COPY.source}</p>
     </div>
