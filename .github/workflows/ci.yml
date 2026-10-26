@@ -1,8 +1,10 @@
 # Required verification for every pull request and every push to main (production closure, 26 Oct 2026; PR25-05).
 # Actual TypeScript check, lint, the supported test suite and a production build. No private data, no production
 # secret: the public Supabase variables are local placeholders, so nothing here can reach a real project, and the tests
-# that need private inputs (the private evidence repository, the pinned PGlite harness, private staging files) are
-# reported as skipped with their reasons, never as passed (scripts/ci/report-tests.mjs).
+# that need private inputs (the private evidence repository, private staging files, private runbooks) are reported as
+# skipped with their reasons, never as passed, and only when each is on the exact allowlist
+# (scripts/ci/report-tests.mjs, scripts/ci/allowed-skips.json). The SQL suites run on the pinned PGlite devDependency;
+# GitHub sets CI, under which a missing engine fails instead of skipping (tests/helpers/pglite.mjs).
 name: CI
 
 on:
@@ -20,7 +22,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       NEXT_TELEMETRY_DISABLED: "1"
       # Placeholders only: a local address and a dummy key. Never a project URL, key or service-role secret.
@@ -41,9 +43,9 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Tests
-        run: node --import ./tests/_register-alias.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=ci-tests.tap
-      - name: Test report (skips and their reasons)
+        run: node --import ./tests/_register-alias.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/ci/jsonl-reporter.mjs --test-reporter-destination=ci-tests.jsonl
+      - name: Test report (allowlisted private-input skips; TODO and unknown skips fail)
         if: always()
-        run: node scripts/ci/report-tests.mjs ci-tests.tap
+        run: node scripts/ci/report-tests.mjs ci-tests.jsonl
       - name: Production build
         run: npm run build

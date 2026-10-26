@@ -1,0 +1,125 @@
+{
+ "about": "Tests CI may skip, each exactly: the test needs a private input the public repository deliberately lacks. Any other skip, a TODO or a failure fails CI (scripts/ci/report-tests.mjs). The SQL engine is never a reason: CI installs it. Review an addition here like a code change.",
+ "skips": [
+  {
+   "file": "tests/operational-attention.test.mjs",
+   "name": "drill-down and header agree on every cell of the real staged data",
+   "reason": "private-staging/closure/private-product-facts.json not present"
+  },
+  {
+   "file": "tests/operational-attention.test.mjs",
+   "name": "real authorized-group arithmetic",
+   "reason": "private-staging/closure/private-product-facts.json not present"
+  },
+  {
+   "file": "tests/pillar-a-activity-proxy.test.mjs",
+   "name": "generated proxy table keeps proxy and exact A2 visibly separate",
+   "reason": "derived proxy table not built"
+  },
+  {
+   "file": "tests/pillar-a-activity-proxy.test.mjs",
+   "name": "trusted workbook extract keeps the A2 selector and the regional sum identity",
+   "reason": "tmp/pillar_a_inputs.json not present"
+  },
+  {
+   "file": "tests/pillar-c-additions.test.mjs",
+   "name": "the pins equal the private build receipt (pass/fail only)",
+   "reason": "the private build receipt is not available locally"
+  },
+  {
+   "file": "tests/pillar-c-additions.test.mjs",
+   "name": "the private objects pass the real parsers and match their pins (pass/fail only)",
+   "reason": "the private objects are not available locally"
+  },
+  {
+   "file": "tests/pillar-c-evidence-server.test.mjs",
+   "name": "on the pinned private index the fingerprints match and the queue equals the panel n80 rows",
+   "reason": "the pinned private attribution index is not available locally"
+  },
+  {
+   "file": "tests/pillar-c-planning.test.mjs",
+   "name": "on the pinned private shards every scope passes C1 and the group identities (pass/fail only, no figures)",
+   "reason": "the pinned private attribution index is not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-private.test.mjs",
+   "name": "every attribution and portfolio scope of every unit loads through the app loaders and passes the guard",
+   "reason": "the private Pillar C build and originals are not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-private.test.mjs",
+   "name": "every portfolio dossier of every scope passes the token rule with only its own unit admitted",
+   "reason": "the private Pillar C build and originals are not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-private.test.mjs",
+   "name": "every unit folder holds exactly its pinned index and the objects that index references",
+   "reason": "the private Pillar C build and originals are not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-private.test.mjs",
+   "name": "explicit-rows selections equal the reviewer’s summed selections: the aggregate for «Regione», each unit for exactly one distinct Azienda",
+   "reason": "the private Pillar C build and originals are not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-private.test.mjs",
+   "name": "the aggregate views equal the reviewer’s «Regione» views except the key and the source snapshot",
+   "reason": "the private Pillar C build and originals are not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-private.test.mjs",
+   "name": "the review projection loads, merges and passes the guard for all five audiences; the aggregate is the exact sum of the four",
+   "reason": "the private Pillar C build and originals are not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-source-pins.test.mjs",
+   "name": "the pins equal the private build receipt (pass/fail only)",
+   "reason": "the private build receipt is not available locally"
+  },
+  {
+   "file": "tests/pillar-c-scoped-storage-sql.test.mjs",
+   "name": "private runbooks: INVENTORY and the impersonation sweep, before and after the test rollout",
+   "reason": "Private SQL runbooks unavailable"
+  },
+  {
+   "file": "tests/pillar-c-scoped-storage-sql.test.mjs",
+   "name": "private runbooks: VERIFY passes on the migration as tested and catches a malformed or unlabelled object",
+   "reason": "Private SQL runbooks unavailable"
+  },
+  {
+   "file": "tests/pillar-c-scoped-storage-sql.test.mjs",
+   "name": "private runbooks: VERIFY's policy fingerprint is the migration's policy as tested, every refusal included",
+   "reason": "Private SQL runbooks unavailable"
+  },
+  {
+   "file": "tests/pillar-c-scoped-storage-sql.test.mjs",
+   "name": "private runbooks: read-only files are read-only and no template carries a real UUID",
+   "reason": "Private SQL runbooks unavailable"
+  },
+  {
+   "file": "tests/pillar-c-scoped-storage-sql.test.mjs",
+   "name": "private runbooks: the PRECHECK verdict equals the migration's own guards",
+   "reason": "Private SQL runbooks unavailable"
+  },
+  {
+   "file": "tests/private-pillar-comparison.test.mjs",
+   "name": "private staged source comparisons reconcile",
+   "reason": "private-staging/closure/private-v2-facts.json not present"
+  },
+  {
+   "file": "tests/private-pillar-product.test.mjs",
+   "name": "the real dataset bands exactly as the source file already recorded",
+   "reason": "private-staging/closure/product-analysis.json not present"
+  },
+  {
+   "file": "tests/private-pillar-product.test.mjs",
+   "name": "the real dataset rolls up to 555 molecule series and marks the partial ones",
+   "reason": "private-staging/closure/product-analysis.json not present"
+  },
+  {
+   "file": "tests/private-pillar-product.test.mjs",
+   "name": "the real product rows reconcile to the aggregate exactly",
+   "reason": "private-staging/closure/product-analysis.json not present"
+  }
+ ]
+}
