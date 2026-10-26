@@ -66,8 +66,8 @@ test('PVM rendering gives the admitted subset its own denominator and never show
 });
 test('candidate-only portfolio never invents fixed spending or a scenario baseline',()=>{
  const html=renderToStaticMarkup(reviewer(React.createElement(CPortfolioDossierView,{view:view('BB')})));
- assert.match(html,/Nessun record/);assert.match(html,/Nessuna riga a portafoglio singolo/);
- assert.doesNotMatch(html,/La parte a portafoglio singolo è/);
+ assert.match(html,/Nessun record/);assert.match(html,/Nessuna riga associata solo a quest’area/);
+ assert.doesNotMatch(html,/La spesa associata solo a quest’area è/);
  assert.match(html,/data-change="unavailable"/);assert.match(html,/Non disponibile/);
  assert.doesNotMatch(html,/data-c-portfolio-scenario/);assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });

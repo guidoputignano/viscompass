@@ -476,7 +476,8 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   assert.equal(out.data,'bebe2d2b3c1d254353cd668e6b67e61c1c5c4b91ec1f15f465ebcccc2aa4e9be','the same synthetic data as the baseline');
   // Re-recorded on 24 Oct 2026: the reviewer's section 5 gains «Confronti pubblici fra Regioni» after the forecast.
   // Re-recorded on 25 Oct 2026 (Guido's feedback 1): section 2's recipient views and the portfolio series labels.
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'4f97f158effda927dd5b612841cc6e2ec9f116fdc41331e8ef57e5d37a4c7429');
+  // Re-recorded on 26 Oct 2026: one plain-Italian vocabulary for the two portfolio components (G1-04 follow-up).
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'7c3a92fb86ff64f6a8849ec386c163ee035484ba2c6fae95fa7cdcf1231f337b');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout

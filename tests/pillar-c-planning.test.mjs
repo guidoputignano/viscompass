@@ -90,7 +90,7 @@ test('1. the observed partition has six parts that add up exactly to the scope n
   }
   const p=cPlanningWorkspace(view(),plan(['CC','DD'])).partition;
   assert.deepEqual(p.rows.slice(0,2).map(x=>[x.id,x.value,x.zero]),[['CC','0',true],['DD','0',true]],'no rows and compensated rows share the option (b) label');
-  assert.equal(C_PLANNING_LABELS.observed.zeroFixed,'Nessun importo netto a portafoglio singolo (righe assenti o compensate)');
+  assert.equal(C_PLANNING_LABELS.observed.zeroFixed,'Nessun importo netto associato a una sola area (righe assenti o compensate)');
 });
 
 test('1. R1, R3 and R4 (PC-08-A12 item 2): classes 2, 3 and 5 carry S3 exactly, class 6 carries S4 ∪ S5, re-checked on every call',()=>{
@@ -400,7 +400,7 @@ test('8. labels pass the copy lint; forbidden words appear only inside allowlist
   assert.deepEqual(cPlanningCopyLint('Modalità DEMO').map(x=>x.term),['demo']);
   assert.deepEqual(cPlanningCopyLint(`${C_PLANNING_LABELS.statements.notMoney} Mostra il budget.`).map(x=>x.term),['budget']);
   // Caps, targets, overruns, verification claims, net spend and an affirmative clinical attribution are caught (the public doc says so).
-  for(const [s,term] of [['Tetto di spesa del gruppo','tetto'],['Due tetti di spesa','tetti'],['Sforamento rispetto al riferimento','sforament'],['Obiettivo di spesa del portafoglio','obiettiv'],['Valori verificati','verificat'],['Spesa netta del gruppo','spesa netta'],['Le spese nette del gruppo','spese nette'],['La regola dimostra la ripartizione','dimostra'],['Attribuzione clinica del gruppo','attribuzione clinica'],['La parte a portafoglio singolo è un’attribuzione clinica.','attribuzione clinica']])
+  for(const [s,term] of [['Tetto di spesa del gruppo','tetto'],['Due tetti di spesa','tetti'],['Sforamento rispetto al riferimento','sforament'],['Obiettivo di spesa del portafoglio','obiettiv'],['Valori verificati','verificat'],['Spesa netta del gruppo','spesa netta'],['Le spese nette del gruppo','spese nette'],['La regola dimostra la ripartizione','dimostra'],['Attribuzione clinica del gruppo','attribuzione clinica'],['La spesa associata solo a quest’area è un’attribuzione clinica.','attribuzione clinica']])
     assert.deepEqual(cPlanningCopyLint(s).map(x=>x.term),[term],s);
   assert.deepEqual(cPlanningCopyLint(C_PLANNING_LABELS.variants.scenario),[],'«tetto» only inside the registered scenario caption');
   assert.deepEqual(cPlanningCopyLint(C_PLANNING_LABELS.section.mapping),[],'the mapping banner negates «attribuzione clinica» and is allowlisted');
