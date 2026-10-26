@@ -3,13 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const migration = await readFile(new URL("../supabase/migrations/20261019120000_pillar_c_evidence_workflow.sql", import.meta.url), "utf8");
-let PGlite;
-try {
-  ({ PGlite } = await import("../../outputs/pillar-b/node_modules/@electric-sql/pglite/dist/index.js"));
-} catch {
-  // The existing pinned PostgreSQL harness lives outside the public checkout.
-  // Do not add or upgrade production dependencies to install the test engine.
-}
+import { PGlite, PGLITE_SKIP } from "./helpers/pglite.mjs";
 const actor = "00000000-0000-4000-8000-000000000001";
 const owner = "00000000-0000-4000-8000-000000000002";
 const pending = "00000000-0000-4000-8000-000000000003";
@@ -76,7 +70,7 @@ test("private C migration exposes only service workflow RPCs and forces RLS", ()
   assert.match(migration, /^begin;$/m); assert.match(migration, /^commit;\s*$/m);
 });
 
-test("real PostgreSQL: anonymous, ordinary approved and stale reviewer sessions cannot read or call RPCs", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => {
+test("real PostgreSQL: anonymous, ordinary approved and stale reviewer sessions cannot read or call RPCs", { skip: PGLITE_SKIP }, async () => withDb(async db => {
   const c = await role(db, "service_role", () => create(db));
   await db.exec(migration);
   assert.equal((await db.query("select id from public.c_evidence_cases")).rows[0].id, c.id, "idempotent migration preserves cases");
@@ -110,7 +104,7 @@ test("real PostgreSQL: anonymous, ordinary approved and stale reviewer sessions 
   });
 }));
 
-test("real PostgreSQL: creates are duplicate safe, actor approvals and frozen source are enforced", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => role(db, "service_role", async () => {
+test("real PostgreSQL: creates are duplicate safe, actor approvals and frozen source are enforced", { skip: PGLITE_SKIP }, async () => withDb(async db => role(db, "service_role", async () => {
   for (const id of [null, pending, revoked]) await rejected(() => create(db, id), "42501");
   for (const input of [null, [], "invalid", { ...source, period: "FY2024" }, { ...source, org: "AQ" }, { ...source, source_state: "S2" }, { ...source, injected: "value" }, { ...source, product_key: null }]) {
     await rejected(() => create(db, actor, input), "22023");
@@ -124,7 +118,7 @@ test("real PostgreSQL: creates are duplicate safe, actor approvals and frozen so
   await rejected(() => mutate(db, c, "review", {}, pending), "42501");
 })));
 
-test("real PostgreSQL: source groups distinguish split product evidence and attachment cap is serialized", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => role(db, "service_role", async () => {
+test("real PostgreSQL: source groups distinguish split product evidence and attachment cap is serialized", { skip: PGLITE_SKIP }, async () => withDb(async db => role(db, "service_role", async () => {
   let c = await create(db);
   const split = await create(db, actor, { ...source, source_group: "f".repeat(64) });
   assert.notEqual(split.id, c.id); assert.equal(split.product_key, c.product_key);
@@ -142,7 +136,7 @@ test("real PostgreSQL: source groups distinguish split product evidence and atta
   assert.equal((await db.query("select count(*)::integer as count from public.c_evidence_attachments where case_id=$1", [c.id])).rows[0].count, 10);
 })));
 
-test("real PostgreSQL: failure appending audit rolls back attachment metadata and revision atomically", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => {
+test("real PostgreSQL: failure appending audit rolls back attachment metadata and revision atomically", { skip: PGLITE_SKIP }, async () => withDb(async db => {
   const c = await role(db, "service_role", () => create(db));
   // Force the LAST statement of mutate (the audit insert) to fail, after the
   // attachment and case writes. A stray event is itself rejected now, so the
@@ -153,7 +147,7 @@ test("real PostgreSQL: failure appending audit rolls back attachment metadata an
   assert.equal((await db.query("select revision from public.c_evidence_cases where id=$1", [c.id])).rows[0].revision, 1);
 }));
 
-test("real PostgreSQL: stray events and direct case or attachment writes cannot bypass the audited state machine", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => {
+test("real PostgreSQL: stray events and direct case or attachment writes cannot bypass the audited state machine", { skip: PGLITE_SKIP }, async () => withDb(async db => {
   let c = await role(db, "service_role", () => create(db));
   const stray = revision => db.query("insert into public.c_evidence_events(case_id,revision,action,actor_id,detail) values($1,$2,'review',$3,'{}')", [c.id, revision, actor]);
   const directClose = () => db.query("update public.c_evidence_cases set state='closed',closed_at=clock_timestamp(),revision=revision+1 where id=$1", [c.id]);
@@ -179,7 +173,7 @@ test("real PostgreSQL: stray events and direct case or attachment writes cannot 
   assert.deepEqual((await db.query("select revision, action from public.c_evidence_events order by revision")).rows, [{ revision: 1, action: "create" }, { revision: 2, action: "assign" }, { revision: 3, action: "attach" }]);
 }));
 
-test("real PostgreSQL: free text is trimmed of every whitespace character and blank text is rejected", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => role(db, "service_role", async () => {
+test("real PostgreSQL: free text is trimmed of every whitespace character and blank text is rejected", { skip: PGLITE_SKIP }, async () => withDb(async db => role(db, "service_role", async () => {
   let c = await create(db);
   const blanks = ["\n", "\r\n\t ", "  ", " ﻿"];
   for (const text of blanks) await rejected(() => mutate(db, c, "assign", { owner_id: owner, role: text, due_date: "2026-11-01" }), "22023");
@@ -207,7 +201,7 @@ test("real PostgreSQL: free text is trimmed of every whitespace character and bl
   assert.equal(payloads.followup.owner_id, owner); assert.equal(payloads.attach.byte_size, 10);
 })));
 
-test("real PostgreSQL: the responsible organization is chosen deterministically and re-checked at review", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => {
+test("real PostgreSQL: the responsible organization is chosen deterministically and re-checked at review", { skip: PGLITE_SKIP }, async () => withDb(async db => {
   const multi = "00000000-0000-4000-8000-000000000005";
   // Inserted B first, so an unordered pick would return B.
   await db.exec(`insert into auth.users values ('${multi}'); insert into public.user_organizations values ('${multi}','SYNTHETIC-B','approved'),('${multi}','SYNTHETIC-A','approved');`);
@@ -224,7 +218,7 @@ test("real PostgreSQL: the responsible organization is chosen deterministically 
   });
 }));
 
-test("real PostgreSQL: owners, transitions, attachments, closure, audit, reopening and stale saves", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => role(db, "service_role", async () => {
+test("real PostgreSQL: owners, transitions, attachments, closure, audit, reopening and stale saves", { skip: PGLITE_SKIP }, async () => withDb(async db => role(db, "service_role", async () => {
   let c = await create(db);
   await rejected(() => mutate(db, c, "review"), "22023");
   for (const id of [pending, revoked]) await rejected(() => mutate(db, c, "assign", { owner_id: id, role: "Verifier", due_date: "2026-11-01" }), "42501");
@@ -274,7 +268,7 @@ test("real PostgreSQL: owners, transitions, attachments, closure, audit, reopeni
   }
 })));
 
-test("real PostgreSQL: append-only history and source guards also reject privileged rewrites", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => withDb(async db => {
+test("real PostgreSQL: append-only history and source guards also reject privileged rewrites", { skip: PGLITE_SKIP }, async () => withDb(async db => {
   const c = await role(db, "service_role", () => create(db));
   await role(db, "service_role", () => mutate(db, c, "attach", { attachment_id: attachment, file_name: "aggregate.pdf", storage_path: `${c.id}/${attachment}`, media_type: "application/pdf", byte_size: 10, sha256: "d".repeat(64) }));
   // A plain "truncate public.c_evidence_cases" already fails on the foreign keys.
@@ -292,7 +286,7 @@ test("real PostgreSQL: append-only history and source guards also reject privile
   assert.deepEqual(counts, { cases: 1, events: 2, attachments: 1 });
 }));
 
-test("real PostgreSQL: the private evidence bucket is skipped without Storage and created or re-hardened with it", { skip: !PGlite && "Pinned external PGlite harness unavailable" }, async () => {
+test("real PostgreSQL: the private evidence bucket is skipped without Storage and created or re-hardened with it", { skip: PGLITE_SKIP }, async () => {
   // The standard harness has no storage schema: the guarded block is a no-op.
   await withDb(async db => assert.equal((await db.query("select to_regnamespace('storage') as schema")).rows[0].schema, null));
   const db = new PGlite();

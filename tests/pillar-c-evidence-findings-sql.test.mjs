@@ -6,8 +6,7 @@ import { readFile } from "node:fs/promises";
 
 const workflow = await readFile(new URL("../supabase/migrations/20261019120000_pillar_c_evidence_workflow.sql", import.meta.url), "utf8");
 const findings = await readFile(new URL("../supabase/migrations/20261022200000_pillar_c_evidence_findings.sql", import.meta.url), "utf8");
-let PGlite;
-try { ({ PGlite } = await import("../../outputs/pillar-b/node_modules/@electric-sql/pglite/dist/index.js")); } catch { /* engine outside the public checkout */ }
+import { PGlite, PGLITE_SKIP } from "./helpers/pglite.mjs";
 const actor = "00000000-0000-4000-8000-000000000001", owner = "00000000-0000-4000-8000-000000000002", pending = "00000000-0000-4000-8000-000000000003";
 const shim = `
 create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
@@ -36,7 +35,7 @@ test("the findings migration is additive, keeps the grants closed and checks its
   assert.match(findings, /PCF_PRE/);
 });
 
-test("a finding case is created once, carries its source, and follows the unchanged workflow to closure", { skip: !PGlite && "PGlite engine not available" }, async () => {
+test("a finding case is created once, carries its source, and follows the unchanged workflow to closure", { skip: PGLITE_SKIP }, async () => {
   await withDb(async (db) => {
     const c = await create(db);
     assert.equal(c.source_state, "F"); assert.equal(c.product_key, "F01"); assert.equal(c.state, "unassigned"); assert.deepEqual(c.source, finding);
@@ -56,7 +55,7 @@ test("a finding case is created once, carries its source, and follows the unchan
   });
 });
 
-test("invalid finding sources and actors are refused", { skip: !PGlite && "PGlite engine not available" }, async () => {
+test("invalid finding sources and actors are refused", { skip: PGLITE_SKIP }, async () => {
   await withDb(async (db) => {
     for (const bad of [
       { ...finding, product_key: "X01" }, { ...finding, product_key: "F1" }, { ...finding, finding_version: "ext-v2" }, { ...finding, source_state: "S3" },

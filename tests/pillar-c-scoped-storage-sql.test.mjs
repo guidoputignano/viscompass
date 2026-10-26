@@ -22,14 +22,8 @@ import { orgDisplayName, REVIEWED_PSEUDONYM_CODES } from "../lib/analytics/org-p
 
 const migration = await readFile(new URL("../supabase/migrations/20261020120000_pillar_c_scoped_storage.sql", import.meta.url), "utf8");
 const schema = await readFile(new URL("../supabase_schema.sql", import.meta.url), "utf8");
-let PGlite;
-try {
-  ({ PGlite } = await import("../../outputs/pillar-b/node_modules/@electric-sql/pglite/dist/index.js"));
-} catch {
-  // The pinned PostgreSQL harness lives outside the public checkout. Do not add
-  // or upgrade production dependencies to install the test engine.
-}
-const SKIP = !PGlite && "Pinned external PGlite harness unavailable";
+import { PGlite, PGLITE_SKIP } from "./helpers/pglite.mjs";
+const SKIP = PGLITE_SKIP;
 const sql = migration.replace(/\r\n/g, "\n");
 
 // The operations the policy refuses, named exactly as storage-api's src/http/routes/operations.ts names them (the same

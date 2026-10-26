@@ -3,12 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const migration = await readFile(new URL("../supabase/migrations/20261020150000_uploads_insert_path_check.sql", import.meta.url), "utf8");
-let PGlite;
-try {
-  ({ PGlite } = await import("../../outputs/pillar-b/node_modules/@electric-sql/pglite/dist/index.js"));
-} catch {
-  // The pinned PostgreSQL harness lives outside the public checkout; no production dependency is added for it.
-}
+import { PGlite, PGLITE_SKIP } from "./helpers/pglite.mjs";
 
 // Synthetic identities only.
 const A = "00000000-0000-4000-8000-0000000000a1", B = "00000000-0000-4000-8000-0000000000b2", P = "00000000-0000-4000-8000-0000000000c3";
@@ -55,7 +50,7 @@ async function insertAs(db, user, row) {
     return false;
   } finally { await db.exec("reset role"); }
 }
-const skip = !PGlite && "Pinned external PGlite harness unavailable";
+const skip = PGLITE_SKIP;
 
 test("before this migration a client-chosen path outside the own folder is accepted (the gap)", { skip }, () => withDb(async db => {
   assert.equal(await insertAs(db, A, { org: "201", path: "202/1729000000000-x.xlsx" }), true);

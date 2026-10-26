@@ -14,13 +14,8 @@ import { GHOST, ID, POST_SCHEMA, ROLLOUT, SEED, SEED_USERS, SHIM } from "./helpe
 const base = (await readFile(new URL("../supabase/migrations/20261020120000_pillar_c_scoped_storage.sql", import.meta.url), "utf8")).replace(/\r\n/g, "\n");
 const regione = (await readFile(new URL("../supabase/migrations/20261023200000_pillar_c_scoped_regione_folder.sql", import.meta.url), "utf8")).replace(/\r\n/g, "\n");
 const schema = await readFile(new URL("../supabase_schema.sql", import.meta.url), "utf8");
-let PGlite;
-try {
-  ({ PGlite } = await import("../../outputs/pillar-b/node_modules/@electric-sql/pglite/dist/index.js"));
-} catch {
-  // The pinned PostgreSQL harness lives outside the public checkout.
-}
-const SKIP = !PGlite && "Pinned external PGlite harness unavailable";
+import { PGlite, PGLITE_SKIP } from "./helpers/pglite.mjs";
+const SKIP = PGLITE_SKIP;
 
 const sha = (s) => createHash("sha256").update(`synthetic:${s}`).digest("hex");
 const UNITS = ["asl-1", "asl-2", "asl-3", "asl-4", "aggregato"];
