@@ -218,4 +218,7 @@ test('PR25-04: the homepage separates delivered areas from those in development 
   assert.deepEqual([...html.matchAll(/inline-flex rounded-full px-2 py-0\.5 text-\[10px\] font-semibold [^"]*">([^<]*)<\/p>/g)].map(m=>m[1]),
     ['In parte','Disponibile','Disponibile','In sviluppo','In sviluppo','In parte','Disponibile']);
   assert.ok(t.includes('scenari di budget modellati, distinti dai budget approvati'),'modelled budgets are never sold as approved budgets');
+  // Codex review B26-03: the benefit graphics are schemas, not data; they carry no figure and are labelled as such.
+  assert.doesNotMatch(page,/€124|0,42\/mg/,'no unsourced figure in the benefit graphics');
+  assert.equal((t.match(/Schema illustrativo, non un dato/g)||[]).length,2,'the trend and cost schemas are both labelled');
 });

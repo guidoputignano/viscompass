@@ -244,10 +244,14 @@ function DashboardPreview() {
   );
 }
 
+// The benefit graphics are schemas, not data (Codex review B26-03): they carry no figure and say so.
+const SCHEMA_NOTE = <span className="absolute right-3 top-2 text-[9px] text-slate-400">Schema illustrativo, non un dato</span>;
+
 function BenefitVisual({ type }: { type: (typeof BENEFITS)[number]["visual"] }) {
   if (type === "trend") {
     return (
-      <div className="flex h-32 items-end gap-2 rounded-2xl bg-white p-5">
+      <div className="relative flex h-32 items-end gap-2 rounded-2xl bg-white p-5 pt-7">
+        {SCHEMA_NOTE}
         {[38, 48, 45, 63, 59, 78, 91].map((height, index) => (
           <div key={index} className="flex h-full flex-1 items-end">
             <div className="w-full rounded-t bg-primary" style={{ height: `${height}%`, opacity: 0.35 + index * 0.08 }} />
@@ -258,9 +262,10 @@ function BenefitVisual({ type }: { type: (typeof BENEFITS)[number]["visual"] }) 
   }
   if (type === "cost") {
     return (
-      <div className="flex h-32 flex-col justify-center gap-4 rounded-2xl bg-white p-5">
-        <div><div className="mb-1 flex justify-between text-[9px] text-slate-400"><span>Prezzo confezione</span><span>€124</span></div><div className="h-2 rounded-full bg-slate-100"><div className="h-full w-4/5 rounded-full bg-slate-300" /></div></div>
-        <div><div className="mb-1 flex justify-between text-[9px] font-semibold text-teal-700"><span>Costo normalizzato</span><span>€0,42/mg</span></div><div className="h-2 rounded-full bg-teal-50"><div className="h-full w-2/5 rounded-full bg-primary" /></div></div>
+      <div className="relative flex h-32 flex-col justify-center gap-4 rounded-2xl bg-white p-5 pt-7">
+        {SCHEMA_NOTE}
+        <div><div className="mb-1 flex justify-between text-[9px] text-slate-400"><span>Prezzo per confezione</span><span>€ per confezione</span></div><div className="h-2 rounded-full bg-slate-100"><div className="h-full w-4/5 rounded-full bg-slate-300" /></div></div>
+        <div><div className="mb-1 flex justify-between text-[9px] font-semibold text-teal-700"><span>Costo normalizzato</span><span>€/mg · €/DDD</span></div><div className="h-2 rounded-full bg-teal-50"><div className="h-full w-2/5 rounded-full bg-primary" /></div></div>
       </div>
     );
   }
