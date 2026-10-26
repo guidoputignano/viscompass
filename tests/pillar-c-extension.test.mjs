@@ -594,3 +594,26 @@ test('G1-R03: with tied values the median is described as the central value, nev
   }
   assert.match(renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),/aria-label="Prescrizioni registrate per destinatario: Unità 3 mediana 1,0, metà centrale 1,0 – 1,0"/);
 });
+
+// ---------------------------------------------------------------- Codex live check A26-02 (26 Oct 2026)
+test('A26-02: an Azienda without File F reads that its own File F was not received, and nothing about a peer',()=>{
+  const az=viewOf(['asl-4','aggregato']);
+  for(const html of [renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:az})),renderToStaticMarkup(React.createElement(SECTIONS.PillarCRecipientsSection,{view:az}))]){
+    const text=html.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
+    assert.equal((html.match(/data-c-filef-coverage="not-received"/g)||[]).length,1,'one statement, with or without a catalogue');
+    assert.ok(text.includes('File F: non ricevuto per Unità 4. Le analisi di questa sezione usano solo i flussi DPC; nessun valore File F viene mostrato né stimato.'));
+    assert.doesNotMatch(text,/Unità [123]|disponibile per|File F 2025|Identificativi distinti|non sono disponibili in questo momento/,'no peer, no holder, no empty analysis, not «unavailable»');
+    assert.doesNotMatch(html,/aria-label="(Azienda del File F|Periodo del File F)"/);
+  }
+  // A view that holds File F keeps its holder panel and its coverage line; an aggregate-only view says nothing.
+  const all=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(ALL)}));
+  assert.doesNotMatch(all,/data-c-filef-coverage/);assert.match(all,/Non ricevuto per: Unità 1, Unità 2, Unità 4; per loro nessun valore viene stimato\./);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(['aggregato'])})),/data-c-filef-coverage/);
+});
+
+test('A26-02: the coverage line names an Azienda’s own ASL and the four-Azienda aggregate, «la loro somma» only for the four ASLs',()=>{
+  const orgs=units=>{const m=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(units)})).match(/<dt[^>]*>Organizzazioni<\/dt><dd[^>]*>([^<]*)<\/dd>/);assert.ok(m);return m[1];};
+  assert.equal(orgs(['asl-4','aggregato']),'Unità 4 e l’aggregato delle quattro Aziende');
+  assert.equal(orgs(ALL),'Unità 1, Unità 2, Unità 3, Unità 4 e la loro somma');
+  assert.equal(orgs(['asl-4']),'Unità 4');
+});

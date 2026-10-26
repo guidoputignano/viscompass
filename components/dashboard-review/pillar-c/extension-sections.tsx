@@ -65,16 +65,21 @@ function useFileFHolder(view: CExtensionView, initialHolder = "") {
     ? <label className="min-w-48 text-xs font-medium text-muted-foreground">Azienda del File F<select aria-label="Azienda del File F" className={SELECT} value={holder?.entry.id} onChange={(e) => setSelected(e.target.value)}>{holders.map((h) => <option key={h.entry.id} value={h.entry.id}>{`${h.unit.label} · ${h.fileF.year}`}</option>)}</select></label>
     : null;
   const coverage = holders.length ? `File F disponibile per: ${holders.map((h) => `${h.unit.label} (${h.fileF.year})`).join(", ")}.${missing.length ? ` Non ricevuto per: ${missing.join(", ")}; per loro nessun valore viene stimato.` : ""}` : "";
-  return { holder, control, coverage, unavailable: !catalog && view.units.some((u) => u.data.fileF) };
+  return { holder, control, coverage, missing, unavailable: !catalog && view.units.some((u) => u.data.fileF) };
 }
 
 /** Section 2, File F of the chosen holder: the year (identifiers, concentration, frequency, profile) or one month, which
  * carries only what the catalogue lists for it (reported amount, identifiers of the month): no annual distribution is
  * shown as if it were the month's. */
 export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView; initial?: { holder?: string; period?: string } }) {
-  const { holder, control, coverage, unavailable } = useFileFHolder(view, initial?.holder);
+  const { holder, control, coverage, missing, unavailable } = useFileFHolder(view, initial?.holder);
   const [period, setPeriod] = useState(initial?.period ?? "year");
-  if (!holder) return unavailable ? <Empty>I dati File F non sono disponibili in questo momento: il catalogo dei periodi non è stato letto. Nessun valore viene sostituito.</Empty> : null;
+  if (!holder) {
+    if (unavailable) return <Empty>I dati File F non sono disponibili in questo momento: il catalogo dei periodi non è stato letto. Nessun valore viene sostituito.</Empty>;
+    // A view without any File F states it for its own ASLs (Codex live check A26-02): `missing` lists only the units this
+    // view holds, so nothing is said about another Azienda's sources, and no empty analysis is drawn.
+    return missing.length ? <p data-c-filef-coverage="not-received" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">{`File F: non ricevuto per ${missing.join(", ")}. Le analisi di questa sezione usano solo i flussi DPC; nessun valore File F viene mostrato né stimato.`}</p> : null;
+  }
   const fileF = holder.fileF, unitLabel = holder.unit.label, januaryTop10 = holder.unit.data.january.cost.top10;
   const month = holder.months.find((m) => m.id === period) ?? null;
   const controls = <div className="flex flex-wrap gap-4">{control}

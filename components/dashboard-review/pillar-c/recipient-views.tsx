@@ -66,7 +66,9 @@ export function PillarCRecipientCoverage({ units }: { units: Unit[] }) {
     ["Fonte e canale", "Flussi NSIS della distribuzione per conto (DPC)"],
     ["Periodo", months.length > 1 ? months.join(", ") : `${months[0] ?? "Gennaio 2026"}: un solo mese`],
     ["Chi è contato", "Destinatari ammissibili, contati una volta in ciascuna ASL"],
-    ["Organizzazioni", `${asl.map((u) => u.label).join(", ")}${aggregate ? " e la loro somma" : ""}`],
+    // «la loro somma» only when the view holds the four ASLs it sums; an Azienda's view holds its own ASL and the
+    // four-Azienda aggregate (Codex live check A26-02).
+    ["Organizzazioni", `${asl.map((u) => u.label).join(", ")}${!aggregate ? "" : asl.length === 4 ? " e la loro somma" : " e l’aggregato delle quattro Aziende"}`],
   ];
   return <section aria-label="Copertura dei dati sui destinatari" className="rounded-2xl border border-border bg-card p-5 md:p-6" data-c-recipient-coverage>
     <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map(([k, v]) => <div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 text-sm font-medium">{v}</dd></div>)}</dl>
