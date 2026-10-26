@@ -120,13 +120,17 @@ export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView
   </Panel>;
 }
 
-/** The third card of «Quadro decisionale»: recipients are now counted for January 2026 DPC, but one month shows no change over time. */
-export function cExtensionRecipientsCard(view: CExtensionView | null, unavailable = false): { title: string; value: string; detail: string } {
-  const lead = view?.units[0];
-  if (!lead && unavailable) return { title: "Destinatari DPC", value: "Non disponibili in questo momento", detail: "La lettura dei dati su destinatari e utilizzo non è riuscita: nessun valore viene sostituito." };
-  if (!lead) return { title: "Persone trattate osservate", value: "Non disponibili", detail: "Gli scenari CO stimano il denominatore; non misurano più persone trattate." };
-  return { title: `Destinatari DPC · ${lead.label}`, value: num(lead.data.january.recipients),
-    detail: `Gennaio 2026${lead.data.january.recipientsAreSum ? ", somma delle quattro ASL" : ""}: un solo mese, nessuna variazione nel tempo. La variazione della spesa resta non attribuibile a un aumento dei pazienti.` };
+/** The third card of «Quadro decisionale»: recipients are now counted for January 2026 DPC, but one month shows no change over time.
+ * It follows the «Ambito» the page already shows (`selected`, an extension unit key the caller resolved from its own
+ * authorised scope), like the two cards beside it (Codex live check A26-01, 26 Oct 2026). A key the view does not
+ * hold has no count: never another organisation's, never the first unit's. */
+export function cExtensionRecipientsCard(view: CExtensionView | null, unavailable: boolean, selected: string): { title: string; value: string; detail: string } {
+  if (!view && unavailable) return { title: "Destinatari DPC", value: "Non disponibili in questo momento", detail: "La lettura dei dati su destinatari e utilizzo non è riuscita: nessun valore viene sostituito." };
+  if (!view) return { title: "Persone trattate osservate", value: "Non disponibili", detail: "Gli scenari CO stimano il denominatore; non misurano più persone trattate." };
+  const unit = view.units.find((u) => u.key === selected);
+  if (!unit) return { title: "Destinatari DPC", value: "Non disponibili", detail: "Nessun conteggio di gennaio 2026 per l’ambito selezionato: nessun valore viene sostituito." };
+  return { title: `Destinatari DPC · ${unit.label}`, value: num(unit.data.january.recipients),
+    detail: `Gennaio 2026${unit.data.january.recipientsAreSum ? ", somma delle quattro ASL" : ""}: un solo mese, nessuna variazione nel tempo. La variazione della spesa resta non attribuibile a un aumento dei pazienti.` };
 }
 
 const SEGMENTS = [

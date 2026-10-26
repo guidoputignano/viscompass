@@ -223,7 +223,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
   const decisionCards: PillarCDecisionOverviewProps["cards"] = [
     { title: "Variazione contabile", value: decision.change === null ? "Non disponibile" : signed(decision.change), detail: `${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}` },
     { title: "Contributo dei prodotti presenti nei due periodi", value: decision.continuing === null ? "Non disponibile" : signed(decision.continuing), detail: "Contributo alla variazione, non un effetto causale o clinico." },
-    cExtensionRecipientsCard(extension, extensionUnavailable),
+    cExtensionRecipientsCard(extension, extensionUnavailable, filters.org),
   ];
   const comparison = `Confronto: ${filters.comparison === "K1" ? "2024 → 2025" : "Gen–mag 2025 → 2026"}`;
   const forecastDecision = (() => { if (!forecast) return null; try { return cForecastDecision(forecast, "TOT"); } catch { return null; } })();

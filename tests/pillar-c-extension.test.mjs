@@ -313,9 +313,32 @@ test('review of 9545a68: identifiersByMonth must be non-empty too; recipient-gro
 });
 
 test('the decision card counts recipients only when the extension is present, and never claims a change',()=>{
-  assert.equal(cExtensionRecipientsCard(null).value,'Non disponibili');
-  const c=cExtensionRecipientsCard(viewOf(['aggregato','asl-1']));
+  assert.equal(cExtensionRecipientsCard(null,false,'aggregato').value,'Non disponibili');
+  const c=cExtensionRecipientsCard(viewOf(['aggregato','asl-1']),false,'aggregato');
   assert.match(c.title,/Aggregato delle quattro Aziende/);assert.match(c.detail,/somma delle quattro ASL/);assert.match(c.detail,/nessuna variazione nel tempo/);
+});
+
+// Codex live check A26-01 (26 Oct 2026): the card read units[0] whatever the «Ambito», so it stayed on the first unit.
+test('A26-01: the recipients card reads the selected unit, keeps its caveats, and never falls back to another unit',()=>{
+  const view=viewOf(['asl-3','aggregato']);view.units[0].data.january.recipients=1300;view.units[1].data.january.recipients=5000;
+  const own=cExtensionRecipientsCard(view,false,'asl-3'),agg=cExtensionRecipientsCard(view,false,'aggregato');
+  assert.deepEqual([own.title,own.value],['Destinatari DPC · Unità 3','1.300']);
+  assert.match(own.detail,/^Gennaio 2026: un solo mese, nessuna variazione nel tempo\./,'a single ASL is not a sum');
+  assert.deepEqual([agg.title,agg.value],['Destinatari DPC · Aggregato delle quattro Aziende','5.000']);
+  assert.match(agg.detail,/^Gennaio 2026, somma delle quattro ASL: un solo mese, nessuna variazione nel tempo\./,'the sum caveat stays with the aggregate');
+  for(const key of ['asl-1','Regione','PE','',undefined]){
+    const none=cExtensionRecipientsCard(view,false,key);
+    assert.deepEqual([none.title,none.value],['Destinatari DPC','Non disponibili'],String(key));
+    assert.doesNotMatch(JSON.stringify(none),/1\.300|5\.000|Unità|Aggregato/,'no count or label of a unit the key does not name');
+  }
+});
+
+test('A26-01: the reviewer’s scope keys name the extension units by the same pseudonyms',async()=>{
+  const {C_ORGS}=await import('../lib/dashboard-review/pillar-c/review.ts');
+  const {C_ORG_LABELS,C_EXT_UNIT_OF_REVIEWER_ORG}=await import('../lib/dashboard-review/pillar-c/reviewer-labels.ts');
+  assert.deepEqual(Object.keys(C_EXT_UNIT_OF_REVIEWER_ORG).sort(),[...C_ORGS].sort());
+  assert.deepEqual(new Set(Object.values(C_EXT_UNIT_OF_REVIEWER_ORG)).size,5,'one unit per key');
+  for(const org of C_ORGS)assert.equal(C_EXT_UNIT_LABELS[C_EXT_UNIT_OF_REVIEWER_ORG[org]],C_ORG_LABELS[org],org);
 });
 
 test('the extension root is a policy root of its own; any other root string is refused before a read',async()=>{
@@ -428,9 +451,9 @@ test('ext-v2 panels: File F bridges with signed components; own per-pack costs, 
 });
 
 test('ext-v2 wording: an extension that could not be read is «not available», never «not counted»',()=>{
-  assert.equal(cExtensionRecipientsCard(null,true).value,'Non disponibili in questo momento');
-  assert.match(cExtensionRecipientsCard(null,true).detail,/non è riuscita/);
-  assert.equal(cExtensionRecipientsCard(null).value,'Non disponibili');
+  assert.equal(cExtensionRecipientsCard(null,true,'aggregato').value,'Non disponibili in questo momento');
+  assert.match(cExtensionRecipientsCard(null,true,'aggregato').detail,/non è riuscita/);
+  assert.equal(cExtensionRecipientsCard(null,false,'aggregato').value,'Non disponibili');
   assert.match(cDecisionPeopleLine(null,true),/non sono disponibili in questo momento/);assert.match(cDecisionPeopleLine(null),/non contano le persone trattate/);
 });
 

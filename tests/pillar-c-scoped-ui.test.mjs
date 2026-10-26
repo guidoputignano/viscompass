@@ -643,3 +643,45 @@ test('public comparators: the closed parser; the Regione reads them beside the f
   const a=workspace('azienda4','',{publicSection:section,publicUnavailable:true});
   assert.doesNotMatch(a,/data-c-public-comparators|Confronti pubblici fra Regioni/);
 });
+
+// ---------------------------------------------------------------- Codex live check A26-01 (26 Oct 2026)
+// The DPC recipients card of «Quadro decisionale» stayed on the first unit whatever the «Ambito». Distinct synthetic
+// counts per unit, so the card can only show the right one; the labels are the audience's own.
+const A26_COUNTS={'asl-1':1100,'asl-2':1200,'asl-3':1300,'asl-4':1400,aggregato:5000};
+const counted=v=>({...v,units:v.units.map(u=>({...u,data:{...u.data,january:{...u.data.january,recipients:A26_COUNTS[u.key]}}}))});
+const recipientsCard=html=>{
+  const m=text(html).match(/Destinatari DPC · (.+?) ([0-9.]+) Gennaio 2026(, somma delle quattro ASL)?: un solo mese/);
+  assert.ok(m,'the recipients card');return {label:m[1],value:m[2],sum:Boolean(m[3])};
+};
+
+test('A26-01: an Azienda’s recipients card follows its own Ambito, own unit to the four-Azienda aggregate',()=>{
+  const extension=counted(extensionOf('azienda4'));
+  const own=workspace('azienda4','',{extension});
+  assert.deepEqual(recipientsCard(own),{label:ORG_NAME,value:'1.400',sum:false});
+  const agg=workspace('azienda4','?c_org=aggregato',{extension});
+  assert.deepEqual(recipientsCard(agg),{label:'Aggregato delle quattro Aziende',value:'5.000',sum:true});
+  assert.ok(text(agg).includes('Aggregato delle quattro Aziende · tutti i canali'),'the accounting card is on the same scope');
+  // A peer key in the address is refused by the scope filter: the card stays on the Azienda's own count, never the peer's.
+  for(const peer of ['asl-3','PE','regione']){
+    const r=workspace('azienda4',`?c_org=${peer}`,{extension});
+    assert.deepEqual(recipientsCard(r),{label:ORG_NAME,value:'1.400',sum:false},peer);
+    assert.doesNotMatch(text(r),/1\.[123]00\b/,`${peer}: no peer count`);
+  }
+});
+
+test('A26-01: the Regione’s recipients card follows its Ambito, regional aggregate to ASL 3',()=>{
+  const extension=counted(extensionOf('regione'));
+  assert.deepEqual(recipientsCard(workspace('regione','',{extension})),{label:'Aggregato regionale',value:'5.000',sum:true});
+  assert.deepEqual(recipientsCard(workspace('regione','?c_org=asl-3',{extension})),{label:'ASL 3',value:'1.300',sum:false});
+  assert.deepEqual(recipientsCard(workspace('regione','?c_org=asl-1',{extension})),{label:'ASL 1',value:'1.100',sum:false});
+});
+
+test('A26-01: the reviewer’s recipients card follows the reviewer’s Ambito keys',()=>{
+  const r=extReviewer(),labels={aggregato:'Aggregato delle quattro Aziende','asl-1':'ASL 1','asl-2':'ASL 2','asl-3':'ASL 3','asl-4':'ASL 4'};
+  const extension=counted({units:['aggregato','asl-1','asl-2','asl-3','asl-4'].map(k=>({key:k,label:labels[k],data:r.units.find(u=>u.unit===k)})),drivers:r.drivers,baskets:r.baskets,fileFBasket:r.fileFBasket,findings:r.findings});
+  const packet=parseCReviewPacket(cReviewV2Fixture());
+  const at_=search=>recipientsCard(bare(React.createElement(PillarCAudienceProvider,{audience:C_REVIEWER_CLIENT_AUDIENCE},React.createElement(PillarCAnalyticalWorkspace,{audience:C_REVIEWER_CLIENT_AUDIENCE,packet,extension})),search));
+  assert.deepEqual(at_(''),{label:'Aggregato delle quattro Aziende',value:'5.000',sum:true});
+  assert.deepEqual(at_('?c_org=PE'),{label:'ASL 3',value:'1.300',sum:false});
+  assert.deepEqual(at_('?c_org=TE'),{label:'ASL 4',value:'1.400',sum:false});
+});

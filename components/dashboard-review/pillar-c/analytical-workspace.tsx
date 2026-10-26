@@ -30,7 +30,7 @@ import { cForecastDecision } from "@/lib/dashboard-review/pillar-c/forecast-deci
 import { PILLAR_C_SECTIONS, type PillarCSection } from "@/lib/dashboard-review/pillar-c/section-navigation";
 import { itNumber } from "@/lib/format/it-number";
 import { C_FORECAST_LABEL, C_PERIOD_LABELS, C_PERIODS, cMoneyLabel, cReviewFilters, cReviewSearch, selectCReview, type COrg, type CPeriod, type CReviewFilters, type CReviewPacket } from "@/lib/dashboard-review/pillar-c/review";
-import { C_ORG_LABELS } from "@/lib/dashboard-review/pillar-c/reviewer-labels";
+import { C_EXT_UNIT_OF_REVIEWER_ORG, C_ORG_LABELS } from "@/lib/dashboard-review/pillar-c/reviewer-labels";
 import { BridgeValues, BudgetRows, CountRows, CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel, C_REVIEW_UI, SpendChart, SpendCoverage, SpendKpis, cSpendCell } from "@/components/dashboard-review/pillar-c/review-blocks";
 
 const eur = cMoneyLabel;
@@ -129,7 +129,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
   const decisionCards: PillarCDecisionOverviewProps["cards"] = [
     { title: "Variazione contabile", value: decision.change === null ? "Non disponibile" : signed(decision.change), detail: `${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}` },
     { title: "Contributo dei prodotti presenti nei due periodi", value: decision.continuing === null ? "Non disponibile" : signed(decision.continuing), detail: "Contributo alla variazione, non un effetto causale o clinico." },
-    cExtensionRecipientsCard(extension, extensionUnavailable),
+    cExtensionRecipientsCard(extension, extensionUnavailable, C_EXT_UNIT_OF_REVIEWER_ORG[filters.org]),
   ];
   const comparison = `Confronto: ${filters.comparison === "K1" ? "2024 → 2025" : "Gen–mag 2025 → 2026"}`;
   const forecastDecision = (() => { if (!packet.forecast) return null; try { return cForecastDecision(packet.forecast, "TOT"); } catch { return null; } })();
