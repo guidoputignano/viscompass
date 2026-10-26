@@ -10,4 +10,4 @@ const fixture=()=>['x','y'].flatMap((org_code,i)=>[2023,2024,2025].flatMap(year=
 function verify(rows){const out=privateComparisons(rows);assert.ok(out.length>0);for(const r of out){assert.ok(r.available);assert.ok(Math.abs(r.baseline+r.price+r.mix+r.interaction-r.actual)<.01);}for(const y of [2023,2024,2025])assert.ok(Math.abs(out.filter(r=>r.year===y).reduce((s,r)=>s+r.difference,0))<.01);}
 test('three-term benchmark reconciles and peer differences sum to zero',()=>verify(fixture()));
 test('single organization does not create a peer reference',()=>assert.deepEqual(privateComparisons(fixture().filter(r=>r.org_code==='x')),[]));
-test('private staged source comparisons reconcile',{skip:!fs.existsSync('private-staging/closure/private-v2-facts.json')},()=>verify(JSON.parse(fs.readFileSync('private-staging/closure/private-v2-facts.json','utf8'))));
+test('private staged source comparisons reconcile',{skip:!fs.existsSync('private-staging/closure/private-v2-facts.json')&&'private-staging/closure/private-v2-facts.json not present'},()=>verify(JSON.parse(fs.readFileSync('private-staging/closure/private-v2-facts.json','utf8'))));
