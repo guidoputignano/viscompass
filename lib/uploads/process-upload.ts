@@ -1,9 +1,12 @@
 import { createServiceRoleClient, hasServiceRoleConfig } from "@/lib/supabase/service-role";
 import { parseGoldFile } from "@/lib/uploads/gold-file";
-import { reconcileRows, summariseReconciliation, type CanonicalTotals } from "@/lib/uploads/reconcile";
+import { reconcileRows, summariseReconciliation } from "@/lib/uploads/reconcile";
 import { isUploadStoragePath } from "@/lib/uploads/storage-path";
+import { validateHospitalWorkbook, MAX_HOSPITAL_FILE_BYTES } from "@/lib/uploads/hospital-file";
+import { uploadValidationScope, uploadPeriodError, UPLOAD_MANUAL_COMPARISON_REASON } from "@/lib/uploads/processing-contract";
+import { createHash } from "node:crypto";
 
-// Turns a stored upload into a reconciliation result.
+// Validates a stored upload and records whether reconciliation can be attempted.
 //
 // Split from reconcile.ts deliberately: that module is pure and its tests import
 // it directly, so it must stay free of server-only imports. Everything that
@@ -55,48 +58,17 @@ function toColumnStatus(status: string): UploadStatus {
   return "uploaded";
 }
 
-/**
- * Totals canonical_fact holds for this organization and year.
- *
- * Returns null when the table cannot be read at all, and a zero rowCount when
- * it can be read but holds nothing. reconcileRows treats those differently and
- * reports both as unavailable — an empty comparison always agrees, so calling
- * it a pass would be indistinguishable from a real one.
- *
- * The key mapping is UNVERIFIED. uploads.org_code is '201'; the gold file's own
- * ASL column is '130201', i.e. region_code + org_code. canonical_fact is empty,
- * so which form its asl_code takes cannot be observed. Both are queried, and
- * this must be confirmed against real rows before the result is trusted.
- */
-async function readCanonicalTotals(
-  db: ServiceClient,
-  orgCode: string,
-  regionCode: string | null,
-  years: number[],
-): Promise<CanonicalTotals | null> {
-  if (years.length === 0) return null;
-  const aslKeys = [orgCode, regionCode ? `${regionCode}${orgCode}` : null].filter(
-    (v): v is string => Boolean(v),
-  );
-  const { data, error } = await db
-    .from("canonical_fact")
-    .select("total_cost_eur")
-    .in("asl_code", aslKeys)
-    .in("year", years);
-  if (error) return null;
-  const rows = data ?? [];
-  return {
-    rowCount: rows.length,
-    costEur: rows.reduce((s, r) => s + (Number(r.total_cost_eur) || 0), 0),
-  };
-}
+// No upload-to-canonical comparison contract has been accepted for this extraction.
+// The old bare row read mixed releases/bases, could hit a row cap, and treated null as zero.
+// Until an explicitly versioned, scope/period/basis-matched server aggregate is admitted,
+// do not query canonical_fact at all. File validation is useful but is never its certification.
 
 /**
  * The orchestration, with the client passed in.
  *
  * Separated from processUpload so tests can drive every branch — a storage
- * failure, a file that is not this extraction, an empty canonical table, a real
- * comparison — without a live Supabase. processUpload is the thin wrapper that
+ * failure, a file outside the uploader's scope, an invalid period or an
+ * unavailable comparison — without a live Supabase. processUpload is the thin wrapper that
  * decides whether a real client exists.
  */
 export async function processUploadWith(db: ServiceClient, uploadId: number): Promise<void> {
@@ -108,6 +80,7 @@ export async function processUploadWith(db: ServiceClient, uploadId: number): Pr
       .update({
         status: "uploaded" satisfies UploadStatus,
         reconciliation_summary: { ok: false, message, at: new Date().toISOString() },
+        reconciled_at: null,
       })
       .eq("id", uploadId);
   };
@@ -115,7 +88,7 @@ export async function processUploadWith(db: ServiceClient, uploadId: number): Pr
   try {
     const { data: upload, error } = await db
       .from("uploads")
-      .select("id, org_code, storage_path")
+      .select("id, org_code, storage_path, file_name, period_covered_start, period_covered_end")
       .eq("id", uploadId)
       .single();
     if (error || !upload) return;
@@ -128,7 +101,22 @@ export async function processUploadWith(db: ServiceClient, uploadId: number): Pr
       return;
     }
 
-    await db.from("uploads").update({ status: "processing" satisfies UploadStatus }).eq("id", uploadId);
+    const { data: org, error: orgError } = await db.from("organizations")
+      .select("org_type, region_code").eq("org_code", upload.org_code).single();
+    const scope = orgError ? null : uploadValidationScope(upload.org_code, org);
+    if (!scope) {
+      await fail("Il perimetro dell’organizzazione non è verificabile per questo tracciato. È richiesta una revisione manuale.");
+      return;
+    }
+    // Other formats may still be archived, but never enter an XLSX parser or acquire a reconciliation claim.
+    if (typeof upload.file_name !== "string" || !/\.xlsx$/i.test(upload.file_name)) {
+      await fail("Il controllo automatico supporta solo il tracciato ospedaliero XLSX. Gli altri formati richiedono una revisione manuale.");
+      return;
+    }
+
+    const started = await db.from("uploads").update({ status: "processing" satisfies UploadStatus,
+      reconciled_at: null, reconciliation_summary: { ok: false, message: "Elaborazione avviata e non ancora completata. Se interrotta, il file resta da riesaminare.", at: new Date().toISOString() } }).eq("id", uploadId);
+    if (started.error) return;
 
     const file = await db.storage.from(BUCKET).download(upload.storage_path);
     if (file.error || !file.data) {
@@ -136,9 +124,24 @@ export async function processUploadWith(db: ServiceClient, uploadId: number): Pr
       return;
     }
 
+    if (typeof file.data.size === "number" && file.data.size > MAX_HOSPITAL_FILE_BYTES) {
+      await fail("Il file supera il limite previsto per il controllo XLSX.");
+      return;
+    }
+    const bytes = await file.data.arrayBuffer();
+    // Reuse the existing bounded XLSX/schema/tenant validator, rather than duplicating its definitions.
+    const validation = await validateHospitalWorkbook(bytes, scope);
+    if (validation.status === "rejected") {
+      const messages = validation.issues.filter((i) => i.severity === "error").slice(0, 3).map((i) => i.message);
+      await fail(`Il file non supera i controlli del tracciato e del perimetro autorizzato. ${messages.join(" ")}`);
+      return;
+    }
+    const periodError = uploadPeriodError(validation, upload.period_covered_start, upload.period_covered_end);
+    if (periodError) { await fail(periodError); return; }
+
     let parsed: Awaited<ReturnType<typeof parseGoldFile>>;
     try {
-      parsed = await parseGoldFile(await file.data.arrayBuffer());
+      parsed = await parseGoldFile(bytes);
     } catch (e) {
       // A shape assertion failing is the parser working: the file is not the
       // extraction this loader understands, and loading it anyway would put
@@ -147,20 +150,10 @@ export async function processUploadWith(db: ServiceClient, uploadId: number): Pr
       return;
     }
 
-    const { data: org } = await db
-      .from("organizations")
-      .select("region_code")
-      .eq("org_code", upload.org_code)
-      .single();
-
-    const canonical = await readCanonicalTotals(
-      db,
-      upload.org_code,
-      org?.region_code ?? null,
-      parsed.meta.years,
-    );
-
-    const report = reconcileRows(parsed.rows, { canonical });
+    const report = reconcileRows(parsed.rows);
+    report.canonical = { available: false, reason: UPLOAD_MANUAL_COMPARISON_REASON };
+    report.notes.push(UPLOAD_MANUAL_COMPARISON_REASON,
+      "I controlli sul file non importano dati nei fatti canonici e non modificano i rilasci analitici pubblicati.");
     const columnStatus = toColumnStatus(report.status);
 
     await db
@@ -179,6 +172,11 @@ export async function processUploadWith(db: ServiceClient, uploadId: number): Pr
           notes: report.notes,
           // Provenance: what was parsed, and the header the basis assertion passed on.
           source: parsed.meta,
+          processingVersion: "gold-upload-validation-v2",
+          sourceSha256: createHash("sha256").update(new Uint8Array(bytes)).digest("hex"),
+          validation: { formatVersion: validation.formatVersion, status: validation.status,
+            coverageStart: validation.summary.coverageStart, coverageEnd: validation.summary.coverageEnd,
+            declaredStart: upload.period_covered_start ?? null, declaredEnd: upload.period_covered_end ?? null },
           // Full quarantine detail is the auditable part — every held euro, by reason.
           quarantine: report.quarantine,
           at: new Date().toISOString(),
