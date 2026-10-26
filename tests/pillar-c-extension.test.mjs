@@ -224,7 +224,7 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.deepEqual(headers(summary),['Misura','Unità 3','Aggregato delle quattro Aziende'],'totals: every column, the aggregate included');
   assert.deepEqual(headers(cost),['Misura','Unità 3'],'per-ASL statistics: no aggregate column');
   assert.deepEqual(row(summary,'Destinatari ammissibili'),['1.000','4.000']);assert.deepEqual(row(summary,'65 anni e oltre'),['60,0 %','60,0 %']);assert.deepEqual(row(summary,'Donne (sul sesso noto)'),['52,0 %','52,0 %']);
-  assert.deepEqual(row(cost,'Mediana: metà dei destinatari costa meno'),['80,00 €']);assert.deepEqual(row(cost,'Metà centrale dei destinatari (1° – 3° quartile)'),['40 € – 120 €']);
+  assert.deepEqual(row(cost,'Mediana (valore centrale)'),['80,00 €']);assert.deepEqual(row(cost,'Metà centrale dei destinatari (1° – 3° quartile)'),['40 € – 120 €']);
   assert.deepEqual(row(cost,'Quota del costo del 10 % con costo maggiore'),['40,0 %']);assert.deepEqual(row(cost,'Quota del costo del 20 % con costo maggiore'),['53,0 %']);assert.deepEqual(row(cost,'Indice di Gini (0 = costo uguale per tutti)'),['0,48']);
   const units=viewOf(AZ).units,el=(C,props)=>renderToStaticMarkup(React.createElement(C,{units,...props}));
   // G1-09: each measure reads its own quartiles; chart and table say the same.
@@ -545,4 +545,29 @@ test('G1-03: the File F period offers the year and the catalogued months; a mont
   assert.match(monthly,/data-c-forecast-readiness="filef">Previsione mensile: non disponibile\./);
   // DPC: the coverage names the catalogued reference month.
   assert.match(renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)})),/<dt[^>]*>Periodo<\/dt><dd[^>]*>Gennaio 2026: un solo mese<\/dd>/);
+});
+
+// ---------------------------------------------------------------- Codex review of 26 Oct 2026: G1-R01 and G1-R03
+test('G1-R01: a zero reference mean gives no index, never NaN; a positive one keeps its index',()=>{
+  const v=viewOf(AZ),f=v.units.find(u=>u.key==='asl-3').data.fileF;
+  // Every amount in mode 09: the months without mode 09 are all zero, so the index has no base.
+  f.months=f.months.map(m=>({...m,amount:m.amount,mode09:m.amount,withoutMode09:0}));f.bridges=extBridges(f.months);
+  const html=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:v}));
+  assert.doesNotMatch(html,/NaN|Infinity/);
+  assert.equal((html.match(/>non calcolabile</g)||[]).length,12,'one «non calcolabile» per month');
+  assert.match(html,/data-c-index-base="none">L’indice senza modalità 09 non è calcolabile: la media mensile di riferimento è pari a zero o negativa\./);
+  assert.match(html,/>Gen<\/th><td[^>]*>1\.000\s€<\/td><td[^>]*>1\.000\s€<\/td><td[^>]*>0\s€<\/td>/,'the reported amounts stay as reported');
+  const positive=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:viewOf(AZ)}));
+  assert.match(positive,/>Gen<\/th>(<td[^>]*>[^<]*<\/td>){3}<td[^>]*>[0-9]+,[0-9]<\/td>/,'a positive base keeps the index');
+  assert.doesNotMatch(positive,/non calcolabile|data-c-index-base/);
+});
+
+test('G1-R03: with tied values the median is described as the central value, never as a strict half',()=>{
+  const v=viewOf(AZ),u=v.units.find(x=>x.key==='asl-3').data.january;
+  u.use.prescriptions.quartiles={q1:1,median:1,q3:1};u.cost.quartiles={q1:40,median:40,q3:40};
+  for(const html of [renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),renderToStaticMarkup(React.createElement(RV.PillarCCostPerRecipient,{units:v.units}))]){
+    assert.match(html,/più destinatari possono avere lo stesso valore/);
+    assert.doesNotMatch(html,/metà dei destinatari (riceve di meno|costa meno)|metà di più/,'no strict half below / half above');
+  }
+  assert.match(renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),/aria-label="Prescrizioni registrate per destinatario: Unità 3 mediana 1,0, metà centrale 1,0 – 1,0"/);
 });

@@ -102,13 +102,13 @@ export function PillarCCostPerRecipient({ units }: { units: Unit[] }) {
   const v = (u: Unit, f: (c: CExtJanuary["cost"]) => string | null) => f(u.data.january.cost) ?? C_RECIPIENT_STATES.unavailable;
   return <Panel title="Quanto costa di solito un destinatario, in ciascuna ASL" description="Statistiche della distribuzione dentro ciascuna ASL. Per l’aggregato non c’è un valore: una mediana o un indice di concentrazione di quattro ASL non si ottiene sommando o facendo la media dei loro.">
     <Table caption="Costo per destinatario nelle singole ASL" headers={["Misura", ...asl.map((u) => u.label)]} rows={[
-      { key: "median", label: "Mediana: metà dei destinatari costa meno", cells: asl.map((u) => v(u, (c) => c.quartiles ? eur2(c.quartiles.median) : null)) },
+      { key: "median", label: "Mediana (valore centrale)", cells: asl.map((u) => v(u, (c) => c.quartiles ? eur2(c.quartiles.median) : null)) },
       { key: "iqr", label: "Metà centrale dei destinatari (1° – 3° quartile)", cells: asl.map((u) => v(u, (c) => c.quartiles ? `${eur0(c.quartiles.q1)} – ${eur0(c.quartiles.q3)}` : null)) },
       { key: "top10", label: "Quota del costo del 10 % con costo maggiore", cells: asl.map((u) => v(u, (c) => c.top10 === null ? null : pct(c.top10))) },
       { key: "top20", label: "Quota del costo del 20 % con costo maggiore", cells: asl.map((u) => v(u, (c) => c.top20 === null ? null : pct(c.top20))) },
       { key: "gini", label: "Indice di Gini (0 = costo uguale per tutti)", cells: asl.map((u) => v(u, (c) => c.gini === null ? null : num(c.gini, 2))) },
     ]} />
-    <p className={NOTE}>Costo registrato nel flusso: acquisto più compenso di servizio, nel solo mese di gennaio.</p>
+    <p className={NOTE}>Costo registrato nel flusso: acquisto più compenso di servizio, nel solo mese di gennaio. La mediana è il valore centrale; più destinatari possono avere lo stesso valore.</p>
   </Panel>;
 }
 
@@ -267,7 +267,7 @@ export function PillarCTypicalUse({ units, initialView = "chart" }: { units: Uni
   const [view, setView] = useState<View>(initialView);
   if (!asl.length || !asl.every((u) => USE.every(([k]) => u.data.january.use[k].quartiles))) return asl.length ? <Empty>{`Mediane e quartili di utilizzo: ${C_RECIPIENT_STATES.unavailable}.`}</Empty> : null;
   const one = (v: number) => num(v, 1);
-  return <Panel title="Quante confezioni, prescrizioni e prodotti riceve di solito un destinatario?" description="Il punto è la mediana: metà dei destinatari riceve di meno, metà di più. La barra copre la metà centrale dei destinatari, dal primo al terzo quartile." controls={<Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} />}>
+  return <Panel title="Quante confezioni, prescrizioni e prodotti riceve di solito un destinatario?" description="Il punto è la mediana, il valore centrale: più destinatari possono avere lo stesso valore. La barra va dal primo al terzo quartile e comprende almeno la metà centrale dei destinatari." controls={<Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} />}>
     <div key={view} data-c-typical-use={view}>
       {view === "chart" ? <div className="grid gap-6 lg:grid-cols-3">{USE.map(([k, label], i) => {
         const rows = asl.map((u) => { const q = u.data.january.use[k].quartiles!; return { key: u.key, label: u.label, unit: u.key, ...q }; });

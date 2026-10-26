@@ -476,8 +476,9 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   assert.equal(out.data,'bebe2d2b3c1d254353cd668e6b67e61c1c5c4b91ec1f15f465ebcccc2aa4e9be','the same synthetic data as the baseline');
   // Re-recorded on 24 Oct 2026: the reviewer's section 5 gains «Confronti pubblici fra Regioni» after the forecast.
   // Re-recorded on 25 Oct 2026 (Guido's feedback 1): section 2's recipient views and the portfolio series labels.
-  // Re-recorded on 26 Oct 2026: one plain-Italian vocabulary for the two portfolio components (G1-04 follow-up).
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'7c3a92fb86ff64f6a8849ec386c163ee035484ba2c6fae95fa7cdcf1231f337b');
+  // Re-recorded on 26 Oct 2026: one plain-Italian vocabulary for the two portfolio components (G1-04 follow-up), then
+  // the absolute-exposure labels of Codex's review (G1-R02).
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'a7cec23bd48d920bab3b1f0e3823967e23835a8d23fc9356736cc7510af4b88a');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout
