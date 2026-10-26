@@ -13,6 +13,7 @@ import { useId, useState } from "react";
 import { itNumber } from "@/lib/format/it-number";
 import { CReviewEmpty as Empty, CReviewPanel as Panel } from "@/components/dashboard-review/pillar-c/review-blocks";
 import type { CExtDist, CExtensionView, CExtJanuary } from "@/lib/dashboard-review/pillar-c/extension";
+import { cDpcMonths, usePillarCPeriodCatalog } from "@/components/dashboard-review/pillar-c/period-context";
 
 type Unit = CExtensionView["units"][number];
 const pct = (v: number, digits = 1) => `${itNumber(v * 100, { minimumFractionDigits: digits, maximumFractionDigits: digits })} %`;
@@ -56,11 +57,14 @@ function Swatch({ unit }: { unit: string }) { return <span aria-hidden="true" cl
 
 // ---------------------------------------------------------------- G1-02: what the section counts
 /** Source, period, cohort and coverage above the recipient analyses, with the detail on demand. */
+const MONTH_NAMES = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 export function PillarCRecipientCoverage({ units }: { units: Unit[] }) {
   const asl = units.filter((u) => u.key !== "aggregato"), aggregate = units.some((u) => u.key === "aggregato");
+  // The DPC months the period catalogue lists for this view (G1-03): today only the January 2026 reference month.
+  const months = cDpcMonths(usePillarCPeriodCatalog()).map((m) => `${MONTH_NAMES[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`);
   const items: [string, string][] = [
     ["Fonte e canale", "Flussi NSIS della distribuzione per conto (DPC)"],
-    ["Periodo", "Gennaio 2026: un solo mese"],
+    ["Periodo", months.length > 1 ? months.join(", ") : `${months[0] ?? "Gennaio 2026"}: un solo mese`],
     ["Chi è contato", "Destinatari ammissibili, contati una volta in ciascuna ASL"],
     ["Organizzazioni", `${asl.map((u) => u.label).join(", ")}${aggregate ? " e la loro somma" : ""}`],
   ];

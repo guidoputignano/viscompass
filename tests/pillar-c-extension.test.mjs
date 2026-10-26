@@ -21,7 +21,15 @@ const req=createRequire(`${root}package.json`),React=req('react'),{renderToStati
 const {parseCExtensionUnit,parseCExtensionReviewer,cExtComplementCheck}=await import('../lib/dashboard-review/pillar-c/extension-parse.ts');
 const {C_EXT_UNIT_LABELS,cDecisionPeopleLine}=await import('../lib/dashboard-review/pillar-c/extension.ts');
 const {loadCExtensionReviewer,loadCExtensionScoped}=await import('../lib/dashboard-review/pillar-c/extension-loader.ts');
-const {PillarCRecipientsSection,PillarCAttributionEvidence,PillarCFileFMonthly,PillarCUnitCosts,cExtensionRecipientsCard}=await import('../components/dashboard-review/pillar-c/extension-sections.tsx');
+const SECTIONS=await import('../components/dashboard-review/pillar-c/extension-sections.tsx');
+const {PillarCUnitCosts,cExtensionRecipientsCard}=SECTIONS;
+// The File F panels read the page's period catalogue (G1-03, G1-11): each render gets the catalogue of its own view, built
+// as the page builds it (here in synthetic mode), so no panel can fall back to the first File F holder.
+const PERIOD=await import('../components/dashboard-review/pillar-c/period-context.tsx');
+const {buildCPeriodCatalog,publicCPeriodCatalog}=await import('../lib/dashboard-review/pillar-c/period-catalog.ts');
+const catalogOf=view=>publicCPeriodCatalog(buildCPeriodCatalog(view,{mode:'synthetic'}));
+const withCatalog=C=>props=>React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog:catalogOf(props.view)},React.createElement(C,props));
+const PillarCRecipientsSection=withCatalog(SECTIONS.PillarCRecipientsSection),PillarCAttributionEvidence=withCatalog(SECTIONS.PillarCAttributionEvidence),PillarCFileFMonthly=withCatalog(SECTIONS.PillarCFileFMonthly),PillarCFileFRecipients=withCatalog(SECTIONS.PillarCFileFRecipients);
 const {PillarCResidentDrivers}=await import('../components/dashboard-review/pillar-c/extension-reviewer.tsx');
 const RV=await import('../components/dashboard-review/pillar-c/recipient-views.tsx');
 const {cScopedExtensionFor}=await import('../components/dashboard-review/pillar-c/scoped-workspace.tsx');
@@ -478,4 +486,63 @@ test('review test gap: every pinned extension object fits under the read cap',()
   const cap=Number(src.match(/C_EXTENSION_MAX_BYTES = ([0-9_]+);/)[1].replace(/_/g,''));
   const sizes=[...src.matchAll(/bytes: ([0-9]+)/g)].map(m=>Number(m[1]));
   assert.equal(sizes.length,6);assert.ok(sizes.every(b=>b>1&&b<=cap),`${sizes} under ${cap}`);
+});
+
+// ---------------------------------------------------------------- Guido feedback 1, G1-03 and G1-11: the period catalogue
+test('G1-11: File F panels show the holders the catalogue lists, never a first holder; without a catalogue they say so',()=>{
+  // Without a catalogue: the recipients section says File F is unavailable; the other File F panels render nothing.
+  const bare=viewOf(AZ);
+  assert.match(renderToStaticMarkup(React.createElement(SECTIONS.PillarCRecipientsSection,{view:bare})),/I dati File F non sono disponibili in questo momento: il catalogo dei periodi non è stato letto/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(SECTIONS.PillarCAttributionEvidence,{view:bare})),/File F 2025/);
+  assert.equal(renderToStaticMarkup(React.createElement(SECTIONS.PillarCFileFMonthly,{view:bare})),'');
+  // One holder in a full view: no selector, the holder named, the organisations without a File F named too.
+  const all=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(ALL)}));
+  assert.doesNotMatch(all,/aria-label="Azienda del File F"/,'one holder: nothing to choose');
+  assert.match(all,/File F 2025 · Unità 3: identificativi/);
+  assert.match(all,/File F disponibile per: Unità 3 \(2025\)\. Non ricevuto per: Unità 1, Unità 2, Unità 4; per loro nessun valore viene stimato\./);
+  // Two holders (synthetic): both offered, in catalogue order, and every File F panel follows the chosen one.
+  const two=viewOf(ALL);const h1=two.units.find(u=>u.key==='asl-1').data;h1.fileF=extUnit('asl-3').fileF;h1.fileF.identifiers=6000;h1.fileF.age={...h1.fileF.age,total:6000,cells:[{id:'0-64',label:'0-64',count:2400,share:0.4},{id:'65+',label:'65+',count:3600,share:0.6}]};
+  h1.fileF.contacts={status:'released',total:6000,cells:[{id:'1',label:'1',count:2400,share:0.4},{id:'2+',label:'2 o più',count:3600,share:0.6}]};h1.fileF.monthsActive={status:'released',total:6000,cells:[{id:'1',label:'1',count:3000,share:0.5},{id:'2+',label:'2 o più',count:3000,share:0.5}]};
+  const cat=catalogOf(two);
+  assert.deepEqual(cat.entries.filter(e=>e.sourceFamily==='file-f'&&e.granularity==='year').map(e=>e.unit),['asl-1','asl-3'],'both holders, none silently dropped');
+  const opts=html=>[...(html.match(/<select aria-label="Azienda del File F"[^>]*>(.*?)<\/select>/)?.[1]??'').matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(m=>[m[1],m[2]]);
+  const rec=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:two}));
+  assert.deepEqual(opts(rec),[['file-f.asl-1.year.2025-01','Unità 1 · 2025'],['file-f.asl-3.year.2025-01','Unità 3 · 2025']]);
+  assert.match(rec,/File F 2025 · Unità 1: identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>6\.000</,'the shown holder’s own figures');
+  const third=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:two,initial:{holder:'file-f.asl-3.year.2025-01'}}));
+  assert.match(third,/File F 2025 · Unità 3: identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>5\.000</,'the other holder, when chosen');
+  for(const html of [renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:two})),renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:two}))])
+    assert.deepEqual(opts(html).map(o=>o[0]),['file-f.asl-1.year.2025-01','file-f.asl-3.year.2025-01'],'every File F panel offers both holders');
+  // A holder the catalogue does not list is not shown: a File F the catalogue refused stays out.
+  const notListed=viewOf(AZ),catalog={...catalogOf(notListed),entries:catalogOf(notListed).entries.filter(e=>e.sourceFamily!=='file-f')};
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog},React.createElement(SECTIONS.PillarCRecipientsSection,{view:notListed}))),/File F 2025 · Unità 3/);
+});
+
+test('G1-03: the File F period offers the year and the catalogued months; a month shows only the measures the catalogue lists',()=>{
+  const v=viewOf(AZ),f=v.units.find(u=>u.key==='asl-3').data.fileF;
+  f.months=f.months.filter(m=>m.month!=='2025-06');f.bridges=extBridges(f.months);
+  f.identifiersByMonth=f.identifiersByMonth.map(m=>m.month==='2025-03'?{...m,count:2345}:m);
+  const year=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:v}));
+  const periods=[...(year.match(/<select aria-label="Periodo del File F"[^>]*>(.*?)<\/select>/)?.[1]??'').matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(m=>m[2]);
+  assert.equal(periods[0],'Anno 2025');assert.equal(periods.length,13,'the year and twelve months: June keeps its identifier count');
+  assert.ok(periods.includes('giugno 2025'));
+  // March: the month's amount and identifiers, and no annual distribution.
+  const march=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:v,initial:{period:'file-f.asl-3.month.2025-03'}}));
+  assert.match(march,/File F · Unità 3: marzo 2025/);
+  assert.match(march,/Importo riportato nel mese<\/dt><dd[^>]*>1\.000\s€</);assert.match(march,/Di cui modalità 09<\/dt><dd[^>]*>0\s€</,'an observed zero is a number');
+  assert.match(march,/Identificativi distinti nel mese<\/dt><dd[^>]*>2\.345</,'March’s own count');
+  assert.doesNotMatch(march,/Identificativi distinti nell’anno|Indice di Gini|Profilo anagrafico|65 anni e oltre/,'no annual distribution shown as the month’s');
+  assert.match(march,/Gli identificativi dei mesi non si sommano/);
+  // June: identifiers only (no amount row in the source): the amount says unavailable, never zero.
+  const june=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:v,initial:{period:'file-f.asl-3.month.2025-06'}}));
+  assert.match(june,/Importo riportato nel mese<\/dt><dd[^>]*>non disponibile</);assert.match(june,/Identificativi distinti nel mese<\/dt><dd[^>]*>2\.000</);
+  // A period id the catalogue does not list falls back to the year, never to another month.
+  const unknown=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:v,initial:{period:'file-f.asl-3.month.2024-12'}}));
+  assert.match(unknown,/Identificativi distinti nell’anno/);
+  // The monthly panel: an observed zero for mode 09 is «0 €», and the forecast is stated as unavailable.
+  const monthly=renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:viewOf(AZ)}));
+  assert.match(monthly,/>Gen<\/th><td[^>]*>1\.000\s€<\/td><td[^>]*>0\s€<\/td>/);
+  assert.match(monthly,/data-c-forecast-readiness="filef">Previsione mensile: non disponibile\./);
+  // DPC: the coverage names the catalogued reference month.
+  assert.match(renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)})),/<dt[^>]*>Periodo<\/dt><dd[^>]*>Gennaio 2026: un solo mese<\/dd>/);
 });

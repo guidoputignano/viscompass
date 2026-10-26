@@ -7,7 +7,8 @@
 import { useState, type ReactNode } from "react";
 import { itNumber } from "@/lib/format/it-number";
 import { CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel } from "@/components/dashboard-review/pillar-c/review-blocks";
-import { C_EXT_SOURCE, type CExtDist, type CExtensionView, type CExtUnitPacket } from "@/lib/dashboard-review/pillar-c/extension";
+import { C_EXT_SOURCE, type CExtDist, type CExtensionView, type CExtFileF } from "@/lib/dashboard-review/pillar-c/extension";
+import { cFileFHolders, usePillarCPeriodCatalog } from "@/components/dashboard-review/pillar-c/period-context";
 import { PillarCCostConcentration, PillarCCostPerRecipient, PillarCDispensingIntervals, PillarCDistributionExplorer, PillarCPharmacyFees, PillarCRecipientCoverage, PillarCRecipientSummary, PillarCServiceBurden, PillarCTypicalUse } from "@/components/dashboard-review/pillar-c/recipient-views";
 
 type Unit = CExtensionView["units"][number];
@@ -32,7 +33,6 @@ const monthLabel = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? m
  * its honest state) sits right after the totals it describes. */
 export function PillarCRecipientsSection({ view, residence }: { view: CExtensionView; residence?: ReactNode }) {
   const units = view.units, asl = units.filter((u) => u.key !== "aggregato");
-  const fileF = units.find((u) => u.data.fileF)?.data.fileF ?? null;
   return <div className="space-y-6">
     <Heading inner id="destinatari-dpc" title="Chi riceve i medicinali DPC e con quale utilizzo?">{`${C_EXT_SOURCE.january}.`}</Heading>
     <PillarCRecipientCoverage units={units} />
@@ -45,20 +45,67 @@ export function PillarCRecipientsSection({ view, residence }: { view: CExtension
     <PillarCServiceBurden units={units} />
     <PillarCPharmacyFees units={units} />
     <PillarCDispensingIntervals units={units} />
-    {fileF && <FileFRecipients fileF={fileF} unitLabel={units.find((u) => u.data.fileF)?.label ?? ""} januaryTop10={units.find((u) => u.data.fileF)?.data.january.cost.top10 ?? null} />}
+    <PillarCFileFRecipients view={view} />
     {asl.length === 0 && <Empty>Nessuna ASL in questa vista.</Empty>}
   </div>;
 }
 
-function FileFRecipients({ fileF, unitLabel, januaryTop10 }: { fileF: NonNullable<CExtUnitPacket["fileF"]>; unitLabel: string; januaryTop10: number | null }) {
+const MONTH_NAMES = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+/** «2025-03» → «marzo 2025», from the month's own key. */
+const monthName = (month: string) => `${MONTH_NAMES[Number(month.slice(5, 7)) - 1] ?? month} ${month.slice(0, 4)}`;
+
+/** File F (G1-11): the holders the period catalogue lists for this view, one chosen at a time, and the coverage stated.
+ * Each panel keeps its own choice (controls stay local to their source). Without a catalogue nothing is chosen. */
+function useFileFHolder(view: CExtensionView, initialHolder = "") {
+  const catalog = usePillarCPeriodCatalog();
+  const { holders, missing } = cFileFHolders(catalog, view);
+  const [selected, setSelected] = useState(initialHolder);
+  const holder = holders.find((h) => h.entry.id === selected) ?? holders[0] ?? null;
+  const control = holders.length > 1
+    ? <label className="min-w-48 text-xs font-medium text-muted-foreground">Azienda del File F<select aria-label="Azienda del File F" className={SELECT} value={holder?.entry.id} onChange={(e) => setSelected(e.target.value)}>{holders.map((h) => <option key={h.entry.id} value={h.entry.id}>{`${h.unit.label} · ${h.fileF.year}`}</option>)}</select></label>
+    : null;
+  const coverage = holders.length ? `File F disponibile per: ${holders.map((h) => `${h.unit.label} (${h.fileF.year})`).join(", ")}.${missing.length ? ` Non ricevuto per: ${missing.join(", ")}; per loro nessun valore viene stimato.` : ""}` : "";
+  return { holder, control, coverage, unavailable: !catalog && view.units.some((u) => u.data.fileF) };
+}
+
+/** Section 2, File F of the chosen holder: the year (identifiers, concentration, frequency, profile) or one month, which
+ * carries only what the catalogue lists for it (reported amount, identifiers of the month): no annual distribution is
+ * shown as if it were the month's. */
+export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView; initial?: { holder?: string; period?: string } }) {
+  const { holder, control, coverage, unavailable } = useFileFHolder(view, initial?.holder);
+  const [period, setPeriod] = useState(initial?.period ?? "year");
+  if (!holder) return unavailable ? <Empty>I dati File F non sono disponibili in questo momento: il catalogo dei periodi non è stato letto. Nessun valore viene sostituito.</Empty> : null;
+  const fileF = holder.fileF, unitLabel = holder.unit.label, januaryTop10 = holder.unit.data.january.cost.top10;
+  const month = holder.months.find((m) => m.id === period) ?? null;
+  const controls = <div className="flex flex-wrap gap-4">{control}
+    <label className="min-w-48 text-xs font-medium text-muted-foreground">Periodo<select aria-label="Periodo del File F" className={SELECT} value={month ? month.id : "year"} onChange={(e) => setPeriod(e.target.value)}>
+      <option value="year">{`Anno ${fileF.year}`}</option>{holder.months.map((m) => <option key={m.id} value={m.id}>{monthName(m.windowFrom)}</option>)}</select></label></div>;
   const c = fileF.concentration;
   // Owner decision D3: the unknown ages are pooled into the oldest band, so its label says so and «65 anni e oltre» includes them.
   const pooled = fileF.ageUnknownPooled;
-  return <Panel title={`File F 2025 · ${unitLabel}: identificativi, concentrazione e frequenza`} description={`${C_EXT_SOURCE.fileF}. Identificativi distinti nel flusso, non pazienti certificati; nessun confronto con le altre ASL.`}>
+  if (month) {
+    const row = fileF.months.find((r) => r.month === month.windowFrom), ids = fileF.identifiersByMonth.find((r) => r.month === month.windowFrom);
+    const amount = month.capabilities.includes("reported-amount") ? row ?? null : null, people = month.capabilities.includes("identifier-count") ? ids ?? null : null;
+    const tiles: [string, string][] = [
+      ["Importo riportato nel mese", amount ? eur0(amount.amount) : "non disponibile"],
+      ["Di cui modalità 09", amount ? eur0(amount.mode09) : "non disponibile"],
+      ["Senza modalità 09", amount ? eur0(amount.withoutMode09) : "non disponibile"],
+      ["Identificativi distinti nel mese", people ? num(people.count) : "non disponibile"],
+    ];
+    return <Panel title={`File F · ${unitLabel}: ${monthName(month.windowFrom)}`} description={`${C_EXT_SOURCE.fileF}. Mese di erogazione registrato.`} controls={controls}>
+      <div key={month.id} data-c-filef-period={month.id}>
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([k, v]) => <div key={k} className="rounded-xl border border-border p-3"><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{v}</dd></div>)}</dl>
+        <p className="mt-4 text-xs leading-5 text-muted-foreground">Per un singolo mese sono disponibili solo l’importo riportato e gli identificativi distinti del mese. Età, importo per identificativo, contatti e mesi attivi sono calcolati sull’anno: per il mese non sono stati calcolati né controllati, quindi non vengono mostrati. Gli identificativi dei mesi non si sommano: chi compare in più mesi conta in ciascuno.</p>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">{coverage}</p>
+      </div>
+    </Panel>;
+  }
+  return <Panel title={`File F ${fileF.year} · ${unitLabel}: identificativi, concentrazione e frequenza`} description={`${C_EXT_SOURCE.fileF}. Identificativi distinti nel flusso, non pazienti certificati; nessun confronto con le altre ASL.`} controls={controls}>
+    <div key={`${holder.entry.id}|year`} data-c-filef-period={holder.entry.id}>
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {[["Identificativi distinti nell’anno", num(fileF.identifiers)], [pooled ? "65 anni e oltre, incluse le età non note" : "65 anni e oltre", pct(over65(fileF.age))], ["Importo per identificativo, mediana", eur0(c.median)],
-        ["Importo per identificativo, 1° – 3° quartile", `${eur0(c.q1)} – ${eur0(c.q3)}`], ["Quota del 10\u00a0% con importo maggiore", pct(c.top10)], ["Quota dell’1\u00a0% con importo maggiore", pct(c.top1)], ["Indice di Gini", num(c.gini, 2)],
-        ["Senza modalità 09: quota del 10\u00a0%", pct(c.top10WithoutMode09)], ["Senza modalità 09: quota dell’1\u00a0%", pct(c.top1WithoutMode09)], ["Contatti per identificativo, mediana", num(fileF.medianContacts)], ["Mesi attivi, mediana", num(fileF.medianMonths)]]
+        ["Importo per identificativo, 1° – 3° quartile", `${eur0(c.q1)} – ${eur0(c.q3)}`], ["Quota del 10 % con importo maggiore", pct(c.top10)], ["Quota dell’1 % con importo maggiore", pct(c.top1)], ["Indice di Gini", num(c.gini, 2)],
+        ["Senza modalità 09: quota del 10 %", pct(c.top10WithoutMode09)], ["Senza modalità 09: quota dell’1 %", pct(c.top1WithoutMode09)], ["Contatti per identificativo, mediana", num(fileF.medianContacts)], ["Mesi attivi, mediana", num(fileF.medianMonths)]]
         .map(([k, v]) => <div key={k} className="rounded-xl border border-border p-3"><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{v}</dd></div>)}
     </dl>
     <ExactTable caption="Contatti e mesi attivi per identificativo" headers={["Classe", "Contatti: quota", "Classe", "Mesi attivi: quota"]}
@@ -67,8 +114,9 @@ function FileFRecipients({ fileF, unitLabel, januaryTop10 }: { fileF: NonNullabl
       ["Donne (sul sesso noto)", pct(fileF.sex.female)], ["Uomini (sul sesso noto)", pct(fileF.sex.male)],
       ...(fileF.age.status === "released" ? fileF.age.cells.map((cell) => [`Età ${cell.label}`, pct(cell.share)]) : [["Fasce d’età", "Non mostrate: almeno una classe conta meno di 5 identificativi"]]),
     ]} />
-    <p className="mt-3 text-xs leading-5 text-muted-foreground">Età raggiunta nel 2025, dall’anno di nascita registrato; le quote per sesso escludono il sesso non noto.</p>
-    <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${januaryTop10 === null ? "" : `L’importo per identificativo è ${c.top10 > januaryTop10 ? "più" : "meno"} concentrato che nella DPC di gennaio della stessa ASL (quota del 10\u00a0% con importo maggiore: ${pct(c.top10)} contro ${pct(januaryTop10)}). `}Un solo anno di una sola Azienda.`}</p>
+    <p className="mt-3 text-xs leading-5 text-muted-foreground">{`Età raggiunta nel ${fileF.year}, dall’anno di nascita registrato; le quote per sesso escludono il sesso non noto.`}</p>
+    <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${januaryTop10 === null ? "" : `L’importo per identificativo è ${c.top10 > januaryTop10 ? "più" : "meno"} concentrato che nella DPC di gennaio della stessa ASL (quota del 10 % con importo maggiore: ${pct(c.top10)} contro ${pct(januaryTop10)}). `}${coverage}`}</p>
+    </div>
   </Panel>;
 }
 
@@ -112,11 +160,12 @@ function CandidateReach({ view }: { view: CExtensionView }) {
   </Panel>;
 }
 
-/** File F of its one Azienda: reported amount by product status and reach of the single-candidate portfolios (R20-04). */
+/** File F of the chosen holder: reported amount by product status and reach of the single-candidate portfolios (R20-04). */
 function FileFPortfolios({ view }: { view: CExtensionView }) {
-  const holder = view.units.find((u) => u.data.fileF), f = holder?.data.fileF;
-  if (!f) return null;
-  return <Panel title={`File F 2025 · ${holder?.label ?? ""}: portafogli candidati`} description={`${C_EXT_SOURCE.fileF}. Composizione dell’importo riportato secondo il prodotto: non è un consuntivo per area clinica né una ripartizione fra reparti.`}>
+  const { holder, control, coverage } = useFileFHolder(view);
+  if (!holder) return null;
+  const f = holder.fileF;
+  return <Panel title={`File F ${f.year} · ${holder.unit.label}: portafogli candidati`} description={`${C_EXT_SOURCE.fileF}. Composizione dell’importo riportato secondo il prodotto: non è un consuntivo per area clinica né una ripartizione fra reparti. ${coverage}`} controls={control ?? undefined}>
     <ExactTable caption="Importo riportato per stato del prodotto" headers={["Stato del prodotto", "Quota dell’importo"]} rows={[
       ["Un solo portafoglio candidato", pct(f.portfolioShares.single)], ["Più portafogli candidati", pct(f.portfolioShares.shared)], ["Non mappati o evidenza insufficiente", pct(f.portfolioShares.unmapped)],
     ]} />
@@ -146,14 +195,15 @@ function AttributionNarrowing({ view }: { view: CExtensionView }) {
 
 /** Section 4 addition: File F monthly reported amount, with dispensing mode 09 pooled and shown apart. */
 export function PillarCFileFMonthly({ view }: { view: CExtensionView }) {
-  const holder = view.units.find((u) => u.data.fileF), f = holder?.data.fileF, note = holder?.data.notes.fileFMode09 ?? "";
-  if (!f) return null;
+  const { holder, control, coverage } = useFileFHolder(view);
+  if (!holder) return null;
+  const f = holder.fileF, note = holder.unit.data.notes.fileFMode09 ?? "";
   const max = Math.max(1, ...f.months.map((m) => m.amount));
   const mean = f.months.reduce((a, m) => a + m.withoutMode09, 0) / f.months.length;
   const lowestWithout = f.months.reduce((low, m, i) => (m.withoutMode09 < f.months[low].withoutMode09 ? i : low), 0);
   const withMode09 = f.months.flatMap((m) => (m.mode09 ? [monthLabel(m.month)] : []));
   const identifiers = new Map(f.identifiersByMonth.map((m) => [m.month, m.count]));
-  return <><Panel title={`File F 2025 · ${holder?.label ?? ""}: importo mensile`} description={`${C_EXT_SOURCE.fileF}. In arancione le righe in modalità di erogazione 09 («Terapie CAR-T» nella specifica 2025)${withMode09.length ? `, presenti in: ${withMode09.join(", ")}` : ", assenti in questo anno"}.`}>
+  return <><Panel title={`File F ${f.year} · ${holder.unit.label}: importo mensile`} description={`${C_EXT_SOURCE.fileF}. In arancione le righe in modalità di erogazione 09 («Terapie CAR-T» nella specifica 2025)${withMode09.length ? `, presenti in: ${withMode09.join(", ")}` : ", assenti in questo anno"}. ${coverage}`} controls={control ?? undefined}>
     <div role="img" aria-label={`Importo mensile: ${f.months.map((m) => `${monthLabel(m.month)} ${eur0(m.amount)}`).join("; ")}`}>
       <div className="flex h-44 items-end gap-1.5 border-b border-border">{f.months.map((m) => <div key={m.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
         <span className="block rounded-t bg-amber-500/80" style={{ height: `${(m.mode09 / max) * 100}%` }} />
@@ -163,19 +213,20 @@ export function PillarCFileFMonthly({ view }: { view: CExtensionView }) {
     </div>
     <ul className="mt-3 flex flex-wrap gap-4 text-xs"><li className="flex items-center gap-2"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-sm bg-primary" />Altri medicinali</li><li className="flex items-center gap-2"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-sm bg-amber-500/80" />Modalità 09</li></ul>
     <ExactTable caption="Importo mensile e identificativi" headers={["Mese", "Importo riportato", "Modalità 09", "Senza modalità 09", "Indice senza 09 (media = 100)", "Identificativi distinti"]}
-      rows={f.months.map((m) => [monthLabel(m.month), eur0(m.amount), m.mode09 ? eur0(m.mode09) : "—", eur0(m.withoutMode09), num((m.withoutMode09 / mean) * 100, 1), num(identifiers.get(m.month) ?? null)])} />
+      rows={f.months.map((m) => [monthLabel(m.month), eur0(m.amount), eur0(m.mode09), eur0(m.withoutMode09), num((m.withoutMode09 / mean) * 100, 1), identifiers.has(m.month) ? num(identifiers.get(m.month)!) : "non disponibile"])} />
     <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${f.months.length < 12 ? `Mesi presenti nel flusso: ${f.months.length} su 12; un mese assente non vale zero. ` : ""}${lowestWithout === f.months.length - 1 && withMode09.includes(monthLabel(f.months[f.months.length - 1].month)) ? "Senza la modalità 09 l’ultimo mese è il più basso. " : ""}${note}`}</p>
     <ExactTable caption="Modalità di erogazione" headers={["Modalità", "Quota delle righe", "Quota dell’importo"]} rows={f.modes.map((m) => [m.label, pct(m.rowsShare), pct(m.amountShare)])} />
-  </Panel>{f.bridges.length > 0 && <FileFBridges f={f} label={holder?.label ?? ""} />}</>;
+    <p className="mt-4 text-xs leading-5 text-muted-foreground" data-c-forecast-readiness="filef">Previsione mensile: non disponibile. Per questa serie non esiste un metodo di previsione registrato e verificato con prove retrospettive; un solo anno non basta. La previsione regionale della sezione 5 usa un’altra fonte (AIFA) e non riguarda questa Azienda.</p>
+  </Panel>{f.bridges.length > 0 && <FileFBridges f={f} label={holder.unit.label} />}</>;
 }
 
 /** Section 4 addition (owner decision D1, 23 Oct 2026): each month-to-month change of the File F reported amount in four
  * product components. Contributions to an accounting change, not price or volume effects; a product entering or leaving
  * is absent from one of the two months of the file, not a new or departed patient. */
-function FileFBridges({ f, label }: { f: NonNullable<CExtUnitPacket["fileF"]>; label: string }) {
+function FileFBridges({ f, label }: { f: CExtFileF; label: string }) {
   const cols = ["Mesi", "Variazione", "Prodotti presenti nei due mesi: aumenti", "Prodotti presenti nei due mesi: cali", "Prodotti in entrata", "Prodotti in uscita", "Di cui modalità 09", "Senza modalità 09", "Prodotti con variazione", "Quota dei 10 prodotti con variazione maggiore"];
   const concentrated = f.bridges.filter((b) => b.top10Share >= 0.5).map((b) => `${monthLabel(b.from)} → ${monthLabel(b.to)}`);
-  return <Panel title={`File F 2025 · ${label}: variazione da un mese all’altro`} description={`${C_EXT_SOURCE.fileF}. Ogni variazione è la somma di quattro componenti di prodotto: prodotti presenti nei due mesi che aumentano o calano, prodotti osservati solo nel mese successivo (entrata) o solo nel precedente (uscita).`}>
+  return <Panel title={`File F ${f.year} · ${label}: variazione da un mese all’altro`} description={`${C_EXT_SOURCE.fileF}. Ogni variazione è la somma di quattro componenti di prodotto: prodotti presenti nei due mesi che aumentano o calano, prodotti osservati solo nel mese successivo (entrata) o solo nel precedente (uscita).`}>
     <div className="overflow-x-auto"><table className="w-full min-w-[60rem] text-xs"><caption className="sr-only">Variazione mensile dell’importo riportato per componente</caption>
       <thead><tr>{cols.map((c) => <th key={c} scope="col" className={`${thUnit} first:text-left`}>{c}</th>)}</tr></thead>
       <tbody>{f.bridges.map((b) => <tr key={b.from}><th scope="row" className="whitespace-nowrap border-b border-border/50 px-2 py-2.5 text-left font-medium">{`${monthLabel(b.from)} → ${monthLabel(b.to)}`}</th>
