@@ -90,13 +90,13 @@ export function AccessPrompt() {
           <div className="w-full rotate-[1.5deg] rounded-2xl border border-white bg-white p-5 shadow-[0_30px_80px_-35px_rgba(13,43,52,0.55)]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-teal-700">Spesa 2025</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">€29,7 mld</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-teal-700">Acquisti diretti 2025 · provvisorio</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">€19,2 mld</p>
               </div>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">21 regioni e province</span>
             </div>
             <div className="mt-6 flex h-44 items-end gap-3 rounded-xl bg-slate-50 px-5 pb-4 pt-7">
-              {[48, 72, 58, 88, 66, 94, 81].map((height, index) => (
+              {[66, 66, 69, 74, 80, 88, 94].map((height, index) => (
                 <div key={index} className="flex h-full flex-1 items-end">
                   <div
                     className="w-full rounded-t-md bg-[hsl(174_66%_40%)]"
@@ -106,13 +106,14 @@ export function AccessPrompt() {
               ))}
             </div>
             <div className="mt-4 grid grid-cols-3 gap-3">
-              {["Variazione", "Biosimilari", "Qualità"].map((label, index) => (
+              {[["Var. 2025/2024", "+6,5%"], ["ATC L 2025/2024", "+7,7%"], ["Convenzionata 2025", "€10,5 mld"]].map(([label, value]) => (
                 <div key={label} className="rounded-xl border border-slate-100 p-3">
                   <p className="text-[9px] uppercase tracking-wide text-slate-400">{label}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">{["+5,9%", "91,4%", "73,8%"][index]}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{value}</p>
                 </div>
               ))}
             </div>
+            <p className="mt-4 text-[10px] leading-4 text-slate-500">Italia, acquisti diretti 2019–2025 e convenzionata: dati AIFA, 2025 provvisorio (istantanea del 14/05/2026). I due flussi non si sommano.</p>
           </div>
         </div>
       </section>

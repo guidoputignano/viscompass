@@ -196,3 +196,26 @@ test('sidebar hrefs, the admin gate and the role forwarding are unchanged',()=>{
   const home=read('app/page.tsx');
   assert.ok(home.includes('href="/pillar-a"')&&home.includes('href="/pillar-b"')&&home.includes('<Link href="/auth/login">Accedi</Link>'));
 });
+
+const between=(s,a,b)=>{const i=s.indexOf(a);assert.ok(i>=0,a);const j=s.indexOf(b,i);assert.ok(j>i,b);return s.slice(i,j);};
+// PR25-04 (26 Oct 2026): the homepage offers what is delivered, keeps what is in development apart, and every figure it
+// shows is a public AIFA value with its lane, year and provisional status (recomputed from the raw AIFA files; the
+// receipt is private). The unsourced figures of the first version (13 Oct inventory) never come back.
+test('PR25-04: the homepage separates delivered areas from those in development and shows only sourced, dated figures',()=>{
+  const html=render(h(Home)),t=html.replace(/<[^>]*>/g,' ').replace(/&#x27;/g,'’').replace(/\s+/g,' ');
+  const modal=read('components/access-prompt.tsx'),page=read('app/page.tsx');
+  for(const src of [t,modal,page])assert.doesNotMatch(src,/29,7|73,8|91,4|608M|\+5,9%|\+7,4%|Dati verificabili|Nessun dato paziente|Sette moduli/,'no unsourced or retired claim');
+  // Direct purchases and convenzionata are separate lanes: two figures, never one sum; 2025 is provisional.
+  assert.ok(t.includes('€19,2 mld acquisti diretti, Italia 2025 (provvisorio)')&&t.includes('€10,5 mld convenzionata, Italia 2025 (provvisorio)'));
+  assert.ok(t.includes('Dati 2025: istantanea del 14/05/2026, soggetta a revisione. Acquisti diretti e convenzionata sono flussi distinti e non si sommano.'));
+  assert.ok(modal.includes('I due flussi non si sommano.')&&modal.includes('Acquisti diretti 2025 · provvisorio'));
+  // Delivered areas, then the in-development list, each named once.
+  const delivered=t.slice(t.indexOf('Disponibile oggi'),t.indexOf('In sviluppo, non ancora disponibili'));
+  for(const area of ['Spesa e consumi','Biosimilari ed esclusività','Aree cliniche e budget','Confronto tra aziende','Evidenza e verifiche'])assert.ok(delivered.includes(area),area);
+  const upcoming=between(html,'data-home-upcoming','</ul>');
+  for(const area of ['File ospedalieri e rimborsi','Scorte e carenze','Allestimenti','Budget impact']){assert.ok(upcoming.includes(area),area);assert.ok(!delivered.includes(area),`${area} is not offered as delivered`);}
+  // Every phase states its status in words.
+  assert.deepEqual([...html.matchAll(/inline-flex rounded-full px-2 py-0\.5 text-\[10px\] font-semibold [^"]*">([^<]*)<\/p>/g)].map(m=>m[1]),
+    ['In parte','Disponibile','Disponibile','In sviluppo','In sviluppo','In parte','Disponibile']);
+  assert.ok(t.includes('scenari di budget modellati, distinti dai budget approvati'),'modelled budgets are never sold as approved budgets');
+});

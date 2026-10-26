@@ -27,12 +27,15 @@ import { SignalExplorer } from "@/components/home/signal-explorer";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { VisLogoLink } from "@/components/vis-logo";
 
+// Every figure is recomputed from the AIFA open data files (outputs/pillar-c/public-20261013/MANIFEST_20261013.json).
+// Direct purchases and convenzionata are separate lanes, never summed; 2025 is the provisional snapshot of 14/05/2026.
 const PROOF_STATS = [
-  { value: "€29,7 mld", label: "spesa nazionale 2025" },
-  { value: "529.979", label: "record nazionali" },
-  { value: "21", label: "regioni e province" },
-  { value: "73,8%", label: "prodotti interpretati" },
+  { value: "€19,2 mld", label: "acquisti diretti, Italia 2025 (provvisorio)" },
+  { value: "€10,5 mld", label: "convenzionata, Italia 2025 (provvisorio)" },
+  { value: "21", label: "Regioni e Province autonome" },
+  { value: "529.979", label: "righe AIFA 2023–2025" },
 ];
+const PROOF_SOURCE = "Fonte: AIFA, spesa e consumo relativi al flusso della farmaceutica convenzionata e degli acquisti diretti (open data, CC BY 4.0). Dati 2025: istantanea del 14/05/2026, soggetta a revisione. Acquisti diretti e convenzionata sono flussi distinti e non si sommano.";
 
 const BENEFITS = [
   {
@@ -55,95 +58,102 @@ const BENEFITS = [
   },
 ] as const;
 
+// The status of each phase today (PR25-04): «Disponibile», «In parte» or «In sviluppo», always in words.
 const PHASES = [
   {
     number: "0",
     icon: CalendarClock,
     title: "Programmazione",
-    description: "Farmaci in arrivo e stime d’impatto.",
+    description: "Previsione regionale della spesa e scenari di budget modellati; stime d’impatto dei nuovi farmaci in sviluppo.",
+    status: "In parte",
   },
   {
     number: "1",
     icon: BarChart3,
     title: "Reportistica",
     description: "Analisi di spesa direzionale e ad hoc.",
+    status: "Disponibile",
   },
   {
     number: "2",
     icon: ShoppingCart,
     title: "Acquisto",
-    description: "Istruttoria gare e Commissione Terapeutica.",
+    description: "Biosimilari, esclusività e costi confrontabili a supporto di gare e Commissione Terapeutica.",
+    status: "Disponibile",
   },
   {
     number: "3",
     icon: Boxes,
     title: "Scorte",
-    description: "Scadenze e redistribuzioni sotto controllo.",
+    description: "Scadenze e redistribuzioni.",
+    status: "In sviluppo",
   },
   {
     number: "4",
     icon: FlaskConical,
     title: "Allestimento",
-    description: "Quadratura aggregata dei consumi oncologici.",
+    description: "Consumi oncologici in aggregato.",
+    status: "In sviluppo",
   },
   {
     number: "5",
     icon: ReceiptText,
     title: "Rendicontazione",
-    description: "Riconciliazione file ospedalieri.",
+    description: "Caricamento dei file con verifica; riconciliazione automatica in sviluppo.",
+    status: "In parte",
   },
   {
     number: "6",
     icon: Columns3,
     title: "Confronto e chiusura",
     description: "Benchmark tra aziende, su mandato regionale.",
+    status: "Disponibile",
   },
 ] as const;
 
+// What the product delivers today (PR25-04: the offer is limited to the delivered analytical governance and evidence
+// work), and, apart, what is in development and not yet available.
 const MODULES = [
   {
     id: "M1",
     icon: LineChart,
     title: "Spesa e consumi",
-    description: "Scostamenti rilevati mentre l’esercizio è ancora aperto.",
+    description: "Spesa per periodo, canale e area, con la previsione regionale e le sue incertezze.",
   },
   {
     id: "M2",
     icon: Radar,
-    title: "Biosimilari e brevetti",
-    description: "Opportunità e scadenze identificate prima che sia tardi.",
+    title: "Biosimilari ed esclusività",
+    description: "Adozione dei biosimilari e prodotti in esclusività, con costi confrontabili.",
   },
   {
     id: "M3",
-    icon: ShieldCheck,
-    title: "File ospedalieri e rimborsi",
-    description: "Termini e anomalie verificati prima di perdere il rimborso.",
+    icon: PanelsTopLeft,
+    title: "Aree cliniche e budget",
+    description: "Destinatari, portafogli candidati, fattori di spesa e scenari di budget modellati, distinti dai budget approvati.",
   },
   {
     id: "M4",
-    icon: Boxes,
-    title: "Scorte e carenze",
-    description: "Scorte a rischio segnalate prima che diventino una perdita.",
-  },
-  {
-    id: "M5",
-    icon: FlaskConical,
-    title: "Allestimenti",
-    description: "Sprechi oncologici misurati in aggregato, mai per paziente.",
-  },
-  {
-    id: "M6",
     icon: Columns3,
     title: "Confronto tra aziende",
     description: "Stessa molecola e stesso canale, con titolarità regionale.",
   },
   {
-    id: "M7",
-    icon: CircleDollarSign,
-    title: "Budget impact",
-    description: "Impatto stimato prima dell’ingresso del farmaco in prontuario.",
+    id: "M5",
+    icon: SearchCheck,
+    title: "Evidenza e verifiche",
+    description: "Ogni segnale rimanda alla sua fonte; le verifiche di attribuzione si assegnano e si seguono.",
   },
 ] as const;
+const UPCOMING_MODULES = [
+  { icon: ShieldCheck, title: "File ospedalieri e rimborsi", description: "Riconciliazione automatica e controllo delle scadenze." },
+  { icon: Boxes, title: "Scorte e carenze", description: "Scorte a rischio e redistribuzioni." },
+  { icon: FlaskConical, title: "Allestimenti", description: "Consumi oncologici in aggregato, mai per paziente." },
+  { icon: CircleDollarSign, title: "Budget impact", description: "Impatto dei nuovi farmaci prima dell’ingresso in prontuario." },
+] as const;
+
+// Direct purchases (AIFA tracciabilità), Italy, millions of euro: [ATC1, 2024, 2025]. The five largest groups of 2025.
+const ATC_BARS = [["L", 7929, 8536], ["J", 2226, 2289], ["B", 2224, 2177], ["A", 1648, 1628], ["R", 814, 887]] as const;
 
 function DashboardPreview() {
   return (
@@ -156,7 +166,7 @@ function DashboardPreview() {
             <span className="size-2 rounded-full bg-amber-300" />
             <span className="size-2 rounded-full bg-emerald-300" />
           </div>
-          <span className="rounded-full bg-teal-50 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-teal-700">Dati verificabili</span>
+          <span className="rounded-full bg-teal-50 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-teal-700">Dati pubblici AIFA</span>
         </div>
         <div className="grid min-h-[29rem] grid-cols-[5rem_1fr] sm:grid-cols-[8.5rem_1fr]">
           <aside className="bg-[hsl(204_48%_17%)] p-3 text-white sm:p-4">
@@ -179,14 +189,14 @@ function DashboardPreview() {
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-700">Quadro esecutivo</p>
                 <h2 className="mt-1 text-xl font-semibold text-slate-900">Spesa e consumo</h2>
               </div>
-              <span className="text-[10px] text-slate-400">Italia · 2025</span>
+              <span className="text-[10px] text-slate-400">Italia · 2025 provvisorio</span>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
               {[
-                ["Spesa", "€29,7 mld"],
-                ["Var. a/a", "+5,9%"],
-                ["Copertura", "73,8%"],
-                ["Regioni", "21"],
+                ["Acquisti diretti", "€19,2 mld"],
+                ["Var. 2025/2024", "+6,5%"],
+                ["Convenzionata", "€10,5 mld"],
+                ["Regioni e PA", "21"],
               ].map(([label, value], index) => (
                 <div key={label} className={`rounded-xl border p-3 ${index === 0 ? "border-teal-200 bg-teal-50" : "border-slate-100 bg-white"}`}>
                   <p className="text-[8px] uppercase tracking-wide text-slate-400">{label}</p>
@@ -197,37 +207,38 @@ function DashboardPreview() {
             <div className="mt-4 grid gap-3 lg:grid-cols-[1.45fr_0.75fr]">
               <div className="rounded-xl border border-slate-100 bg-white p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-semibold text-slate-700">Spesa per categoria ATC</p>
+                  <p className="text-[10px] font-semibold text-slate-700">Acquisti diretti per ATC, 2024 e 2025</p>
                   <span className="text-[8px] text-slate-400">milioni €</span>
                 </div>
                 <div className="mt-5 flex h-36 items-end justify-around gap-3 border-b border-slate-100 px-2">
-                  {[84, 44, 31, 24, 18].map((height, index) => (
-                    <div key={index} className="flex h-full flex-1 items-end gap-1">
-                      <div className="w-1/2 rounded-t bg-slate-200" style={{ height: `${height - 5}%` }} />
-                      <div className="w-1/2 rounded-t bg-[hsl(174_66%_40%)]" style={{ height: `${height}%` }} />
+                  {ATC_BARS.map(([atc, before, after]) => (
+                    <div key={atc} className="flex h-full flex-1 items-end gap-1">
+                      <div className="w-1/2 rounded-t bg-slate-200" style={{ height: `${(before / 8536) * 90}%` }} />
+                      <div className="w-1/2 rounded-t bg-[hsl(174_66%_40%)]" style={{ height: `${(after / 8536) * 90}%` }} />
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 flex justify-around text-[8px] text-slate-400"><span>L</span><span>B</span><span>A</span><span>J</span><span>N</span></div>
+                <div className="mt-2 flex justify-around text-[8px] text-slate-400">{ATC_BARS.map(([atc]) => <span key={atc}>{atc}</span>)}</div>
               </div>
               <div className="rounded-xl border border-slate-100 bg-white p-4">
                 <p className="text-[10px] font-semibold text-slate-700">Segnali</p>
                 <div className="mt-4 space-y-3">
-                  {["ATC L", "Biosimilari", "Mapping"].map((label, index) => (
+                  {[["ATC L", "+€607 mln"], ["ATC N", "+16,6%"], ["ATC B", "-2,1%"]].map(([label, value]) => (
                     <div key={label} className="flex items-center justify-between gap-2">
                       <span className="text-[9px] text-slate-500">{label}</span>
-                      <span className={`text-[9px] font-semibold ${index === 1 ? "text-emerald-600" : "text-rose-500"}`}>{["+€608M", "91,4%", "73,8%"][index]}</span>
+                      <span className={`text-[9px] font-semibold ${value.startsWith("-") ? "text-emerald-600" : "text-rose-500"}`}>{value}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
+            <p className="mt-3 text-right text-[9px] leading-4 text-slate-500">Acquisti diretti 2025 su 2024, Italia: dati AIFA, 2025 provvisorio (istantanea del 14/05/2026).</p>
           </div>
         </div>
       </div>
       <div className="absolute -bottom-5 -left-3 rounded-2xl border border-white bg-white px-4 py-3 shadow-xl sm:-left-8">
         <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-teal-700">Segnale pronto</p>
-        <p className="mt-1 text-sm font-semibold text-slate-900">ATC L · +7,4%</p>
+        <p className="mt-1 text-sm font-semibold text-slate-900">ATC L · +7,7%</p>
       </div>
     </div>
   );
@@ -313,7 +324,7 @@ export default function Home() {
                 <Button asChild size="lg" variant="outline" className="rounded-xl px-6"><Link href="/auth/login">Accedi</Link></Button>
               </div>
               <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
-                {["Dati AIFA e regionali", "€/mg e €/DDD", "Nessun dato paziente"].map((item) => (
+                {["Dati AIFA e regionali", "€/mg e €/DDD", "Solo dati aggregati"].map((item) => (
                   <span key={item} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Check size={14} className="text-primary" /> {item}</span>
                 ))}
               </div>
@@ -337,6 +348,7 @@ export default function Home() {
               </div>
             ))}
           </div>
+          <p className="mx-auto mt-6 max-w-4xl text-center text-[11px] leading-5 text-muted-foreground">{PROOF_SOURCE}</p>
         </section>
 
         <section id="benefici" className="px-5 py-20 md:px-8 md:py-28">
@@ -372,7 +384,7 @@ export default function Home() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Il percorso operativo</p>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">Dalla programmazione alla chiusura.</h2>
               </div>
-              <p className="max-w-sm text-sm leading-6 text-muted-foreground">Un filo unico rende visibile dove nasce un segnale e chi può trasformarlo in azione.</p>
+              <p className="max-w-sm text-sm leading-6 text-muted-foreground">Un filo unico rende visibile dove nasce un segnale e chi può trasformarlo in azione. Ogni fase dice se è disponibile oggi.</p>
             </div>
 
             <div className="relative mt-12 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
@@ -383,6 +395,7 @@ export default function Home() {
                   <article key={phase.number} className="relative rounded-2xl border border-border bg-background p-4">
                     <span className="relative z-10 flex size-11 items-center justify-center rounded-xl bg-secondary text-primary"><Icon size={19} /></span>
                     <h3 className="mt-5 text-sm font-semibold text-foreground">{phase.title}</h3>
+                    <p className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${phase.status === "In sviluppo" ? "bg-muted text-muted-foreground" : "bg-secondary text-primary"}`}>{phase.status}</p>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">{phase.description}</p>
                   </article>
                 );
@@ -394,8 +407,8 @@ export default function Home() {
         <section id="moduli" className="px-5 py-20 md:px-8 md:py-28">
           <div className="mx-auto max-w-7xl">
             <div className="max-w-3xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Aree connesse</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">Sette moduli. Un’unica vista decisionale.</h2>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Disponibile oggi</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">Cinque aree. Un’unica vista decisionale.</h2>
             </div>
 
             <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -418,10 +431,24 @@ export default function Home() {
               <div className="flex min-h-48 flex-col justify-between rounded-3xl border border-dashed border-primary/35 bg-secondary/45 p-5">
                 <Route className="text-primary" size={24} />
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Un percorso, non sette silos.</p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">Ogni modulo conserva metodo, fonte e responsabilità.</p>
+                  <p className="text-sm font-semibold text-foreground">Un percorso, non cinque silos.</p>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">Ogni area conserva metodo, fonte e responsabilità.</p>
                 </div>
               </div>
+            </div>
+            <div className="mt-12" data-home-upcoming>
+              <h3 className="text-lg font-semibold text-foreground">In sviluppo, non ancora disponibili</h3>
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {UPCOMING_MODULES.map((module) => {
+                  const Icon = module.icon;
+                  return (
+                    <li key={module.title} className="rounded-2xl border border-dashed border-border p-4">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><Icon aria-hidden="true" className="text-muted-foreground" size={16} />{module.title}</span>
+                      <span className="mt-2 block text-xs leading-5 text-muted-foreground">{module.description}</span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           </div>
         </section>
