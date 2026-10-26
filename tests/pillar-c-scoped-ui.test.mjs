@@ -685,3 +685,53 @@ test('A26-01: the reviewer’s recipients card follows the reviewer’s Ambito k
   assert.deepEqual(at_('?c_org=PE'),{label:'ASL 3',value:'1.300',sum:false});
   assert.deepEqual(at_('?c_org=TE'),{label:'ASL 4',value:'1.400',sum:false});
 });
+
+// ---------------------------------------------------------------- PR25-04: what the public measures mean (26 Oct 2026)
+const {PillarCPublicComparators}=await at('components/dashboard-review/pillar-c/public-comparators.tsx');
+const {cWorkbookLabel}=await at('lib/dashboard-review/pillar-c/workbook.ts');
+const publicPanel=(section,initial)=>under(client('regione'),React.createElement(PillarCPublicComparators,{loaded:section,initial}));
+
+test('PR25-04: PUB-07-11 is a context ratio in its title, selector and column, with the published values unchanged',()=>{
+  const o=publicObject(),i=PUB.C_PUBLIC_OUTPUTS.indexOf('PUB-07-11');
+  // The published heading of the ratio column, as the frozen object carries it (a heading, not a figure).
+  o.outputs[i].tables[0].columns=['Unità','Spesa AIFA per ricovero acuto (€)'];
+  const section=PUB.parseCRegionalPublic(o,ATTIVITA),html=publicPanel(section,'PUB-07-11'),t=text(html);
+  assert.match(html,/<caption class="sr-only">Rapporto di contesto, 2023: spesa per acquisti diretti ÷ ricoveri acuti<\/caption>/);
+  assert.match(html,/<option value="PUB-07-11" selected="">Rapporto di contesto, 2023: spesa per acquisti diretti ÷ ricoveri acuti<\/option>/);
+  assert.match(html,/<th scope="col"[^>]*>Rapporto di contesto: spesa AIFA ÷ ricoveri acuti \(€\)<\/th>/);
+  assert.doesNotMatch(html,/per ricovero acuto|Spesa[^<]*per ricovero/,'never called spending per admission');
+  assert.ok(t.includes(`${i+1},25 €`)&&t.includes('10,50 €'),'the values are the published ones');
+  assert.ok(t.includes('Non è una spesa né un costo per ricovero, né un valore per persona trattata.'));
+  // Every other output keeps its published headings.
+  assert.equal(PUB.cPublicColumnLabel('PUB-07-10','Ricoveri acuti, strutture pubbliche'),'Ricoveri acuti, strutture pubbliche');
+  assert.equal(PUB.cPublicColumnLabel('PUB-01','Totale (€/res.)'),'Totale (€/res.)');
+  for(const id of PUB.C_PUBLIC_OUTPUTS)assert.doesNotMatch(PUB.C_PUBLIC_LABELS[id],/per ricovero/,id);
+});
+
+test('PR25-04: the selected output states its source, publication date, provisional status and geography',()=>{
+  const section=PUB.parseCRegionalPublic(publicObject(),ATTIVITA);
+  for(const id of PUB.C_PUBLIC_OUTPUTS){
+    const v=PUB.C_PUBLIC_VINTAGE[id];assert.match(v,/Geografia: /,id);assert.match(v,/(AIFA|Annuario statistico del SSN)/,id);
+    const html=publicPanel(section,id);
+    assert.equal((html.match(/data-c-public-vintage="/g)||[]).length,1,id);
+    assert.ok(text(html).includes(`Fonte e data: ${v}`.replace(/\s+/g,' ')),id);
+  }
+  // Every output that reads the 2025 AIFA file says it is provisional; no other year is called provisional.
+  for(const id of ['PUB-04','PUB-02','PUB-03'])assert.match(PUB.C_PUBLIC_VINTAGE[id],/2025[^.;]*provvisori/,id);
+  for(const id of ['PUB-01','PUB-05','PUB-07-10','PUB-07-11','PUB-07-03'])assert.doesNotMatch(PUB.C_PUBLIC_VINTAGE[id],/provvisori/,id);
+});
+
+test('PR25-04: change columns show «+» on an increase; a zero or unavailable value carries no sign',()=>{
+  const F={'168':'\\+0.0" pp";\\-0.0" pp";0.0" pp"','175':'\\+0.00;\\-0.00;0.00','167':'0.0%','169':'0.0'};
+  const s=v=>v.replace(/ /g,' ');
+  assert.equal(s(cWorkbookLabel(['2.5',168],F)),'+2,5 pp');assert.equal(s(cWorkbookLabel(['-2.5',168],F)),'-2,5 pp');
+  assert.equal(s(cWorkbookLabel(['0.01',168],F)),'0,0 pp','rounds to zero: no sign');
+  assert.equal(cWorkbookLabel(['0.5',175],F),'+0,50');assert.equal(cWorkbookLabel(['-0.5',175],F),'-0,50');assert.equal(cWorkbookLabel(['0',175],F),'0,00');
+  assert.equal(cWorkbookLabel(['109.4',169],F),'109,4','an index is not a change');
+  // «var. annua» (a share format without a declared sign) gets «+» from the public panel, only on that column.
+  assert.equal(s(PUB.cPublicCellLabel(['9.4024920121393185E-2',167],F,'Abruzzo: var. annua')),'+9,4 %');
+  assert.equal(s(PUB.cPublicCellLabel(['-0.02',167],F,'Italia escl. Abruzzo: var. annua')),'-2,0 %');
+  assert.equal(PUB.cPublicCellLabel('n.a. (primo anno)',F,'Abruzzo: var. annua'),'n.a. (primo anno)');
+  assert.equal(s(PUB.cPublicCellLabel(['0.094',167],F,'Quota A')),'9,4 %','a share is not a change');
+  assert.equal(s(PUB.cPublicCellLabel(['2.5',168],F,'Δ 2024 (pp)')),'+2,5 pp','never a double sign');
+});

@@ -7,15 +7,15 @@
  * replaces the keyed block whole, so a page translated by the browser never keeps a stale value (AGENTS.md). */
 import { useEffect, useState } from "react";
 import { cWorkbookLabel, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
-import { C_PUBLIC_COPY, C_PUBLIC_LABELS, C_PUBLIC_NOTES, C_PUBLIC_OUTPUTS, cPublicFromSection, type CPublicOutputId } from "@/lib/dashboard-review/pillar-c/public-comparators";
+import { C_PUBLIC_COPY, C_PUBLIC_LABELS, C_PUBLIC_NOTES, C_PUBLIC_OUTPUTS, C_PUBLIC_VINTAGE, cPublicCellLabel, cPublicColumnLabel, cPublicFromSection, type CPublicOutputId } from "@/lib/dashboard-review/pillar-c/public-comparators";
 import { usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
 
 const SELECT = "mt-2 h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
-export function PillarCPublicComparators({ workbook = null, loaded = null, unavailable = false }: { workbook?: CWorkbookIndex | null; loaded?: CWorkbookSection | null; unavailable?: boolean }) {
+export function PillarCPublicComparators({ workbook = null, loaded = null, unavailable = false, initial = C_PUBLIC_OUTPUTS[0] }: { workbook?: CWorkbookIndex | null; loaded?: CWorkbookSection | null; unavailable?: boolean; initial?: CPublicOutputId }) {
   const audience = usePillarCAudience();
   const [open, setOpen] = useState(false), [fetched, setFetched] = useState<CWorkbookSection | null>(null), [failed, setFailed] = useState(false), [attempt, setAttempt] = useState(0);
-  const [selected, setSelected] = useState<CPublicOutputId>(C_PUBLIC_OUTPUTS[0]);
+  const [selected, setSelected] = useState<CPublicOutputId>(initial);
   const reviewer = audience?.kind === "reviewer";
   useEffect(() => {
     if (!reviewer || !open || !workbook || fetched) return;
@@ -33,11 +33,12 @@ export function PillarCPublicComparators({ workbook = null, loaded = null, unava
     ? <div key={output.id} data-c-public={output.id}>
         <label className="block max-w-xl text-xs font-medium text-muted-foreground">Confronto<select aria-label="Confronto pubblico" className={SELECT} value={selected} onChange={(e) => setSelected(e.target.value as CPublicOutputId)}>{C_PUBLIC_OUTPUTS.map((id) => <option key={id} value={id}>{C_PUBLIC_LABELS[id]}</option>)}</select></label>
         <p className="mt-4 text-xs leading-5 text-muted-foreground">{C_PUBLIC_NOTES[selected]}</p>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground" data-c-public-vintage={selected}>{`Fonte e data: ${C_PUBLIC_VINTAGE[selected]}`}</p>
         <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[40rem] text-xs"><caption className="sr-only">{C_PUBLIC_LABELS[selected]}</caption>
-          <thead><tr>{table.columns.map((h, c) => <th key={c} scope="col" className="border-b border-border px-2 py-3 text-right align-bottom font-semibold first:text-left">{h}</th>)}</tr></thead>
+          <thead><tr>{table.columns.map((h, c) => <th key={c} scope="col" className="border-b border-border px-2 py-3 text-right align-bottom font-semibold first:text-left">{cPublicColumnLabel(output.id as CPublicOutputId, h)}</th>)}</tr></thead>
           <tbody>{table.rows.map((row, r) => <tr key={r} className={/^abruzzo$/i.test(String(row[0] ?? "")) ? "font-semibold" : undefined}>{row.map((cell, c) => c === 0
             ? <th key={c} scope="row" className="border-b border-border/50 px-2 py-2.5 text-left font-medium">{cWorkbookLabel(cell, section.formats, table.columns[c])}</th>
-            : <td key={c} className="whitespace-nowrap border-b border-border/50 px-2 py-2.5 text-right tabular-nums">{cWorkbookLabel(cell, section.formats, table.columns[c])}</td>)}</tr>)}</tbody>
+            : <td key={c} className="whitespace-nowrap border-b border-border/50 px-2 py-2.5 text-right tabular-nums">{cPublicCellLabel(cell, section.formats, table.columns[c])}</td>)}</tr>)}</tbody>
         </table></div>
       </div>
     : !reviewer ? <p role="status" className="text-sm text-muted-foreground">{C_PUBLIC_COPY.unavailable}</p>

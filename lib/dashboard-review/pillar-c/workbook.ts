@@ -138,7 +138,11 @@ export function cWorkbookLabel(cell: CWorkbookCell, formats: Record<string, stri
   if (/E[+-]0/i.test(stripped)) return Number(raw).toExponential(2).replace(".", ",");
   const decimals = stripped.split(";")[0].match(/\.([0#]+)/)?.[1].length ?? (fmt === "General" ? Math.min(4, raw.split(".")[1]?.length ?? 0) : 0);
   const suffix = fmt.includes("€") ? " €" : fmt.includes("%") ? " %" : fmt.includes('" pp"') ? " pp" : "";
-  return cWorkbookDecimal(raw, Math.min(decimals, 10), stripped.includes("%")) + suffix;
+  const text = cWorkbookDecimal(raw, Math.min(decimals, 10), stripped.includes("%"));
+  // A format whose positive section starts with «+» (\+0.0" pp") shows the sign of an increase, as the workbook does
+  // (PR25-04); a value that rounds to zero, or is not available, carries no sign.
+  const plus = /^\\?\+/.test(stripped.split(";")[0]) && /[1-9]/.test(text) && !text.startsWith("-") ? "+" : "";
+  return plus + text + suffix;
 }
 export function cWorkbookRows(table: CWorkbookTable, query: string, facets: Record<number, string>, sortColumn: number | null, direction: "asc" | "desc") {
   const tokens = query.trim().toLocaleLowerCase("it").split(/\s+/).filter(Boolean);

@@ -1,4 +1,4 @@
-import { C_WORKBOOK_HASH, parseCWorkbookSection, type CWorkbookIndex, type CWorkbookOutput, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
+import { C_WORKBOOK_HASH, cWorkbookLabel, parseCWorkbookSection, type CWorkbookCell, type CWorkbookIndex, type CWorkbookOutput, type CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
 
 /**
  * Public comparators of Pillar C (owner clarification of 23 Oct 2026: other-region and national comparisons only from
@@ -18,21 +18,47 @@ export const C_PUBLIC_LABELS: Readonly<Record<CPublicOutputId, string>> = {
   "PUB-03": "Composizione per gruppo ATC, 2024 e 2025",
   "PUB-05": "Spesa convenzionata per residente, 2024, per Regione",
   "PUB-07-10": "Attività ospedaliera di contesto, 2023, per Regione",
-  "PUB-07-11": "Spesa per acquisti diretti per ricovero acuto, 2023 (contesto)",
+  "PUB-07-11": "Rapporto di contesto, 2023: spesa per acquisti diretti ÷ ricoveri acuti",
   "PUB-07-03": "Dimessi per capitolo diagnostico, 2023",
 };
 
 /** What each output compares and how to read it (outputs/pillar-c/public-comparators-20261024/COMPATIBILITY.md). */
 export const C_PUBLIC_NOTES: Readonly<Record<CPublicOutputId, string>> = {
-  "PUB-04": "Stesso file, campo e anno per l’Abruzzo, l’Italia (21 unità) e l’Italia esclusa l’Abruzzo. Serie ricostruita da pubblicazioni di date diverse; i dati 2025 sono un’istantanea del 14/05/2026, soggetta a revisione.",
+  "PUB-04": "Stesso file, campo e anno per l’Abruzzo, l’Italia (21 unità) e l’Italia esclusa l’Abruzzo. Serie ricostruita da pubblicazioni di date diverse.",
   "PUB-01": "Spesa del flusso della tracciabilità divisa per i residenti al 31/12/2024 (ISTAT, tramite il file ministeriale). È un valore per residente, non per assistito trattato. Gli altri anni non sono disponibili: manca la popolazione dello stesso anno.",
   "PUB-02": "Quota di ciascuna classe sul totale dell’anno, con la classe alla data di pubblicazione di ciascun file.",
-  "PUB-03": "Quote per gruppo ATC di primo livello e differenza in punti percentuali, sullo stesso file e anno. I dati 2025 sono provvisori.",
+  "PUB-03": "Quote per gruppo ATC di primo livello e differenza in punti percentuali, sullo stesso file e anno.",
   "PUB-05": "Flusso della farmaceutica convenzionata, a prezzo al pubblico: una corsia separata, mai sommata alla spesa per acquisti diretti. Per residente al 31/12/2024; il totale comprende tutte le classi.",
   "PUB-07-10": "Annuario statistico del SSN 2023, con la popolazione ISTAT al 31/12/2022. È un contesto: non è un denominatore della spesa 2024 o 2025.",
-  "PUB-07-11": "Rapporto di contesto fra due grandezze pubbliche dello stesso anno con perimetri diversi: non è una spesa né un costo per ricovero. Le righe con dati AIFA incompleti sono indicate.",
+  "PUB-07-11": "Rapporto di contesto fra due grandezze pubbliche dello stesso anno con perimetri diversi: la spesa AIFA comprende anche la distribuzione diretta e per conto e acquisti estranei ai ricoveri, mentre i ricoveri sono solo quelli acuti in regime ordinario nelle strutture pubbliche. Non è una spesa né un costo per ricovero, né un valore per persona trattata. Le righe con dati AIFA incompleti sono indicate.",
   "PUB-07-03": "Annuario statistico del SSN 2023: Regione della struttura che eroga. Tassi con la popolazione ISTAT al 31/12/2022.",
 };
+
+/** Source, publication date, provisional status and geography of each output, shown under the selected one (PR25-04;
+ * outputs/pillar-c/public-comparators-20261024/COMPATIBILITY.md §2–3). */
+export const C_PUBLIC_VINTAGE: Readonly<Record<CPublicOutputId, string>> = {
+  "PUB-04": "AIFA, file dal 2018 al 2025, ciascun anno alla sua data di pubblicazione (colonna «Versione del file»); 2025: istantanea del 14/05/2026, provvisoria e soggetta a revisione. Geografia: la Regione come unità AIFA; Italia = 21 unità (19 Regioni e 2 Province autonome).",
+  "PUB-01": "AIFA, dati 2024 pubblicati il 04/12/2025; residenti al 31/12/2024 (ISTAT, tramite il file del Ministero della Salute). Geografia: 21 unità AIFA (19 Regioni e 2 Province autonome).",
+  "PUB-02": "AIFA, file dal 2018 al 2025, ciascun anno alla sua data di pubblicazione; 2025: istantanea del 14/05/2026, provvisoria. Geografia: Abruzzo e Italia (21 unità).",
+  "PUB-03": "AIFA, dati 2024 pubblicati il 04/12/2025 e dati 2025 (istantanea del 14/05/2026, provvisori); codici ATC come pubblicati in ciascun file. Geografia: Abruzzo e Italia esclusa l’Abruzzo (20 unità).",
+  "PUB-05": "AIFA, flusso della farmaceutica convenzionata, dati 2024 pubblicati il 04/12/2025; residenti al 31/12/2024. Geografia: 21 unità AIFA.",
+  "PUB-07-10": "Ministero della Salute, Annuario statistico del SSN, anno 2023; popolazione ISTAT al 31/12/2022; rilevazione sul 98,7 % delle strutture con reparti per acuti. Geografia: Regione della struttura che eroga, quindi con la mobilità attiva.",
+  "PUB-07-11": "AIFA, dati 2023 pubblicati il 15/01/2025; Ministero della Salute, Annuario statistico del SSN, anno 2023. Geografia: la Regione (la spesa per unità AIFA, i ricoveri per Regione della struttura che eroga).",
+  "PUB-07-03": "Ministero della Salute, Annuario statistico del SSN, anno 2023; popolazione ISTAT al 31/12/2022. Geografia: Regione della struttura che eroga; il tasso per residente comprende la mobilità.",
+};
+
+/** The heading shown for a published column. Only words change, never a value, its order or its format: PUB-07-11
+ * divides AIFA spending by acute admissions of another perimeter, a context ratio, never «spesa per ricovero» (PR25-04). */
+export function cPublicColumnLabel(id: CPublicOutputId, column: string): string {
+  return id === "PUB-07-11" && /per ricovero/i.test(column) ? "Rapporto di contesto: spesa AIFA ÷ ricoveri acuti (€)" : column;
+}
+
+/** A published cell as text. A year-on-year change («var. annua», a share format without a declared sign) shows «+» on
+ * an increase like every other change column (PR25-04); the formats with a declared sign already show it. */
+export function cPublicCellLabel(cell: CWorkbookCell, formats: Record<string, string>, column: string): string {
+  const text = cWorkbookLabel(cell, formats, column);
+  return /var\. annua/i.test(column) && Array.isArray(cell) && Number(cell[0]) > 0 && /[1-9]/.test(text) && !text.startsWith("+") ? `+${text}` : text;
+}
 
 export const C_PUBLIC_COPY = {
   title: "Confronti pubblici fra Regioni",
