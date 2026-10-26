@@ -10,7 +10,7 @@ import {createRequire,register} from 'node:module';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {IDENTITY_STUBS,registerPillarCStubs,as} from './helpers/pillar-c-scoped-stubs.mjs';
 import {fakeSessionClient,scopedFixture} from './fixtures/pillar-c-scoped.mjs';
-import {ADD_UNITS,ADD_ASL,AREAS,CLASSES,HIDDEN,addEntry,addUnitObject,addFullObject,addFixture,addViewOf,sha256} from './fixtures/pillar-c-additions.mjs';
+import {ADD_UNITS,ADD_ASL,HIDDEN,addEntry,addUnitObject,addFullObject,addFixture,addViewOf,sha256} from './fixtures/pillar-c-additions.mjs';
 import {extUnit,extReviewer} from './fixtures/pillar-c-extension.mjs';
 import {cReviewV2Fixture} from './fixtures/pillar-c-review.mjs';
 

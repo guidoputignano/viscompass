@@ -28,7 +28,7 @@ const {PillarCUnitCosts,cExtensionRecipientsCard}=SECTIONS;
 const PERIOD=await import('../components/dashboard-review/pillar-c/period-context.tsx');
 const {buildCPeriodCatalog,publicCPeriodCatalog}=await import('../lib/dashboard-review/pillar-c/period-catalog.ts');
 const catalogOf=view=>publicCPeriodCatalog(buildCPeriodCatalog(view,{mode:'synthetic'}));
-const withCatalog=C=>props=>React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog:catalogOf(props.view)},React.createElement(C,props));
+const withCatalog=C=>{const Wrapped=props=>React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog:catalogOf(props.view)},React.createElement(C,props));Wrapped.displayName=`WithCatalog(${C.name})`;return Wrapped;};
 const PillarCRecipientsSection=withCatalog(SECTIONS.PillarCRecipientsSection),PillarCAttributionEvidence=withCatalog(SECTIONS.PillarCAttributionEvidence),PillarCFileFMonthly=withCatalog(SECTIONS.PillarCFileFMonthly),PillarCFileFRecipients=withCatalog(SECTIONS.PillarCFileFRecipients);
 const {PillarCResidentDrivers}=await import('../components/dashboard-review/pillar-c/extension-reviewer.tsx');
 const RV=await import('../components/dashboard-review/pillar-c/recipient-views.tsx');
