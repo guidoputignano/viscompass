@@ -213,8 +213,8 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   // G1-01: no unexplained dash; totals keep the aggregate column, per-ASL statistics have none.
   assert.doesNotMatch(html,/>—</,'no dash cell anywhere in the recipients section');
   for(const t of ['Quanti sono gli assistiti DPC e chi sono','Quanto costa di solito un assistito, in ciascuna ASL','Il costo è concentrato su pochi assistiti?','Come si distribuiscono gli assistiti',
-    'Quante confezioni, prescrizioni e prodotti riceve di solito un assistito?','Quanto pesa il servizio di distribuzione sul costo?','Quanto varia il compenso per confezione fra le farmacie?',
-    'Quanti giorni passano, nei dati registrati, fra prescrizione ed erogazione?','Perché gennaio 2026 e come si contano gli assistiti','Donne (%)'])
+    'Quante confezioni, prescrizioni e prodotti riceve di solito un assistito?','Quanto pesa il servizio delle farmacie sul costo DPC?','Quanto varia il compenso per confezione fra le farmacie?',
+    'Giorni tra prescrizione ed erogazione registrata','Perché gennaio 2026 e come si contano gli assistiti','Donne (%)'])
     assert.ok(html.includes(t),t);
   const n=v=>v.replace(/\s/g,' ');
   const tableOf=(h,caption)=>{const i=h.indexOf(`<caption class="sr-only">${caption}</caption>`);assert.ok(i>=0,caption);return h.slice(i,h.indexOf('</table>',i));};
@@ -241,11 +241,20 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.deepEqual(row(fees,'Quota del costo del 10\u00a0% di farmacie con costo maggiore'),['25,0 %'],'pharmacy concentration, not recipient cost concentration');
   const iv=tableOf(el(RV.PillarCDispensingIntervals,{initialView:'table'}),'Giorni fra prescrizione ed erogazione');
   assert.deepEqual(row(iv,'Giorni, mediana'),['2']);assert.deepEqual(row(iv,'Giorni, metà centrale (1° – 3° quartile)'),['1 – 4']);
-  assert.deepEqual(row(iv,'Prescrizione ed erogazione nello stesso giorno'),['12,0 %'],'same day, not within seven days');assert.deepEqual(row(iv,'Erogato entro 7 giorni'),['90,0 %']);
+  assert.deepEqual(row(iv,'Erogazione registrata lo stesso giorno (%)'),['12,0 %'],'same day, not within seven days');assert.deepEqual(row(iv,'Erogazione registrata entro 7 giorni (%)'),['90,0 %']);
+  // G2-19: recorded contacts with both dates, not people; the two shares overlap; no adherence reading.
+  assert.match(html,/contatti registrati nei flussi DPC con entrambe le date utilizzabili: ogni contatto si conta una volta/);
+  assert.match(html,/«Entro 7 giorni» comprende lo stesso giorno: le due quote si sovrappongono e non si sommano\./);
+  assert.match(html,/non indicano quando il farmaco è stato assunto né quante prescrizioni non sono state ritirate/);
   assert.match(html,/Non è un tempo di attesa clinico/);
   const burden=el(RV.PillarCServiceBurden,{}),all=tableOf(burden,'Servizio di distribuzione: misure valide anche per l’aggregato'),own=tableOf(burden,'Servizio di distribuzione: misure delle singole ASL');
   assert.deepEqual(headers(all),['Misura','Unità 3','Aggregato delle quattro Aziende']);assert.deepEqual(headers(own),['Misura','Unità 3']);
-  assert.deepEqual(row(all,'Compenso di servizio per confezione'),['8,10 €','8,10 €']);assert.deepEqual(row(own,'Confezioni sotto 10\u00a0€ di acquisto'),['11,0 %']);
+  assert.deepEqual(row(all,'Servizio medio per confezione'),['8,10 €','8,10 €']);assert.deepEqual(row(own,'Confezioni con acquisto medio sotto 10\u00a0€'),['11,0 %']);
+  // G2-15: four names, each with its denominator in words; the threshold explained once; no formula.
+  assert.deepEqual([...burden.matchAll(/<dt class="font-medium">([^<]*)<\/dt>/g)].map(m=>m[1]),['Servizio sul costo complessivo DPC','Servizio medio per confezione','Confezioni con acquisto medio sotto 10\u00a0€','Servizio sul costo dei farmaci sotto 10\u00a0€']);
+  assert.match(burden,/data-c-service-meaning="true">Quanta parte del costo DPC registrato \(acquisto più servizio\) è compenso di servizio, su tutti i farmaci del flusso\./);
+  assert.match(burden,/La soglia dei 10\u00a0€ considera il costo medio d’acquisto per confezione di ciascun farmaco \(codice AIC\) nell’ASL; il servizio è escluso dalla soglia\./);
+  assert.doesNotMatch(burden,/di quelle confezioni|÷/,'no formula, no «di quelle confezioni»');
   // G1-06 to G1-08: each measure reads its own bins; counts come from the count field, never share × total.
   const ex=initial=>el(RV.PillarCDistributionExplorer,{initial});
   const tab=(measure,label,mode='share')=>tableOf(ex({measure,view:'table',mode}),`${label}: assistiti per classe`);

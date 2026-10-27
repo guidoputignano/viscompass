@@ -116,7 +116,7 @@ export function PillarCDpcView({ extension, unavailable, residence, narrowing, r
       note={<>
         <p>Fonte: i flussi DPC (distribuzione per conto) che le ASL inviano al Ministero della Salute, riferiti a gennaio 2026. Un invio può contenere anche erogazioni registrate con una data precedente.</p>
         <p>{`Organizzazioni in questa vista: ${coverage.dpc}.`}</p>
-        <p>Chi è contato: ogni assistito con almeno un’erogazione DPC nel flusso e un codice identificativo valido, una sola volta per ASL anche se ha più erogazioni. Il totale delle quattro ASL somma i conteggi delle singole ASL: chi compare nei dati di due ASL è contato due volte.</p>
+        <p>Chi è contato: ogni assistito con almeno un’erogazione DPC nel flusso e un codice identificativo valido, una sola volta per ASL anche se ha più erogazioni. Dove c’è un totale, somma i conteggi delle singole ASL: un assistito presente nei dati di due ASL può essere contato due volte.</p>
         <p>Importi: il costo d’acquisto e il compenso di servizio registrati nel flusso per ogni confezione. Riguardano solo la DPC, non CO e DD.</p>
       </>} />
     {extension

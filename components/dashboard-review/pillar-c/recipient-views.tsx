@@ -287,11 +287,11 @@ export function PillarCTypicalUse({ units, initialView = "chart" }: { units: Uni
 
 // ---------------------------------------------------------------- G1-10: services and recorded intervals
 type ServiceId = "serviceShare" | "servicePerPack" | "under10Packs" | "under10Service";
-const SERVICE: readonly { id: ServiceId; label: string; all: boolean; format: (v: number) => string }[] = [
-  { id: "serviceShare", label: "Quota del compenso di servizio sul costo", all: true, format: (v) => pct(v) },
-  { id: "servicePerPack", label: "Compenso di servizio per confezione", all: true, format: eur2 },
-  { id: "under10Packs", label: "Confezioni sotto 10 € di acquisto", all: false, format: (v) => pct(v) },
-  { id: "under10Service", label: "Quota del servizio sul costo di quelle confezioni", all: false, format: (v) => pct(v) },
+const SERVICE: readonly { id: ServiceId; label: string; meaning: string; all: boolean; format: (v: number) => string }[] = [
+  { id: "serviceShare", label: "Servizio sul costo complessivo DPC", meaning: "Quanta parte del costo DPC registrato (acquisto più servizio) è compenso di servizio, su tutti i farmaci del flusso.", all: true, format: (v) => pct(v) },
+  { id: "servicePerPack", label: "Servizio medio per confezione", meaning: "Il compenso di servizio registrato, in media per ogni confezione erogata.", all: true, format: eur2 },
+  { id: "under10Packs", label: "Confezioni con acquisto medio sotto 10 €", meaning: "Quota delle confezioni erogate che appartiene a farmaci con costo medio d’acquisto per confezione sotto 10 € nell’ASL.", all: false, format: (v) => pct(v) },
+  { id: "under10Service", label: "Servizio sul costo dei farmaci sotto 10 €", meaning: "Per quegli stessi farmaci, quanta parte del costo registrato (acquisto più servizio) è compenso di servizio.", all: false, format: (v) => pct(v) },
 ];
 /** Service-cost burden: the measures that hold for the aggregate (shares of sums) and those of each ASL, apart. */
 export function PillarCServiceBurden({ units }: { units: Unit[] }) {
@@ -302,15 +302,18 @@ export function PillarCServiceBurden({ units }: { units: Unit[] }) {
   const max = Math.max(1e-9, ...values.map((v) => v ?? 0));
   const asl = units.filter((u) => u.key !== "aggregato");
   const controls = <label className="min-w-56 text-xs font-medium text-muted-foreground">Misura<select aria-label="Misura del servizio di distribuzione" className={SELECT} value={measure} onChange={(e) => setMeasure(e.target.value as ServiceId)}>{SERVICE.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></label>;
-  return <Panel title="Quanto pesa il servizio di distribuzione sul costo? · gennaio 2026" description="Compenso della distribuzione per conto su tutte le righe del flusso. Una quota alta riguarda soprattutto le confezioni a basso prezzo: è un tema di scelta del canale, non una misura di inefficienza." controls={controls}>
+  return <Panel title="Quanto pesa il servizio delle farmacie sul costo DPC? · gennaio 2026" description="Il servizio è il compenso registrato nel flusso per la distribuzione di ogni confezione. Una quota alta riguarda soprattutto i farmaci con un costo d’acquisto basso: è un tema di scelta del canale, non una misura di inefficienza." controls={controls}>
     <div key={measure} data-c-service={measure} className="space-y-2" role="list" aria-label={m.label}>{shown.map((u, i) => <div key={u.key} role="listitem" className="grid grid-cols-[minmax(4.5rem,9rem)_1fr_auto] items-center gap-3 text-xs">
       <span className="truncate text-muted-foreground" title={u.label}>{u.label}</span>
       <span className="h-2.5 rounded-full bg-secondary"><span className="block h-2.5 rounded-full" style={{ width: `${((values[i] ?? 0) / max) * 100}%`, background: colorOf(u.key) }} /></span>
       <span className="min-w-20 text-right tabular-nums">{values[i] === null ? C_RECIPIENT_STATES.unavailable : m.format(values[i]!)}</span></div>)}</div>
+    <p key={`meaning-${measure}`} className={NOTE} data-c-service-meaning>{m.meaning}</p>
     {!m.all && units.some((u) => u.key === "aggregato") && <p className={NOTE}>Misura calcolata dentro ciascuna ASL: per l’aggregato non c’è un valore.</p>}
+    <p className={NOTE}>La soglia dei 10 € considera il costo medio d’acquisto per confezione di ciascun farmaco (codice AIC) nell’ASL; il servizio è escluso dalla soglia. Ogni ASL ha i propri farmaci sotto la soglia, quindi le quote non confrontano lo stesso paniere.</p>
     <details className="mt-5 rounded-xl border border-border"><summary className="cursor-pointer rounded-xl px-4 py-3.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Valori esatti del servizio</summary><div className="space-y-4 p-4">
       <Table caption="Servizio di distribuzione: misure valide anche per l’aggregato" headers={["Misura", ...units.map((u) => u.label)]} rows={SERVICE.filter((s) => s.all).map((s) => ({ key: s.id, label: s.label, cells: units.map((u) => { const v = u.data.january.services[s.id]; return v === null ? C_RECIPIENT_STATES.unavailable : s.format(v); }) }))} />
       {asl.length > 0 && <Table caption="Servizio di distribuzione: misure delle singole ASL" headers={["Misura", ...asl.map((u) => u.label)]} rows={SERVICE.filter((s) => !s.all).map((s) => ({ key: s.id, label: s.label, cells: asl.map((u) => { const v = u.data.january.services[s.id]; return v === null ? C_RECIPIENT_STATES.unavailable : s.format(v); }) }))} />}
+      <dl className="space-y-2 text-xs leading-5">{SERVICE.map((s) => <div key={s.id}><dt className="font-medium">{s.label}</dt><dd className="text-muted-foreground">{s.meaning}</dd></div>)}</dl>
     </div></details>
   </Panel>;
 }
@@ -347,19 +350,20 @@ export function PillarCDispensingIntervals({ units, initialView = "chart" }: { u
   const rows = asl.map((u) => ({ key: u.key, label: u.label, unit: u.key, q1: s(u).intervalQ1!, median: s(u).intervalMedian!, q3: s(u).intervalQ3! }));
   const max = Math.max(7, Math.ceil(Math.max(...rows.map((r) => r.q3)) + 1));
   const days = (v: number) => num(v);
-  return <Panel title="Quanti giorni passano, nei dati registrati, fra prescrizione ed erogazione?" description="Differenza fra la data di prescrizione e quella di erogazione registrate sui contatti ammissibili. Non è un tempo di attesa clinico: la data di ritiro dipende anche da quando la persona si presenta." controls={<Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} />}>
+  return <Panel title="Giorni tra prescrizione ed erogazione registrata · gennaio 2026" description="Le quote riguardano i contatti registrati nei flussi DPC con entrambe le date utilizzabili: ogni contatto si conta una volta, anche se comprende più farmaci, e non è un conteggio di persone. Non è un tempo di attesa clinico: la data di ritiro dipende anche da quando la persona si presenta." controls={<Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} />}>
     <div key={view} data-c-intervals={view}>
       {view === "chart" ? <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div role="group" aria-label={`Giorni fra prescrizione ed erogazione: ${rows.map((r) => `${r.label} mediana ${days(r.median)}, metà centrale ${days(r.q1)} – ${days(r.q3)}`).join("; ")}`}><p className="mb-2 text-xs font-semibold">Giorni: mediana e metà centrale dei contatti</p><IntervalRows rows={rows} max={max} format={days} /></div>
         <div className="space-y-3"><p className="text-xs font-semibold">Quota dei contatti</p>{asl.map((u) => <div key={u.key} className="text-xs"><p className="mb-1 text-muted-foreground">{u.label}</p>
-          {[["Stesso giorno", s(u).sameDay], ["Entro 7 giorni", s(u).within7]].map(([label, v]) => <div key={label as string} className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-2"><span>{label}</span><span className="h-2 rounded-full bg-secondary"><span className="block h-2 rounded-full" style={{ width: `${((v as number | null) ?? 0) * 100}%`, background: colorOf(u.key) }} /></span><span className="min-w-14 text-right tabular-nums">{v === null ? C_RECIPIENT_STATES.unavailable : pct(v as number)}</span></div>)}</div>)}</div>
+          {[["Stesso giorno", s(u).sameDay], ["Entro 7 giorni, stesso giorno incluso", s(u).within7]].map(([label, v]) => <div key={label as string} className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-2"><span>{label}</span><span className="h-2 rounded-full bg-secondary"><span className="block h-2 rounded-full" style={{ width: `${((v as number | null) ?? 0) * 100}%`, background: colorOf(u.key) }} /></span><span className="min-w-14 text-right tabular-nums">{v === null ? C_RECIPIENT_STATES.unavailable : pct(v as number)}</span></div>)}</div>)}</div>
       </div> : <Table caption="Giorni fra prescrizione ed erogazione" headers={["Misura", ...asl.map((u) => u.label)]} rows={[
         { key: "median", label: "Giorni, mediana", cells: asl.map((u) => days(s(u).intervalMedian!)) },
         { key: "iqr", label: "Giorni, metà centrale (1° – 3° quartile)", cells: asl.map((u) => `${days(s(u).intervalQ1!)} – ${days(s(u).intervalQ3!)}`) },
-        { key: "sameDay", label: "Prescrizione ed erogazione nello stesso giorno", cells: asl.map((u) => s(u).sameDay === null ? C_RECIPIENT_STATES.unavailable : pct(s(u).sameDay!)) },
-        { key: "within7", label: "Erogato entro 7 giorni", cells: asl.map((u) => s(u).within7 === null ? C_RECIPIENT_STATES.unavailable : pct(s(u).within7!)) },
+        { key: "sameDay", label: "Erogazione registrata lo stesso giorno (%)", cells: asl.map((u) => s(u).sameDay === null ? C_RECIPIENT_STATES.unavailable : pct(s(u).sameDay!)) },
+        { key: "within7", label: "Erogazione registrata entro 7 giorni (%)", cells: asl.map((u) => s(u).within7 === null ? C_RECIPIENT_STATES.unavailable : pct(s(u).within7!)) },
       ]} />}
     </div>
+    <p className={NOTE}>«Entro 7 giorni» comprende lo stesso giorno: le due quote si sovrappongono e non si sommano. Le date descrivono l’erogazione registrata: non indicano quando il farmaco è stato assunto né quante prescrizioni non sono state ritirate.</p>
     <p className={NOTE}>{`Calcolato dentro ciascuna ASL${units.some((u) => u.key === "aggregato") ? ": per l’aggregato non ci sono mediane né quartili" : ""}. Nessuna persona né farmacia è indicata.`}</p>
   </Panel>;
 }
