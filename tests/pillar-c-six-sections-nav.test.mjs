@@ -31,7 +31,7 @@ const COMPONENT='components/dashboard-review/pillar-c/section-navigation.tsx';
 // The six sections of the design record, section 1, verbatim: id, numeral, title, question.
 const SIX=[
   ['quadro','1','Quadro decisionale','La spesa è cambiata perché più persone sono state trattate o perché i prodotti costano di più, e di quanto?'],
-  ['destinatari','2','Destinatari e utilizzo','Quante persone trattate raggiunge la spesa e con quale utilizzo?'],
+  ['destinatari','2','Assistiti e utilizzo','Quante persone trattate raggiunge la spesa e con quale utilizzo?'],
   ['portafogli-attribuzione','3','Portafogli e attribuzione','Quanto spende ciascun raggruppamento terapeutico e quanta spesa resta condivisa o incerta?'],
   ['fattori','4','Fattori di spesa','Come cambia la spesa nel tempo e quali prodotti spiegano la variazione?'],
   ['budget-scenari','5','Budget e scenari','Che cosa dicono gli atti di budget, le ipotesi dichiarate e la previsione regionale?'],

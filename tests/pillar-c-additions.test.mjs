@@ -370,15 +370,15 @@ test('reviewer: the three panels where they belong, the five units under the rev
   // portfolios. The expenditure view holds none of them.
   const at=(x,a)=>x.indexOf(`data-c-additions="${a}"`);
   assert.ok(h.indexOf('<section id="dpc"')>0&&h.indexOf('<section id="dpc"')<at(h,'residence'),'residence in the DPC view');
-  assert.ok(h.indexOf('Quanti sono i destinatari e chi sono')>0&&h.indexOf('Quanti sono i destinatari e chi sono')<at(h,'residence')&&at(h,'residence')<h.indexOf('Come si distribuiscono i destinatari'),'right after the January recipient totals');
-  assert.ok(h.indexOf('Quanto si restringe il campo dei portafogli candidati?')<at(h,'narrowing')&&at(h,'narrowing')<h.indexOf('Destinatari per stato del prodotto e gruppo'),'beside the narrowing evidence');
+  assert.ok(h.indexOf('Quanti sono gli assistiti DPC e chi sono')>0&&h.indexOf('Quanti sono gli assistiti DPC e chi sono')<at(h,'residence')&&at(h,'residence')<h.indexOf('Come si distribuiscono gli assistiti'),'right after the January recipient totals');
+  assert.ok(h.indexOf('Quanto si restringe il campo dei portafogli candidati?')<at(h,'narrowing')&&at(h,'narrowing')<h.indexOf('Assistiti per stato del prodotto e gruppo'),'beside the narrowing evidence');
   assert.equal(at(h,'filef-fields'),-1,'no File F field in the DPC view');
   assert.ok(f.indexOf('<section id="filef"')>0&&f.indexOf('<section id="filef"')<f.indexOf('File F 2025 · ASL 3: portafogli candidati')&&f.indexOf('File F 2025 · ASL 3: portafogli candidati')<at(f,'filef-fields'),'beside the File F portfolios, in the File F view');
   assert.equal(at(f,'residence'),-1);assert.equal(at(f,'narrowing'),-1);
   assert.ok(!reviewer({additions:reviewerView()}).includes('data-c-additions='),'the expenditure view holds none');
   // Residence: five columns in fixed order, counts with their shares, the aggregate read as a sum.
-  assert.deepEqual(rowsOf(h,'Residenza amministrativa')[0],['Destinatari ammissibili','4.500','1.000','1.200','1.500','800']);
-  assert.deepEqual(rowsOf(h,'Residenza amministrativa')[1],['Residenti nella stessa ASL','4.120 (91,6 %)','900 (90,0 %)','1.100 (91,7 %)','1.400 (93,3 %)','720 (90,0 %)']);
+  assert.deepEqual(rowsOf(h,'ASL di riferimento degli assistiti DPC')[0],['Assistiti con erogazioni DPC','4.500','1.000','1.200','1.500','800']);
+  assert.deepEqual(rowsOf(h,'ASL di riferimento degli assistiti DPC')[1],['Stessa ASL del flusso','4.120 (91,6 %)','900 (90,0 %)','1.100 (91,7 %)','1.400 (93,3 %)','720 (90,0 %)']);
   assert.ok(t.includes(C_ADD_COPY.residenceAggregate));
   // Narrowing: the unit selector over the five units, the aggregate first (no hidden cell there).
   assert.deepEqual(options(h,'Unità delle aree delle esenzioni'),ALL.map(u=>[u,C_EXT_UNIT_LABELS[u]]));
@@ -396,7 +396,7 @@ test('reviewer: the three panels where they belong, the five units under the rev
 test('Regione: the five units under its own labels, the hidden cells as the uniform marker, the File F fields',()=>{
   const h=scoped('regione',{additions:labelled('regione')},'?c_fonte=dpc'),f=scoped('regione',{additions:labelled('regione')},'?c_fonte=filef');
   assert.deepEqual(options(h,'Unità delle aree delle esenzioni'),[['aggregato','Aggregato regionale'],['asl-1','ASL 1'],['asl-2','ASL 2'],['asl-3','ASL 3'],['asl-4','ASL 4']]);
-  assert.deepEqual(rowsOf(h,'Residenza amministrativa')[0],['Destinatari ammissibili','4.500','1.000','1.200','1.500','800']);
+  assert.deepEqual(rowsOf(h,'ASL di riferimento degli assistiti DPC')[0],['Assistiti con erogazioni DPC','4.500','1.000','1.200','1.500','800']);
   assert.match(h,/<th scope="col"[^>]*>Aggregato regionale<\/th>/);
   assert.ok(text(f).includes('File F 2025 · ASL 3: campi utili all’attribuzione'));
   for(const [view,x] of [['dpc',h],['filef',f]]){
@@ -408,7 +408,7 @@ test('Regione: the five units under its own labels, the hidden cells as the unif
 test('Azienda 204: its own unit and the aggregate, its hidden cells as «dato oscurato», never a number; no File F fields',()=>{
   const h=scoped('azienda4',{additions:labelled('azienda4')},'?c_fonte=dpc'),f=scoped('azienda4',{additions:labelled('azienda4')},'?c_fonte=filef');
   assert.deepEqual(options(h,'Unità delle aree delle esenzioni'),[['asl-4','Azienda sintetica Quattro'],['aggregato','Aggregato delle quattro Aziende']]);
-  assert.deepEqual(rowsOf(h,'Residenza amministrativa')[0],['Destinatari ammissibili','800','4.500']);
+  assert.deepEqual(rowsOf(h,'ASL di riferimento degli assistiti DPC')[0],['Assistiti con erogazioni DPC','800','4.500']);
   // The own unit opens the narrowing panel: its two hidden cells are three markers each, with no digit, and the note.
   assert.match(h,/data-c-additions="narrowing" data-c-unit="asl-4"/);
   const areas=rowsOf(h,'Spesa ristretta per area candidata · Azienda sintetica Quattro');
@@ -417,7 +417,7 @@ test('Azienda 204: its own unit and the aggregate, its hidden cells as «dato os
   }
   assert.equal((h.match(/data-c-hidden="true"/g)||[]).length,6,'six hidden measure cells, no more');
   for(const row of areas.filter(r=>r.includes(C_ADD_HIDDEN_LABEL)))assert.doesNotMatch(row.slice(1).join(' '),/\d/,'a hidden cell never shows a number');
-  assert.match(h,/data-c-hidden-note="true">Dato oscurato: le celle con meno di 5 destinatari/);
+  assert.match(h,/data-c-hidden-note="true">Dato oscurato: le celle con meno di 5 assistiti/);
   assert.doesNotMatch(text(panel(h,'narrowing')),/&lt;5|<5|1–4|≤/,'never a range or a bound for a hidden cell');
   // No peer and no File F fields; no euro in the narrowing panel; no sentence across units. Its File F view says its
   // own File F was not received.
@@ -469,7 +469,7 @@ test('unavailable: an honest line per panel, never a value; nothing at all when 
 test('the panels alone: the selector of an audience with one unit is not shown; no bar, no colour-only value',()=>{
   const one={units:[{key:'asl-3',label:'Azienda sintetica Tre',entry:addEntry('asl-3')}]};
   const n=html(React.createElement(PillarCAdditionsNarrowing,{view:one}));
-  assert.doesNotMatch(n,/<select/);assert.match(n,/Azienda sintetica Tre: 450 dei 1\.500 destinatari ammissibili hanno almeno una riga ristretta a un’area; quella spesa è il 30,00\u00a0% della spesa dei destinatari ammissibili\./);
+  assert.doesNotMatch(n,/<select/);assert.match(n,/Azienda sintetica Tre: 450 dei 1\.500 assistiti con erogazioni DPC hanno almeno una riga ristretta a un’area; quella spesa è il 30,00\u00a0% della loro spesa\./);
   assert.doesNotMatch(n,/style="width|role="img"/,'tables only');
   assert.equal(html(React.createElement(PillarCAdditionsResidence,{view:null})),'');
   assert.equal(html(React.createElement(PillarCAdditionsFileF,{view:addViewOf(AZ4)})),'','no File F unit, no panel');

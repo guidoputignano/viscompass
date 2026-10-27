@@ -131,7 +131,7 @@ const PVM_SENTENCE=' Quantità, mix e costo unitario sono scomponibili soltanto 
 const leadOf=k=>k==='regione'?SCOPED_LEAD+PVM_SENTENCE:SCOPED_LEAD;
 const DESTINATARI_EMPTY='Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.';
 // The forecast_only sentence speaks about the page, never about the organisation (lead amendment K1).
-const FORECAST_ONLY_SENTENCE='Quadro decisionale, Destinatari e utilizzo, Portafogli e attribuzione, Fattori di spesa e Priorità ed evidenza non sono disponibili in questa pagina; in Budget e scenari è disponibile solo la previsione regionale. Nessun valore viene sostituito.';
+const FORECAST_ONLY_SENTENCE='Quadro decisionale, Assistiti e utilizzo, Portafogli e attribuzione, Fattori di spesa e Priorità ed evidenza non sono disponibili in questa pagina; in Budget e scenari è disponibile solo la previsione regionale. Nessun valore viene sostituito.';
 const UNAVAILABLE_ENTRY=', sezione non disponibile in questa pagina';
 const M2_NOTE='Organizzazione e canale si scelgono nell’ambito della pagina, nella sezione Quadro decisionale; il periodo scelto qui vale anche per l’attribuzione, lo spazio scenari e il piano di revisione. I raggruppamenti ATC non sono reparti o titolari di budget.';
 // The count scenario's lead (section 5); the «Scenario CO» row of «Fonti e versione» repeats it verbatim (K7).

@@ -2,7 +2,7 @@
 // The six sections of the page (docs/PILLAR_C_SIX_SECTIONS_20261022.md §1), in page order, for every reader.
 export const PILLAR_C_SECTIONS = [
   { id: "quadro", number: "1", label: "Quadro decisionale", question: "La spesa è cambiata perché più persone sono state trattate o perché i prodotti costano di più, e di quanto?" },
-  { id: "destinatari", number: "2", label: "Destinatari e utilizzo", question: "Quante persone trattate raggiunge la spesa e con quale utilizzo?" },
+  { id: "destinatari", number: "2", label: "Assistiti e utilizzo", question: "Quante persone trattate raggiunge la spesa e con quale utilizzo?" },
   { id: "portafogli-attribuzione", number: "3", label: "Portafogli e attribuzione", question: "Quanto spende ciascun raggruppamento terapeutico e quanta spesa resta condivisa o incerta?" },
   { id: "fattori", number: "4", label: "Fattori di spesa", question: "Come cambia la spesa nel tempo e quali prodotti spiegano la variazione?" },
   { id: "budget-scenari", number: "5", label: "Budget e scenari", question: "Che cosa dicono gli atti di budget, le ipotesi dichiarate e la previsione regionale?" },

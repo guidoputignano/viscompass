@@ -63,20 +63,20 @@ export function PillarCRecipientCoverage({ units }: { units: Unit[] }) {
   // The DPC months the period catalogue lists for this view (G1-03): today only the January 2026 reference month.
   const months = cDpcMonths(usePillarCPeriodCatalog()).map((m) => `${MONTH_NAMES[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`);
   const items: [string, string][] = [
-    ["Fonte e canale", "Flussi NSIS della distribuzione per conto (DPC)"],
-    ["Periodo", months.length > 1 ? months.join(", ") : `${months[0] ?? "Gennaio 2026"}: un solo mese`],
-    ["Chi è contato", "Destinatari ammissibili, contati una volta in ciascuna ASL"],
+    ["Fonte e canale", "Flussi DPC (distribuzione per conto) inviati dalle ASL"],
+    ["Periodo", months.length > 1 ? months.join(", ") : `Flussi riferiti a ${(months[0] ?? "Gennaio 2026").toLowerCase()}: un solo mese`],
+    ["Chi è contato", "Assistiti con almeno un’erogazione DPC, contati una volta in ciascuna ASL"],
     // «la loro somma» only when the view holds the four ASLs it sums; an Azienda's view holds its own ASL and the
     // four-Azienda aggregate (Codex live check A26-02).
     ["Organizzazioni", `${asl.map((u) => u.label).join(", ")}${!aggregate ? "" : asl.length === 4 ? " e la loro somma" : " e l’aggregato delle quattro Aziende"}`],
   ];
-  return <section aria-label="Copertura dei dati sui destinatari" className="rounded-2xl border border-border bg-card p-5 md:p-6" data-c-recipient-coverage>
+  return <section aria-label="Copertura dei dati sugli assistiti" className="rounded-2xl border border-border bg-card p-5 md:p-6" data-c-recipient-coverage>
     <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map(([k, v]) => <div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 text-sm font-medium">{v}</dd></div>)}</dl>
-    {aggregate && <p className="mt-4 text-xs leading-5 text-muted-foreground">L’aggregato somma i destinatari delle quattro ASL: chi riceve medicinali in due ASL è contato in ciascuna, quindi non è il numero di persone distinte della regione.</p>}
-    <details className="mt-4 rounded-xl border border-border"><summary className="cursor-pointer rounded-xl px-4 py-3.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Perché gennaio 2026 e come si contano i destinatari</summary>
+    {aggregate && <p className="mt-4 text-xs leading-5 text-muted-foreground">Il totale somma i conteggi delle singole ASL: un assistito presente nei dati di due ASL può essere contato due volte, quindi non è il numero di persone distinte della regione.</p>}
+    <details className="mt-4 rounded-xl border border-border"><summary className="cursor-pointer rounded-xl px-4 py-3.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Perché gennaio 2026 e come si contano gli assistiti</summary>
       <div className="space-y-3 px-4 pb-4 text-xs leading-5 text-muted-foreground">
         <p>I flussi DPC disponibili riguardano il periodo di riferimento di gennaio 2026, inviato dalle ASL. Altri mesi richiedono i rispettivi file: finché non ci sono, questa sezione non mostra né stima altri periodi. Un invio può contenere anche erogazioni precedenti registrate in quel periodo.</p>
-        <p>Un destinatario è ammissibile se il suo identificativo è valorizzato (non vuoto e non fatto di soli zeri), ha un solo stato di validità e tipologia ammesso in tutto il file dell’ASL e almeno una riga di medicinale nel mese. Ogni persona conta una volta per ASL.</p>
+        <p>Un assistito è contato se il suo identificativo è valorizzato (non vuoto e non fatto di soli zeri), ha un solo stato di validità e tipologia ammesso in tutto il file dell’ASL e almeno una riga di medicinale nel flusso. Più erogazioni della stessa persona contano una volta per ASL.</p>
         <p>Un solo mese descrive una situazione, non un andamento: le confezioni e le prescrizioni dipendono anche dalla cadenza con cui si ritirano i medicinali.</p>
       </div></details>
   </section>;
@@ -87,13 +87,13 @@ const over65 = (d: CExtDist) => d.status === "released" && d.total ? d.cells.fil
 
 /** What adds up across the ASLs: recipients, and shares recomputed from counts. Every column, the aggregate included. */
 export function PillarCRecipientSummary({ units }: { units: Unit[] }) {
-  return <Panel title="Quanti sono i destinatari e chi sono · gennaio 2026" description="Conteggi e quote che valgono anche per l’aggregato: si ottengono sommando i conteggi delle ASL.">
-    <Table caption="Destinatari ammissibili, età e sesso" headers={["Misura", ...units.map((u) => u.label)]} rows={[
-      { key: "recipients", label: "Destinatari ammissibili", cells: units.map((u) => num(u.data.january.recipients)) },
+  return <Panel title="Quanti sono gli assistiti DPC e chi sono · gennaio 2026" description="Conteggi e quote che valgono anche per l’aggregato: si ottengono sommando i conteggi delle ASL.">
+    <Table caption="Assistiti con erogazioni DPC, età e sesso" headers={["Misura", ...units.map((u) => u.label)]} rows={[
+      { key: "recipients", label: "Assistiti con erogazioni DPC", cells: units.map((u) => num(u.data.january.recipients)) },
       { key: "over65", label: "65 anni e oltre", cells: units.map((u) => { const s = over65(u.data.january.age); return s === null ? C_RECIPIENT_STATES.suppressed : pct(s); }) },
-      { key: "female", label: "Donne (sul sesso noto)", cells: units.map((u) => pct(u.data.january.sex.female)) },
+      { key: "female", label: "Donne (%)", cells: units.map((u) => pct(u.data.january.sex.female)) },
     ]} />
-    <p className={NOTE}>Età raggiunta nel 2026, ricavata dall’anno di nascita; la quota di donne esclude il sesso non noto.</p>
+    <p className={NOTE}>Età raggiunta nel 2026, ricavata dall’anno di nascita. La quota di donne è calcolata sugli assistiti con il sesso indicato nel flusso.</p>
   </Panel>;
 }
 
@@ -102,15 +102,15 @@ export function PillarCCostPerRecipient({ units }: { units: Unit[] }) {
   const asl = units.filter((u) => u.key !== "aggregato" && u.data.january.cost.quartiles);
   if (!asl.length) return null;
   const v = (u: Unit, f: (c: CExtJanuary["cost"]) => string | null) => f(u.data.january.cost) ?? C_RECIPIENT_STATES.unavailable;
-  return <Panel title="Quanto costa di solito un destinatario, in ciascuna ASL" description="Statistiche della distribuzione dentro ciascuna ASL. Per l’aggregato non c’è un valore: una mediana o un indice di concentrazione di quattro ASL non si ottiene sommando o facendo la media dei loro.">
-    <Table caption="Costo per destinatario nelle singole ASL" headers={["Misura", ...asl.map((u) => u.label)]} rows={[
+  return <Panel title="Quanto costa di solito un assistito, in ciascuna ASL" description="Statistiche della distribuzione dentro ciascuna ASL. Per l’aggregato non c’è un valore: una mediana o un indice di concentrazione di quattro ASL non si ottiene sommando o facendo la media dei loro.">
+    <Table caption="Costo per assistito nelle singole ASL" headers={["Misura", ...asl.map((u) => u.label)]} rows={[
       { key: "median", label: "Mediana (valore centrale)", cells: asl.map((u) => v(u, (c) => c.quartiles ? eur2(c.quartiles.median) : null)) },
-      { key: "iqr", label: "Metà centrale dei destinatari (1° – 3° quartile)", cells: asl.map((u) => v(u, (c) => c.quartiles ? `${eur0(c.quartiles.q1)} – ${eur0(c.quartiles.q3)}` : null)) },
+      { key: "iqr", label: "Metà centrale degli assistiti (1° – 3° quartile)", cells: asl.map((u) => v(u, (c) => c.quartiles ? `${eur0(c.quartiles.q1)} – ${eur0(c.quartiles.q3)}` : null)) },
       { key: "top10", label: "Quota del costo del 10 % con costo maggiore", cells: asl.map((u) => v(u, (c) => c.top10 === null ? null : pct(c.top10))) },
       { key: "top20", label: "Quota del costo del 20 % con costo maggiore", cells: asl.map((u) => v(u, (c) => c.top20 === null ? null : pct(c.top20))) },
       { key: "gini", label: "Indice di Gini (0 = costo uguale per tutti)", cells: asl.map((u) => v(u, (c) => c.gini === null ? null : num(c.gini, 2))) },
     ]} />
-    <p className={NOTE}>Costo registrato nel flusso: acquisto più compenso di servizio, nel solo mese di gennaio. La mediana è il valore centrale; più destinatari possono avere lo stesso valore.</p>
+    <p className={NOTE}>Costo registrato nel flusso: acquisto più compenso di servizio, nel solo mese di gennaio. La mediana è il valore centrale; più assistiti possono avere lo stesso valore.</p>
   </Panel>;
 }
 
@@ -129,7 +129,7 @@ export function PillarCCostConcentration({ units, initialView = "chart" }: { uni
   const r2 = (v: number) => Math.round(v * 100) / 100;
   const x = (share: number) => r2(L + share * pw), y = (share: number) => r2(T + (1 - share) * ph);
   const controls = <div className="flex flex-wrap gap-4"><Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} /></div>;
-  return <Panel title="Il costo è concentrato su pochi destinatari? · gennaio 2026" description="Curva di concentrazione: destinatari ordinati dal costo più basso. Più la curva si allontana dalla diagonale, più il costo si concentra su pochi destinatari." controls={controls}>
+  return <Panel title="Il costo è concentrato su pochi assistiti? · gennaio 2026" description="Curva di concentrazione: assistiti ordinati dal costo più basso. Più la curva si allontana dalla diagonale, più il costo si concentra su pochi assistiti." controls={controls}>
     <div key={view} data-c-concentration={view}>
       {view === "chart" ? <div className="grid gap-5 lg:grid-cols-[minmax(0,26rem)_1fr]">
         <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full max-w-[28rem]" role="img" aria-label={`Curve di concentrazione del costo: ${shown.map((u) => `${u.label}, il 50 % con costo più basso riceve il ${pct(u.data.january.cost.lorenz![5])} del costo`).join("; ") || "nessuna ASL selezionata"}`}>
@@ -143,16 +143,16 @@ export function PillarCCostConcentration({ units, initialView = "chart" }: { uni
             <polyline fill="none" stroke={colorOf(u.key)} strokeWidth={2} points={DECILES.map((k) => `${x(k / 10)},${y(l[k])}`).join(" ")} />
             {DECILES.map((k) => <circle key={k} cx={x(k / 10)} cy={y(l[k])} r={3} fill={colorOf(u.key)} stroke="hsl(var(--card))" strokeWidth={1.5}><title>{`${u.label}: il ${k * 10} % con costo più basso riceve il ${pct(l[k])} del costo`}</title></circle>)}
           </g>; })}
-          <text x={L + pw / 2} y={H - 8} textAnchor="middle" fontSize={10} fill="currentColor">Destinatari, dal costo più basso</text>
+          <text x={L + pw / 2} y={H - 8} textAnchor="middle" fontSize={10} fill="currentColor">Assistiti, dal costo più basso</text>
           <text x={12} y={T + ph / 2} textAnchor="middle" fontSize={10} fill="currentColor" transform={`rotate(-90 12 ${T + ph / 2})`}>Quota cumulata del costo</text>
         </svg>
         <div className="min-w-0 space-y-4">
           <fieldset><legend className="text-xs font-medium text-muted-foreground">ASL mostrate</legend>
             <div className="mt-2 flex flex-wrap gap-2">{curves.map((u) => <label key={u.key} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-xs focus-within:outline focus-within:outline-2 focus-within:outline-primary">
               <input type="checkbox" checked={!hidden.includes(u.key)} onChange={(e) => setHidden((h) => e.target.checked ? h.filter((k) => k !== u.key) : [...h, u.key])} /><Swatch unit={u.key} />{u.label}</label>)}</div></fieldset>
-          <ul className="space-y-2 text-xs leading-5">{shown.map((u) => { const c = u.data.january.cost; return <li key={u.key} className="flex gap-2"><Swatch unit={u.key} /><span>{`${u.label}: la metà dei destinatari con costo più basso riceve il ${pct(c.lorenz![5])} del costo; il 10 % con costo più alto ne riceve il ${c.top10 === null ? C_RECIPIENT_STATES.unavailable : pct(c.top10)}.`}</span></li>; })}</ul>
+          <ul className="space-y-2 text-xs leading-5">{shown.map((u) => { const c = u.data.january.cost; return <li key={u.key} className="flex gap-2"><Swatch unit={u.key} /><span>{`${u.label}: la metà degli assistiti con costo più basso riceve il ${pct(c.lorenz![5])} del costo; il 10 % con costo più alto ne riceve il ${c.top10 === null ? C_RECIPIENT_STATES.unavailable : pct(c.top10)}.`}</span></li>; })}</ul>
         </div>
-      </div> : <Table caption="Quota cumulata del costo per decimo di destinatari" headers={["Destinatari con costo più basso", ...curves.map((u) => u.label)]} rows={DECILES.map((k) => ({ key: String(k), label: `${k * 10} %`, cells: curves.map((u) => pct(u.data.january.cost.lorenz![k])) }))} />}
+      </div> : <Table caption="Quota cumulata del costo per decimo di assistiti" headers={["Assistiti con costo più basso", ...curves.map((u) => u.label)]} rows={DECILES.map((k) => ({ key: String(k), label: `${k * 10} %`, cells: curves.map((u) => pct(u.data.january.cost.lorenz![k])) }))} />}
     </div>
     <p className={NOTE}>{`I punti sono i decimi consegnati, uniti da segmenti rettilinei: fra un punto e l’altro non ci sono altre osservazioni. Un solo mese: chi ritira a gennaio medicinali per più mesi compare fra i costi più alti.${units.some((u) => u.key === "aggregato") ? " Per l’aggregato non c’è una curva: quattro distribuzioni non formano una distribuzione." : ""}`}</p>
   </Panel>;
@@ -161,15 +161,15 @@ export function PillarCCostConcentration({ units, initialView = "chart" }: { uni
 // ---------------------------------------------------------------- G1-06 to G1-08: distribution explorer
 type MeasureId = "packs" | "ingredients" | "prescriptions" | "aics" | "age" | "cost";
 const MEASURES: readonly { id: MeasureId; label: string; pick: (j: CExtJanuary) => CExtDist; note: string }[] = [
-  { id: "packs", label: "Confezioni per destinatario", pick: (j) => j.use.packs.bins, note: "Confezioni registrate nel mese, con segno: non sono dosi né giorni di terapia." },
-  { id: "ingredients", label: "Sostanze e combinazioni ATC5 per destinatario", pick: (j) => j.ingredients, note: "Codici ATC di quinto livello distinti nel mese: una combinazione può contenere più principi attivi, quindi non è un conteggio di ingredienti unici." },
-  { id: "prescriptions", label: "Prescrizioni registrate per destinatario", pick: (j) => j.use.prescriptions.bins, note: "Contatti di prescrizione distinti nel flusso del mese: non sono visite né nuove terapie." },
-  { id: "aics", label: "Prodotti AIC distinti per destinatario", pick: (j) => j.use.distinctAICs.bins, note: "Confezioni commerciali distinte per codice AIC: più AIC possono contenere la stessa sostanza, quindi non sono principi attivi distinti." },
+  { id: "packs", label: "Confezioni per assistito", pick: (j) => j.use.packs.bins, note: "Confezioni registrate nel mese, con segno: non sono dosi né giorni di terapia." },
+  { id: "ingredients", label: "Sostanze e combinazioni ATC5 per assistito", pick: (j) => j.ingredients, note: "Codici ATC di quinto livello distinti nel mese: una combinazione può contenere più principi attivi, quindi non è un conteggio di ingredienti unici." },
+  { id: "prescriptions", label: "Prescrizioni registrate per assistito", pick: (j) => j.use.prescriptions.bins, note: "Contatti di prescrizione distinti nel flusso del mese: non sono visite né nuove terapie." },
+  { id: "aics", label: "Prodotti AIC distinti per assistito", pick: (j) => j.use.distinctAICs.bins, note: "Confezioni commerciali distinte per codice AIC: più AIC possono contenere la stessa sostanza, quindi non sono principi attivi distinti." },
   { id: "age", label: "Fasce d’età", pick: (j) => j.age, note: "Età raggiunta nel 2026, ricavata dall’anno di nascita; fasce OsMed." },
-  { id: "cost", label: "Classi di costo per destinatario", pick: (j) => j.cost.bins, note: "Costo registrato nel mese: acquisto più compenso di servizio." },
+  { id: "cost", label: "Classi di costo per assistito", pick: (j) => j.cost.bins, note: "Costo registrato nel mese: acquisto più compenso di servizio." },
 ];
 type Mode = "share" | "count";
-const MODE_OPTIONS = [{ value: "share", label: "Percentuale" }, { value: "count", label: "Destinatari" }] as const;
+const MODE_OPTIONS = [{ value: "share", label: "Percentuale" }, { value: "count", label: "Assistiti" }] as const;
 /** Class colours: one hue from light to dark, because the classes are ordered. */
 const classColor = (k: number, n: number) => `color-mix(in srgb, var(--viz-1) ${Math.round(35 + (65 * k) / Math.max(1, n - 1))}%, hsl(var(--card)))`;
 
@@ -191,7 +191,7 @@ function DonutChart({ unit, dist, mode }: { unit: Unit; dist: CExtDist; mode: Mo
     <svg viewBox="0 0 180 180" className="mx-auto h-44 w-44" role="img" aria-label={`${unit.label}: ${dist.cells.map((c) => `${c.label} ${value(c.count, c.share)}`).join("; ")}`}>
       {arcs.map(({ c, k, d }) => <path key={c.id} d={d} fill={classColor(k, dist.cells.length)} stroke="hsl(var(--card))" strokeWidth={2} fillRule="evenodd"><title>{`${c.label}: ${value(c.count, c.share)}`}</title></path>)}
       <text x={cx} y={cy - 2} textAnchor="middle" fontSize={15} fontWeight={600} fill="currentColor">{num(total)}</text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fontSize={9} fill="currentColor" className="text-muted-foreground">destinatari</text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize={9} fill="currentColor" className="text-muted-foreground">assistiti</text>
     </svg>
     <ul className="max-w-sm space-y-2 text-xs">{dist.cells.map((c, k) => <li key={c.id} className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-sm" style={{ background: classColor(k, dist.cells.length) }} />{c.label}</span><span className="font-medium tabular-nums">{value(c.count, c.share)}</span></li>)}</ul>
   </div>;
@@ -231,14 +231,14 @@ export function PillarCDistributionExplorer({ units, initial }: { units: Unit[];
     <Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} />
     <Choice legend="Valori" value={mode} options={MODE_OPTIONS} onChange={setMode} />
   </div>;
-  return <Panel title="Come si distribuiscono i destinatari · gennaio 2026" description="Scegli una misura e un’organizzazione: il grafico e la tabella mostrano gli stessi valori, in percentuale o come numero di destinatari." controls={controls}>
+  return <Panel title="Come si distribuiscono gli assistiti · gennaio 2026" description="Scegli una misura e un’organizzazione: il grafico e la tabella mostrano gli stessi valori, in percentuale o come numero di assistiti." controls={controls}>
     <div key={`${measure}|${unitKey}|${view}|${mode}`} data-c-distribution={measure} data-c-distribution-unit={unitKey} data-c-distribution-view={view} data-c-distribution-mode={mode}>
       <p className="mb-4 text-sm font-medium">{m.label}</p>
       {!released ? <Empty>{`La distribuzione non è mostrata: ${C_RECIPIENT_STATES.suppressed}. Nessun valore viene sostituito.`}</Empty>
-        : view === "table" ? <Table caption={`${m.label}: destinatari per classe`} headers={["Classe", ...selected.map((u) => u.label)]} rows={first!.cells.map((cell, k) => ({ key: cell.id, label: cell.label, cells: dists.map((d) => d.status === "released" ? value(d.cells[k]) : C_RECIPIENT_STATES.suppressed) }))} />
+        : view === "table" ? <Table caption={`${m.label}: assistiti per classe`} headers={["Classe", ...selected.map((u) => u.label)]} rows={first!.cells.map((cell, k) => ({ key: cell.id, label: cell.label, cells: dists.map((d) => d.status === "released" ? value(d.cells[k]) : C_RECIPIENT_STATES.suppressed) }))} />
         : selected.length === 1 ? <DonutChart unit={selected[0]} dist={dists[0]} mode={mode} />
         : <CompareBars units={selected} dists={dists} mode={mode} />}
-      <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Denominatore: ${selected.map((u, i) => `${u.label} ${dists[i].total === null ? C_RECIPIENT_STATES.suppressed : `${num(dists[i].total!)} destinatari`}`).join(" · ")}. Gennaio 2026, DPC.${empty.length ? ` Nessun destinatario nelle classi: ${empty.join(", ")}.` : ""}`}</p>
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Denominatore: ${selected.map((u, i) => `${u.label} ${dists[i].total === null ? C_RECIPIENT_STATES.suppressed : `${num(dists[i].total!)} assistiti`}`).join(" · ")}. Gennaio 2026, DPC.${empty.length ? ` Nessun assistito nelle classi: ${empty.join(", ")}.` : ""}`}</p>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">{m.note}</p>
     </div>
   </Panel>;
@@ -269,19 +269,19 @@ export function PillarCTypicalUse({ units, initialView = "chart" }: { units: Uni
   const [view, setView] = useState<View>(initialView);
   if (!asl.length || !asl.every((u) => USE.every(([k]) => u.data.january.use[k].quartiles))) return asl.length ? <Empty>{`Mediane e quartili di utilizzo: ${C_RECIPIENT_STATES.unavailable}.`}</Empty> : null;
   const one = (v: number) => num(v, 1);
-  return <Panel title="Quante confezioni, prescrizioni e prodotti riceve di solito un destinatario?" description="Il punto è la mediana, il valore centrale: più destinatari possono avere lo stesso valore. La barra va dal primo al terzo quartile e comprende almeno la metà centrale dei destinatari." controls={<Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} />}>
+  return <Panel title="Quante confezioni, prescrizioni e prodotti riceve di solito un assistito?" description="Il punto è la mediana, il valore centrale: più assistiti possono avere lo stesso valore. La barra va dal primo al terzo quartile e comprende almeno la metà centrale degli assistiti." controls={<Choice legend="Vista" value={view} options={VIEW_OPTIONS} onChange={setView} />}>
     <div key={view} data-c-typical-use={view}>
       {view === "chart" ? <div className="grid gap-6 lg:grid-cols-3">{USE.map(([k, label], i) => {
         const rows = asl.map((u) => { const q = u.data.january.use[k].quartiles!; return { key: u.key, label: u.label, unit: u.key, ...q }; });
         const max = Math.max(1, Math.ceil(Math.max(...rows.map((r) => r.q3)) + 1));
-        return <div key={k} role="group" aria-label={`${label} per destinatario: ${rows.map((r) => `${r.label} mediana ${one(r.median)}, metà centrale ${one(r.q1)} – ${one(r.q3)}`).join("; ")}`}><p className="mb-2 text-xs font-semibold">{label}</p><IntervalRows rows={rows} max={max} format={one} legend={i === 0} /></div>;
+        return <div key={k} role="group" aria-label={`${label} per assistito: ${rows.map((r) => `${r.label} mediana ${one(r.median)}, metà centrale ${one(r.q1)} – ${one(r.q3)}`).join("; ")}`}><p className="mb-2 text-xs font-semibold">{label}</p><IntervalRows rows={rows} max={max} format={one} legend={i === 0} /></div>;
       })}</div>
-        : <Table caption="Mediane e metà centrale dell’utilizzo per destinatario" headers={["Misura", ...asl.map((u) => u.label)]} rows={USE.flatMap(([k, label]) => [
+        : <Table caption="Mediane e metà centrale dell’utilizzo per assistito" headers={["Misura", ...asl.map((u) => u.label)]} rows={USE.flatMap(([k, label]) => [
           { key: `${k}-median`, label: `${label}, mediana`, cells: asl.map((u) => one(u.data.january.use[k].quartiles!.median)) },
           { key: `${k}-iqr`, label: `${label}, metà centrale (1° – 3° quartile)`, cells: asl.map((u) => { const q = u.data.january.use[k].quartiles!; return `${one(q.q1)} – ${one(q.q3)}`; }) },
         ])} />}
     </div>
-    <p className={NOTE}>{`Non è un box plot completo: minimi, massimi e valori estremi non sono nei dati consegnati e non vengono disegnati. Dove la barra si riduce a un punto, la metà centrale dei destinatari riceve lo stesso numero.${units.some((u) => u.key === "aggregato") ? " Per l’aggregato non ci sono mediane né quartili: quelli delle singole ASL non si sommano." : ""}`}</p>
+    <p className={NOTE}>{`Non è un box plot completo: minimi, massimi e valori estremi non sono nei dati consegnati e non vengono disegnati. Dove la barra si riduce a un punto, la metà centrale degli assistiti riceve lo stesso numero.${units.some((u) => u.key === "aggregato") ? " Per l’aggregato non ci sono mediane né quartili: quelli delle singole ASL non si sommano." : ""}`}</p>
   </Panel>;
 }
 

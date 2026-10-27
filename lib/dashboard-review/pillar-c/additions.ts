@@ -1,6 +1,7 @@
 /** Pillar C additions (build add-v1; owner decision D24-4 of 24 Oct 2026): three outputs delivered behind sign-in to the
  * audiences entitled to them (reviewer, Regione, own Azienda).
- *   - P8-03: the administrative residence of the eligible January 2026 DPC recipients, by dispensing unit.
+ *   - P8-03: the ASL of reference recorded for the January 2026 DPC assistiti, by dispensing unit (joint feedback 2,
+ *     G2-09/G2-10: residence or the ASL responsible for care, never a geographic residence).
  *   - P10-04: the spend of the eligible recipients narrowed to one candidate area by a consistent exemption, by area,
  *     and the spend by the exemption class of each line (screened table: hidden cells carry one uniform marker).
  *   - P10-05: the File F 2025 rows of one Azienda by the presence of the fields that can help attribution.
@@ -58,10 +59,10 @@ export const cAddIsHidden = (cell: CAddAreaCell | typeof C_ADD_HIDDEN): cell is 
 
 // ---------------------------------------------------------------------------- Italian labels (no figure)
 export const C_ADD_RESIDENCE_LABELS: Readonly<Record<CAddResidenceKey, string>> = {
-  sameAsl: "Residenti nella stessa ASL",
-  otherAslInRegion: "Residenti in un’altra ASL della regione",
-  outsideRegion: "Residenti fuori regione",
-  unknown: "Residenza non nota o incoerente",
+  sameAsl: "Stessa ASL del flusso",
+  otherAslInRegion: "Altra ASL della regione",
+  outsideRegion: "ASL di un’altra regione",
+  unknown: "ASL non identificabile",
 };
 /** The candidate areas (ATC groupings of the draft portfolio taxonomy). */
 export const C_ADD_AREA_LABELS: Readonly<Record<CAddArea, string>> = {
@@ -105,16 +106,16 @@ export const C_ADD_HIDDEN_LABEL = "dato oscurato";
 
 /** Copy of the three panels: what each output is and is not, its honest unavailable state, the hidden-cell note. */
 export const C_ADD_COPY = {
-  residenceTitle: "Dove risiedono i destinatari · gennaio 2026",
-  residenceLead: "Residenza amministrativa registrata sul record di erogazione della DPC, un solo mese (gennaio 2026): quota dei destinatari ammissibili di ciascuna colonna. Descrive dove risiedono i destinatari serviti dall’ASL, non i percorsi di cura né i flussi fra ASL.",
-  residenceAggregate: "L’aggregato è la somma delle quattro ASL, non un conteggio di persone distinte: chi riceve medicinali in due ASL è contato in ciascuna.",
-  residenceUnavailable: "La residenza dei destinatari di gennaio 2026 non è disponibile in questo momento. Nessun valore viene mostrato né sostituito.",
+  residenceTitle: "ASL di riferimento degli assistiti DPC · gennaio 2026",
+  residenceLead: "L’ASL di riferimento è quella indicata nel flusso DPC: può essere l’ASL di residenza o quella che ha in carico l’assistito. Non indica il comune o il domicilio, né dove l’assistito riceve le altre cure. Ogni quota è calcolata sugli assistiti con erogazioni DPC della sua colonna.",
+  residenceAggregate: "Il totale somma i conteggi delle singole ASL: un assistito presente nei dati di due ASL può essere contato due volte.",
+  residenceUnavailable: "L’ASL di riferimento degli assistiti DPC di gennaio 2026 non è disponibile in questo momento. Nessun valore viene mostrato né sostituito.",
   narrowingTitle: "Aree delle esenzioni coerenti e classi di esenzione · gennaio 2026",
-  narrowingLead: "Evidenza di congruenza delle esenzioni: una riga di un prodotto condiviso è ristretta a un’area candidata quando l’esenzione rientra nelle classi correlate alla patologia secondo l’elenco della Regione Toscana, DGR 865/2018, un riferimento esterno. La mappatura fra esenzioni e aree e la tassonomia dei portafogli sono in bozza, in attesa di revisione clinica. Non è un’attribuzione della spesa a un’area clinica né della titolarità del budget. I destinatari con righe in più aree contano in ciascuna.",
+  narrowingLead: "Evidenza di congruenza delle esenzioni: una riga di un prodotto condiviso è ristretta a un’area candidata quando l’esenzione rientra nelle classi correlate alla patologia secondo l’elenco della Regione Toscana, DGR 865/2018, un riferimento esterno. La mappatura fra esenzioni e aree e la tassonomia dei portafogli sono in bozza, in attesa di revisione clinica. Non è un’attribuzione della spesa a un’area clinica né della titolarità del budget. Gli assistiti con righe in più aree contano in ciascuna.",
   narrowingAggregate: "L’aggregato è la somma delle quattro ASL.",
   narrowingUnavailable: "Le aree delle esenzioni coerenti e le classi di esenzione non sono disponibili in questo momento. Nessun valore viene sostituito.",
-  hiddenNote: "Dato oscurato: le celle con meno di 5 destinatari sono oscurate insieme alle celle complementari necessarie, così che nessun valore oscurato si possa ricavare dai totali o dalle altre celle.",
-  classesNote: "Ogni riga di erogazione ha una sola classe di esenzione: le quote ripartiscono la spesa dei destinatari ammissibili e, arrotondate, possono non sommare esattamente a cento. I destinatari con righe di più classi contano in ciascuna.",
+  hiddenNote: "Dato oscurato: le celle con meno di 5 assistiti sono oscurate insieme alle celle complementari necessarie, così che nessun valore oscurato si possa ricavare dai totali o dalle altre celle.",
+  classesNote: "Ogni riga di erogazione ha una sola classe di esenzione: le quote ripartiscono la spesa degli assistiti contati e, arrotondate, possono non sommare esattamente a cento. Gli assistiti con righe di più classi contano in ciascuna.",
   fileFLead: "Conteggi di righe del File F 2025 di una sola Azienda, non di persone: quante righe riportano i campi che possono aiutare l’attribuzione (prescrittore, riferimento SDO, modalità di erogazione, codice ticket). È un inventario dei campi, non un’attribuzione della spesa.",
   fileFNote: "Ogni gruppo (prescrittore, riferimento SDO, modalità di erogazione, codice ticket) ripartisce le stesse righe. Importo riportato nel flusso, non spesa netta. Il significato di questi campi per l’attribuzione resta da rivedere con i referenti di dominio.",
   fileFUnavailable: "L’inventario dei campi di attribuzione del File F 2025 non è disponibile in questo momento. Nessun valore viene sostituito.",

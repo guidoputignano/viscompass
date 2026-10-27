@@ -483,7 +483,9 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   // Re-recorded on 27 Oct 2026 (joint feedback 2, G2-01/G2-02: the source bar «Spesa per canale · Assistiti e servizio
   // DPC · File F» between the header and the section bar). Against bb4897a (a7cec23b…): 37 of the 59 cases byte-identical;
   // the 22 workspace cases differ only by that bar and by React's useId values, renumbered because the tree gained a node.
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'0284605be98b4ff70e44363779cf6fa24bf342cf8a2bb46626d37f4f5a9d3e32');
+  // Re-recorded on 27 Oct 2026 (G2-06: section 2 is «Assistiti e utilizzo»). Against 0284605b…: the same 22 workspace
+  // cases change, each only by that label (twice: the section bar and the frame heading); 37 cases byte-identical.
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'44f58c1895de637bae329d695621226cbde9072db58a5c195b285ecc70a431d9');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout
@@ -662,7 +664,7 @@ test('public comparators: the closed parser; the Regione reads them beside the f
 const A26_COUNTS={'asl-1':1100,'asl-2':1200,'asl-3':1300,'asl-4':1400,aggregato:5000};
 const counted=v=>({...v,units:v.units.map(u=>({...u,data:{...u.data,january:{...u.data.january,recipients:A26_COUNTS[u.key]}}}))});
 const recipientsCard=html=>{
-  const m=text(html).match(/Destinatari DPC · (.+?) ([0-9.]+) Gennaio 2026(, somma delle quattro ASL)?: un solo mese/);
+  const m=text(html).match(/Assistiti con erogazioni DPC · (.+?) ([0-9.]+) Flussi riferiti a gennaio 2026(, somma dei conteggi delle ASL)?: un solo mese/);
   assert.ok(m,'the recipients card');return {label:m[1],value:m[2],sum:Boolean(m[3])};
 };
 
@@ -706,7 +708,7 @@ test('G2-01: the recipients card shows the DPC count under the DPC channel only;
   const all=text(workspace('regione','',{extension})),co=text(workspace('regione','?c_channel=CO',{extension}));
   assert.ok(all.includes('Assistiti Solo per la DPC'),'«Tutti»: no count, the DPC view named');
   assert.ok(co.includes('Assistiti · CO Non disponibili'),'CO: not available, never the DPC count');
-  for(const t of [all,co])assert.doesNotMatch(t,/Destinatari DPC ·|5\.000/,'no DPC count beside the ledger figures');
+  for(const t of [all,co])assert.doesNotMatch(t,/Assistiti con erogazioni DPC ·|5\.000/,'no DPC count beside the ledger figures');
 });
 
 test('G2-01/G2-02: the source bar opens the ledger, DPC and File F views, keeps only the validated scope and marks the current one',()=>{

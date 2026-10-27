@@ -34,7 +34,7 @@ const monthLabel = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? m
 export function PillarCRecipientsSection({ view, residence }: { view: CExtensionView; residence?: ReactNode }) {
   const units = view.units, asl = units.filter((u) => u.key !== "aggregato");
   return <div className="space-y-6">
-    <Heading inner id="destinatari-dpc" title="Chi riceve i medicinali DPC e con quale utilizzo?">{`${C_EXT_SOURCE.january}.`}</Heading>
+    <Heading inner id="destinatari-dpc" title="Chi sono gli assistiti DPC e con quale utilizzo?">{`${C_EXT_SOURCE.january}.`}</Heading>
     <PillarCRecipientCoverage units={units} />
     <PillarCRecipientSummary units={units} />
     {residence}
@@ -115,10 +115,10 @@ export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView
     <ExactTable caption="Contatti e mesi attivi per identificativo" headers={["Classe", "Contatti: quota", "Classe", "Mesi attivi: quota"]}
       rows={fileF.contacts.cells.map((cell, i) => [cell.label, pct(cell.share), fileF.monthsActive.cells[i]?.label ?? "", fileF.monthsActive.cells[i] ? pct(fileF.monthsActive.cells[i].share) : ""])} />
     <ExactTable caption="Profilo anagrafico degli identificativi" headers={["Profilo", "Quota"]} rows={[
-      ["Donne (sul sesso noto)", pct(fileF.sex.female)], ["Uomini (sul sesso noto)", pct(fileF.sex.male)],
+      ["Donne (%)", pct(fileF.sex.female)], ["Uomini (%)", pct(fileF.sex.male)],
       ...(fileF.age.status === "released" ? fileF.age.cells.map((cell) => [`Età ${cell.label}`, pct(cell.share)]) : [["Fasce d’età", "Non mostrate: almeno una classe conta meno di 5 identificativi"]]),
     ]} />
-    <p className="mt-3 text-xs leading-5 text-muted-foreground">{`Età raggiunta nel ${fileF.year}, dall’anno di nascita registrato; le quote per sesso escludono il sesso non noto.`}</p>
+    <p className="mt-3 text-xs leading-5 text-muted-foreground">{`Età raggiunta nel ${fileF.year}, dall’anno di nascita registrato; le quote per sesso sono calcolate sugli identificativi con il sesso indicato nel flusso.`}</p>
     <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${januaryTop10 === null ? "" : `L’importo per identificativo è ${c.top10 > januaryTop10 ? "più" : "meno"} concentrato che nella DPC di gennaio della stessa ASL (quota del 10 % con importo maggiore: ${pct(c.top10)} contro ${pct(januaryTop10)}). `}${coverage}`}</p>
     </div>
   </Panel>;
@@ -136,11 +136,11 @@ export function cExtensionRecipientsCard(view: CExtensionView | null, unavailabl
   if (channel !== "DPC") return channel === "Tutti"
     ? { title: "Assistiti", value: "Solo per la DPC", detail: "Il registro della spesa non conta le persone. Gli assistiti sono contati solo nei flussi DPC riferiti a gennaio 2026: vista «Assistiti e servizio DPC»." }
     : { title: `Assistiti · ${channel}`, value: "Non disponibili", detail: `Per il canale ${channel} non ci sono dati sugli assistiti. Gli assistiti sono contati solo nei flussi DPC riferiti a gennaio 2026: vista «Assistiti e servizio DPC».` };
-  if (!view) return { title: "Destinatari DPC", value: "Non disponibili in questo momento", detail: "La lettura dei dati su destinatari e utilizzo non è riuscita: nessun valore viene sostituito." };
+  if (!view) return { title: "Assistiti con erogazioni DPC", value: "Non disponibili in questo momento", detail: "La lettura dei dati DPC non è riuscita: nessun valore viene sostituito." };
   const unit = view.units.find((u) => u.key === selected);
-  if (!unit) return { title: "Destinatari DPC", value: "Non disponibili", detail: "Nessun conteggio di gennaio 2026 per l’ambito selezionato: nessun valore viene sostituito." };
-  return { title: `Destinatari DPC · ${unit.label}`, value: num(unit.data.january.recipients),
-    detail: `Gennaio 2026${unit.data.january.recipientsAreSum ? ", somma delle quattro ASL" : ""}: un solo mese, nessuna variazione nel tempo. La variazione della spesa resta non attribuibile a un aumento dei pazienti.` };
+  if (!unit) return { title: "Assistiti con erogazioni DPC", value: "Non disponibili", detail: "Nessun conteggio di gennaio 2026 per l’ambito selezionato: nessun valore viene sostituito." };
+  return { title: `Assistiti con erogazioni DPC · ${unit.label}`, value: num(unit.data.january.recipients),
+    detail: `Flussi riferiti a gennaio 2026${unit.data.january.recipientsAreSum ? ", somma dei conteggi delle ASL" : ""}: un solo mese, nessuna variazione nel tempo. La variazione della spesa resta non attribuibile a un aumento dei pazienti.` };
 }
 
 const SEGMENTS = [
@@ -173,9 +173,9 @@ function CandidateReach({ view }: { view: CExtensionView }) {
     return c ? `${num(c.count)} (${pct(c.share)})` : "—";
   };
   const aggregate = units.some((u) => u.key === "aggregato");
-  return <Panel title="Destinatari per stato del prodotto e gruppo di portafogli candidati · gennaio 2026" description={`Destinatari che hanno ricevuto almeno un prodotto di ciascuno stato o di ciascun gruppo. Le quote si sovrappongono e non ripartiscono la spesa.${aggregate ? " L’aggregato somma i destinatari delle quattro ASL: non è un conteggio di persone uniche regionali." : ""}`}>
-    <ExactTable caption="Destinatari per stato del prodotto" headers={["Stato del prodotto", ...units.map((u) => u.label)]} rows={lead.portfolioStatus.map((s) => [s.label, ...units.map((u) => cell(u, "portfolioStatus", s.id))])} />
-    <ExactTable caption="Destinatari per gruppo di portafogli candidati" headers={["Gruppo di portafogli (prodotti a candidato singolo)", ...units.map((u) => u.label)]} rows={lead.singleCandidateReach.map((g) => [g.label, ...units.map((u) => cell(u, "singleCandidateReach", g.id))])} />
+  return <Panel title="Assistiti per stato del prodotto e gruppo di portafogli candidati · gennaio 2026" description={`Assistiti che hanno ricevuto almeno un prodotto di ciascuno stato o di ciascun gruppo. Le quote si sovrappongono e non ripartiscono la spesa.${aggregate ? " Il totale somma i conteggi delle singole ASL: un assistito presente nei dati di due ASL può essere contato due volte." : ""}`}>
+    <ExactTable caption="Assistiti per stato del prodotto" headers={["Stato del prodotto", ...units.map((u) => u.label)]} rows={lead.portfolioStatus.map((s) => [s.label, ...units.map((u) => cell(u, "portfolioStatus", s.id))])} />
+    <ExactTable caption="Assistiti per gruppo di portafogli candidati" headers={["Gruppo di portafogli (prodotti a candidato singolo)", ...units.map((u) => u.label)]} rows={lead.singleCandidateReach.map((g) => [g.label, ...units.map((u) => cell(u, "singleCandidateReach", g.id))])} />
     <p className="mt-3 text-xs leading-5 text-muted-foreground">Ogni gruppo riunisce più portafogli candidati, raggruppamenti farmacologici: non è confrontabile con un singolo portafoglio e non indica la diagnosi, l’indicazione effettiva né l’area che sostiene il costo.</p>
   </Panel>;
 }
@@ -196,7 +196,7 @@ function FileFPortfolios({ view }: { view: CExtensionView }) {
 
 function AttributionNarrowing({ view }: { view: CExtensionView }) {
   const units = view.units, agreement = units.flatMap((u) => u.data.january.attribution.agreementLines ?? []);
-  return <Panel title="Quanto si restringe il campo dei portafogli candidati? · gennaio 2026" description="Quota della spesa dei destinatari ammissibili. L’esenzione restringe i candidati soltanto se il farmaco rientra nelle classi correlate alla patologia secondo l’elenco della Regione Toscana, DGR 865/2018. È un riferimento esterno: non dimostra quale area abbia sostenuto il costo in questa ASL.">
+  return <Panel title="Quanto si restringe il campo dei portafogli candidati? · gennaio 2026" description="Quota della spesa DPC degli assistiti contati. L’esenzione restringe i candidati soltanto se il farmaco rientra nelle classi correlate alla patologia secondo l’elenco della Regione Toscana, DGR 865/2018. È un riferimento esterno: non dimostra quale area abbia sostenuto il costo in questa ASL.">
     <div className="space-y-4">{units.map((u) => { const a = u.data.january.attribution; return <div key={u.key}>
       <p className="mb-1.5 flex flex-wrap justify-between gap-2 text-xs"><span className="font-medium">{u.label}</span><span className="text-muted-foreground">{`Senza prova informativa: ${pct(a.notInformative)}`}</span></p>
       <div className="flex h-4 overflow-hidden rounded-full bg-secondary" role="img" aria-label={`${u.label}: ${SEGMENTS.map((s) => `${s.label} ${pct(a[s.key])}`).join("; ")}`}>{SEGMENTS.map((s) => <span key={s.key} className={s.className} style={{ width: `${a[s.key] * 100}%` }} />)}</div>
@@ -206,7 +206,7 @@ function AttributionNarrowing({ view }: { view: CExtensionView }) {
       ...SEGMENTS.map((s) => [s.label, ...units.map((u) => pct(u.data.january.attribution[s.key]))]),
       ["Accordo esenzione–portafoglio sui prodotti a candidato singolo", ...units.map((u) => pct(u.data.january.attribution.agreementLines))],
     ]} />
-    {units.some((u) => u.data.january.attribution.sharedRecipientsNarrowed !== null) && <ExactTable caption="Destinatari con prodotti condivisi" headers={["Quota dei destinatari con prodotti condivisi", ...units.map((u) => u.label)]} rows={[
+    {units.some((u) => u.data.january.attribution.sharedRecipientsNarrowed !== null) && <ExactTable caption="Assistiti con prodotti condivisi" headers={["Quota degli assistiti con prodotti condivisi", ...units.map((u) => u.label)]} rows={[
       ["Con almeno una riga ristretta a un candidato da un’esenzione coerente", ...units.map((u) => pct(u.data.january.attribution.sharedRecipientsNarrowed))],
     ]} />}
     {agreement.length > 0 && <p className="mt-4 text-xs leading-5 text-muted-foreground">{`Sui prodotti a un solo candidato l’esenzione coerente indica lo stesso portafoglio nel ${agreement.length > 1 && Math.min(...agreement) !== Math.max(...agreement) ? `${pct(Math.min(...agreement))} – ${pct(Math.max(...agreement))}` : pct(agreement[0])} delle righe. È un controllo di coerenza fra segnali, non una conferma indipendente dell’attribuzione clinica: i portafogli restano candidati farmacologici.`}</p>}
@@ -269,7 +269,7 @@ export function PillarCUnitCosts({ view }: { view: CExtensionView }) {
   if (!holder?.data.unitCosts) return null;
   const all = holder.data.unitCosts.products, q = query.trim().toLowerCase();
   const rows = q ? all.filter((r) => `${r.name} ${r.pack} ${r.atc} ${r.aic}`.toLowerCase().includes(q)) : all;
-  return <Panel title={`Costo per confezione sugli stessi prodotti · ${holder.label} · gennaio 2026`} description={`Flussi NSIS DPC, gennaio 2026. Componenti riportate per confezione registrata sui ${num(all.length)} prodotti presenti in tutte e quattro le ASL e ricevuti da almeno 5 destinatari in ciascuna, arrotondate al centesimo. Non sono prezzi negoziati né una misura di efficienza d’acquisto.`}
+  return <Panel title={`Costo per confezione sugli stessi prodotti · ${holder.label} · gennaio 2026`} description={`Flussi NSIS DPC, gennaio 2026. Componenti riportate per confezione registrata sui ${num(all.length)} prodotti presenti in tutte e quattro le ASL e ricevuti da almeno 5 assistiti in ciascuna, arrotondate al centesimo. Non sono prezzi negoziati né una misura di efficienza d’acquisto.`}
     controls={holders.length > 1 ? <label className="min-w-40 text-xs font-medium text-muted-foreground">Azienda<select aria-label="Azienda dei costi per confezione" className={SELECT} value={holder.key} onChange={(e) => setSelected(e.target.value)}>{holders.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}</select></label> : undefined}>
     <label className="mb-3 block max-w-md text-xs font-medium text-muted-foreground">Cerca per nome, ATC o AIC<input type="search" value={query} onChange={(e) => setQuery(e.target.value)} className={SELECT} /></label>
     <p role="status" className="mb-2 text-xs text-muted-foreground">{q ? `${num(rows.length)} prodotti su ${num(all.length)}` : `${num(all.length)} prodotti`}</p>

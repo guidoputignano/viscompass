@@ -193,7 +193,7 @@ test('the scoped workspace shows the extension only for exactly its units, in or
 test('rendered blocks: units in the given order, File F only with asl-3, drivers only with the reviewer block, no colour-only value',()=>{
   const html=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)}));
   assert.match(html,/Unità 3/);assert.match(html,/Aggregato delle quattro Aziende/);assert.doesNotMatch(html,/File F/,'G2-01: the DPC recipients hold no File F');
-  assert.match(html,/somma i destinatari delle quattro ASL/);
+  assert.match(html,/Il totale somma i conteggi delle singole ASL/);
   assert.doesNotMatch(html,/Unità 1|Unità 2|Unità 4/);
   const one=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(['asl-1','aggregato'])}));
   assert.doesNotMatch(one,/File F 2025/);
@@ -212,28 +212,28 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.doesNotMatch(html,/NaN|undefined|Infinity/);
   // G1-01: no unexplained dash; totals keep the aggregate column, per-ASL statistics have none.
   assert.doesNotMatch(html,/>—</,'no dash cell anywhere in the recipients section');
-  for(const t of ['Quanti sono i destinatari e chi sono','Quanto costa di solito un destinatario, in ciascuna ASL','Il costo è concentrato su pochi destinatari?','Come si distribuiscono i destinatari',
-    'Quante confezioni, prescrizioni e prodotti riceve di solito un destinatario?','Quanto pesa il servizio di distribuzione sul costo?','Quanto varia il compenso per confezione fra le farmacie?',
-    'Quanti giorni passano, nei dati registrati, fra prescrizione ed erogazione?','Perché gennaio 2026 e come si contano i destinatari','Donne (sul sesso noto)'])
+  for(const t of ['Quanti sono gli assistiti DPC e chi sono','Quanto costa di solito un assistito, in ciascuna ASL','Il costo è concentrato su pochi assistiti?','Come si distribuiscono gli assistiti',
+    'Quante confezioni, prescrizioni e prodotti riceve di solito un assistito?','Quanto pesa il servizio di distribuzione sul costo?','Quanto varia il compenso per confezione fra le farmacie?',
+    'Quanti giorni passano, nei dati registrati, fra prescrizione ed erogazione?','Perché gennaio 2026 e come si contano gli assistiti','Donne (%)'])
     assert.ok(html.includes(t),t);
   const n=v=>v.replace(/\s/g,' ');
   const tableOf=(h,caption)=>{const i=h.indexOf(`<caption class="sr-only">${caption}</caption>`);assert.ok(i>=0,caption);return h.slice(i,h.indexOf('</table>',i));};
   const headers=t=>[...t.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map(m=>m[1]);
   const row=(t,label)=>{t=n(t);label=n(label);const m=t.match(new RegExp(`>${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}</th>((?:<td[^>]*>[^<]*</td>)+)`));assert.ok(m,label);return [...m[1].matchAll(/<td[^>]*>([^<]*)<\/td>/g)].map(x=>n(x[1]));};
-  const summary=tableOf(html,'Destinatari ammissibili, età e sesso'),cost=tableOf(html,'Costo per destinatario nelle singole ASL');
+  const summary=tableOf(html,'Assistiti con erogazioni DPC, età e sesso'),cost=tableOf(html,'Costo per assistito nelle singole ASL');
   assert.deepEqual(headers(summary),['Misura','Unità 3','Aggregato delle quattro Aziende'],'totals: every column, the aggregate included');
   assert.deepEqual(headers(cost),['Misura','Unità 3'],'per-ASL statistics: no aggregate column');
-  assert.deepEqual(row(summary,'Destinatari ammissibili'),['1.000','4.000']);assert.deepEqual(row(summary,'65 anni e oltre'),['60,0 %','60,0 %']);assert.deepEqual(row(summary,'Donne (sul sesso noto)'),['52,0 %','52,0 %']);
-  assert.deepEqual(row(cost,'Mediana (valore centrale)'),['80,00 €']);assert.deepEqual(row(cost,'Metà centrale dei destinatari (1° – 3° quartile)'),['40 € – 120 €']);
+  assert.deepEqual(row(summary,'Assistiti con erogazioni DPC'),['1.000','4.000']);assert.deepEqual(row(summary,'65 anni e oltre'),['60,0 %','60,0 %']);assert.deepEqual(row(summary,'Donne (%)'),['52,0 %','52,0 %']);
+  assert.deepEqual(row(cost,'Mediana (valore centrale)'),['80,00 €']);assert.deepEqual(row(cost,'Metà centrale degli assistiti (1° – 3° quartile)'),['40 € – 120 €']);
   assert.deepEqual(row(cost,'Quota del costo del 10 % con costo maggiore'),['40,0 %']);assert.deepEqual(row(cost,'Quota del costo del 20 % con costo maggiore'),['53,0 %']);assert.deepEqual(row(cost,'Indice di Gini (0 = costo uguale per tutti)'),['0,48']);
   const units=viewOf(AZ).units,el=(C,props)=>renderToStaticMarkup(React.createElement(C,{units,...props}));
   // G1-09: each measure reads its own quartiles; chart and table say the same.
-  const use=tableOf(el(RV.PillarCTypicalUse,{initialView:'table'}),'Mediane e metà centrale dell’utilizzo per destinatario');
+  const use=tableOf(el(RV.PillarCTypicalUse,{initialView:'table'}),'Mediane e metà centrale dell’utilizzo per assistito');
   assert.deepEqual(headers(use),['Misura','Unità 3'],'no aggregate column');
   assert.deepEqual([row(use,'Confezioni, mediana'),row(use,'Prescrizioni registrate, mediana'),row(use,'Prodotti AIC distinti, mediana')],[['2,0'],['1,0'],['1,5']]);
   assert.deepEqual(row(use,'Prodotti AIC distinti, metà centrale (1° – 3° quartile)'),['1,2 – 2,5']);assert.deepEqual(row(use,'Prescrizioni registrate, metà centrale (1° – 3° quartile)'),['0,9 – 2,0']);
-  assert.match(html,/aria-label="Confezioni per destinatario: Unità 3 mediana 2,0, metà centrale 1,0 – 3,0"/);
-  assert.match(html,/aria-label="Prescrizioni registrate per destinatario: Unità 3 mediana 1,0, metà centrale 0,9 – 2,0"/);
+  assert.match(html,/aria-label="Confezioni per assistito: Unità 3 mediana 2,0, metà centrale 1,0 – 3,0"/);
+  assert.match(html,/aria-label="Prescrizioni registrate per assistito: Unità 3 mediana 1,0, metà centrale 0,9 – 2,0"/);
   assert.match(html,/Non è un box plot completo/);
   // G1-10: three views; each reads its own fields; per-ASL measures apart from those valid for the aggregate.
   const fees=tableOf(el(RV.PillarCPharmacyFees,{initialView:'table'}),'Compenso fra le farmacie');
@@ -248,45 +248,45 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.deepEqual(row(all,'Compenso di servizio per confezione'),['8,10 €','8,10 €']);assert.deepEqual(row(own,'Confezioni sotto 10\u00a0€ di acquisto'),['11,0 %']);
   // G1-06 to G1-08: each measure reads its own bins; counts come from the count field, never share × total.
   const ex=initial=>el(RV.PillarCDistributionExplorer,{initial});
-  const tab=(measure,label,mode='share')=>tableOf(ex({measure,view:'table',mode}),`${label}: destinatari per classe`);
-  assert.deepEqual(row(tab('prescriptions','Prescrizioni registrate per destinatario'),'1'),['90,0 % (900)','90,0 % (3.600)']);
-  assert.deepEqual(row(tab('aics','Prodotti AIC distinti per destinatario'),'1'),['95,0 % (950)','95,0 % (3.800)']);
-  assert.deepEqual(row(tab('ingredients','Sostanze e combinazioni ATC5 per destinatario'),'2'),['5,0 % (50)','5,0 % (200)']);
-  assert.deepEqual(row(tab('packs','Confezioni per destinatario','count'),'1–&lt;2'),['800 (80,0 %)','3.200 (80,0 %)']);
+  const tab=(measure,label,mode='share')=>tableOf(ex({measure,view:'table',mode}),`${label}: assistiti per classe`);
+  assert.deepEqual(row(tab('prescriptions','Prescrizioni registrate per assistito'),'1'),['90,0 % (900)','90,0 % (3.600)']);
+  assert.deepEqual(row(tab('aics','Prodotti AIC distinti per assistito'),'1'),['95,0 % (950)','95,0 % (3.800)']);
+  assert.deepEqual(row(tab('ingredients','Sostanze e combinazioni ATC5 per assistito'),'2'),['5,0 % (50)','5,0 % (200)']);
+  assert.deepEqual(row(tab('packs','Confezioni per assistito','count'),'1–&lt;2'),['800 (80,0 %)','3.200 (80,0 %)']);
   const odd=viewOf(AZ);odd.units[0].data.january.use.packs.bins.cells[0].count=801;
-  assert.equal(row(tableOf(renderToStaticMarkup(React.createElement(RV.PillarCDistributionExplorer,{units:odd.units,initial:{view:'table',mode:'count'}})),'Confezioni per destinatario: destinatari per classe'),'1–&lt;2')[0],'801 (80,0 %)','the exact count field, not 80 % of 1.000');
+  assert.equal(row(tableOf(renderToStaticMarkup(React.createElement(RV.PillarCDistributionExplorer,{units:odd.units,initial:{view:'table',mode:'count'}})),'Confezioni per assistito: assistiti per classe'),'1–&lt;2')[0],'801 (80,0 %)','the exact count field, not 80 % of 1.000');
   const donut=ex({measure:'packs',unit:'asl-3'});
   assert.match(donut,/role="img" aria-label="Unità 3: 1–&lt;2 80,0\u00a0% \(800\); 2\+ 20,0\u00a0% \(200\)"/);assert.equal((donut.match(/<path /g)||[]).length,2,'one arc per class');
   assert.match(ex({}),/aria-label="Confronto fra organizzazioni sulla stessa scala"/,'several organisations: a common scale, not a donut');
-  assert.match(ex({}),/Denominatore: Unità 3 1\.000 destinatari · Aggregato delle quattro Aziende 4\.000 destinatari\. Gennaio 2026, DPC\./);
+  assert.match(ex({}),/Denominatore: Unità 3 1\.000 assistiti · Aggregato delle quattro Aziende 4\.000 assistiti\. Gennaio 2026, DPC\./);
   const withheld=viewOf(AZ);withheld.units[0].data.january.use.packs.bins={status:'withheld',total:null,cells:[]};
   assert.match(renderToStaticMarkup(React.createElement(RV.PillarCDistributionExplorer,{units:withheld.units,initial:{unit:'asl-3'}})),/La distribuzione non è mostrata: non mostrato: classi con meno di 5 persone/);
   // G1-05: every delivered Lorenz point, endpoints included; the equality line; no aggregate curve.
-  const lt=tableOf(el(RV.PillarCCostConcentration,{initialView:'table'}),'Quota cumulata del costo per decimo di destinatari');
-  assert.deepEqual(headers(lt),['Destinatari con costo più basso','Unità 3'],'no aggregate curve');
+  const lt=tableOf(el(RV.PillarCCostConcentration,{initialView:'table'}),'Quota cumulata del costo per decimo di assistiti');
+  assert.deepEqual(headers(lt),['Assistiti con costo più basso','Unità 3'],'no aggregate curve');
   assert.deepEqual(['0','10','50','90','100'].map(k=>row(lt,`${k}\u00a0%`)[0]),['0,0 %','2,0 %','20,0 %','60,0 %','100,0 %']);
   const chart=el(RV.PillarCCostConcentration,{}),pts=chart.match(/<polyline[^>]*points="([^"]*)"/)[1].split(' ');
   assert.deepEqual([pts.length,pts[0],pts[5],pts[10]],[11,'48,216','198,175.2','348,12'],'eleven points: (0,0), the median decile, (100,100)');
   assert.match(chart,/<line x1="48" y1="216" x2="348" y2="12"/,'the equality line from (0,0) to (100,100)');
-  assert.match(chart,/Unità 3: la metà dei destinatari con costo più basso riceve il 20,0\u00a0% del costo; il 10\u00a0% con costo più alto ne riceve il 40,0\u00a0%\./);
+  assert.match(chart,/Unità 3: la metà degli assistiti con costo più basso riceve il 20,0\u00a0% del costo; il 10\u00a0% con costo più alto ne riceve il 40,0\u00a0%\./);
   const attr=renderToStaticMarkup(React.createElement(PillarCDpcAttributionEvidence,{view:viewOf(AZ)})),ffp=renderToStaticMarkup(React.createElement(PillarCFileFPortfolios,{view:viewOf(AZ)}));
-  assert.match(attr,/Destinatari per stato del prodotto e gruppo di portafogli candidati/);
-  assert.match(attr,/L’aggregato somma i destinatari delle quattro ASL: non è un conteggio di persone uniche regionali\./,'the summed aggregate is said to be a sum');
+  assert.match(attr,/Assistiti per stato del prodotto e gruppo di portafogli candidati/);
+  assert.match(attr,/Il totale somma i conteggi delle singole ASL: un assistito presente nei dati di due ASL può essere contato due volte\./,'the summed aggregate is said to be a sum');
   assert.match(attr,/Ogni gruppo riunisce più portafogli candidati/);for(const h of [attr,ffp])assert.doesNotMatch(h,/Portafoglio candidato \(prodotti a candidato singolo\)/);
   assert.match(ffp,/Identificativi raggiunti per gruppo di portafogli candidati[\s\S]*?Oncologia<\/th><td[^>]*>5,0 %/,'the File F reach table is present and reads its own field');
   // Every cell of the group and status tables reads its own field (review of 55593a1).
-  const group=attr.slice(attr.indexOf('<caption class="sr-only">Destinatari per gruppo di portafogli candidati</caption>'));
-  assert.ok(attr.includes('<caption class="sr-only">Destinatari per gruppo di portafogli candidati</caption>'),'the screen-reader caption names groups');
+  const group=attr.slice(attr.indexOf('<caption class="sr-only">Assistiti per gruppo di portafogli candidati</caption>'));
+  assert.ok(attr.includes('<caption class="sr-only">Assistiti per gruppo di portafogli candidati</caption>'),'the screen-reader caption names groups');
   assert.match(group,/Cardiovascolare<\/th><td[^>]*>100 \(10,0 %\)<\/td><td[^>]*>400 \(10,0 %\)<\/td>/,'group reach, not product status');
   assert.match(ffp,/Più portafogli candidati<\/th><td[^>]*>29,0 %/);assert.match(ffp,/Non mappati o evidenza insufficiente<\/th><td[^>]*>1,0 %/);
   assert.match(ffp,/Ogni gruppo riunisce più portafogli candidati\. Le quote di identificativi si sovrappongono/,'the File F note keeps the group sentence');
-  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCDpcAttributionEvidence,{view:viewOf(['asl-3'])})),/somma i destinatari delle quattro ASL/,'no sum caveat without an aggregate column');
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCDpcAttributionEvidence,{view:viewOf(['asl-3'])})),/Il totale somma i conteggi delle singole ASL/,'no sum caveat without an aggregate column');
   assert.ok(attr.includes('600 (60,0 %)')&&attr.includes('2.400 (60,0 %)'),'counts and shares per unit, the aggregate as a sum');
   assert.match(ffp,/File F 2025 · Unità 3: portafogli candidati/);assert.match(ffp,/Un solo portafoglio candidato<\/th><td[^>]*>70,0 %/);
   assert.match(attr,/non indica la diagnosi, l’indicazione effettiva né l’area che sostiene il costo/);
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCFileFPortfolios,{view:viewOf(['asl-1','aggregato'])})),/File F 2025/);
   // G2-01/G2-02: each source in its own view, the File F profile with the File F identifiers.
-  assert.doesNotMatch(attr,/File F|identificativi/i,'the DPC evidence names no File F');assert.doesNotMatch(ffp,/Destinatari/,'the File F evidence holds no DPC recipient');
+  assert.doesNotMatch(attr,/File F|identificativi/i,'the DPC evidence names no File F');assert.doesNotMatch(ffp,/Assistiti/,'the File F evidence holds no DPC recipient');
   assert.match(renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(AZ)})),/Profilo anagrafico degli identificativi/);
 });
 
@@ -318,20 +318,20 @@ test('review of 9545a68: identifiersByMonth must be non-empty too; recipient-gro
 test('the decision card counts recipients only when the extension is present, and never claims a change',()=>{
   assert.equal(cExtensionRecipientsCard(null,false,'aggregato').value,'Non disponibili');
   const c=cExtensionRecipientsCard(viewOf(['aggregato','asl-1']),false,'aggregato');
-  assert.match(c.title,/Aggregato delle quattro Aziende/);assert.match(c.detail,/somma delle quattro ASL/);assert.match(c.detail,/nessuna variazione nel tempo/);
+  assert.match(c.title,/Aggregato delle quattro Aziende/);assert.match(c.detail,/somma dei conteggi delle ASL/);assert.match(c.detail,/nessuna variazione nel tempo/);
 });
 
 // Codex live check A26-01 (26 Oct 2026): the card read units[0] whatever the «Ambito», so it stayed on the first unit.
 test('A26-01: the recipients card reads the selected unit, keeps its caveats, and never falls back to another unit',()=>{
   const view=viewOf(['asl-3','aggregato']);view.units[0].data.january.recipients=1300;view.units[1].data.january.recipients=5000;
   const own=cExtensionRecipientsCard(view,false,'asl-3'),agg=cExtensionRecipientsCard(view,false,'aggregato');
-  assert.deepEqual([own.title,own.value],['Destinatari DPC · Unità 3','1.300']);
-  assert.match(own.detail,/^Gennaio 2026: un solo mese, nessuna variazione nel tempo\./,'a single ASL is not a sum');
-  assert.deepEqual([agg.title,agg.value],['Destinatari DPC · Aggregato delle quattro Aziende','5.000']);
-  assert.match(agg.detail,/^Gennaio 2026, somma delle quattro ASL: un solo mese, nessuna variazione nel tempo\./,'the sum caveat stays with the aggregate');
+  assert.deepEqual([own.title,own.value],['Assistiti con erogazioni DPC · Unità 3','1.300']);
+  assert.match(own.detail,/^Flussi riferiti a gennaio 2026: un solo mese, nessuna variazione nel tempo\./,'a single ASL is not a sum');
+  assert.deepEqual([agg.title,agg.value],['Assistiti con erogazioni DPC · Aggregato delle quattro Aziende','5.000']);
+  assert.match(agg.detail,/^Flussi riferiti a gennaio 2026, somma dei conteggi delle ASL: un solo mese, nessuna variazione nel tempo\./,'the sum caveat stays with the aggregate');
   for(const key of ['asl-1','Regione','PE','',undefined]){
     const none=cExtensionRecipientsCard(view,false,key);
-    assert.deepEqual([none.title,none.value],['Destinatari DPC','Non disponibili'],String(key));
+    assert.deepEqual([none.title,none.value],['Assistiti con erogazioni DPC','Non disponibili'],String(key));
     assert.doesNotMatch(JSON.stringify(none),/1\.300|5\.000|Unità|Aggregato/,'no count or label of a unit the key does not name');
   }
 });
@@ -426,7 +426,7 @@ test('regional parity: the Regione view is the reviewer view, read under its own
 
 test('ext-v2 panels: Lorenz deciles per ASL, fee quartiles, File F tiles and pooled age, shared-recipient narrowing',()=>{
   const html=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)}));
-  assert.match(html,/Il costo è concentrato su pochi destinatari\?/);assert.match(html,/Per l’aggregato non c’è una curva/);
+  assert.match(html,/Il costo è concentrato su pochi assistiti\?/);assert.match(html,/Per l’aggregato non c’è una curva/);
   assert.match(html,/<polyline[^>]*points="48,216 /,'the curve starts at the origin');
   assert.match(html,/Compenso per confezione fra le farmacie: Unità 3 mediana 7,25\s€, metà centrale 6,50\s€ – 8,75\s€/);
   const ffr=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(AZ)}));
@@ -571,7 +571,7 @@ test('G1-03: the File F period offers the year and the catalogued months; a mont
   assert.match(monthly,/>Gen<\/th><td[^>]*>1\.000\s€<\/td><td[^>]*>0\s€<\/td>/);
   assert.match(monthly,/data-c-forecast-readiness="filef">Previsione mensile: non disponibile\./);
   // DPC: the coverage names the catalogued reference month.
-  assert.match(renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)})),/<dt[^>]*>Periodo<\/dt><dd[^>]*>Gennaio 2026: un solo mese<\/dd>/);
+  assert.match(renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)})),/<dt[^>]*>Periodo<\/dt><dd[^>]*>Flussi riferiti a gennaio 2026: un solo mese<\/dd>/);
 });
 
 // ---------------------------------------------------------------- Codex review of 26 Oct 2026: G1-R01 and G1-R03
@@ -593,10 +593,10 @@ test('G1-R03: with tied values the median is described as the central value, nev
   const v=viewOf(AZ),u=v.units.find(x=>x.key==='asl-3').data.january;
   u.use.prescriptions.quartiles={q1:1,median:1,q3:1};u.cost.quartiles={q1:40,median:40,q3:40};
   for(const html of [renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),renderToStaticMarkup(React.createElement(RV.PillarCCostPerRecipient,{units:v.units}))]){
-    assert.match(html,/più destinatari possono avere lo stesso valore/);
-    assert.doesNotMatch(html,/metà dei destinatari (riceve di meno|costa meno)|metà di più/,'no strict half below / half above');
+    assert.match(html,/più assistiti possono avere lo stesso valore/);
+    assert.doesNotMatch(html,/metà degli assistiti (riceve di meno|costa meno)|metà di più/,'no strict half below / half above');
   }
-  assert.match(renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),/aria-label="Prescrizioni registrate per destinatario: Unità 3 mediana 1,0, metà centrale 1,0 – 1,0"/);
+  assert.match(renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),/aria-label="Prescrizioni registrate per assistito: Unità 3 mediana 1,0, metà centrale 1,0 – 1,0"/);
 });
 
 // ---------------------------------------------------------------- Codex live check A26-02 (26 Oct 2026)

@@ -72,7 +72,7 @@ export type CExtensionView = { units: { key: CScopedUnit; label: string; data: C
  * not attributed to more patients. Without the extension nothing counts persons; an extension that could not be read
  * is «not available», never «not counted». */
 export function cDecisionPeopleLine(view: CExtensionView | null, unavailable = false): string {
-  if (!view && unavailable) return "I dati su destinatari e utilizzo non sono disponibili in questo momento: non possiamo attribuire la variazione a un aumento dei pazienti.";
+  if (!view && unavailable) return "I dati sugli assistiti DPC non sono disponibili in questo momento: non possiamo attribuire la variazione a un aumento dei pazienti.";
   if (!view) return "I dati disponibili non contano le persone trattate: non possiamo attribuire la variazione a un aumento dei pazienti.";
   const fileF = view.units.some((u) => u.data.fileF);
   return `Le persone trattate sono contate solo nella DPC di gennaio 2026${fileF ? " e, per un’Azienda, nel File F 2025" : ""}: fonti e periodi diversi dalla serie della spesa, quindi non possiamo attribuire la variazione a un aumento dei pazienti.`;
@@ -81,6 +81,6 @@ export function cDecisionPeopleLine(view: CExtensionView | null, unavailable = f
 /** Reviewer labels of the units: the reviewed pseudonyms, never a province or place name. */
 export const C_EXT_UNIT_LABELS: Readonly<Record<CScopedUnit, string>> = { aggregato: "Aggregato delle quattro Aziende", "asl-1": "ASL 1", "asl-2": "ASL 2", "asl-3": "ASL 3", "asl-4": "ASL 4" };
 export const C_EXT_SOURCE = {
-  january: "Flussi NSIS DPC delle quattro ASL, gennaio 2026 · destinatari ammissibili distinti entro ciascuna ASL",
+  january: "Flussi DPC riferiti a gennaio 2026 · assistiti distinti entro ciascuna ASL",
   fileF: "File F 2025 di una sola Azienda · righe di dettaglio valide · importo riportato, non spesa netta",
 } as const;

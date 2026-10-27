@@ -28,7 +28,7 @@ export function PillarCRegionalForecastWorkspace({ forecast }: { forecast: CFore
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-forecast="signed_in">
     <PageHeader eyebrow="Pillar C" title="Previsione regionale 2026" description="Abruzzo · andamento mensile e intervalli di previsione." />
     <PillarCSectionBar available={[BUDGET.id]} />
-    <PillarCSectionEmpty>Quadro decisionale, Destinatari e utilizzo, Portafogli e attribuzione, Fattori di spesa e Priorità ed evidenza non sono disponibili in questa pagina; in Budget e scenari è disponibile solo la previsione regionale. Nessun valore viene sostituito.</PillarCSectionEmpty>
+    <PillarCSectionEmpty>Quadro decisionale, Assistiti e utilizzo, Portafogli e attribuzione, Fattori di spesa e Priorità ed evidenza non sono disponibili in questa pagina; in Budget e scenari è disponibile solo la previsione regionale. Nessun valore viene sostituito.</PillarCSectionEmpty>
     <PillarCSectionFrame id={BUDGET.id} number={BUDGET.number} title={BUDGET.label} question={BUDGET.question}>
       <section id="previsione" aria-label="Previsione regionale 2026">
         <PillarCForecastPanel forecast={forecast} series={series} onSeries={update} published />

@@ -43,16 +43,17 @@ function Table({ caption, headers, rows, minWidth = "min-w-[34rem]" }: { caption
       : <td key={c.key} className={td}>{c.text}</td>)}</tr>)}</tbody></table></div>;
 }
 
-/** Section 2 (P8-03): beside the January recipients. One column per unit the audience reads, in its fixed order. */
+/** The DPC view (P8-03): the ASL of reference, beside the January assistiti. One column per unit the audience reads, in
+ * its fixed order. */
 export function PillarCAdditionsResidence({ view, unavailable = false }: { view: CAdditionsView | null; unavailable?: boolean }) {
   if (!view) return unavailable ? <PillarCSectionEmpty>{C_ADD_COPY.residenceUnavailable}</PillarCSectionEmpty> : null;
   const units = view.units;
   const rows = [
-    { key: "eligible", label: "Destinatari ammissibili", cells: units.map((u) => ({ key: u.key, text: num(u.entry.residence.eligible) })) },
+    { key: "eligible", label: "Assistiti con erogazioni DPC", cells: units.map((u) => ({ key: u.key, text: num(u.entry.residence.eligible) })) },
     ...C_ADD_RESIDENCE.map((k) => ({ key: k, label: C_ADD_RESIDENCE_LABELS[k], cells: units.map((u) => ({ key: u.key, text: `${num(u.entry.residence[k].count)} (${pct(u.entry.residence[k].share, 1)})` })) })),
   ];
   return <Panel title={C_ADD_COPY.residenceTitle} description={hasAggregate(units) ? `${C_ADD_COPY.residenceLead} ${C_ADD_COPY.residenceAggregate}` : C_ADD_COPY.residenceLead}>
-    <div data-c-additions="residence"><Table caption="Residenza amministrativa dei destinatari ammissibili" headers={["Residenza", ...units.map((u) => u.label)]} rows={rows} /></div>
+    <div data-c-additions="residence"><Table caption="ASL di riferimento degli assistiti DPC" headers={["ASL di riferimento", ...units.map((u) => u.label)]} rows={rows} /></div>
   </Panel>;
 }
 
@@ -76,10 +77,10 @@ export function PillarCAdditionsNarrowing({ view, unavailable = false }: { view:
     : undefined;
   return <Panel title={C_ADD_COPY.narrowingTitle} description={hasAggregate(view.units) ? `${C_ADD_COPY.narrowingLead} ${C_ADD_COPY.narrowingAggregate}` : C_ADD_COPY.narrowingLead} controls={controls}>
     <div key={unit.key} data-c-additions="narrowing" data-c-unit={unit.key}>
-      <p className="text-sm leading-6">{`${unit.label}: ${num(total.recipients)} dei ${num(n.eligibleRecipients)} destinatari ammissibili hanno almeno una riga ristretta a un’area; quella spesa è il ${pct(total.shareOfEligibleSpend, 2)} della spesa dei destinatari ammissibili.`}</p>
-      <Table caption={`Spesa ristretta per area candidata · ${unit.label}`} headers={["Area candidata", "Destinatari", "Quota della spesa ristretta", "Quota della spesa ammissibile"]} rows={areas} />
+      <p className="text-sm leading-6">{`${unit.label}: ${num(total.recipients)} dei ${num(n.eligibleRecipients)} assistiti con erogazioni DPC hanno almeno una riga ristretta a un’area; quella spesa è il ${pct(total.shareOfEligibleSpend, 2)} della loro spesa.`}</p>
+      <Table caption={`Spesa ristretta per area candidata · ${unit.label}`} headers={["Area candidata", "Assistiti", "Quota della spesa ristretta", "Quota della spesa ammissibile"]} rows={areas} />
       {hidden && <p className={NOTE} data-c-hidden-note="true">{C_ADD_COPY.hiddenNote}</p>}
-      <Table caption={`Spesa per classe di esenzione della riga · ${unit.label}`} headers={["Classe di esenzione della riga", "Destinatari", "Quota della spesa ammissibile"]} rows={classes} />
+      <Table caption={`Spesa per classe di esenzione della riga · ${unit.label}`} headers={["Classe di esenzione della riga", "Assistiti", "Quota della spesa ammissibile"]} rows={classes} />
       <p className={NOTE}>{C_ADD_COPY.classesNote}</p>
     </div>
   </Panel>;
