@@ -545,7 +545,10 @@ test('11. copy lint and source pins of the two workspaces',()=>{
     'const fileFFields = cAdditionsHoldsFileF(audience) ? <PillarCAdditionsFileF view={additions} unavailable={additionsUnavailable} /> : null;',
     // Joint feedback 2 (G2-01/G2-02): the DPC flows and File F in views of their own; the source links carry only the
     // validated scope, never a key the address brought in.
-    '<PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={dpcRegionWide} />',
+    '<PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={dpcRegionWide} under10={under10List} />',
+    // G2-16: the under-€10 list only when it is exactly the audience's own ASLs under its labels.
+    'const u10 = cUnder10For(checked, under10);',
+    'publicSection, publicUnavailable: publicUnavailable || !publicSection, under10: u10, under10Unavailable: !u10 && (under10Unavailable || Boolean(under10)) };',
     '<PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={fileFRegionWide} />',
     'const sourceScope = cScopedPageScopeSearch(audience, "", { org: filters.org, channel: filters.channel });',
     // Owner decision of 24 Oct 2026: provenance and modelled budgets only with their capabilities; a modelled row in the

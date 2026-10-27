@@ -21,6 +21,8 @@ import { cSourceView } from "@/lib/dashboard-review/pillar-c/source-views";
 import { PillarCFileFBasket, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
 import { cAdditionsFor, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
+import { cUnder10For, type CU10View } from "@/lib/dashboard-review/pillar-c/under10";
+import { PillarCUnder10List } from "@/components/dashboard-review/pillar-c/under10-list";
 import { PillarCProvenance } from "@/components/dashboard-review/pillar-c/provenance-panels";
 import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
 import { PillarCAudienceProvider, usePillarCAudience } from "@/components/dashboard-review/pillar-c/audience-context";
@@ -84,26 +86,30 @@ export function cReviewerScopeSearch(search: string, patch: { org?: string; chan
 
 /** The reviewer workspace. The audience is mandatory and must be the reviewer's: the reviewer packet (all four
  * Aziende, workbook, lineage and receipts) is never rendered under another audience, and nothing renders without one. */
-export function PillarCAnalyticalWorkspace({ audience, packet, workbook, extension, extensionUnavailable = false, additions = null, additionsUnavailable = false }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension?: CExtensionView | null; extensionUnavailable?: boolean; additions?: CAdditionsView | null; additionsUnavailable?: boolean }) {
+export function PillarCAnalyticalWorkspace({ audience, packet, workbook, extension, extensionUnavailable = false, additions = null, additionsUnavailable = false, under10 = null, under10Unavailable = false }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension?: CExtensionView | null; extensionUnavailable?: boolean; additions?: CAdditionsView | null; additionsUnavailable?: boolean; under10?: CU10View | null; under10Unavailable?: boolean }) {
   if (audience?.kind !== "reviewer") return null;
   // Additions that are not exactly the five units under the reviewed labels are refused like unreadable ones.
   const added = cAdditionsFor(audience, additions);
-  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} extension={extension ?? null} extensionUnavailable={!extension && extensionUnavailable} additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))} /></PillarCAudienceProvider>;
+  // So is an under-€10 list (G2-16) that is not exactly ASL 1-4 under the reviewed labels.
+  const u10 = cUnder10For(audience, under10);
+  return <PillarCAudienceProvider audience={audience}><ReviewerGate packet={packet} workbook={workbook} extension={extension ?? null} extensionUnavailable={!extension && extensionUnavailable} additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))} under10={u10} under10Unavailable={!u10 && (under10Unavailable || Boolean(under10))} /></PillarCAudienceProvider>;
 }
-type CReviewerAdditionsProps = { additions: CAdditionsView | null; additionsUnavailable: boolean };
-function ReviewerGate({ packet, workbook, extension, extensionUnavailable, additions, additionsUnavailable }: { packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean } & CReviewerAdditionsProps) {
+type CReviewerAdditionsProps = { additions: CAdditionsView | null; additionsUnavailable: boolean; under10: CU10View | null; under10Unavailable: boolean };
+function ReviewerGate({ packet, workbook, extension, extensionUnavailable, additions, additionsUnavailable, under10, under10Unavailable }: { packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean } & CReviewerAdditionsProps) {
   const audience = usePillarCAudience();
-  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} extension={extension} extensionUnavailable={extensionUnavailable} additions={additions} additionsUnavailable={additionsUnavailable} /> : null;
+  return audience?.kind === "reviewer" ? <ReviewerWorkspace audience={audience} packet={packet} workbook={workbook} extension={extension} extensionUnavailable={extensionUnavailable} additions={additions} additionsUnavailable={additionsUnavailable} under10={under10} under10Unavailable={under10Unavailable} /> : null;
 }
 /** The six sections of the page (docs/PILLAR_C_SIX_SECTIONS_20261022.md §1), each a frame with its numeral, heading and
  * question; the review blocks, the dossier, the attribution and the workbook insights sit inside the frames by topic. */
-function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUnavailable, additions, additionsUnavailable }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean } & CReviewerAdditionsProps) {
+function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUnavailable, additions, additionsUnavailable, under10, under10Unavailable }: { audience: CClientAudience; packet: CReviewPacket; workbook?: CWorkbookIndex; extension: CExtensionView | null; extensionUnavailable: boolean } & CReviewerAdditionsProps) {
   const search = useSearchParams(), filters = cReviewFilters(search), data = selectCReview(packet, filters);
   // The additions' three panels (owner decision D24-4), beside what they extend: P8-03 after the January recipients,
   // P10-04 after the narrowing evidence, P10-05 after the File F portfolios.
   const residence = <PillarCAdditionsResidence view={additions} unavailable={additionsUnavailable} />;
   const narrowing = <PillarCAdditionsNarrowing view={additions} unavailable={additionsUnavailable} />;
   const fileFFields = <PillarCAdditionsFileF view={additions} unavailable={additionsUnavailable} />;
+  // G2-16: the medicines behind the under-€10 service measures, right after them in the DPC view.
+  const under10List = <PillarCUnder10List view={under10} unavailable={under10Unavailable} />;
   const budgetFilters = cBudgetFilters(packet, new URLSearchParams(search));
   const budgetData = selectCReview(packet, budgetFilters);
   const updateBudget = (patch: Partial<CReviewFilters>) => {
@@ -145,7 +151,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={packet.schema === "pillar-c-review-v2" ? "v2" : "v1"} data-release-state="review_only">
     <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope="Aggregato delle quattro Aziende e ASL 1–4 · revisione di progetto" />
     <PillarCSourceBar view={sourceView} coverage={coverage} scope={sourceScope} />
-    {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={extension ? <PillarCResidentDrivers view={extension} /> : null} />
+    {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} under10={under10List} regionWide={extension ? <PillarCResidentDrivers view={extension} /> : null} />
     : sourceView === "filef" ? <PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={extension ? <PillarCFileFBasket view={extension} /> : null} />
     : <>
     <PillarCSectionBar />

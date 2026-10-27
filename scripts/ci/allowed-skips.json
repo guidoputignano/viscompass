@@ -102,6 +102,11 @@
    "reason": "Private SQL runbooks unavailable"
   },
   {
+   "file": "tests/pillar-c-under10.test.mjs",
+   "name": "the private objects pass the real parser and match the pins in the repository (pass/fail only)",
+   "reason": "the private build is not available locally"
+  },
+  {
    "file": "tests/private-pillar-comparison.test.mjs",
    "name": "private staged source comparisons reconcile",
    "reason": "private-staging/closure/private-v2-facts.json not present"

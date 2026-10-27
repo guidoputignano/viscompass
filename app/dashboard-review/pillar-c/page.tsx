@@ -20,6 +20,7 @@ import { PillarCScopedWorkspace } from "@/components/dashboard-review/pillar-c/s
 import { loadCExtensionReviewer, loadCExtensionScoped } from "@/lib/dashboard-review/pillar-c/extension-loader";
 import { loadCRegionalPublic, loadCRegionalPvm, loadCRegionalReview } from "@/lib/dashboard-review/pillar-c/regional-loader";
 import { loadCAdditionsReviewer, loadCAdditionsScoped } from "@/lib/dashboard-review/pillar-c/additions-loader";
+import { loadCUnder10Reviewer, loadCUnder10Scoped } from "@/lib/dashboard-review/pillar-c/under10-loader";
 import { cAdditionsWithExtension } from "@/lib/dashboard-review/pillar-c/additions-parse";
 import { buildCPeriodCatalog, publicCPeriodCatalog } from "@/lib/dashboard-review/pillar-c/period-catalog";
 import type { CPeriodCatalog } from "@/lib/dashboard-review/pillar-c/period-contract";
@@ -63,18 +64,20 @@ async function scopedPillarC(audience: PillarCScopedAudience) {
   // its own unit and the aggregate, the Regione the full object of its regional folder.
   // The public comparators (owner clarification of 23 Oct 2026): the Regione reads them from its regional folder, an
   // Azienda the same pinned bytes from the aggregate folder, as public context (owner decision of 26 Oct 2026, PR25-04).
-  const [review, forecast, extension, pvm, regional, added, publicLoad] = await Promise.all([loadCScopedReview(audience, db), loadCRegionalForecast(true),
+  // The under-€10 DPC medicine list (G2-16): an Azienda its own ASL, the Regione the four ASLs of its regional folder.
+  const [review, forecast, extension, pvm, regional, added, publicLoad, u10] = await Promise.all([loadCScopedReview(audience, db), loadCRegionalForecast(true),
     client ? loadCExtensionScoped(audience, db, (unit) => client.orgs.find((o) => o.key === unit)?.label ?? null) : Promise.resolve({ state: "unavailable" as const }),
     regione ? loadCRegionalPvm(audience, db) : Promise.resolve({ state: "forbidden" as const }),
     regione ? loadCRegionalReview(audience, db) : Promise.resolve({ state: "forbidden" as const }),
     client ? loadCAdditionsScoped(audience, db, (unit) => client.orgs.find((o) => o.key === unit)?.label ?? null) : Promise.resolve({ state: "unavailable" as const }),
-    loadCRegionalPublic(audience, db)]);
+    loadCRegionalPublic(audience, db),
+    client ? loadCUnder10Scoped(audience, db, (unit) => client.orgs.find((o) => o.key === unit)?.label ?? null) : Promise.resolve({ state: "unavailable" as const })]);
   // Each unit's eligible recipients must be the extension's January recipients (P8-H5): otherwise «unavailable».
   const additions = cAdditionsWithExtension(added, extension);
   if (review.state === "ready" && client) {
     // The modelled rows join the unit files' published acts; nothing else in the packet changes.
     const packet = regional.state === "ready" ? { ...review.packet, budgets: [...review.packet.budgets, ...regional.review.budgets] } : review.packet;
-    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCPeriodCatalogProvider catalog={periodCatalogOf(extension.state === "ready" ? extension.view : null)}><PillarCScopedWorkspace audience={client} packet={packet} forecast={forecast.state === "ready" ? forecast.data.forecast : null} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} pvmSection={pvm.state === "ready" ? pvm.section : null} provenance={regional.state === "ready" ? regional.review.provenance : null} regionalReviewUnavailable={regione && regional.state !== "ready"} additions={additions.state === "ready" ? additions.view : null} additionsUnavailable={additions.state !== "ready"} publicSection={publicLoad.state === "ready" ? publicLoad.section : null} publicUnavailable={publicLoad.state !== "ready"} /></PillarCPeriodCatalogProvider></Suspense>;
+    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCPeriodCatalogProvider catalog={periodCatalogOf(extension.state === "ready" ? extension.view : null)}><PillarCScopedWorkspace audience={client} packet={packet} forecast={forecast.state === "ready" ? forecast.data.forecast : null} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} pvmSection={pvm.state === "ready" ? pvm.section : null} provenance={regional.state === "ready" ? regional.review.provenance : null} regionalReviewUnavailable={regione && regional.state !== "ready"} additions={additions.state === "ready" ? additions.view : null} additionsUnavailable={additions.state !== "ready"} under10={u10.state === "ready" ? u10.view : null} under10Unavailable={u10.state !== "ready"} publicSection={publicLoad.state === "ready" ? publicLoad.section : null} publicUnavailable={publicLoad.state !== "ready"} /></PillarCPeriodCatalogProvider></Suspense>;
   }
   // An entitled unit that cannot be read is unavailable, never «not entitled», and no value is substituted.
   return <div data-pillar-c-scope={`scoped-${audience.kind}-unavailable`}><p role="status" className="mb-6 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">Le analisi di Pillar C per la tua organizzazione non sono disponibili in questo momento. Nessun valore viene sostituito.</p>{forecast.state === "ready"
@@ -103,17 +106,18 @@ export default async function PillarCPage() {
   if (!projectReviewer) {
     return <section className="rounded-2xl border border-border bg-card p-8"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Pillar C</p><h1 className="mt-3 text-2xl font-semibold">Aree cliniche e budget · in preparazione</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Le analisi saranno disponibili dopo la validazione del workbook. L’anteprima dell’interfaccia è riservata ai revisori autorizzati.</p></section>;
   }
-  const [review, workbook, extension, added] = await Promise.all([
+  const [review, workbook, extension, added, u10] = await Promise.all([
     loadCReviewPacket(Boolean(org), Boolean(viewer?.isReviewer || admin)),
     loadCWorkbookIndex(Boolean(org), Boolean(viewer?.isReviewer || admin)),
     loadCExtensionReviewer(Boolean(org), Boolean(viewer?.isReviewer || admin)),
     loadCAdditionsReviewer(Boolean(org), Boolean(viewer?.isReviewer || admin)),
+    loadCUnder10Reviewer(Boolean(org), Boolean(viewer?.isReviewer || admin)),
   ]);
   // The additions' eligible recipients must be the extension's January recipients, unit by unit (P8-H5).
   const additions = cAdditionsWithExtension(added, extension);
   if (review.state === "ready") {
     // The audience is mandatory for every Pillar C client component: the reviewer's is passed explicitly.
-    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCPeriodCatalogProvider catalog={periodCatalogOf(extension.state === "ready" ? extension.view : null)}><PillarCAnalyticalWorkspace audience={C_REVIEWER_CLIENT_AUDIENCE} packet={review.packet} workbook={workbook.state === "ready" ? workbook.index : undefined} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} additions={additions.state === "ready" ? additions.view : null} additionsUnavailable={additions.state !== "ready"} /></PillarCPeriodCatalogProvider></Suspense>;
+    return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Caricamento delle analisi in revisione…</p>}><PillarCPeriodCatalogProvider catalog={periodCatalogOf(extension.state === "ready" ? extension.view : null)}><PillarCAnalyticalWorkspace audience={C_REVIEWER_CLIENT_AUDIENCE} packet={review.packet} workbook={workbook.state === "ready" ? workbook.index : undefined} extension={extension.state === "ready" ? extension.view : null} extensionUnavailable={extension.state !== "ready"} additions={additions.state === "ready" ? additions.view : null} additionsUnavailable={additions.state !== "ready"} under10={u10.state === "ready" ? u10.view : null} under10Unavailable={u10.state !== "ready"} /></PillarCPeriodCatalogProvider></Suspense>;
   }
   return <section className="rounded-2xl border border-border bg-card p-6 md:p-8"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Pillar C · Revisione di progetto</p><h1 className="mt-3 text-2xl font-semibold">Il collegamento alle analisi è in preparazione</h1><p role="status" className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{review.state === "invalid" ? "Il pacchetto di revisione non supera i controlli di integrità. I risultati non vengono caricati né sostituiti con esempi." : "I componenti analitici sono pronti per il pacchetto privato di risultati controllati. L’accettazione del workbook e il rilascio per le Aziende restano separati."}</p><div className="mt-6 grid gap-5 md:grid-cols-3">{[["Spesa e variazioni", "Andamento mensile o cumulato e ponte contabile su periodi omogenei."], ["Budget e numerosità", "Due chiavi di allocazione e sensibilità del denominatore CO, con ipotesi esplicite."], ["Controllo del rilascio", "Nessuna previsione o analisi priva dei propri controlli viene attivata dalla presenza di un grafico."]].map(([title, text]) => <div key={title}><h2 className="text-sm font-semibold">{title}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">{text}</p></div>)}</div></section>;
 }

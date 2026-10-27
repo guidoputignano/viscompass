@@ -30,8 +30,9 @@ const monthLabel = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? m
 /** The DPC view's recipients (redesigned for Guido's feedback 1, moved to its own view for G2-01/G2-02): what is counted, the totals that add up
  * across the ASLs, then one view per question (distributions, cost per recipient, concentration, typical use, service
  * burden, pharmacy fees, recorded intervals), each with its exact values. `residence` (the additions' P8-03 panel, or
- * its honest state) sits right after the totals it describes. */
-export function PillarCRecipientsSection({ view, residence }: { view: CExtensionView; residence?: ReactNode }) {
+ * its honest state) sits right after the totals it describes; `under10` (G2-16, the medicines behind the under-€10
+ * measures) right after the service measures. */
+export function PillarCRecipientsSection({ view, residence, under10 }: { view: CExtensionView; residence?: ReactNode; under10?: ReactNode }) {
   const units = view.units, asl = units.filter((u) => u.key !== "aggregato");
   return <div className="space-y-6">
     <Heading inner id="destinatari-dpc" title="Chi sono gli assistiti DPC e con quale utilizzo?">{`${C_EXT_SOURCE.january}.`}</Heading>
@@ -43,6 +44,7 @@ export function PillarCRecipientsSection({ view, residence }: { view: CExtension
     <PillarCCostConcentration units={units} />
     <PillarCTypicalUse units={units} />
     <PillarCServiceBurden units={units} />
+    {under10}
     <PillarCPharmacyFees units={units} />
     <PillarCDispensingIntervals units={units} />
     {asl.length === 0 && <Empty>Nessuna ASL in questa vista.</Empty>}

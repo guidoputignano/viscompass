@@ -106,8 +106,8 @@ export function PillarCSourceLinks({ lead, scope }: { lead: string; scope: strin
 }
 
 /** «Assistiti e servizio DPC»: the January 2026 DPC flows of the organisations in this view, and nothing else. */
-export function PillarCDpcView({ extension, unavailable, residence, narrowing, regionWide }: {
-  extension: CExtensionView | null; unavailable: boolean; residence?: ReactNode; narrowing?: ReactNode; regionWide?: ReactNode;
+export function PillarCDpcView({ extension, unavailable, residence, narrowing, regionWide, under10 }: {
+  extension: CExtensionView | null; unavailable: boolean; residence?: ReactNode; narrowing?: ReactNode; regionWide?: ReactNode; under10?: ReactNode;
 }) {
   const coverage = cSourceCoverage(extension);
   return <section id="dpc" aria-labelledby="dpc-title" className="scroll-mt-6 space-y-8 xl:scroll-mt-36" data-c-source-view="dpc">
@@ -121,7 +121,7 @@ export function PillarCDpcView({ extension, unavailable, residence, narrowing, r
       </>} />
     {extension
       ? <>
-        <PillarCRecipientsSection view={extension} residence={residence} />
+        <PillarCRecipientsSection view={extension} residence={residence} under10={under10} />
         <PillarCUnitCosts view={extension} />
         {regionWide}
         <PillarCDpcAttributionEvidence view={extension} narrowing={narrowing} />
@@ -129,6 +129,7 @@ export function PillarCDpcView({ extension, unavailable, residence, narrowing, r
       : <>
         <PillarCSectionEmpty>{unavailable ? "I dati DPC non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito." : "Le fonti disponibili per questa vista non includono i flussi DPC. Nessun valore viene mostrato né sostituito."}</PillarCSectionEmpty>
         {residence}
+        {under10}
         {narrowing}
       </>}
   </section>;

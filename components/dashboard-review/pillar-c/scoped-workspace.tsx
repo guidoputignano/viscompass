@@ -21,6 +21,8 @@ import { cSourceView } from "@/lib/dashboard-review/pillar-c/source-views";
 import { PillarCFileFBasket, PillarCFindings, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
 import { cAdditionsFor, cAdditionsHoldsFileF, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
+import { cUnder10For, type CU10View } from "@/lib/dashboard-review/pillar-c/under10";
+import { PillarCUnder10List } from "@/components/dashboard-review/pillar-c/under10-list";
 import type { CWorkbookSection } from "@/lib/dashboard-review/pillar-c/workbook";
 import { PillarCProvenance } from "@/components/dashboard-review/pillar-c/provenance-panels";
 import { cDecisionPeopleLine, type CExtensionView } from "@/lib/dashboard-review/pillar-c/extension";
@@ -65,6 +67,10 @@ export type PillarCScopedWorkspaceProps = {
   publicSection?: CWorkbookSection | null;
   /** Regione only: its public-comparator object could not be read: «not available». */
   publicUnavailable?: boolean;
+  /** G2-16: the under-€10 DPC medicine list of the audience's own ASLs (an Azienda its own, the Regione ASL 1-4), or null. */
+  under10?: CU10View | null;
+  /** The list is published for this audience but could not be read: «not available». */
+  under10Unavailable?: boolean;
 };
 
 const { monthNames } = C_REVIEW_UI;
@@ -145,13 +151,15 @@ export function cScopedPageScopeSearch(audience: CClientAudience, search: string
  *   - The workbook route and the shared review queue are not part of it, and for an Azienda neither are the
  *     price/quantity/mix decomposition, the modelled budgets and the provenance panels.
  */
-export function PillarCScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable = false, pvmSection = null, provenance = null, regionalReviewUnavailable = false, additions = null, additionsUnavailable = false, publicSection = null, publicUnavailable = false }: PillarCScopedWorkspaceProps) {
+export function PillarCScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable = false, pvmSection = null, provenance = null, regionalReviewUnavailable = false, additions = null, additionsUnavailable = false, publicSection = null, publicUnavailable = false, under10 = null, under10Unavailable = false }: PillarCScopedWorkspaceProps) {
   const checked = cClientAudience(audience);
   if (!checked || checked.kind === "reviewer" || !coherent(checked, packet)) return null;
   // An extension that does not match the audience is refused like an unreadable one: «not available».
   const shown = cScopedExtensionFor(checked, extension ?? null);
   // So are additions that hold a unit outside the audience, or not exactly its units in its order: «not available».
   const added = cAdditionsFor(checked, additions);
+  // So is an under-€10 list (G2-16) that is not exactly the audience's own ASLs under its labels.
+  const u10 = cUnder10For(checked, under10);
   // The price/quantity/mix output reaches the panel only for an audience allowed to read it (the Regione).
   const pvm = checked.capabilities.pvm ? pvmSection : null;
   // Provenance and modelled budgets reach the page only for an audience allowed to read them (the Regione); a modelled
@@ -161,10 +169,10 @@ export function PillarCScopedWorkspace({ audience, packet, forecast, extension, 
   const granted = { pvmSection: pvm, provenance: trace, regionalUnavailable: (checked.capabilities.lineage || checked.capabilities.syntheticBudgets) && regionalReviewUnavailable,
     // The public comparators reach both scoped audiences: the Regione as regional comparison, an Azienda as public
     // context framed as such, never set against its own amounts (PC-14 §3.4; owner decision of 26 Oct 2026, PR25-04).
-    publicSection, publicUnavailable: publicUnavailable || !publicSection };
+    publicSection, publicUnavailable: publicUnavailable || !publicSection, under10: u10, under10Unavailable: !u10 && (under10Unavailable || Boolean(under10)) };
   return <PillarCAudienceProvider audience={checked}><ScopedGate packet={packet} forecast={forecast} extension={shown} extensionUnavailable={!shown && (extensionUnavailable || Boolean(extension))} additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))} granted={granted} /></PillarCAudienceProvider>;
 }
-type CScopedRegionalProps = { pvmSection: CWorkbookSection | null; provenance: CScopedProvenance | null; regionalUnavailable: boolean; publicSection: CWorkbookSection | null; publicUnavailable: boolean };
+type CScopedRegionalProps = { pvmSection: CWorkbookSection | null; provenance: CScopedProvenance | null; regionalUnavailable: boolean; publicSection: CWorkbookSection | null; publicUnavailable: boolean; under10: CU10View | null; under10Unavailable: boolean };
 type CScopedAdditionsProps = { additions: CAdditionsView | null; additionsUnavailable: boolean };
 function ScopedGate({ packet, forecast, extension, extensionUnavailable, additions, additionsUnavailable, granted }: { packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps } & CScopedAdditionsProps) {
   const audience = usePillarCAudience();
@@ -188,6 +196,8 @@ export function cScopedExtensionFor(audience: CClientAudience, extension: CExten
 
 function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnavailable, additions, additionsUnavailable, granted }: { audience: CClientAudience; packet: CScopedClientReview; forecast: CForecast | null; extension: CExtensionView | null; extensionUnavailable: boolean; granted: CScopedRegionalProps } & CScopedAdditionsProps) {
   const { pvmSection, provenance, regionalUnavailable } = granted;
+  // G2-16: the medicines behind the under-€10 service measures, right after them in the DPC view.
+  const under10List = <PillarCUnder10List view={granted.under10} unavailable={granted.under10Unavailable} />;
   // The additions' three panels (owner decision D24-4): P8-03 beside the January recipients, P10-04 with the attribution
   // evidence, P10-05 beside the File F blocks for an audience that holds the File F unit (the Regione, ASL 3).
   const residence = <PillarCAdditionsResidence view={additions} unavailable={additionsUnavailable} />;
@@ -243,7 +253,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={`scoped-${audience.kind}`} data-release-state="review_only">
     <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope={audience.scopeLine ?? undefined} />
     <PillarCSourceBar view={sourceView} coverage={coverage} scope={sourceScope} />
-    {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={dpcRegionWide} />
+    {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={dpcRegionWide} under10={under10List} />
     : sourceView === "filef" ? <PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={fileFRegionWide} />
     : <>
     <PillarCSectionBar />

@@ -230,3 +230,25 @@ test('additions: an Azienda reads its own unit and the aggregate, the Regione it
   await quiet(()=>withProduction(render));
   assert.equal(off.state.addReads,undefined);
 });
+
+// ---------------------------------------------------------------- joint feedback 2, G2-16: the under-€10 medicine list
+test('under-€10 list: the reviewer reads it after the gate, an Azienda and the Regione under their session and labels; never a forecast-only member',async()=>{
+  const packet=parseCReviewPacket(cReviewV2Fixture());
+  const run=async(extra)=>{const state=reviewerPageCases({as,ORGS,viewer,packet})[3][1]();state.rendered=[];Object.assign(state,extra);await withProduction(render);return state;};
+  const none=await run({});
+  assert.deepEqual(none.u10Reads,[['under10-reviewer',true,true]]);assert.deepEqual(none.under10Shown,[null]);assert.deepEqual(none.under10Unavailable,[true]);
+  assert.deepEqual(Object.keys(none.rendered[0][1]),['packet','workbook'],'the rest of the branch is unchanged');
+  const view={units:[]},ok=await run({under10:{state:'ready',view}});
+  assert.equal(ok.under10Shown[0],view,'the loaded view, not a copy');assert.deepEqual(ok.under10Unavailable,[false]);
+  const az=member('asl-3',{units:['aggregato','asl-3']});
+  await withProduction(render);
+  assert.deepEqual(az.state.u10Reads,[['under10-scoped',['asl-3','aggregato'],['Azienda sintetica Tre','Aggregato delle quattro Aziende']]],'never the reviewer read');
+  assert.deepEqual(az.state.under10Shown,[null]);assert.deepEqual(az.state.under10Unavailable,[true],'unreadable, so «not available»');
+  const r=member('regione',{units:SCOPED_UNITS});
+  await quiet(()=>withProduction(render));
+  assert.deepEqual(r.state.u10Reads,[['under10-scoped',['aggregato','asl-1','asl-2','asl-3','asl-4'],['Aggregato regionale','ASL 1','ASL 2','ASL 3','ASL 4']]]);
+  assert.equal(r.state.serviceRole,0);
+  const off=member('asl-4',{units:[]});
+  await quiet(()=>withProduction(render));
+  assert.equal(off.state.u10Reads,undefined);
+});
