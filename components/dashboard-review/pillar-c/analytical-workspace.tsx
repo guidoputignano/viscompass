@@ -15,7 +15,9 @@ import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/evidence-workflow";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
-import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCUnitCosts, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { PillarCDpcView, PillarCFileFView, PillarCSourceBar, PillarCSourceLinks, PillarCSourcePointer, cSourceCoverage } from "@/components/dashboard-review/pillar-c/source-views";
+import { cSourceView } from "@/lib/dashboard-review/pillar-c/source-views";
 import { PillarCFileFBasket, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
 import { cAdditionsFor, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
@@ -129,15 +131,23 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
   const decisionCards: PillarCDecisionOverviewProps["cards"] = [
     { title: "Variazione contabile", value: decision.change === null ? "Non disponibile" : signed(decision.change), detail: `${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}` },
     { title: "Contributo dei prodotti presenti nei due periodi", value: decision.continuing === null ? "Non disponibile" : signed(decision.continuing), detail: "Contributo alla variazione, non un effetto causale o clinico." },
-    cExtensionRecipientsCard(extension, extensionUnavailable, C_EXT_UNIT_OF_REVIEWER_ORG[filters.org]),
+    cExtensionRecipientsCard(extension, extensionUnavailable, C_EXT_UNIT_OF_REVIEWER_ORG[filters.org], filters.channel),
   ];
   const comparison = `Confronto: ${filters.comparison === "K1" ? "2024 → 2025" : "Gen–mag 2025 → 2026"}`;
   const forecastDecision = (() => { if (!packet.forecast) return null; try { return cForecastDecision(packet.forecast, "TOT"); } catch { return null; } })();
   const regional = forecastDecision === null ? null : { annual: eur(forecastDecision.annual.total), band: `${eur(forecastDecision.annual.low80)} – ${eur(forecastDecision.annual.high80)}`, href: "#previsione" };
   const actsLine = useMemo(() => publishedActsLine(publishedActs), [publishedActs]);
   const evidenceSources = packet.forecast ? EVIDENCE_SOURCES : EVIDENCE_SOURCES.filter((s) => s.term !== "Previsione regionale");
+  // One source at a time (joint feedback 2, G2-01/G2-02): the ledger with its channel selector, or one of the two flows.
+  // The flows are part of this page when their view was read or its read failed; otherwise no source here counts people.
+  const sourceView = cSourceView(new URLSearchParams(search)), coverage = cSourceCoverage(extension), flows = Boolean(extension) || extensionUnavailable;
+  const sourceScope = cReviewerScopeSearch("", { org: filters.org, channel: filters.channel }, audience.defaultOrg);
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={packet.schema === "pillar-c-review-v2" ? "v2" : "v1"} data-release-state="review_only">
     <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope="Aggregato delle quattro Aziende e ASL 1–4 · revisione di progetto" />
+    <PillarCSourceBar view={sourceView} coverage={coverage} scope={sourceScope} />
+    {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={extension ? <PillarCResidentDrivers view={extension} /> : null} />
+    : sourceView === "filef" ? <PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={extension ? <PillarCFileFBasket view={extension} /> : null} />
+    : <>
     <PillarCSectionBar />
 
     <PillarCSectionFrame {...frameOf(QUADRO)}>
@@ -147,18 +157,14 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(DESTINATARI)}>
-      {extension ? <PillarCRecipientsSection view={extension} residence={residence} /> : extensionUnavailable ? <PillarCSectionEmpty>I dati su destinatari e utilizzo non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
-      {!extension && residence}
+      {flows ? <PillarCSourcePointer coverage={coverage} scope={sourceScope} /> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
       <a href="#numerosita" className={crossLink}>Scenario di numerosità stimata →</a>
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
       <PillarCPortfolioDossier workbook={workbook} />
       {workbook && <PillarCAttributionAnalysis />}
-      {extension && <PillarCAttributionEvidence view={extension} narrowing={narrowing} fileF={fileFFields} />}
-      {extensionUnavailable && <PillarCSectionEmpty>Le prove di attribuzione della DPC di gennaio 2026 non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
-      {!extension && narrowing}
-      {!extension && fileFFields}
+      {flows && <PillarCSourceLinks scope={sourceScope} lead="Le prove di attribuzione dei flussi DPC di gennaio 2026 e del File F 2025 hanno una vista propria:" />}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>
@@ -177,11 +183,7 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
           {data.left && data.right && data.bridge.length ? <BridgeValues left={data.left} right={data.right} bridge={data.bridge} /> : <Empty>Il confronto non è disponibile nel pacchetto di revisione.</Empty>}
         </Panel>
       </section>
-      {extension && <PillarCResidentDrivers view={extension} />}
-      {extension && <PillarCFileFMonthly view={extension} />}
-      {extensionUnavailable && <PillarCSectionEmpty>I dati aggiuntivi della DPC di gennaio 2026 e del File F non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
-      {extension && <PillarCFileFBasket view={extension} />}
-      {extension && <PillarCUnitCosts view={extension} />}
+      {flows && <PillarCSourceLinks scope={sourceScope} lead="Costi per confezione degli stessi prodotti, spesa DPC per residente e andamento mensile del File F hanno una vista propria:" />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
     </PillarCSectionFrame>
 
@@ -215,5 +217,6 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
       {workbook && <PillarCEvidenceWorkflow />}
       <PillarCEvidenceSources criteria={EVIDENCE_CRITERIA} sources={evidenceSources}><PillarCProvenance sections={packet.lineage.map((row) => row.section)} workbookVersion={packet.workbookVersion} workbookSha256={packet.workbookSha256} evidence={packet.evidence} /></PillarCEvidenceSources>
     </PillarCSectionFrame>
+    </>}
   </div>;
 }

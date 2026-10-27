@@ -31,6 +31,8 @@ const {C_SCOPED_POLICY_NAME}=await at('lib/dashboard-review/pillar-c/scoped-tran
 const {PillarCAdditionsResidence,PillarCAdditionsNarrowing,PillarCAdditionsFileF}=await at('components/dashboard-review/pillar-c/additions-sections.tsx');
 const {PillarCScopedWorkspace}=await at('components/dashboard-review/pillar-c/scoped-workspace.tsx');
 const {PillarCAnalyticalWorkspace}=await at('components/dashboard-review/pillar-c/analytical-workspace.tsx');
+const {PillarCPeriodCatalogProvider}=await at('components/dashboard-review/pillar-c/period-context.tsx');
+const {buildCPeriodCatalog,publicCPeriodCatalog}=await at('lib/dashboard-review/pillar-c/period-catalog.ts');
 const {C_REVIEWER_CLIENT_AUDIENCE,toClientAudience}=await at('lib/dashboard-review/pillar-c/audience-rules.ts');
 const {guardCClientAudience,guardCScopedPayload,C_PROVINCE_TOKEN,C_PLACE_NAME}=await at('lib/dashboard-review/pillar-c/payload-guard.ts');
 const {mergeCScopedReview,parseCScopedReviewFile}=await at('lib/dashboard-review/pillar-c/scoped-review.ts');
@@ -342,9 +344,11 @@ const reviewerPacket=parseCReviewPacket(cReviewV2Fixture());
 const forecast=reviewerPacket.forecast;
 const extensionOf=k=>{const c=client(k);if(k==='regione'){const r=extReviewer();return {units:c.orgs.map(o=>({key:o.key,label:o.label,data:r.units.find(u=>u.unit===o.key)})),drivers:r.drivers,baskets:r.baskets,fileFBasket:r.fileFBasket,findings:r.findings};}
   return {units:c.orgs.map(o=>({key:o.key,label:o.label,data:o.key===SERVER[k].unit?extUnit(o.key):{...extUnit(o.key,4000),unitCosts:null}})),drivers:null,baskets:null,fileFBasket:null,findings:null};};
-const scoped=(k,props={},search='')=>html(React.createElement(PillarCScopedWorkspace,{audience:client(k),packet:packetOf(k),forecast,extension:extensionOf(k),...props}),search);
+/** The page wraps each workspace in the period catalogue of its extension view (the File F panels read it). */
+const catalogued=(el,view)=>view?React.createElement(PillarCPeriodCatalogProvider,{catalog:publicCPeriodCatalog(buildCPeriodCatalog(view,{mode:'synthetic'}))},el):el;
+const scoped=(k,props={},search='')=>{const p={audience:client(k),packet:packetOf(k),forecast,extension:extensionOf(k),...props};return html(catalogued(React.createElement(PillarCScopedWorkspace,p),p.extension),search);};
 const reviewerExtension=()=>{const r=extReviewer();return {units:ALL.map(u=>({key:u,label:C_EXT_UNIT_LABELS[u],data:r.units.find(x=>x.unit===u)})),drivers:r.drivers,baskets:r.baskets,fileFBasket:r.fileFBasket,findings:r.findings};};
-const reviewer=(props={})=>html(React.createElement(PillarCAnalyticalWorkspace,{audience:C_REVIEWER_CLIENT_AUDIENCE,packet:reviewerPacket,extension:reviewerExtension(),...props}));
+const reviewer=(props={},search='')=>{const p={audience:C_REVIEWER_CLIENT_AUDIENCE,packet:reviewerPacket,extension:reviewerExtension(),...props};return html(catalogued(React.createElement(PillarCAnalyticalWorkspace,p),p.extension),search);};
 /** The rows of a table whose caption starts with `caption`, as [row header, cells...]. */
 function rowsOf(h,caption){
   const i=h.indexOf(`<caption class="sr-only">${caption}`);if(i<0)return null;
@@ -360,45 +364,49 @@ function identifiers(h,units,label){
 }
 
 test('reviewer: the three panels where they belong, the five units under the reviewed labels, the File F fields of ASL 3',()=>{
-  const h=reviewer({additions:reviewerView()}),t=text(h);
-  // Placement: residence in section 2 right after the January recipients; narrowing after the narrowing evidence in
-  // section 3; File F fields after the File F portfolios.
-  const s2=h.indexOf('<section id="destinatari"'),s3=h.indexOf('<section id="portafogli-attribuzione"'),s4=h.indexOf('<section id="fattori"');
-  const at=a=>h.indexOf(`data-c-additions="${a}"`);
-  assert.ok(s2<at('residence')&&at('residence')<s3,'residence in section 2');
-  assert.ok(h.indexOf('Quanti sono i destinatari e chi sono')>0&&h.indexOf('Quanti sono i destinatari e chi sono')<at('residence')&&at('residence')<h.indexOf('Come si distribuiscono i destinatari'),'right after the January recipient totals');
-  assert.ok(s3<at('narrowing')&&at('narrowing')<at('filef-fields')&&at('filef-fields')<s4,'narrowing and File F fields in section 3');
-  assert.ok(h.indexOf('Quanto si restringe il campo dei portafogli candidati?')<at('narrowing')&&at('narrowing')<h.indexOf('Destinatari per stato del prodotto e gruppo'),'beside the narrowing evidence');
-  assert.ok(h.indexOf('File F 2025 · ASL 3: portafogli candidati')<at('filef-fields'),'beside the File F portfolios');
+  const h=reviewer({additions:reviewerView()},'?c_fonte=dpc'),f=reviewer({additions:reviewerView()},'?c_fonte=filef'),t=text(h);
+  // Placement (joint feedback 2, G2-01/G2-02): residence and narrowing in the DPC view, residence right after the
+  // January recipients and narrowing after the narrowing evidence; the File F fields in the File F view, after the File F
+  // portfolios. The expenditure view holds none of them.
+  const at=(x,a)=>x.indexOf(`data-c-additions="${a}"`);
+  assert.ok(h.indexOf('<section id="dpc"')>0&&h.indexOf('<section id="dpc"')<at(h,'residence'),'residence in the DPC view');
+  assert.ok(h.indexOf('Quanti sono i destinatari e chi sono')>0&&h.indexOf('Quanti sono i destinatari e chi sono')<at(h,'residence')&&at(h,'residence')<h.indexOf('Come si distribuiscono i destinatari'),'right after the January recipient totals');
+  assert.ok(h.indexOf('Quanto si restringe il campo dei portafogli candidati?')<at(h,'narrowing')&&at(h,'narrowing')<h.indexOf('Destinatari per stato del prodotto e gruppo'),'beside the narrowing evidence');
+  assert.equal(at(h,'filef-fields'),-1,'no File F field in the DPC view');
+  assert.ok(f.indexOf('<section id="filef"')>0&&f.indexOf('<section id="filef"')<f.indexOf('File F 2025 · ASL 3: portafogli candidati')&&f.indexOf('File F 2025 · ASL 3: portafogli candidati')<at(f,'filef-fields'),'beside the File F portfolios, in the File F view');
+  assert.equal(at(f,'residence'),-1);assert.equal(at(f,'narrowing'),-1);
+  assert.ok(!reviewer({additions:reviewerView()}).includes('data-c-additions='),'the expenditure view holds none');
   // Residence: five columns in fixed order, counts with their shares, the aggregate read as a sum.
   assert.deepEqual(rowsOf(h,'Residenza amministrativa')[0],['Destinatari ammissibili','4.500','1.000','1.200','1.500','800']);
-  assert.deepEqual(rowsOf(h,'Residenza amministrativa')[1],['Residenti nella stessa ASL','4.120 (91,6\u00a0%)','900 (90,0\u00a0%)','1.100 (91,7\u00a0%)','1.400 (93,3\u00a0%)','720 (90,0\u00a0%)']);
+  assert.deepEqual(rowsOf(h,'Residenza amministrativa')[1],['Residenti nella stessa ASL','4.120 (91,6 %)','900 (90,0 %)','1.100 (91,7 %)','1.400 (93,3 %)','720 (90,0 %)']);
   assert.ok(t.includes(C_ADD_COPY.residenceAggregate));
   // Narrowing: the unit selector over the five units, the aggregate first (no hidden cell there).
   assert.deepEqual(options(h,'Unità delle aree delle esenzioni'),ALL.map(u=>[u,C_EXT_UNIT_LABELS[u]]));
   assert.match(h,/<select aria-label="Unità delle aree delle esenzioni" class="[^"]*\bh-11\b[^"]*"/,'a 44 px control');
   assert.match(h,/data-c-additions="narrowing" data-c-unit="aggregato"/);
-  assert.deepEqual(rowsOf(h,'Spesa ristretta per area candidata')[0],['Malattie cardiovascolari','550','42,00\u00a0%','9,66\u00a0%']);
+  assert.deepEqual(rowsOf(h,'Spesa ristretta per area candidata')[0],['Malattie cardiovascolari','550','42,00 %','9,66 %']);
   assert.ok(!h.includes('data-c-hidden="true"'),'the aggregate has no hidden cell');
   // File F fields: 17 rows, rows and amounts with their shares.
-  const f=rowsOf(h,'Righe del File F 2025 per campo');assert.equal(f.length,17);
-  assert.deepEqual(f[0],['Tutte le righe','10.000','100,00\u00a0%','5.000.000,00\u00a0€','100,00\u00a0%']);
-  assert.deepEqual(f.find(r=>r[0]==='Modalità di erogazione 09'),['Modalità di erogazione 09','50','0,50\u00a0%','200.000,00\u00a0€','4,00\u00a0%']);
-  assert.doesNotMatch(h,NEVER);
+  const ff=rowsOf(f,'Righe del File F 2025 per campo');assert.equal(ff.length,17);
+  assert.deepEqual(ff[0],['Tutte le righe','10.000','100,00 %','5.000.000,00 €','100,00 %']);
+  assert.deepEqual(ff.find(r=>r[0]==='Modalità di erogazione 09'),['Modalità di erogazione 09','50','0,50 %','200.000,00 €','4,00 %']);
+  assert.doesNotMatch(h,NEVER);assert.doesNotMatch(f,NEVER);
 });
 
 test('Regione: the five units under its own labels, the hidden cells as the uniform marker, the File F fields',()=>{
-  const h=scoped('regione',{additions:labelled('regione')}),t=text(h);
+  const h=scoped('regione',{additions:labelled('regione')},'?c_fonte=dpc'),f=scoped('regione',{additions:labelled('regione')},'?c_fonte=filef');
   assert.deepEqual(options(h,'Unità delle aree delle esenzioni'),[['aggregato','Aggregato regionale'],['asl-1','ASL 1'],['asl-2','ASL 2'],['asl-3','ASL 3'],['asl-4','ASL 4']]);
   assert.deepEqual(rowsOf(h,'Residenza amministrativa')[0],['Destinatari ammissibili','4.500','1.000','1.200','1.500','800']);
   assert.match(h,/<th scope="col"[^>]*>Aggregato regionale<\/th>/);
-  assert.ok(t.includes('File F 2025 · ASL 3: campi utili all’attribuzione'));
-  assert.doesNotMatch(t,/Aggregato delle quattro Aziende|Azienda sintetica/,'no Azienda name and not the Azienda wording');
-  identifiers(h,ALL,'regione');assert.doesNotMatch(h,NEVER);
+  assert.ok(text(f).includes('File F 2025 · ASL 3: campi utili all’attribuzione'));
+  for(const [view,x] of [['dpc',h],['filef',f]]){
+    assert.doesNotMatch(text(x),/Aggregato delle quattro Aziende|Azienda sintetica/,`${view}: no Azienda name and not the Azienda wording`);
+    identifiers(x,ALL,`regione ${view}`);assert.doesNotMatch(x,NEVER);
+  }
 });
 
 test('Azienda 204: its own unit and the aggregate, its hidden cells as «dato oscurato», never a number; no File F fields',()=>{
-  const h=scoped('azienda4',{additions:labelled('azienda4')}),t=text(h);
+  const h=scoped('azienda4',{additions:labelled('azienda4')},'?c_fonte=dpc'),f=scoped('azienda4',{additions:labelled('azienda4')},'?c_fonte=filef');
   assert.deepEqual(options(h,'Unità delle aree delle esenzioni'),[['asl-4','Azienda sintetica Quattro'],['aggregato','Aggregato delle quattro Aziende']]);
   assert.deepEqual(rowsOf(h,'Residenza amministrativa')[0],['Destinatari ammissibili','800','4.500']);
   // The own unit opens the narrowing panel: its two hidden cells are three markers each, with no digit, and the note.
@@ -411,17 +419,22 @@ test('Azienda 204: its own unit and the aggregate, its hidden cells as «dato os
   for(const row of areas.filter(r=>r.includes(C_ADD_HIDDEN_LABEL)))assert.doesNotMatch(row.slice(1).join(' '),/\d/,'a hidden cell never shows a number');
   assert.match(h,/data-c-hidden-note="true">Dato oscurato: le celle con meno di 5 destinatari/);
   assert.doesNotMatch(text(panel(h,'narrowing')),/&lt;5|<5|1–4|≤/,'never a range or a bound for a hidden cell');
-  // No peer and no File F fields; no euro in the narrowing panel; no sentence across units.
-  assert.doesNotMatch(h,/value="asl-[123]"|ASL [1-4]\b|Aggregato regionale|Azienda sintetica (Uno|Due|Tre)/);
-  assert.ok(!t.includes('campi utili all’attribuzione')&&!t.includes(C_ADD_COPY.fileFUnavailable),'not the File F holder: no panel, no unavailable line');
+  // No peer and no File F fields; no euro in the narrowing panel; no sentence across units. Its File F view says its
+  // own File F was not received.
+  for(const [view,x] of [['dpc',h],['filef',f]]){
+    assert.doesNotMatch(x,/value="asl-[123]"|ASL [1-4]\b|Aggregato regionale|Azienda sintetica (Uno|Due|Tre)/,view);
+    assert.ok(!text(x).includes('campi utili all’attribuzione')&&!text(x).includes(C_ADD_COPY.fileFUnavailable),`${view}: not the File F holder: no panel, no unavailable line`);
+    identifiers(x,AZ4,`azienda4 ${view}`);assert.doesNotMatch(x,NEVER);
+  }
+  assert.ok(text(f).includes('File F: non ricevuto per Azienda sintetica Quattro. Nessun valore File F viene mostrato né stimato.'));
   assert.doesNotMatch(text(panel(h,'narrowing')),/€|altre Aziende|aggregato meno|graduatoria/i);
-  identifiers(h,AZ4,'azienda4');assert.doesNotMatch(h,NEVER);
 });
 
 test('Azienda 203: its File F fields beside the File F blocks, under its own name',()=>{
-  const h=scoped('azienda3',{additions:labelled('azienda3')}),t=text(h);
+  const h=scoped('azienda3',{additions:labelled('azienda3')},'?c_fonte=filef'),t=text(h);
   assert.ok(t.includes('File F 2025 · Azienda sintetica Tre: campi utili all’attribuzione'));
-  assert.ok(h.indexOf('File F 2025 · Azienda sintetica Tre: portafogli candidati')<h.indexOf('data-c-additions="filef-fields"'));
+  const port=h.indexOf('File F 2025 · Azienda sintetica Tre: portafogli candidati');
+  assert.ok(h.indexOf('<section id="filef"')>0&&h.indexOf('<section id="filef"')<port&&port<h.indexOf('data-c-additions="filef-fields"'),'in the File F view, after the File F portfolios');
   assert.equal(rowsOf(h,'Righe del File F 2025 per campo').length,17);
   assert.ok(!h.includes('data-c-hidden="true"'),'its own row has no hidden cell');
   identifiers(h,AZ3,'azienda3');assert.doesNotMatch(h,NEVER);
@@ -429,24 +442,28 @@ test('Azienda 203: its File F fields beside the File F blocks, under its own nam
 
 test('unavailable: an honest line per panel, never a value; nothing at all when the additions are not part of the page',()=>{
   const lines=[C_ADD_COPY.residenceUnavailable,C_ADD_COPY.narrowingUnavailable,C_ADD_COPY.fileFUnavailable];
-  for(const [label,h] of [['reviewer',reviewer({additionsUnavailable:true})],['regione',scoped('regione',{additionsUnavailable:true})],['azienda3',scoped('azienda3',{additionsUnavailable:true})]]){
-    const t=text(h);for(const line of lines)assert.ok(t.includes(line),`${label}: ${line.slice(0,40)}`);
-    assert.ok(!h.includes('data-c-additions='),`${label}: no table`);
+  // Residence and narrowing in the DPC view, the File F fields in the File F view (G2-01/G2-02).
+  for(const [label,render] of [['reviewer',s=>reviewer({additionsUnavailable:true},s)],['regione',s=>scoped('regione',{additionsUnavailable:true},s)],['azienda3',s=>scoped('azienda3',{additionsUnavailable:true},s)]]){
+    const d=render('?c_fonte=dpc'),f=render('?c_fonte=filef');
+    assert.ok(text(d).includes(lines[0])&&text(d).includes(lines[1])&&!text(d).includes(lines[2]),`${label}: the DPC lines`);
+    assert.ok(text(f).includes(lines[2])&&!text(f).includes(lines[0]),`${label}: the File F line`);
+    for(const h of [d,f])assert.ok(!h.includes('data-c-additions='),`${label}: no table`);
   }
   // ASL 4 does not hold the File F unit: two lines.
-  const four=text(scoped('azienda4',{additionsUnavailable:true}));
-  assert.ok(four.includes(lines[0])&&four.includes(lines[1])&&!four.includes(lines[2]));
-  // Not part of the page (no prop): nothing, so the existing pages are unchanged.
-  for(const h of [reviewer(),scoped('regione'),scoped('azienda3')]){assert.ok(!h.includes('data-c-additions='));for(const line of lines)assert.ok(!text(h).includes(line));}
+  const four=s=>text(scoped('azienda4',{additionsUnavailable:true},s));
+  assert.ok(four('?c_fonte=dpc').includes(lines[0])&&four('?c_fonte=dpc').includes(lines[1])&&!four('?c_fonte=filef').includes(lines[2]));
+  // Not part of the page (no prop): nothing in any view, so the existing pages are unchanged.
+  for(const s of ['','?c_fonte=dpc','?c_fonte=filef'])for(const h of [reviewer({},s),scoped('regione',{},s),scoped('azienda3',{},s)]){assert.ok(!h.includes('data-c-additions='));for(const line of lines)assert.ok(!text(h).includes(line));}
   // A view that is not the audience's (the Regione's under an Azienda, the reviewer's labels under the Regione) is refused
   // and reads as unavailable: none of its rows is rendered.
-  const leaked=scoped('azienda4',{additions:labelled('regione')});
+  const leaked=scoped('azienda4',{additions:labelled('regione')},'?c_fonte=dpc');
   assert.ok(text(leaked).includes(lines[0]));assert.ok(!leaked.includes('data-c-additions='));assert.doesNotMatch(leaked,/ASL [1-3]\b|Aggregato regionale/);
-  assert.ok(!scoped('regione',{additions:reviewerView()}).includes('data-c-additions='));
-  assert.ok(!reviewer({additions:labelled('regione')}).includes('data-c-additions='));
-  // Without the extension the panels still sit in their sections, after the extension's own unavailable line.
-  const noExt=html(React.createElement(PillarCScopedWorkspace,{audience:client('regione'),packet:packetOf('regione'),forecast,extensionUnavailable:true,additions:labelled('regione')}));
-  assert.ok(noExt.indexOf('<section id="destinatari"')<noExt.indexOf('data-c-additions="residence"')&&noExt.indexOf('data-c-additions="residence"')<noExt.indexOf('<section id="portafogli-attribuzione"'));
+  assert.ok(!scoped('regione',{additions:reviewerView()},'?c_fonte=dpc').includes('data-c-additions='));
+  assert.ok(!reviewer({additions:labelled('regione')},'?c_fonte=dpc').includes('data-c-additions='));
+  // Without the extension the panels still sit in the DPC view, after the view's own unavailable line.
+  const noExt=html(React.createElement(PillarCScopedWorkspace,{audience:client('regione'),packet:packetOf('regione'),forecast,extensionUnavailable:true,additions:labelled('regione')}),'?c_fonte=dpc');
+  const empty=noExt.indexOf('I dati DPC non sono disponibili in questo momento');
+  assert.ok(noExt.indexOf('<section id="dpc"')<empty&&empty<noExt.indexOf('data-c-additions="residence"'));
 });
 
 test('the panels alone: the selector of an audience with one unit is not shown; no bar, no colour-only value',()=>{

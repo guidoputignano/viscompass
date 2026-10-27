@@ -172,12 +172,15 @@ test('1. six frames, in the order of PILLAR_C_SECTIONS, each with its hidden num
       if(s.id==='portafogli-attribuzione')assert.match(after,new RegExp(`^<p class="${SCOPE_LINE}">[^<]+</p></div></div><div class="space-y-5">`),label);
       else assert.ok(after.startsWith('</div></div><div class="space-y-5">'),`${label}: ${s.id} has no scope line`);
     }
-    // The root opens with the header (with the reviewer scope pill), then the one section bar, then frame 1.
+    // The root opens with the header (with the reviewer scope pill), then the source bar (joint feedback 2, G2-01/G2-02),
+    // then the one section bar, then frame 1.
     assert.ok(html.startsWith('<div class="space-y-8 pb-12 xl:[&amp;_[id]]:scroll-mt-36" data-pillar-c-review="v2" data-release-state="review_only"><header '),label);
-    assert.equal(count(html,'>Aggregato delle quattro Aziende e ASL 1–4 · revisione di progetto</span></div></header><nav aria-label="Sezioni dell’analisi Pillar C"'),1,`${label}: the scope pill closes the header and the section bar follows`);
+    assert.equal(count(html,'>Aggregato delle quattro Aziende e ASL 1–4 · revisione di progetto</span></div></header><nav id="c-fonte"'),1,`${label}: the scope pill closes the header and the source bar follows`);
+    assert.equal(count(html,'</nav><nav aria-label="Sezioni dell’analisi Pillar C"'),1,`${label}: the section bar right after the source bar`);
     assert.equal(count(html,'<nav aria-label="Sezioni dell’analisi Pillar C"'),1,`${label}: one section bar`);
     assert.ok(html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"')<starts[0],label);
-    assert.deepEqual(anchors(html.slice(html.indexOf('<nav '),html.indexOf('</nav>'))).map(a=>a.href),SIX.map(id=>`#${id}`),`${label}: the bar links the six frames`);
+    const nav=html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"');
+    assert.deepEqual(anchors(html.slice(nav,html.indexOf('</nav>',nav))).map(a=>a.href),SIX.map(id=>`#${id}`),`${label}: the bar links the six frames`);
   }
 });
 

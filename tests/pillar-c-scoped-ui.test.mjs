@@ -71,6 +71,8 @@ const withSearch=(el,search='')=>React.createElement(SearchParamsContext.Provide
 const under=(audience,el,search='')=>renderToStaticMarkup(withSearch(React.createElement(PillarCAudienceProvider,{audience},el),search));
 const bare=(el,search='')=>renderToStaticMarkup(withSearch(el,search));
 const workspace=(k,search='',props={})=>bare(React.createElement(PillarCScopedWorkspace,{audience:client(k),packet:packetOf(k),forecast,...props}),search);
+/** One source view of the page (joint feedback 2, G2-01/G2-02): «dpc» or «filef». */
+const view=(k,v,props)=>workspace(k,`?c_fonte=${v}`,props);
 const options=(html,label)=>{const m=html.match(new RegExp(`<select[^>]* aria-label="${label}"[^>]*>(.*?)</select>`));assert.ok(m,`select «${label}»`);return [...m[1].matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(x=>[x[1],x[2]]);};
 const text=h=>h.replace(/<[^>]*>/g,' ').replace(/&#x27;/g,'’').replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/\s+/g,' ');
 const IDENT=/\s(value|href|id|for|name|download|aria-controls|aria-describedby|aria-labelledby|data-[a-z0-9-]+)="([^"]*)"/g;
@@ -238,7 +240,7 @@ test('Regione: «Aggregato regionale» and ASL 1–4 under opaque keys, no provi
   // so that old links resolve; no select, no workbook section, no queue.
   const h=workspace('regione');
   assert.doesNotMatch(h,/Vai alla sezione/);
-  const nav=h.slice(h.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"'),h.indexOf('</nav>'));
+  const navAt=h.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"'),nav=h.slice(navAt,h.indexOf('</nav>',navAt));
   assert.deepEqual([...nav.matchAll(/href="#([^"]+)"/g)].map(m=>m[1]),PILLAR_C_SECTIONS.map(s=>s.id));
   for(const s of PILLAR_C_SECTIONS)assert.equal(h.split(`<section id="${s.id}" aria-labelledby="${s.id}-title"`).length-1,1,s.id);
   for(const id of ['portafogli','scenari','spesa','attribuzione','cambiamento','pianificazione','numerosita','previsione','evidenza'])assert.equal(h.split(` id="${id}"`).length-1,1,id);
@@ -478,7 +480,10 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   // Re-recorded on 25 Oct 2026 (Guido's feedback 1): section 2's recipient views and the portfolio series labels.
   // Re-recorded on 26 Oct 2026: one plain-Italian vocabulary for the two portfolio components (G1-04 follow-up), then
   // the absolute-exposure labels of Codex's review (G1-R02).
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'a7cec23bd48d920bab3b1f0e3823967e23835a8d23fc9356736cc7510af4b88a');
+  // Re-recorded on 27 Oct 2026 (joint feedback 2, G2-01/G2-02: the source bar «Spesa per canale · Assistiti e servizio
+  // DPC · File F» between the header and the section bar). Against bb4897a (a7cec23b…): 37 of the 59 cases byte-identical;
+  // the 22 workspace cases differ only by that bar and by React's useId values, renumbered because the tree gained a node.
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'0284605be98b4ff70e44363779cf6fa24bf342cf8a2bb46626d37f4f5a9d3e32');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout
@@ -520,27 +525,36 @@ const PVM_SECTION={schema:'pillar-c-workbook-section-v1',workbookSha256:'f8fe8b1
       headerRow:209,rows:[['AA','Portafoglio sintetico A','parziale (50–80 %)',['0.6',164],['0.7',164],['4',164],['6',164],['1',164],['0.8',164],['-3',164],'Solo descrittivo','V2_IN_ATTESA']],sourceRows:[210],notes:[],numericColumns:[3,4,5,6,7,8,9]}]}]};
 
 test('regional parity: the Regione sees the reviewer\u2019s region-wide analyses; an Azienda sees none of them',()=>{
-  const r=workspace('regione','',{extension:extensionOf('regione'),pvmSection:PVM_SECTION}),rt=text(r);
-  assert.ok(rt.includes('Perché la spesa DPC per residente differisce fra le ASL?'),'per-resident drivers');
-  assert.ok(rt.includes('Indici del paniere comune'),'common-basket indices');
-  assert.ok(rt.includes('Importo unitario sugli stessi prodotti, trimestre per trimestre'),'File F quarterly index');
-  assert.deepEqual(options(r,'Azienda dei costi per confezione'),[['asl-1','ASL 1'],['asl-2','ASL 2'],['asl-3','ASL 3'],['asl-4','ASL 4']],'each ASL\u2019s list, never the aggregate');
+  // Each analysis in the view of its own source (G2-01/G2-02): the DPC drivers and per-pack costs in «Assistiti e
+  // servizio DPC», the File F indices in «File F», the findings and the decomposition in the ledger view.
+  const regProps={extension:extensionOf('regione'),pvmSection:PVM_SECTION};
+  const r=workspace('regione','',regProps),rt=text(r),rd=view('regione','dpc',regProps),rf=view('regione','filef',regProps);
+  assert.ok(text(rd).includes('Perché la spesa DPC per residente differisce fra le ASL?'),'per-resident drivers');
+  assert.ok(text(rd).includes('Indici del paniere comune'),'common-basket indices');
+  assert.ok(text(rf).includes('Importo unitario sugli stessi prodotti, trimestre per trimestre'),'File F quarterly index');
+  assert.doesNotMatch(rt,/per residente differisce|trimestre per trimestre/,'not in the ledger view');
+  assert.deepEqual(options(rd,'Azienda dei costi per confezione'),[['asl-1','ASL 1'],['asl-2','ASL 2'],['asl-3','ASL 3'],['asl-4','ASL 4']],'each ASL\u2019s list, never the aggregate');
   assert.ok(rt.includes('Rilievi delle nuove analisi')&&rt.includes('F01 · Rilievo sintetico')&&rt.includes('Azione proposta:'),'the findings, read only');
   assert.ok(rt.includes('Quantità, mix e costo unitario sono scomponibili soltanto nei sottoinsiemi con unità confrontabili.'),'the decision lead names the decomposition');
   // Still none of the reviewer's workflow: no queue, owner, case, workbook route, lineage or modelled budget.
-  for(const re of REVIEWER_ONLY_REGIONE)assert.doesNotMatch(r,re,String(re));
-  assert.doesNotMatch(r,/Avvia la verifica|Apri la verifica|Referente|Non assegnato/);
+  for(const h of [r,rd,rf]){
+    for(const re of REVIEWER_ONLY_REGIONE)assert.doesNotMatch(h,re,String(re));
+    assert.doesNotMatch(h,/Avvia la verifica|Apri la verifica|Referente|Non assegnato/);
+  }
   // The extension's attribution copy says «non dimostra» (does not prove): NEVER's «dimostra» targets demo wording, so
   // the extension renders are read with the same pattern minus that one word.
   const NEVER_EXT=/NaN|Infinity|undefined|[Dd]emo|[Dd]imostrazion|[Dd]imostrativ|[Vv]erificat/;
-  identifiers(r,SERVER.regione.units,'regione with extension');assert.doesNotMatch(r,NEVER_EXT);
+  for(const h of [r,rd,rf]){identifiers(h,SERVER.regione.units,'regione with extension');assert.doesNotMatch(h,NEVER_EXT);}
   // The Azienda: its own list only, no selector, no region-wide block, no findings, no decomposition sentence.
-  const a=workspace('azienda4','',{extension:extensionOf('azienda4'),pvmSection:PVM_SECTION}),at_=text(a);
-  assert.ok(at_.includes(`Costo per confezione sugli stessi prodotti · ${ORG_NAME}`));assert.doesNotMatch(a,/aria-label="Azienda dei costi per confezione"/);
-  assert.doesNotMatch(at_,/per residente differisce|Indici del paniere comune|trimestre per trimestre|Rilievi delle nuove analisi|scomponibili soltanto/);
-  for(const re of REVIEWER_ONLY)assert.doesNotMatch(a,re,String(re));
+  const azProps={extension:extensionOf('azienda4'),pvmSection:PVM_SECTION},a=[workspace('azienda4','',azProps),view('azienda4','dpc',azProps),view('azienda4','filef',azProps)];
+  assert.ok(text(a[1]).includes(`Costo per confezione sugli stessi prodotti · ${ORG_NAME}`));
+  for(const h of a){
+    assert.doesNotMatch(h,/aria-label="Azienda dei costi per confezione"/);
+    assert.doesNotMatch(text(h),/per residente differisce|Indici del paniere comune|trimestre per trimestre|Rilievi delle nuove analisi|scomponibili soltanto/);
+    for(const re of REVIEWER_ONLY)assert.doesNotMatch(h,re,String(re));
+  }
   // An Azienda handed a region-wide block reads «not available», never the block.
-  const leaked=workspace('azienda4','',{extension:{...extensionOf('azienda4'),drivers:extReviewer().drivers}});
+  const leaked=view('azienda4','dpc',{extension:{...extensionOf('azienda4'),drivers:extReviewer().drivers}});
   assert.doesNotMatch(text(leaked),/per residente differisce/);assert.ok(text(leaked).includes('non sono disponibili in questo momento'));
 });
 
@@ -654,14 +668,14 @@ const recipientsCard=html=>{
 
 test('A26-01: an Azienda’s recipients card follows its own Ambito, own unit to the four-Azienda aggregate',()=>{
   const extension=counted(extensionOf('azienda4'));
-  const own=workspace('azienda4','',{extension});
+  const own=workspace('azienda4','?c_channel=DPC',{extension});
   assert.deepEqual(recipientsCard(own),{label:ORG_NAME,value:'1.400',sum:false});
-  const agg=workspace('azienda4','?c_org=aggregato',{extension});
+  const agg=workspace('azienda4','?c_org=aggregato&c_channel=DPC',{extension});
   assert.deepEqual(recipientsCard(agg),{label:'Aggregato delle quattro Aziende',value:'5.000',sum:true});
-  assert.ok(text(agg).includes('Aggregato delle quattro Aziende · tutti i canali'),'the accounting card is on the same scope');
+  assert.ok(text(agg).includes('Aggregato delle quattro Aziende · DPC'),'the accounting card is on the same scope');
   // A peer key in the address is refused by the scope filter: the card stays on the Azienda's own count, never the peer's.
   for(const peer of ['asl-3','PE','regione']){
-    const r=workspace('azienda4',`?c_org=${peer}`,{extension});
+    const r=workspace('azienda4',`?c_org=${peer}&c_channel=DPC`,{extension});
     assert.deepEqual(recipientsCard(r),{label:ORG_NAME,value:'1.400',sum:false},peer);
     assert.doesNotMatch(text(r),/1\.[123]00\b/,`${peer}: no peer count`);
   }
@@ -669,9 +683,9 @@ test('A26-01: an Azienda’s recipients card follows its own Ambito, own unit to
 
 test('A26-01: the Regione’s recipients card follows its Ambito, regional aggregate to ASL 3',()=>{
   const extension=counted(extensionOf('regione'));
-  assert.deepEqual(recipientsCard(workspace('regione','',{extension})),{label:'Aggregato regionale',value:'5.000',sum:true});
-  assert.deepEqual(recipientsCard(workspace('regione','?c_org=asl-3',{extension})),{label:'ASL 3',value:'1.300',sum:false});
-  assert.deepEqual(recipientsCard(workspace('regione','?c_org=asl-1',{extension})),{label:'ASL 1',value:'1.100',sum:false});
+  assert.deepEqual(recipientsCard(workspace('regione','?c_channel=DPC',{extension})),{label:'Aggregato regionale',value:'5.000',sum:true});
+  assert.deepEqual(recipientsCard(workspace('regione','?c_org=asl-3&c_channel=DPC',{extension})),{label:'ASL 3',value:'1.300',sum:false});
+  assert.deepEqual(recipientsCard(workspace('regione','?c_org=asl-1&c_channel=DPC',{extension})),{label:'ASL 1',value:'1.100',sum:false});
 });
 
 test('A26-01: the reviewer’s recipients card follows the reviewer’s Ambito keys',()=>{
@@ -679,9 +693,49 @@ test('A26-01: the reviewer’s recipients card follows the reviewer’s Ambito k
   const extension=counted({units:['aggregato','asl-1','asl-2','asl-3','asl-4'].map(k=>({key:k,label:labels[k],data:r.units.find(u=>u.unit===k)})),drivers:r.drivers,baskets:r.baskets,fileFBasket:r.fileFBasket,findings:r.findings});
   const packet=parseCReviewPacket(cReviewV2Fixture());
   const at_=search=>recipientsCard(bare(React.createElement(PillarCAudienceProvider,{audience:C_REVIEWER_CLIENT_AUDIENCE},React.createElement(PillarCAnalyticalWorkspace,{audience:C_REVIEWER_CLIENT_AUDIENCE,packet,extension})),search));
-  assert.deepEqual(at_(''),{label:'Aggregato delle quattro Aziende',value:'5.000',sum:true});
-  assert.deepEqual(at_('?c_org=PE'),{label:'ASL 3',value:'1.300',sum:false});
-  assert.deepEqual(at_('?c_org=TE'),{label:'ASL 4',value:'1.400',sum:false});
+  assert.deepEqual(at_('?c_channel=DPC'),{label:'Aggregato delle quattro Aziende',value:'5.000',sum:true});
+  assert.deepEqual(at_('?c_org=PE&c_channel=DPC'),{label:'ASL 3',value:'1.300',sum:false});
+  assert.deepEqual(at_('?c_org=TE&c_channel=DPC'),{label:'ASL 4',value:'1.400',sum:false});
+});
+
+// ---------------------------------------------------------------- joint feedback 2, G2-01/G2-02: one source at a time
+// The ledger counts no people: under «Tutti» or a channel other than DPC the card shows no DPC count (it was read as the
+// patients of every channel); the DPC flows and File F open in their own views, each with its own coverage.
+test('G2-01: the recipients card shows the DPC count under the DPC channel only; «Tutti» and CO point to the DPC view',()=>{
+  const extension=counted(extensionOf('regione'));
+  const all=text(workspace('regione','',{extension})),co=text(workspace('regione','?c_channel=CO',{extension}));
+  assert.ok(all.includes('Assistiti Solo per la DPC'),'«Tutti»: no count, the DPC view named');
+  assert.ok(co.includes('Assistiti · CO Non disponibili'),'CO: not available, never the DPC count');
+  for(const t of [all,co])assert.doesNotMatch(t,/Destinatari DPC ·|5\.000/,'no DPC count beside the ledger figures');
+});
+
+test('G2-01/G2-02: the source bar opens the ledger, DPC and File F views, keeps only the validated scope and marks the current one',()=>{
+  const extension=extensionOf('azienda4');
+  const bar=h=>{const i=h.indexOf('<nav id="c-fonte"');assert.ok(i>0,'the source bar');return h.slice(i,h.indexOf('</nav>',i));};
+  const links=h=>[...bar(h).matchAll(/<a href="([^"]*)"[^>]*>/g)].map(m=>[m[1].replace(/&amp;/g,'&'),m[0].includes('aria-current="page"')]);
+  // The bar sits between the page header and the ledger's section bar.
+  const ledger=workspace('azienda4','?c_org=aggregato&c_channel=DD&c_budget_channel=CO',{extension});
+  assert.ok(ledger.indexOf('</header><nav id="c-fonte"')>0&&ledger.indexOf('<nav id="c-fonte"')<ledger.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"'));
+  // Each link carries the validated «Ambito» and channel and nothing else the address brought in.
+  const scope='c_channel=DD&c_org=aggregato&c_port_org=aggregato&c_port_channel=DD';
+  assert.deepEqual(links(ledger),[[`?${scope}`,true],[`?${scope}&c_fonte=dpc`,false],[`?${scope}&c_fonte=filef`,false]]);
+  const tampered=workspace('azienda4','?c_org=TE&c_budget_org=PE&c_fonte=dpc',{extension});
+  assert.deepEqual(links(tampered),[['?',false],['?c_fonte=dpc',true],['?c_fonte=filef',false]],'a key the audience cannot use is never echoed');
+  // The DPC view: its own heading, source line and note; no section bar, no ledger frame, no File F.
+  const d=view('azienda4','dpc',{extension}),dt=text(d);
+  assert.match(d,/<section id="dpc" aria-labelledby="dpc-title"[^>]*data-c-source-view="dpc">/);
+  assert.ok(dt.includes(`Flussi DPC riferiti a gennaio 2026 · ${ORG_NAME} e aggregato delle quattro Aziende`));
+  assert.match(d,/<details[^>]*data-c-source-note="true"><summary[^>]*>Da dove viene questo dato\?<\/summary>/);
+  assert.doesNotMatch(d,/<nav aria-label="Sezioni dell’analisi Pillar C"|<section id="quadro"/);
+  assert.doesNotMatch(d.slice(d.indexOf('<section id="dpc"')),/File F/,'the DPC view itself names no File F');
+  // The File F view of an Azienda without File F: its own «not received», nothing else of File F, no peer.
+  const f=view('azienda4','filef',{extension}),ft=text(f);
+  assert.ok(ft.includes(`File F 2025 · non ricevuto per ${ORG_NAME}`));
+  assert.ok(ft.includes(`File F: non ricevuto per ${ORG_NAME}. Nessun valore File F viene mostrato né stimato.`));
+  assert.doesNotMatch(ft,/Identificativi distinti|Modalità 09|ASL [1-4]/);
+  // Without any flow in the page, or when the flows could not be read, the view says so and shows nothing.
+  assert.ok(text(workspace('azienda4','?c_fonte=dpc')).includes('Le fonti disponibili per questa vista non includono i flussi DPC. Nessun valore viene mostrato né sostituito.'));
+  assert.ok(text(workspace('azienda4','?c_fonte=dpc',{extensionUnavailable:true})).includes('I dati DPC non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.'));
 });
 
 // ---------------------------------------------------------------- PR25-04: what the public measures mean (26 Oct 2026)

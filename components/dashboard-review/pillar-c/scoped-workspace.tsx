@@ -15,7 +15,9 @@ import { PillarCPublicComparators } from "@/components/dashboard-review/pillar-c
 import { PillarCAttributionAnalysis } from "@/components/dashboard-review/pillar-c/attribution-analysis";
 import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/portfolio-dossier";
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
-import { PillarCAttributionEvidence, PillarCFileFMonthly, PillarCRecipientsSection, PillarCUnitCosts, cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
+import { PillarCDpcView, PillarCFileFView, PillarCSourceBar, PillarCSourceLinks, PillarCSourcePointer, cSourceCoverage } from "@/components/dashboard-review/pillar-c/source-views";
+import { cSourceView } from "@/lib/dashboard-review/pillar-c/source-views";
 import { PillarCFileFBasket, PillarCFindings, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
 import { cAdditionsFor, cAdditionsHoldsFileF, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
@@ -224,15 +226,26 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
   const decisionCards: PillarCDecisionOverviewProps["cards"] = [
     { title: "Variazione contabile", value: decision.change === null ? "Non disponibile" : signed(decision.change), detail: `${decision.scope} · ${filters.comparison === "K1" ? "2024–2025" : "gen–mag 2025–2026"}` },
     { title: "Contributo dei prodotti presenti nei due periodi", value: decision.continuing === null ? "Non disponibile" : signed(decision.continuing), detail: "Contributo alla variazione, non un effetto causale o clinico." },
-    cExtensionRecipientsCard(extension, extensionUnavailable, filters.org),
+    cExtensionRecipientsCard(extension, extensionUnavailable, filters.org, filters.channel),
   ];
   const comparison = `Confronto: ${filters.comparison === "K1" ? "2024 → 2025" : "Gen–mag 2025 → 2026"}`;
   const forecastDecision = (() => { if (!forecast) return null; try { return cForecastDecision(forecast, "TOT"); } catch { return null; } })();
   const regional = forecastDecision === null ? null : { annual: eur(forecastDecision.annual.total), band: `${eur(forecastDecision.annual.low80)} – ${eur(forecastDecision.annual.high80)}`, href: "#previsione" };
   const evidenceSources = forecast ? EVIDENCE_SOURCES : EVIDENCE_SOURCES.filter((s) => s.term !== "Previsione regionale");
   const criteria = packet.budgets.some((r) => r.basis !== "published") ? EVIDENCE_CRITERIA_MODELLED : EVIDENCE_CRITERIA;
+  // One source at a time (joint feedback 2, G2-01/G2-02): the ledger with its channel selector, or one of the two flows.
+  // The flows are part of this page when their view was read or its read failed; otherwise no source here counts people.
+  const sourceView = cSourceView(new URLSearchParams(search)), coverage = cSourceCoverage(extension), flows = Boolean(extension) || extensionUnavailable;
+  const sourceScope = cScopedPageScopeSearch(audience, "", { org: filters.org, channel: filters.channel });
+  // Region-wide comparisons (regional analytical parity): the Regione's extension carries them, an Azienda's never.
+  const dpcRegionWide = extension && audience.kind === "regione" ? <PillarCResidentDrivers view={extension} /> : null;
+  const fileFRegionWide = extension && audience.kind === "regione" ? <PillarCFileFBasket view={extension} /> : null;
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={`scoped-${audience.kind}`} data-release-state="review_only">
     <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope={audience.scopeLine ?? undefined} />
+    <PillarCSourceBar view={sourceView} coverage={coverage} scope={sourceScope} />
+    {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={dpcRegionWide} />
+    : sourceView === "filef" ? <PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={fileFRegionWide} />
+    : <>
     <PillarCSectionBar />
 
     <PillarCSectionFrame {...frameOf(QUADRO)}>
@@ -242,18 +255,14 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(DESTINATARI)}>
-      {extension ? <PillarCRecipientsSection view={extension} residence={residence} /> : extensionUnavailable ? <PillarCSectionEmpty>I dati su destinatari e utilizzo non sono disponibili in questo momento. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
-      {!extension && residence}
+      {flows ? <PillarCSourcePointer coverage={coverage} scope={sourceScope} /> : <PillarCSectionEmpty>Le fonti attualmente disponibili in questa vista non contano le persone trattate e non misurano l’utilizzo. Nessun valore viene mostrato né sostituito.</PillarCSectionEmpty>}
       <a href="#numerosita" className={crossLink}>Scenario di numerosità stimata →</a>
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(PORTAFOGLI)} scope={portScopeLine}>
       <PillarCPortfolioDossier pvmSection={pvmSection} />
       <PillarCAttributionAnalysis />
-      {extension && <PillarCAttributionEvidence view={extension} narrowing={narrowing} fileF={fileFFields} />}
-      {extensionUnavailable && <PillarCSectionEmpty>Le prove di attribuzione della DPC di gennaio 2026 non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
-      {!extension && narrowing}
-      {!extension && fileFFields}
+      {flows && <PillarCSourceLinks scope={sourceScope} lead="Le prove di attribuzione dei flussi DPC di gennaio 2026 e del File F 2025 hanno una vista propria:" />}
     </PillarCSectionFrame>
 
     <PillarCSectionFrame {...frameOf(FATTORI)}>
@@ -272,13 +281,7 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
           {data.left && data.right && data.bridge.length ? <BridgeValues left={data.left} right={data.right} bridge={data.bridge} /> : <Empty>Il confronto non è disponibile nel pacchetto di revisione.</Empty>}
         </Panel>
       </section>
-      {extension && <PillarCFileFMonthly view={extension} />}
-      {extensionUnavailable && <PillarCSectionEmpty>I dati aggiuntivi della DPC di gennaio 2026 e del File F non sono disponibili in questo momento. Nessun valore viene sostituito.</PillarCSectionEmpty>}
-      {/* Region-wide comparisons (regional analytical parity): the Regione's extension carries them, an Azienda's never. */}
-      {extension && audience.kind === "regione" && <PillarCResidentDrivers view={extension} />}
-      {extension && audience.kind === "regione" && <PillarCFileFBasket view={extension} />}
-      {/* Per-pack costs (D2): an Azienda sees its own; the Regione each ASL's, one at a time, as the reviewer does. */}
-      {extension && <PillarCUnitCosts view={extension} />}
+      {flows && <PillarCSourceLinks scope={sourceScope} lead={audience.kind === "regione" ? "Costi per confezione degli stessi prodotti, spesa DPC per residente e andamento mensile del File F hanno una vista propria:" : "Costi per confezione degli stessi prodotti e andamento mensile del File F hanno una vista propria:"} />}
       <a href="#portafogli-attribuzione" className={crossLink}>Per il portafoglio selezionato → Portafogli e attribuzione</a>
     </PillarCSectionFrame>
 
@@ -320,5 +323,6 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
       {extension && audience.kind === "regione" && <PillarCFindings view={extension} />}
       <PillarCEvidenceSources criteria={criteria} sources={evidenceSources}>{provenance ? <PillarCProvenance {...provenance} /> : regionalUnavailable && audience.capabilities.lineage ? <p role="status" className="mt-5 text-xs text-muted-foreground">{C_AUDIENCE_COPY.provenanceUnavailable}</p> : null}</PillarCEvidenceSources>
     </PillarCSectionFrame>
+    </>}
   </div>;
 }

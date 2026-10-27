@@ -29,7 +29,7 @@ const PERIOD=await import('../components/dashboard-review/pillar-c/period-contex
 const {buildCPeriodCatalog,publicCPeriodCatalog}=await import('../lib/dashboard-review/pillar-c/period-catalog.ts');
 const catalogOf=view=>publicCPeriodCatalog(buildCPeriodCatalog(view,{mode:'synthetic'}));
 const withCatalog=C=>{const Wrapped=props=>React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog:catalogOf(props.view)},React.createElement(C,props));Wrapped.displayName=`WithCatalog(${C.name})`;return Wrapped;};
-const PillarCRecipientsSection=withCatalog(SECTIONS.PillarCRecipientsSection),PillarCAttributionEvidence=withCatalog(SECTIONS.PillarCAttributionEvidence),PillarCFileFMonthly=withCatalog(SECTIONS.PillarCFileFMonthly),PillarCFileFRecipients=withCatalog(SECTIONS.PillarCFileFRecipients);
+const PillarCRecipientsSection=withCatalog(SECTIONS.PillarCRecipientsSection),PillarCDpcAttributionEvidence=withCatalog(SECTIONS.PillarCDpcAttributionEvidence),PillarCFileFPortfolios=withCatalog(SECTIONS.PillarCFileFPortfolios),PillarCFileFMonthly=withCatalog(SECTIONS.PillarCFileFMonthly),PillarCFileFRecipients=withCatalog(SECTIONS.PillarCFileFRecipients);
 const {PillarCResidentDrivers}=await import('../components/dashboard-review/pillar-c/extension-reviewer.tsx');
 const RV=await import('../components/dashboard-review/pillar-c/recipient-views.tsx');
 const {cScopedExtensionFor}=await import('../components/dashboard-review/pillar-c/scoped-workspace.tsx');
@@ -192,7 +192,7 @@ test('the scoped workspace shows the extension only for exactly its units, in or
 
 test('rendered blocks: units in the given order, File F only with asl-3, drivers only with the reviewer block, no colour-only value',()=>{
   const html=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(AZ)}));
-  assert.match(html,/Unità 3/);assert.match(html,/Aggregato delle quattro Aziende/);assert.match(html,/File F 2025/);
+  assert.match(html,/Unità 3/);assert.match(html,/Aggregato delle quattro Aziende/);assert.doesNotMatch(html,/File F/,'G2-01: the DPC recipients hold no File F');
   assert.match(html,/somma i destinatari delle quattro ASL/);
   assert.doesNotMatch(html,/Unità 1|Unità 2|Unità 4/);
   const one=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(['asl-1','aggregato'])}));
@@ -202,7 +202,7 @@ test('rendered blocks: units in the given order, File F only with asl-3, drivers
   assert.match(monthly,/Modalità 09/);assert.match(monthly,/l’ultimo mese è il più basso/);assert.match(monthly,/presenti in: Dic/);assert.match(monthly,/Nota sintetica sulla modalità 09\./);
   assert.equal(renderToStaticMarkup(React.createElement(PillarCResidentDrivers,{view:viewOf(AZ)})),'');
   assert.match(renderToStaticMarkup(React.createElement(PillarCResidentDrivers,{view:viewOf(['aggregato','asl-1','asl-2','asl-3','asl-4'],true)})),/Non mostrato alle singole Aziende/);
-  const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
+  const attr=renderToStaticMarkup(React.createElement(PillarCDpcAttributionEvidence,{view:viewOf(AZ)}));
   assert.match(attr,/role="img" aria-label="Unità 3: Prodotti a un solo portafoglio candidato 50,0/);
   assert.match(attr,/99,8 %/);
 });
@@ -214,7 +214,7 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.doesNotMatch(html,/>—</,'no dash cell anywhere in the recipients section');
   for(const t of ['Quanti sono i destinatari e chi sono','Quanto costa di solito un destinatario, in ciascuna ASL','Il costo è concentrato su pochi destinatari?','Come si distribuiscono i destinatari',
     'Quante confezioni, prescrizioni e prodotti riceve di solito un destinatario?','Quanto pesa il servizio di distribuzione sul costo?','Quanto varia il compenso per confezione fra le farmacie?',
-    'Quanti giorni passano, nei dati registrati, fra prescrizione ed erogazione?','Perché gennaio 2026 e come si contano i destinatari','Profilo anagrafico degli identificativi','Donne (sul sesso noto)'])
+    'Quanti giorni passano, nei dati registrati, fra prescrizione ed erogazione?','Perché gennaio 2026 e come si contano i destinatari','Donne (sul sesso noto)'])
     assert.ok(html.includes(t),t);
   const n=v=>v.replace(/\s/g,' ');
   const tableOf=(h,caption)=>{const i=h.indexOf(`<caption class="sr-only">${caption}</caption>`);assert.ok(i>=0,caption);return h.slice(i,h.indexOf('</table>',i));};
@@ -269,22 +269,25 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.deepEqual([pts.length,pts[0],pts[5],pts[10]],[11,'48,216','198,175.2','348,12'],'eleven points: (0,0), the median decile, (100,100)');
   assert.match(chart,/<line x1="48" y1="216" x2="348" y2="12"/,'the equality line from (0,0) to (100,100)');
   assert.match(chart,/Unità 3: la metà dei destinatari con costo più basso riceve il 20,0\u00a0% del costo; il 10\u00a0% con costo più alto ne riceve il 40,0\u00a0%\./);
-  const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
+  const attr=renderToStaticMarkup(React.createElement(PillarCDpcAttributionEvidence,{view:viewOf(AZ)})),ffp=renderToStaticMarkup(React.createElement(PillarCFileFPortfolios,{view:viewOf(AZ)}));
   assert.match(attr,/Destinatari per stato del prodotto e gruppo di portafogli candidati/);
   assert.match(attr,/L’aggregato somma i destinatari delle quattro ASL: non è un conteggio di persone uniche regionali\./,'the summed aggregate is said to be a sum');
-  assert.match(attr,/Ogni gruppo riunisce più portafogli candidati/);assert.doesNotMatch(attr,/Portafoglio candidato \(prodotti a candidato singolo\)/);
-  assert.match(attr,/Identificativi raggiunti per gruppo di portafogli candidati[\s\S]*?Oncologia<\/th><td[^>]*>5,0 %/,'the File F reach table is present and reads its own field');
+  assert.match(attr,/Ogni gruppo riunisce più portafogli candidati/);for(const h of [attr,ffp])assert.doesNotMatch(h,/Portafoglio candidato \(prodotti a candidato singolo\)/);
+  assert.match(ffp,/Identificativi raggiunti per gruppo di portafogli candidati[\s\S]*?Oncologia<\/th><td[^>]*>5,0 %/,'the File F reach table is present and reads its own field');
   // Every cell of the group and status tables reads its own field (review of 55593a1).
   const group=attr.slice(attr.indexOf('<caption class="sr-only">Destinatari per gruppo di portafogli candidati</caption>'));
   assert.ok(attr.includes('<caption class="sr-only">Destinatari per gruppo di portafogli candidati</caption>'),'the screen-reader caption names groups');
   assert.match(group,/Cardiovascolare<\/th><td[^>]*>100 \(10,0 %\)<\/td><td[^>]*>400 \(10,0 %\)<\/td>/,'group reach, not product status');
-  assert.match(attr,/Più portafogli candidati<\/th><td[^>]*>29,0 %/);assert.match(attr,/Non mappati o evidenza insufficiente<\/th><td[^>]*>1,0 %/);
-  assert.match(attr,/Ogni gruppo riunisce più portafogli candidati\. Le quote di identificativi si sovrappongono/,'the File F note keeps the group sentence');
-  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(['asl-3'])})),/somma i destinatari delle quattro ASL/,'no sum caveat without an aggregate column');
+  assert.match(ffp,/Più portafogli candidati<\/th><td[^>]*>29,0 %/);assert.match(ffp,/Non mappati o evidenza insufficiente<\/th><td[^>]*>1,0 %/);
+  assert.match(ffp,/Ogni gruppo riunisce più portafogli candidati\. Le quote di identificativi si sovrappongono/,'the File F note keeps the group sentence');
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCDpcAttributionEvidence,{view:viewOf(['asl-3'])})),/somma i destinatari delle quattro ASL/,'no sum caveat without an aggregate column');
   assert.ok(attr.includes('600 (60,0 %)')&&attr.includes('2.400 (60,0 %)'),'counts and shares per unit, the aggregate as a sum');
-  assert.match(attr,/File F 2025 · Unità 3: portafogli candidati/);assert.match(attr,/Un solo portafoglio candidato<\/th><td[^>]*>70,0 %/);
+  assert.match(ffp,/File F 2025 · Unità 3: portafogli candidati/);assert.match(ffp,/Un solo portafoglio candidato<\/th><td[^>]*>70,0 %/);
   assert.match(attr,/non indica la diagnosi, l’indicazione effettiva né l’area che sostiene il costo/);
-  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(['asl-1','aggregato'])})),/File F 2025/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCFileFPortfolios,{view:viewOf(['asl-1','aggregato'])})),/File F 2025/);
+  // G2-01/G2-02: each source in its own view, the File F profile with the File F identifiers.
+  assert.doesNotMatch(attr,/File F|identificativi/i,'the DPC evidence names no File F');assert.doesNotMatch(ffp,/Destinatari/,'the File F evidence holds no DPC recipient');
+  assert.match(renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(AZ)})),/Profilo anagrafico degli identificativi/);
 });
 
 test('R20-09: a File F month the source lacks is absent, and every month row is labelled and joined by its own key',()=>{
@@ -426,13 +429,14 @@ test('ext-v2 panels: Lorenz deciles per ASL, fee quartiles, File F tiles and poo
   assert.match(html,/Il costo è concentrato su pochi destinatari\?/);assert.match(html,/Per l’aggregato non c’è una curva/);
   assert.match(html,/<polyline[^>]*points="48,216 /,'the curve starts at the origin');
   assert.match(html,/Compenso per confezione fra le farmacie: Unità 3 mediana 7,25\s€, metà centrale 6,50\s€ – 8,75\s€/);
-  assert.match(html,/Indice di Gini<\/dt><dd[^>]*>0,80<\/dd>/);assert.match(html,/Senza modalità 09: quota dell’1 %<\/dt><dd[^>]*>29,0 %/);
-  assert.match(html,/Importo per identificativo, 1° – 3° quartile<\/dt><dd[^>]*>50 € – 800 €/);
+  const ffr=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(AZ)}));
+  assert.match(ffr,/Indice di Gini<\/dt><dd[^>]*>0,80<\/dd>/);assert.match(ffr,/Senza modalità 09: quota dell’1 %<\/dt><dd[^>]*>29,0 %/);
+  assert.match(ffr,/Importo per identificativo, 1° – 3° quartile<\/dt><dd[^>]*>50 € – 800 €/);
   // D3: when the unknown ages are pooled into 85+, the band and the 65+ tile say so.
   const pooled=viewOf(AZ);const f=pooled.units[0].data.fileF;f.age={status:'released',total:5000,cells:[{id:'0-64',label:'0-64',count:2000,share:0.4},{id:'85+',label:'85 e oltre, incluse le età non note',count:3000,share:0.6}]};f.ageUnknownPooled=true;
-  const p=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:pooled}));
+  const p=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:pooled}));
   assert.match(p,/65 anni e oltre, incluse le età non note/);assert.match(p,/Età 85 e oltre, incluse le età non note/);
-  const attr=renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:viewOf(AZ)}));
+  const attr=renderToStaticMarkup(React.createElement(PillarCDpcAttributionEvidence,{view:viewOf(AZ)}));
   assert.match(attr,/Con almeno una riga ristretta a un candidato da un’esenzione coerente<\/th><td[^>]*>15,0 %<\/td><td[^>]*>—<\/td>/);
 });
 
@@ -513,13 +517,13 @@ test('review test gap: every pinned extension object fits under the read cap',()
 
 // ---------------------------------------------------------------- Guido feedback 1, G1-03 and G1-11: the period catalogue
 test('G1-11: File F panels show the holders the catalogue lists, never a first holder; without a catalogue they say so',()=>{
-  // Without a catalogue: the recipients section says File F is unavailable; the other File F panels render nothing.
+  // Without a catalogue: the File F recipients say File F is unavailable; the other File F panels render nothing.
   const bare=viewOf(AZ);
-  assert.match(renderToStaticMarkup(React.createElement(SECTIONS.PillarCRecipientsSection,{view:bare})),/I dati File F non sono disponibili in questo momento: il catalogo dei periodi non è stato letto/);
-  assert.doesNotMatch(renderToStaticMarkup(React.createElement(SECTIONS.PillarCAttributionEvidence,{view:bare})),/File F 2025/);
+  assert.match(renderToStaticMarkup(React.createElement(SECTIONS.PillarCFileFRecipients,{view:bare})),/I dati File F non sono disponibili in questo momento: il catalogo dei periodi non è stato letto/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(SECTIONS.PillarCFileFPortfolios,{view:bare})),/File F 2025/);
   assert.equal(renderToStaticMarkup(React.createElement(SECTIONS.PillarCFileFMonthly,{view:bare})),'');
   // One holder in a full view: no selector, the holder named, the organisations without a File F named too.
-  const all=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(ALL)}));
+  const all=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(ALL)}));
   assert.doesNotMatch(all,/aria-label="Azienda del File F"/,'one holder: nothing to choose');
   assert.match(all,/File F 2025 · Unità 3: identificativi/);
   assert.match(all,/File F disponibile per: Unità 3 \(2025\)\. Non ricevuto per: Unità 1, Unità 2, Unità 4; per loro nessun valore viene stimato\./);
@@ -529,16 +533,16 @@ test('G1-11: File F panels show the holders the catalogue lists, never a first h
   const cat=catalogOf(two);
   assert.deepEqual(cat.entries.filter(e=>e.sourceFamily==='file-f'&&e.granularity==='year').map(e=>e.unit),['asl-1','asl-3'],'both holders, none silently dropped');
   const opts=html=>[...(html.match(/<select aria-label="Azienda del File F"[^>]*>(.*?)<\/select>/)?.[1]??'').matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(m=>[m[1],m[2]]);
-  const rec=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:two}));
+  const rec=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:two}));
   assert.deepEqual(opts(rec),[['file-f.asl-1.year.2025-01','Unità 1 · 2025'],['file-f.asl-3.year.2025-01','Unità 3 · 2025']]);
   assert.match(rec,/File F 2025 · Unità 1: identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>6\.000</,'the shown holder’s own figures');
   const third=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:two,initial:{holder:'file-f.asl-3.year.2025-01'}}));
   assert.match(third,/File F 2025 · Unità 3: identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>5\.000</,'the other holder, when chosen');
-  for(const html of [renderToStaticMarkup(React.createElement(PillarCAttributionEvidence,{view:two})),renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:two}))])
+  for(const html of [renderToStaticMarkup(React.createElement(PillarCFileFPortfolios,{view:two})),renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:two}))])
     assert.deepEqual(opts(html).map(o=>o[0]),['file-f.asl-1.year.2025-01','file-f.asl-3.year.2025-01'],'every File F panel offers both holders');
   // A holder the catalogue does not list is not shown: a File F the catalogue refused stays out.
   const notListed=viewOf(AZ),catalog={...catalogOf(notListed),entries:catalogOf(notListed).entries.filter(e=>e.sourceFamily!=='file-f')};
-  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog},React.createElement(SECTIONS.PillarCRecipientsSection,{view:notListed}))),/File F 2025 · Unità 3/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog},React.createElement(SECTIONS.PillarCFileFRecipients,{view:notListed}))),/File F 2025 · Unità 3/);
 });
 
 test('G1-03: the File F period offers the year and the catalogued months; a month shows only the measures the catalogue lists',()=>{
@@ -598,17 +602,19 @@ test('G1-R03: with tied values the median is described as the central value, nev
 // ---------------------------------------------------------------- Codex live check A26-02 (26 Oct 2026)
 test('A26-02: an Azienda without File F reads that its own File F was not received, and nothing about a peer',()=>{
   const az=viewOf(['asl-4','aggregato']);
-  for(const html of [renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:az})),renderToStaticMarkup(React.createElement(SECTIONS.PillarCRecipientsSection,{view:az}))]){
+  for(const html of [renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:az})),renderToStaticMarkup(React.createElement(SECTIONS.PillarCFileFRecipients,{view:az}))]){
     const text=html.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
     assert.equal((html.match(/data-c-filef-coverage="not-received"/g)||[]).length,1,'one statement, with or without a catalogue');
-    assert.ok(text.includes('File F: non ricevuto per Unità 4. Le analisi di questa sezione usano solo i flussi DPC; nessun valore File F viene mostrato né stimato.'));
+    assert.ok(text.includes('File F: non ricevuto per Unità 4. Nessun valore File F viene mostrato né stimato.'));
     assert.doesNotMatch(text,/Unità [123]|disponibile per|File F 2025|Identificativi distinti|non sono disponibili in questo momento/,'no peer, no holder, no empty analysis, not «unavailable»');
     assert.doesNotMatch(html,/aria-label="(Azienda del File F|Periodo del File F)"/);
   }
-  // A view that holds File F keeps its holder panel and its coverage line; an aggregate-only view says nothing.
-  const all=renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(ALL)}));
+  // The DPC recipients say nothing about File F (G2-01). A view that holds File F keeps its holder panel and its coverage
+  // line; an aggregate-only view says nothing.
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:az})),/File F/);
+  const all=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(ALL)}));
   assert.doesNotMatch(all,/data-c-filef-coverage/);assert.match(all,/Non ricevuto per: Unità 1, Unità 2, Unità 4; per loro nessun valore viene stimato\./);
-  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCRecipientsSection,{view:viewOf(['aggregato'])})),/data-c-filef-coverage/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(['aggregato'])})),/data-c-filef-coverage/);
 });
 
 test('A26-02: the coverage line names an Azienda’s own ASL and the four-Azienda aggregate, «la loro somma» only for the four ASLs',()=>{

@@ -46,6 +46,7 @@ const {C_PLANNING_LABELS}=await at('lib/dashboard-review/pillar-c/planning.ts');
 
 const SCOPED='components/dashboard-review/pillar-c/scoped-workspace.tsx';
 const REGIONAL='components/dashboard-review/pillar-c/regional-forecast-workspace.tsx';
+const SOURCES='components/dashboard-review/pillar-c/source-views.tsx';
 // The no-break space, built at runtime so this file holds neither the invisible character nor an escape of it.
 const NBSP=String.fromCharCode(0xa0);
 const eur=cMoneyLabel;
@@ -159,7 +160,7 @@ function sourcesOf(html){
 // Catches: a reader given another order, another set of sections or another bar; a frame missing, renamed, nested or
 // carrying a scope line it should not; the six section ids missing for a reader who receives the six sections.
 test('1. reviewer, Azienda and Regione: the same six frames in the same order and the same section bar; forecast_only: the same bar order with section 5 only',()=>{
-  const navOf=html=>html.slice(html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"'),html.indexOf('</nav>')+6);
+  const navOf=html=>{const i=html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"');return html.slice(i,html.indexOf('</nav>',i)+6);};
   const reviewerNav=navOf(REVIEWER_HTML);
   for(const {label,html} of [{label:'reviewer',html:REVIEWER_HTML},...SCOPED_RENDERS]){
     const starts=PILLAR_C_SECTIONS.map(s=>html.indexOf(frameHead(s)));
@@ -170,7 +171,8 @@ test('1. reviewer, Azienda and Regione: the same six frames in the same order an
     }
     assert.deepEqual([...html.matchAll(new RegExp(`<span aria-hidden="true" class="${NUMERAL}">([^<]*)</span>`,'g'))].map(m=>m[1]),['1','2','3','4','5','6'],label);
     assert.equal(count(html,'<nav aria-label="Sezioni dell’analisi Pillar C"'),1,label);
-    assert.ok(html.indexOf('</header><nav aria-label="Sezioni dell’analisi Pillar C"')>0&&html.indexOf('<nav ')<starts[0],`${label}: header, then the bar, then frame 1`);
+    // Joint feedback 2 (G2-01/G2-02): the source bar sits between the header and the section bar.
+    assert.ok(html.indexOf('</header><nav id="c-fonte"')>0&&count(html,'</nav><nav aria-label="Sezioni dell’analisi Pillar C"')===1&&html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"')<starts[0],`${label}: header, then the source bar, then the section bar, then frame 1`);
     assert.equal(navOf(html),reviewerNav,`${label}: the bar is the reviewer's, byte for byte`);
     for(const s of PILLAR_C_SECTIONS){
       const after=html.slice(html.indexOf(frameHead(s))+frameHead(s).length);
@@ -482,7 +484,8 @@ test('10. keyboard and focus: no positive tabindex, every frame h2 focusable by 
     assert.deepEqual(headingIds(html,'h2'),['quadro-title','destinatari-title','portafogli-attribuzione-title','fattori-title','budget-scenari-title','scenari-title','priorita-evidenza-title'],label);
     for(const id of ['c-decision-title','portfolio-dossier-title','attribuzione-title','spesa-title','cambiamento-title','pianificazione-title','numerosita-title','previsione-title','evidenza-title'])assert.ok(new RegExp(`<h3\\b[^>]*\\sid="${id}"`).test(html),`${label}: ${id} is an h3`);
     const fr=frames(html);
-    const links=[...anchors(html.slice(html.indexOf('<nav '),html.indexOf('</nav>'))),...anchors(fr.quadro),...anchors(fr.destinatari),...anchors(fr.fattori).filter(a=>a.href==='#portafogli-attribuzione'),...anchors(fr['priorita-evidenza']).filter(a=>a.href==='#attribuzione'||a.href==='#piano-revisione')];
+    const navs=[...html.matchAll(/<nav [\s\S]*?<\/nav>/g)].map(m=>m[0]);assert.equal(navs.length,2,`${label}: the source bar and the section bar`);
+    const links=[...navs.flatMap(anchors),...anchors(fr.quadro),...anchors(fr.destinatari),...anchors(fr.fattori).filter(a=>a.href==='#portafogli-attribuzione'),...anchors(fr['priorita-evidenza']).filter(a=>a.href==='#attribuzione'||a.href==='#piano-revisione')];
     for(const a of links)assert.match(a.cls,/(^|\s)min-h-11(\s|$)/,`${label}: ${a.href}`);
     const bar=between(html,'<section aria-label="Ambito di revisione"','</section>');
     for(const [,c] of bar.matchAll(/<select[^>]* class="([^"]*)"/g))assert.match(c,/(^|\s)h-11(\s|$)/,label);
@@ -517,7 +520,7 @@ test('11. copy lint and source pins of the two workspaces',()=>{
   for(const {label,html} of [{label:'reviewer',html:REVIEWER_HTML},...SCOPED_RENDERS,...REGIONAL_RENDERS])assert.doesNotMatch(html,NEVER,label);
   const DRIVEN=String.raw`\{(?:scope|filters\.|budgets\.length|data\.|copied|eur\(|signed\(|orgLabel|budgetLabel|missingCounts|decision\.|audience\.|comparison|portScope|series|forecast\.)[^{}]*\}`;
   const TEXT=String.raw`[^<>{}\`\n]*[^<>{}\`\s][^<>{}\`\n]*`;
-  for(const file of [SCOPED,REGIONAL]){
+  for(const file of [SCOPED,REGIONAL,SOURCES]){
     const src=read(file);
     assert.doesNotMatch(src,new RegExp(`>${TEXT}${DRIVEN}`),file);assert.doesNotMatch(src,new RegExp(`${DRIVEN}${TEXT}<`),file);
     assert.doesNotMatch(src,/verificat|\bdemo\b|dimostra|in arrivo/i,file);
@@ -540,7 +543,11 @@ test('11. copy lint and source pins of the two workspaces',()=>{
     'const added = cAdditionsFor(checked, additions);',
     'additions={added} additionsUnavailable={!added && (additionsUnavailable || Boolean(additions))}',
     'const fileFFields = cAdditionsHoldsFileF(audience) ? <PillarCAdditionsFileF view={additions} unavailable={additionsUnavailable} /> : null;',
-    '{extension && <PillarCAttributionEvidence view={extension} narrowing={narrowing} fileF={fileFFields} />}',
+    // Joint feedback 2 (G2-01/G2-02): the DPC flows and File F in views of their own; the source links carry only the
+    // validated scope, never a key the address brought in.
+    '<PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={dpcRegionWide} />',
+    '<PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={fileFRegionWide} />',
+    'const sourceScope = cScopedPageScopeSearch(audience, "", { org: filters.org, channel: filters.channel });',
     // Owner decision of 24 Oct 2026: provenance and modelled budgets only with their capabilities; a modelled row in the
     // packet of an audience without syntheticBudgets refuses the whole page.
     'const trace = checked.capabilities.lineage ? provenance : null;',
@@ -553,10 +560,9 @@ test('11. copy lint and source pins of the two workspaces',()=>{
     'if (regionWide || extension.units.some((u) => u.data.unitCosts && u.key !== audience.defaultOrg)) return null;',
     'if (extension.units.some((u) => u.data.unitCosts && u.key === audience.aggregateKey)) return null;',
     '} else return null;',
-    '{extension && audience.kind === "regione" && <PillarCResidentDrivers view={extension} />}',
-    '{extension && audience.kind === "regione" && <PillarCFileFBasket view={extension} />}',
+    'const dpcRegionWide = extension && audience.kind === "regione" ? <PillarCResidentDrivers view={extension} /> : null;',
+    'const fileFRegionWide = extension && audience.kind === "regione" ? <PillarCFileFBasket view={extension} /> : null;',
     '{extension && audience.kind === "regione" && <PillarCFindings view={extension} />}',
-    '{extension && <PillarCUnitCosts view={extension} />}',
     'return extension.units.length === keys.length && extension.units.every((u, i) => u.key === keys[i] && u.data.unit === keys[i]) ? extension : null;',
     '&& packet.orgs.length === audience.orgs.length && packet.orgs.every((unit, i) => unit === audience.orgs[i].key);',
     'data-pillar-c-review={`scoped-${audience.kind}`} data-release-state="review_only"',
@@ -577,6 +583,8 @@ test('11. copy lint and source pins of the two workspaces',()=>{
     '<PillarCSectionBar />',
   ])assert.equal(count(src,line),1,line);
   assert.match(src,/from "@\/components\/dashboard-review\/pillar-c\/review-blocks"/);
+  // The per-pack costs (D2) open with the DPC flows they come from: an Azienda its own, the Regione each ASL's.
+  assert.equal(count(read(SOURCES),'<PillarCUnitCosts view={extension} />'),1);
   // Every Heading of the scoped page is an inner one, in page order.
   assert.deepEqual([...code(SCOPED).matchAll(/<Heading\b([^>]*)>/g)].map(m=>(m[1].match(/^ inner id="([a-z]+)" title="/)||[])[1]),['spesa','cambiamento','pianificazione','numerosita','previsione']);
   assert.equal(count(code(SCOPED),'<PillarCSectionFrame '),6);

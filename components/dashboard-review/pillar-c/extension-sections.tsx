@@ -27,7 +27,7 @@ const over65 = (d: CExtDist) => d.status === "released" ? d.cells.filter((c) => 
 /** «2025-03» → «Mar»: a month is labelled from its own key, never from its position (a month the source lacks is absent). */
 const monthLabel = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? month;
 
-/** Section 2, «Destinatari e utilizzo» (redesigned for Guido's feedback 1): what is counted, the totals that add up
+/** The DPC view's recipients (redesigned for Guido's feedback 1, moved to its own view for G2-01/G2-02): what is counted, the totals that add up
  * across the ASLs, then one view per question (distributions, cost per recipient, concentration, typical use, service
  * burden, pharmacy fees, recorded intervals), each with its exact values. `residence` (the additions' P8-03 panel, or
  * its honest state) sits right after the totals it describes. */
@@ -45,7 +45,6 @@ export function PillarCRecipientsSection({ view, residence }: { view: CExtension
     <PillarCServiceBurden units={units} />
     <PillarCPharmacyFees units={units} />
     <PillarCDispensingIntervals units={units} />
-    <PillarCFileFRecipients view={view} />
     {asl.length === 0 && <Empty>Nessuna ASL in questa vista.</Empty>}
   </div>;
 }
@@ -68,7 +67,7 @@ function useFileFHolder(view: CExtensionView, initialHolder = "") {
   return { holder, control, coverage, missing, unavailable: !catalog && view.units.some((u) => u.data.fileF) };
 }
 
-/** Section 2, File F of the chosen holder: the year (identifiers, concentration, frequency, profile) or one month, which
+/** The File F view (G2-01/G2-02), the chosen holder: the year (identifiers, concentration, frequency, profile) or one month, which
  * carries only what the catalogue lists for it (reported amount, identifiers of the month): no annual distribution is
  * shown as if it were the month's. */
 export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView; initial?: { holder?: string; period?: string } }) {
@@ -78,7 +77,7 @@ export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView
     if (unavailable) return <Empty>I dati File F non sono disponibili in questo momento: il catalogo dei periodi non è stato letto. Nessun valore viene sostituito.</Empty>;
     // A view without any File F states it for its own ASLs (Codex live check A26-02): `missing` lists only the units this
     // view holds, so nothing is said about another Azienda's sources, and no empty analysis is drawn.
-    return missing.length ? <p data-c-filef-coverage="not-received" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">{`File F: non ricevuto per ${missing.join(", ")}. Le analisi di questa sezione usano solo i flussi DPC; nessun valore File F viene mostrato né stimato.`}</p> : null;
+    return missing.length ? <p data-c-filef-coverage="not-received" className="rounded-xl bg-secondary/50 p-4 text-sm leading-6 text-muted-foreground">{`File F: non ricevuto per ${missing.join(", ")}. Nessun valore File F viene mostrato né stimato.`}</p> : null;
   }
   const fileF = holder.fileF, unitLabel = holder.unit.label, januaryTop10 = holder.unit.data.january.cost.top10;
   const month = holder.months.find((m) => m.id === period) ?? null;
@@ -129,9 +128,15 @@ export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView
  * It follows the «Ambito» the page already shows (`selected`, an extension unit key the caller resolved from its own
  * authorised scope), like the two cards beside it (Codex live check A26-01, 26 Oct 2026). A key the view does not
  * hold has no count: never another organisation's, never the first unit's. */
-export function cExtensionRecipientsCard(view: CExtensionView | null, unavailable: boolean, selected: string): { title: string; value: string; detail: string } {
-  if (!view && unavailable) return { title: "Destinatari DPC", value: "Non disponibili in questo momento", detail: "La lettura dei dati su destinatari e utilizzo non è riuscita: nessun valore viene sostituito." };
-  if (!view) return { title: "Persone trattate osservate", value: "Non disponibili", detail: "Gli scenari CO stimano il denominatore; non misurano più persone trattate." };
+export function cExtensionRecipientsCard(view: CExtensionView | null, unavailable: boolean, selected: string, channel: string = "DPC"): { title: string; value: string; detail: string } {
+  // A page without the flows (neither read nor failed) has no source that counts people, whatever the channel.
+  if (!view && !unavailable) return { title: "Persone trattate osservate", value: "Non disponibili", detail: "Gli scenari CO stimano il denominatore; non misurano più persone trattate." };
+  // Only the DPC flows count people (joint feedback 2, G2-01/G2-02): under any other channel the card says so and points
+  // to the DPC view, never showing a DPC count as if it were filtered to that channel.
+  if (channel !== "DPC") return channel === "Tutti"
+    ? { title: "Assistiti", value: "Solo per la DPC", detail: "Il registro della spesa non conta le persone. Gli assistiti sono contati solo nei flussi DPC riferiti a gennaio 2026: vista «Assistiti e servizio DPC»." }
+    : { title: `Assistiti · ${channel}`, value: "Non disponibili", detail: `Per il canale ${channel} non ci sono dati sugli assistiti. Gli assistiti sono contati solo nei flussi DPC riferiti a gennaio 2026: vista «Assistiti e servizio DPC».` };
+  if (!view) return { title: "Destinatari DPC", value: "Non disponibili in questo momento", detail: "La lettura dei dati su destinatari e utilizzo non è riuscita: nessun valore viene sostituito." };
   const unit = view.units.find((u) => u.key === selected);
   if (!unit) return { title: "Destinatari DPC", value: "Non disponibili", detail: "Nessun conteggio di gennaio 2026 per l’ambito selezionato: nessun valore viene sostituito." };
   return { title: `Destinatari DPC · ${unit.label}`, value: num(unit.data.january.recipients),
@@ -145,11 +150,17 @@ const SEGMENTS = [
   { key: "notInformative", label: "Condivisi, senza esenzione informativa", className: "bg-muted-foreground/35" },
 ] as const;
 
-/** Section 3 addition: how far an exemption code narrows the candidate portfolios of January DPC spending (wording per Codex review, 22 Oct 2026).
- * The additions' panels sit beside what they extend: `narrowing` (P10-04, the narrowed spend by area) after the
- * narrowing evidence, `fileF` (P10-05, the File F attribution fields) after the File F portfolios. */
-export function PillarCAttributionEvidence({ view, narrowing, fileF }: { view: CExtensionView; narrowing?: ReactNode; fileF?: ReactNode }) {
-  return <div className="space-y-6"><AttributionNarrowing view={view} />{narrowing}<CandidateReach view={view} /><FileFPortfolios view={view} />{fileF}</div>;
+/** The DPC view's attribution evidence: how far an exemption code narrows the candidate portfolios of January DPC
+ * spending (wording per Codex review, 22 Oct 2026), `narrowing` (P10-04, the narrowed spend by area) right after it, then
+ * the recipients by product status and portfolio group. File F's own evidence is in the File F view (G2-01/G2-02). */
+export function PillarCDpcAttributionEvidence({ view, narrowing }: { view: CExtensionView; narrowing?: ReactNode }) {
+  return <div className="space-y-6"><AttributionNarrowing view={view} />{narrowing}<CandidateReach view={view} /></div>;
+}
+
+/** The File F view's portfolio evidence: the chosen holder's amount by product status and portfolio reach, with
+ * `fileF` (P10-05, the File F attribution fields) right after it. */
+export function PillarCFileFPortfolios({ view, fileF }: { view: CExtensionView; fileF?: ReactNode }) {
+  return <div className="space-y-6"><FileFPortfolios view={view} />{fileF}</div>;
 }
 
 /** Recipients by the status of the products they received, and by single-candidate portfolio (R20-04). Overlapping:
@@ -226,7 +237,7 @@ export function PillarCFileFMonthly({ view }: { view: CExtensionView }) {
     <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${f.months.length < 12 ? `Mesi presenti nel flusso: ${f.months.length} su 12; un mese assente non vale zero. ` : ""}${lowestWithout === f.months.length - 1 && withMode09.includes(monthLabel(f.months[f.months.length - 1].month)) ? "Senza la modalità 09 l’ultimo mese è il più basso. " : ""}${note}`}</p>
     {!(mean > 0) && <p className="mt-2 text-xs leading-5 text-muted-foreground" data-c-index-base="none">L’indice senza modalità 09 non è calcolabile: la media mensile di riferimento è pari a zero o negativa. Gli importi restano quelli riportati.</p>}
     <ExactTable caption="Modalità di erogazione" headers={["Modalità", "Quota delle righe", "Quota dell’importo"]} rows={f.modes.map((m) => [m.label, pct(m.rowsShare), pct(m.amountShare)])} />
-    <p className="mt-4 text-xs leading-5 text-muted-foreground" data-c-forecast-readiness="filef">Previsione mensile: non disponibile. Per questa serie non esiste un metodo di previsione registrato e verificato con prove retrospettive; un solo anno non basta. La previsione regionale della sezione 5 usa un’altra fonte (AIFA) e non riguarda questa Azienda.</p>
+    <p className="mt-4 text-xs leading-5 text-muted-foreground" data-c-forecast-readiness="filef">Previsione mensile: non disponibile. Per questa serie non esiste un metodo di previsione registrato e controllato con prove retrospettive; un solo anno non basta. La previsione regionale della sezione 5 usa un’altra fonte (AIFA) e non riguarda questa Azienda.</p>
   </Panel>{f.bridges.length > 0 && <FileFBridges f={f} label={holder.unit.label} />}</>;
 }
 
