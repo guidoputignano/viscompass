@@ -59,7 +59,7 @@ function AttributionValues({view,audience,orgLabel}:{view:CAttrView;audience:CCl
   return <div className="space-y-5" data-c-attribution-values data-period={scope.period} data-org={scope.org} data-channel={scope.channel} data-uncertain-abs={uncertain.abs} data-total-abs={scope.total.abs} data-shared-abs={scope.states.S3.abs}>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Tile label="Spesa associata a più aree o non classificata, in valore assoluto" value={money(uncertain.abs)} detail="Condivisa, evidenza insufficiente e identificativi da risolvere: le rettifiche non compensano gli importi"/>
-      <Tile label="Quota dell’esposizione complessiva" value={pct(cAttrShare(uncertain.abs,scope.total.abs))} detail="Base assoluta: le rettifiche non cancellano l’esposizione"/>
+      <Tile label="Quota dell’esposizione complessiva" value={pct(cAttrShare(uncertain.abs,scope.total.abs))} detail="Sul totale in valore assoluto dell’organizzazione, del canale e del periodo selezionati: le rettifiche non cancellano l’esposizione"/>
       <Tile label="Spesa condivisa tra portafogli" value={money(scope.states.S3.net)} detail="Importo con segno, incluse le rettifiche"/>
       <Tile label="Spesa complessiva del perimetro" value={money(scope.total.net)} detail={`${C_PERIOD_LABELS[scope.period]} · importo con segno`}/>
     </div>

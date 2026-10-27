@@ -485,7 +485,10 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   // the 22 workspace cases differ only by that bar and by React's useId values, renumbered because the tree gained a node.
   // Re-recorded on 27 Oct 2026 (G2-06: section 2 is «Assistiti e utilizzo»). Against 0284605b…: the same 22 workspace
   // cases change, each only by that label (twice: the section bar and the frame heading); 37 cases byte-identical.
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'44f58c1895de637bae329d695621226cbde9072db58a5c195b285ecc70a431d9');
+  // Re-recorded on 27 Oct 2026 (G2-24/G2-25, Codex's verified wording). Against 44f58c18…: 50 cases byte-identical; 4
+  // dossier leaves change only by the candidate wording, the basis line, the note and «Non presente nei dati selezionati»;
+  // 4 attribution leaves only by the denominator of the uncertainty share; 1 change summary only by the presence labels.
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'5d5a62a0a3aa54010a50401c0af04a7d121543e887519a6bf56de41b1645e8c9');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout

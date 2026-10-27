@@ -27,7 +27,18 @@ test('portfolio dossier renders scope, exact product amounts, chronological comp
  assert.match(html,/Anno 2024 → Anno 2025/);assert.match(html,/10,01 €/);assert.match(html,/Prodotto sintetico A/);
  assert.match(html,/data-c-portfolio-scenario/);assert.match(html,/non previsione né budget approvato/);
  assert.match(html,/Che cosa spiega la variazione/);assert.match(html,/Maggiori contributi in aumento/);assert.match(html,/Contributi in riduzione/);
- assert.match(html,/Importi mensili esatti del portafoglio/);assert.match(html,/Nessun record/);
+ assert.match(html,/Importi mensili esatti del portafoglio/);assert.match(html,/Non presente nei dati selezionati/);assert.doesNotMatch(html,/Nessun record/);
+ // G2-25: the basis, the two cards with their financial basis, one note at the point of use, the exact amounts on demand.
+ assert.match(html,/data-c-portfolio-basis="true">Raggruppamento dei farmaci per ATC e regole di mappatura; area di utilizzo da verificare · ASL 1 · CO · Anno 2025<\/p>/);
+ assert.match(html,/Spesa dei farmaci con una sola area candidata<\/p><p[^>]*>10 €<\/p><p[^>]*>Importo netto, rettifiche incluse<\/p>/);
+ assert.match(html,/Importi dei farmaci con più aree candidate<\/p><p[^>]*>2 €<\/p><p[^>]*>Valore assoluto; non ripartito tra le aree<\/p>/);
+ assert.match(html,/Per sapere quale area li ha utilizzati serve un riscontro locale\. Questa distinzione deriva dalla mappatura dei farmaci, non da informazioni su patologie concomitanti o reazioni avverse\./);
+ assert.match(html,/Importo esatto dei farmaci con una sola area candidata: 10,01 €, su 1 riga osservata\. Farmaci con più aree candidate: 2,00 € in valore assoluto, 2,00 € con segno \(rettifiche incluse\), su 1 riga osservata\./);
+ assert.match(html,/ATC TEST · aree candidate: Area sintetica A, Area sintetica B/,'the shared detail names the candidate areas');
+ assert.doesNotMatch(html,/portafogli candidati<\/span>|associata solo a quest’area|associata anche ad altre aree/,'no count without names, no old card wording');
+ // G2-24: presence in the selected comparison, never a market entry or exit; absence explained beside the table.
+ assert.match(html,/>Presenza nei dati selezionati<\/th>/);assert.match(html,/non è un importo zero e non dice se il farmaco è nuovo, ritirato o distribuito in un altro canale/);
+ assert.doesNotMatch(html,/Entrati nel portafoglio|Usciti dal portafoglio/);
  assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });
 
@@ -66,8 +77,8 @@ test('PVM rendering gives the admitted subset its own denominator and never show
 });
 test('candidate-only portfolio never invents fixed spending or a scenario baseline',()=>{
  const html=renderToStaticMarkup(reviewer(React.createElement(CPortfolioDossierView,{view:view('BB')})));
- assert.match(html,/Nessun record/);assert.match(html,/Nessuna riga associata solo a quest’area/);
- assert.doesNotMatch(html,/La spesa associata solo a quest’area è/);
+ assert.match(html,/Non presente nei dati selezionati/);assert.match(html,/Nei dati selezionati non ci sono farmaci con quest’area come sola candidata\./);
+ assert.doesNotMatch(html,/come sola candidata è/);
  assert.match(html,/data-change="unavailable"/);assert.match(html,/Non disponibile/);
  assert.doesNotMatch(html,/data-c-portfolio-scenario/);assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });

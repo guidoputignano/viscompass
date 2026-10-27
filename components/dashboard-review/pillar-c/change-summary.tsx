@@ -11,7 +11,8 @@ import { itNumber } from "@/lib/format/it-number";
 
 const money = (s:string) => `${cWorkbookDecimal(s,2)} €`;
 const signed = (s:string) => `${Number(s)>0?"+":""}${money(s)}`;
-const shortKind = {continuing:"Presenti nei due periodi",entry:"Entrati nel portafoglio",exit:"Usciti dal portafoglio"};
+/** Presence in the selected comparison (joint feedback 2, G2-24): never a market entry, a withdrawal or a channel switch. */
+const shortKind = {continuing:"In entrambi i periodi",entry:"Solo nel periodo più recente",exit:"Solo nel periodo precedente"};
 
 /** The audience is mandatory: without one, or for a view of an organisation the audience does not hold, nothing renders. */
 export function CPortfolioChangeSummary({view,onPickProduct}:{view:CPortfolioView;onPickProduct?:(key:string)=>void}) {

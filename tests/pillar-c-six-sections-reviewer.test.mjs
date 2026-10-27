@@ -532,7 +532,9 @@ test('14. the 1.2b copy: ratio count wording, «Voci prodotto», «Portafoglio s
   assert.doesNotMatch(legend,/Portafoglio singolo · (proxy|derivato)/);
   for(const workbook of [undefined,WB]){
     const dossier=under(C_REVIEWER_CLIENT_AUDIENCE,el(CPortfolioDossierView,{view:portView('AA'),workbook}));
-    assert.equal(count(dossier,'<p class="mt-2 text-xs leading-5 text-muted-foreground">Anno 2025 · raggruppamento ATC in bozza · rettifiche incluse</p>'),1,'the tile detail');
+    // G2-25: the tile says its financial basis; the period and the draft grouping sit in the basis line above the tiles.
+    assert.equal(count(dossier,'<p class="mt-2 text-xs leading-5 text-muted-foreground">Importo netto, rettifiche incluse</p>'),1,'the tile detail');
+    assert.equal(count(dossier,'Raggruppamento dei farmaci per ATC e regole di mappatura; area di utilizzo da verificare · '),1,'the basis line');
     assert.equal(count(dossier,'proxy'),0);
     assert.equal(count(dossier,'href="#costi"'),0,'the dossier no longer links the costi section');
   }
