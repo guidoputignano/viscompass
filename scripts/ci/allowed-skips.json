@@ -37,6 +37,11 @@
    "reason": "the pinned private attribution index is not available locally"
   },
   {
+   "file": "tests/pillar-c-ingredients.test.mjs",
+   "name": "the private ingredient object passes the real parser and matches the pins in the repository (pass/fail only)",
+   "reason": "the private build is not available locally"
+  },
+  {
    "file": "tests/pillar-c-planning.test.mjs",
    "name": "on the pinned private shards every scope passes C1 and the group identities (pass/fail only, no figures)",
    "reason": "the pinned private attribution index is not available locally"

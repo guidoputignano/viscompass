@@ -7,6 +7,7 @@ import { loadCScopedAttrView, loadCScopedPortfolioView, type CScopedAttrLoad, ty
 import type { CScopedAttrView, CScopedPortfolioView } from "@/lib/dashboard-review/pillar-c/scoped-review";
 import type { CScopedUnit } from "@/lib/dashboard-review/pillar-c/scoped-units";
 import { pcsLog } from "@/lib/dashboard-review/pillar-c/scoped-transport";
+import { cPortfolioWithIngredients, loadCIngredientsScoped } from "@/lib/dashboard-review/pillar-c/ingredients-loader";
 
 /** The same three headers as every Pillar C API response. Membership reads cookies: nothing is shareable. */
 export const C_SCOPED_HEADERS = { "Cache-Control": "private, no-store, max-age=0", Vary: "Cookie", "X-Content-Type-Options": "nosniff" } as const;
@@ -44,9 +45,11 @@ export async function cScopedGET(request: NextRequest, audience: PillarCScopedAu
   if (!scope.ok) return reply({ error: scope.error }, scope.status);
   const started = performance.now();
   const db = await createClient();
-  const result: CScopedAttrLoad | CScopedPortfolioLoad = kind === "portfolio"
-    ? await loadCScopedPortfolioView(audience, db, scope.period, scope.org, scope.channel, scope.portfolio as string)
-    : await loadCScopedAttrView(audience, db, scope.period, scope.org, scope.channel);
+  // G2-23: a portfolio view also carries the active ingredients of its own products, read under the same session.
+  const [result, ingredients] = await Promise.all([kind === "portfolio"
+    ? loadCScopedPortfolioView(audience, db, scope.period, scope.org, scope.channel, scope.portfolio as string)
+    : loadCScopedAttrView(audience, db, scope.period, scope.org, scope.channel) as Promise<CScopedAttrLoad | CScopedPortfolioLoad>,
+  kind === "portfolio" ? loadCIngredientsScoped(audience, db) : Promise.resolve(null)]);
   if (result.state === "denied") return reply({ error: "forbidden_scope" }, 403);
   if (result.state === "invalid") return reply({ error: "invalid_scope" }, 400);
   if (result.state !== "ready") return reply({ error: "unavailable" }, 503, started);
@@ -57,5 +60,5 @@ export async function cScopedGET(request: NextRequest, audience: PillarCScopedAu
     pcsLog("PCS-MISMATCH", scope.org);
     return reply({ error: "unavailable" }, 503, started);
   }
-  return reply(view, 200, started);
+  return reply(kind === "portfolio" && ingredients ? cPortfolioWithIngredients(view as CScopedPortfolioView, ingredients) : view, 200, started);
 }

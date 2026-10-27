@@ -1,4 +1,5 @@
 /** Portfolio spending dossiers. ATC groupings are not observed clinical-area allocations. */
+import type { CIngredients } from "@/lib/dashboard-review/pillar-c/ingredients";
 import { C_ATTR_CHANNELS, C_ATTR_ORGS, C_ATTR_PERIODS, C_ATTR_STATES, cAttrAtoms, cAttrDecimal, cAttrSum, type CAttrChannel, type CAttrInput, type CAttrOrg, type CAttrPeriod, type CAttrPortfolio, type CAttrState, type CAttrStats } from "./attribution.ts";
 
 export type CPortfolioProduct = CAttrStats & { key: string; label: string; atc: string; state: "S2" | "S3"; candidates: string[] };
@@ -18,6 +19,8 @@ export type CPortfolioView = {
   scope: CPortfolioScopeSummary; summaries: CPortfolioSummary[]; dossier: CPortfolioDossier;
   comparison: { scope: CPortfolioScopeSummary; dossier: CPortfolioDossier } | null; productChanges: CPortfolioProductChange[]; change: string | null;
   changeSemantic: "later-minus-earlier"; changePeriods: { from: CAttrPeriod; to: CAttrPeriod };
+  /** Joined by the API route (G2-23): the labels of this view's products, null when unreadable, absent when not joined. */
+  ingredients?: CIngredients | null;
 };
 
 type Mutable = { n: number; net: bigint; abs: bigint; positive: bigint; negative: bigint };

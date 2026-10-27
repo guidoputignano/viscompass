@@ -55,7 +55,10 @@ test('reviewer responses are byte-identical to the handlers before recommendatio
     ['memberNotEnabled',()=>as({org:ORGS['asl-4'],viewer:viewer(false),client})],
   ];
   const json=await withProduction(()=>reviewerRouteMatrix({attribution,portfolio,workbook},NextRequest,identities));
-  assert.equal(createHash('sha256').update(json).digest('hex'),'3dd2727e45e35e192ee9b26d8f940ce8f42c1f91bedf4ead8827af2e033736d9');
+  // Re-recorded on 27 Oct 2026 (G2-23): the portfolio route joins the active ingredients of the view's own products. Here
+  // they cannot be read, so each of the 56 reviewer portfolio views gains exactly ,"ingredients":null; without that field
+  // the matrix hashes to the earlier pin 3dd2727e… byte for byte.
+  assert.equal(createHash('sha256').update(json).digest('hex'),'67c5e752b5ed93c646f67fd945082671e2f6736116ca9a46e309ac01d33dcbaf');
 });
 
 test('without an entitled audience every Pillar C route answers 403 forbidden before any read',async()=>{
@@ -88,8 +91,12 @@ test('an enabled Azienda: its own key and the aggregate are served under its ses
         const body=await r.json();
         assert.equal(body.scope.org,key);assert.equal((kind==='portfolio'?body.comparison.scope:body.comparison).org,key);
         assert.equal(body.sourceSnapshot,fixture.pins.index[key]);
-        assert.ok(calls.downloads.every(d=>d.bucket==='pillar-c-scoped'&&d.path.startsWith(`v1/${key}/`)&&d.params.cache==='no-store'));
-        assert.equal(calls.downloads.length,3);assert.deepEqual(calls.rpc,[['pillar_c_scoped_units',undefined]]);
+        // G2-23: a portfolio also reads the ingredient labels once, from the aggregate folder the Azienda holds.
+        const labels=calls.downloads.filter(d=>d.path.startsWith('v9/aggregato/principi-'));
+        assert.equal(labels.length,kind==='portfolio'?1:0,'one read of the ingredient labels, for a portfolio only');
+        assert.ok(calls.downloads.every(d=>d.bucket==='pillar-c-scoped'&&d.params.cache==='no-store'&&(labels.includes(d)||d.path.startsWith(`v1/${key}/`))));
+        assert.equal(calls.downloads.length,kind==='portfolio'?4:3);assert.deepEqual(calls.rpc,[['pillar_c_scoped_units',undefined]]);
+        if(kind==='portfolio')assert.equal(body.ingredients,null,'labels not in this bucket: null, never guessed');
         assert.deepEqual(state.reads,[],'never a reviewer loader');assert.equal(state.serviceRole,0,'never the service role');
         for(const other of SCOPED_UNITS.filter(u=>u!==key))assert.equal(JSON.stringify(body).includes(`"org":"${other}"`),false);
       }
