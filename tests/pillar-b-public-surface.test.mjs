@@ -42,7 +42,7 @@ function importGraph(entry) {
 }
 
 test("the public paths are exactly these, matched exactly", () => {
-  assert.deepEqual([...PUBLIC_PATHS], ["/pillar-a", "/api/pillar-a/series", "/api/pillar-a/osmed", "/api/pillar-a/atc4", "/pillar-b"]);
+  assert.deepEqual([...PUBLIC_PATHS], ["/pillar-a", "/api/pillar-a/series", "/api/pillar-a/osmed", "/api/pillar-a/atc4", "/pillar-b", "/pillar-c"]);
   assert.equal(isPublicPath("/pillar-b"), true);
   for (const p of ["/pillar-b/", "/pillar-b/dati", "/api/pillar-b", "/dashboard-review/revisione-pillar-b", "/pillar-bx", "/Pillar-B"]) {
     assert.equal(isPublicPath(p), false, `${p} must need a session`);
@@ -160,7 +160,7 @@ test("the public navigation names Pillar B beside Pillar A and the page links in
   assert.ok(home.includes('href="/pillar-b"'));
   assert.ok(home.includes("Biosimilari ed esclusività"), "the Pillar B link carries its subtitle");
   const page = read("app/pillar-b/page.tsx");
-  assert.ok(page.includes("/dashboard-review/revisione-pillar-b"), "the public page points to the reserved analysis");
+  assert.ok(page.includes('<PublicPillarHeader active="b" />') && read("components/public-pillar-header.tsx").includes("/dashboard-review/revisione-pillar-b"), "the shared public header points to the reserved analysis");
   const component = read("components/pillar-b-public.tsx");
   for (const phrase of ["tre molecole", "acquisti diretti", "2025", "non contiene dati sull&apos;esclusività"]) {
     assert.ok(component.toLowerCase().includes(phrase.toLowerCase()), `the public page must say "${phrase}"`);
