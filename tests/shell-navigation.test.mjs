@@ -32,6 +32,7 @@ const {DashboardReviewNav}=await import('../components/dashboard-review/nav.tsx'
 const {AccessPortal}=await import('../components/access/access-portal.tsx');
 const {default:Home}=await import('../app/page.tsx');
 const {default:AuthLayout}=await import('../app/auth/layout.tsx');
+const {PublicPillarHeader}=await import('../components/public-pillar-header.tsx');
 const h=React.createElement,render=el=>renderToStaticMarkup(el);
 
 // The three labels, the one accessible name of the logo link, and where each must appear.
@@ -45,8 +46,7 @@ const LOGO_PLACEMENTS={
   'components/access/access-portal.tsx':1,
   'app/admin/control-center/page.tsx':2,
   'components/admin/access-control-center.tsx':1,
-  'app/pillar-a/page.tsx':1,
-  'app/pillar-b/page.tsx':1,
+  'components/public-pillar-header.tsx':1,
   'app/auth/layout.tsx':1,
 };
 const org={org_code:'T-A',org_name:'Azienda di prova',org_type:'asl',region_code:'T1'};
@@ -112,7 +112,7 @@ test('the three pillar labels are the same strings in the sidebar, on the homepa
   // Homepage: the pill shows the icon alone below lg and the name from lg; the subtitle is screen-reader-only at
   // every width, so the accessible name is always the full label and the sticky bar fits every viewport.
   const home=read('app/page.tsx');
-  for(const [href,label] of [['/pillar-a',LABELS.A],['/pillar-b',LABELS.B],['/dashboard-review/pillar-c',LABELS.C]]){
+  for(const [href,label] of [['/pillar-a',LABELS.A],['/pillar-b',LABELS.B],['/pillar-c',LABELS.C]]){
     const [name,subtitle]=label.split(' · ');
     assert.ok(home.includes(`<Link href="${href}">`),`homepage links ${href}`);
     assert.ok(home.includes(`<span className="sr-only lg:not-sr-only">${name}</span><span className="sr-only"> · ${subtitle}`),`homepage label for ${href}`);
@@ -122,26 +122,31 @@ test('the three pillar labels are the same strings in the sidebar, on the homepa
   const homeAnchors=anchors(render(h(Home)));
   assert.equal(homeAnchors.find(a=>a.href==='/pillar-a')?.text,`Pillar A · Fonti pubbliche`);
   assert.equal(homeAnchors.find(a=>a.href==='/pillar-b')?.text,`Pillar B · Biosimilari ed esclusività`);
-  const c=homeAnchors.find(a=>a.href==='/dashboard-review/pillar-c');
-  assert.equal(c?.text,`Pillar C · Aree cliniche e budget · accesso riservato`,'the reserved pillar says so');
+  const c=homeAnchors.find(a=>a.href==='/pillar-c');
+  assert.equal(c?.text,LABELS.C,'Pillar C now opens its public-source page');
   assert.match(c.attrs,/class="[^"]*\bbefore:-inset-y-1\.5\b[^"]*"/,'the 32 px pill reaches a 44 px touch target');
-  assert.ok(home.includes('<Lock aria-hidden="true" className="ml-1 size-3.5" />'),'the lock marks the reserved link');
-  // Public Pillar A header: Home · Pillar B · Area riservata, each a 44 px target, inside a labelled nav.
+  assert.ok(!home.includes('<Lock aria-hidden="true" className="ml-1 size-3.5" />'),'the public link has no reserved-only lock');
+  // The three public pages share one header, keeping their reserved destinations.
   const pillarA=read('app/pillar-a/page.tsx');
-  assert.ok(pillarA.includes(`<Link href="/pillar-b" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-primary">${LABELS.B}</Link>`));
-  assert.match(pillarA,/<nav className="[^"]*" aria-label="Navigazione pubblica">/);
   assert.ok(pillarA.includes('title: "Pillar A · Fonti pubbliche | VIS Pharma Compass"'),'the page title uses the same label as every link to it');
-  assert.ok(pillarA.includes('<Link href="/dashboard-review/antibiotici" className="inline-flex min-h-11 items-center font-semibold text-primary">Area riservata →</Link>'),'the reserved target of the public page is unchanged');
-  // Public Pillar B header: Home · Pillar A · Area riservata, the same scheme.
-  const pillarB=read('app/pillar-b/page.tsx');
-  assert.ok(pillarB.includes(`<Link href="/pillar-a" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-primary">${LABELS.A}</Link>`));
-  assert.match(pillarB,/<nav className="[^"]*" aria-label="Navigazione pubblica">/);
-  assert.ok(pillarB.includes('<Link href="/dashboard-review/revisione-pillar-b" className="inline-flex min-h-11 items-center font-semibold text-primary">Area riservata →</Link>'),'the reserved target of the Pillar B page is unchanged');
-  assert.doesNotMatch(pillarB,/VIS Pharma Compass, home/,'the old ad-hoc logo label is gone');
-  // Access portal: the two public pillars, no reserved one.
+  for(const [key,reserved] of [['a','/dashboard-review/antibiotici'],['b','/dashboard-review/revisione-pillar-b'],['c','/dashboard-review/pillar-c']]){
+    assert.ok(read(`app/pillar-${key}/page.tsx`).includes(`<PublicPillarHeader active="${key}" />`));
+    const html=render(h(PublicPillarHeader,{active:key})),links=anchors(html);
+    assert.match(html,/aria-label="Navigazione pubblica"/);
+    assert.ok(links.some(isHome));
+    for(const k of ['a','b','c']){
+      const link=links.find(a=>a.href===`/pillar-${k}`);
+      assert.equal(link?.text,LABELS[k.toUpperCase()]);
+      assert.match(link.attrs,/min-h-11/);
+      assert.equal(link.attrs.includes('aria-current="page"'),key===k);
+    }
+    assert.ok(links.some(a=>a.href===reserved&&a.text==='Area riservata'));
+  }
+  // Access portal: all three public pillars, no reserved destination.
   const portal=anchors(render(h(AccessPortal,{overview})));
   assert.equal(portal.find(a=>a.href==='/pillar-a')?.text,LABELS.A);
   assert.equal(portal.find(a=>a.href==='/pillar-b')?.text,LABELS.B);
+  assert.equal(portal.find(a=>a.href==='/pillar-c')?.text,LABELS.C);
   assert.equal(portal.some(a=>a.href==='/dashboard-review/pillar-c'),false,'a pending account is not pointed at the reserved pillar');
   // The old spellings are gone from the shell.
   for(const file of Object.keys(LOGO_PLACEMENTS))assert.doesNotMatch(read(file),/Pillar [AB] · dati pubblici|Pillar A · fonti pubbliche/,file);

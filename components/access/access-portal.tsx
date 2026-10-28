@@ -365,7 +365,7 @@ export function AccessPortal({
               </form>
               <div className="mt-6 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
                 <p>Puoi consultare le analisi pubbliche senza attendere l’accesso ai dati riservati.</p>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2"><Link href="/pillar-a" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Pillar A · Fonti pubbliche</Link><Link href="/pillar-b" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Pillar B · Biosimilari ed esclusività</Link></div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2"><Link href="/pillar-a" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Pillar A · Fonti pubbliche</Link><Link href="/pillar-b" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Pillar B · Biosimilari ed esclusività</Link><Link href="/pillar-c" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Pillar C · Aree cliniche e budget</Link></div>
               </div>
             </CardContent>
           </Card>

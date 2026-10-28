@@ -11,7 +11,6 @@ import {
   FileCheck2,
   FlaskConical,
   LineChart,
-  Lock,
   PanelsTopLeft,
   Radar,
   ReceiptText,
@@ -306,7 +305,7 @@ export default function Home() {
           <div className="flex items-center gap-1 sm:gap-1.5">
             <Button asChild size="sm" variant="outline" className={PILLAR_LINK_CLASS}><Link href="/pillar-a"><BarChart3 aria-hidden="true" className="size-4 lg:mr-1.5" /><span className="sr-only lg:not-sr-only">Pillar A</span><span className="sr-only"> · Fonti pubbliche</span><ArrowRight aria-hidden="true" className={PILLAR_ARROW_CLASS} /></Link></Button>
             <Button asChild size="sm" variant="outline" className={PILLAR_LINK_CLASS}><Link href="/pillar-b"><LineChart aria-hidden="true" className="size-4 lg:mr-1.5" /><span className="sr-only lg:not-sr-only">Pillar B</span><span className="sr-only"> · Biosimilari ed esclusività</span><ArrowRight aria-hidden="true" className={PILLAR_ARROW_CLASS} /></Link></Button>
-            <Button asChild size="sm" variant="outline" className={PILLAR_LINK_CLASS}><Link href="/dashboard-review/pillar-c"><PanelsTopLeft aria-hidden="true" className="size-4 lg:mr-1.5" /><span className="sr-only lg:not-sr-only">Pillar C</span><span className="sr-only"> · Aree cliniche e budget · accesso riservato</span><Lock aria-hidden="true" className="ml-1 size-3.5" /></Link></Button>
+            <Button asChild size="sm" variant="outline" className={PILLAR_LINK_CLASS}><Link href="/pillar-c"><PanelsTopLeft aria-hidden="true" className="size-4 lg:mr-1.5" /><span className="sr-only lg:not-sr-only">Pillar C</span><span className="sr-only"> · Aree cliniche e budget</span><ArrowRight aria-hidden="true" className={PILLAR_ARROW_CLASS} /></Link></Button>
             <div className="hidden sm:flex"><ThemeSwitcher /></div>
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link href="/auth/login">Accedi</Link></Button>
             <Button asChild size="sm"><Link href="/auth/sign-up">Registrati</Link></Button>
