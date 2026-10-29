@@ -170,7 +170,7 @@ test('sidebar hrefs, the admin gate and the role forwarding are unchanged',()=>{
     '/dashboard-review/spend','/dashboard-review/benchmark',
     '/pillar-a','/dashboard-review/revisione-pillar-b','/dashboard-review/pillar-c',
     '/dashboard-review/ricerca','/dashboard-review/antibiotici',
-    '/dashboard-review/obiettivi','/dashboard-review/dati','/dashboard-review/richieste',
+    '/dashboard-review/obiettivi','/dashboard-review/azioni','/dashboard-review/dati','/dashboard-review/richieste',
   ]);
   assert.ok(groups.includes('{ href: "/dashboard-review/pillar-c", label: "Pillar C · Aree cliniche e budget", icon: PanelsTopLeft, previewOnly: false }'));
   assert.ok(nav.includes('if ("previewOnly" in item && item.previewOnly && !viewer?.isReviewer && !isAdmin) return null;'));

@@ -8,6 +8,7 @@ import {
   Database,
   ListTree,
   ClipboardList,
+  ClipboardCheck,
   KeyRound,
   MessageSquareText,
   ShieldPlus,
@@ -47,6 +48,7 @@ const NAV_GROUPS = [
     label: "Governance",
     items: [
       { href: "/dashboard-review/obiettivi", label: "Revisioni e obiettivi", icon: ClipboardList },
+      { href: "/dashboard-review/azioni", label: "Azioni sui risultati", icon: ClipboardCheck },
       { href: "/dashboard-review/dati", label: "Fonti e qualità", icon: Database },
       { href: "/dashboard-review/richieste", label: "Richieste", icon: MessageSquareText },
     ],

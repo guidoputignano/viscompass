@@ -11,6 +11,9 @@
 // the confidential Pillar B workbook is reachable without a session.
 // /api/csp-report receives the browser's Content-Security-Policy violation
 // reports (XC-X3.2), which are sent without the session; it serves nothing.
+// /api/findings/reminders is called by Vercel Cron, without a session, and
+// refuses anything but the project's CRON_SECRET; it sends reminders and
+// serves no data.
 export const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/pillar-a",
   "/api/pillar-a/series",
@@ -19,6 +22,7 @@ export const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/pillar-b",
   "/pillar-c",
   "/api/csp-report",
+  "/api/findings/reminders",
 ];
 
 export function isPublicPath(pathname: string): boolean {

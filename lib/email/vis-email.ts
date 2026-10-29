@@ -104,3 +104,29 @@ export async function sendAccessDecisionEmail(
     actionPath: outcome === "approved" ? "/dashboard-review/spend" : "/access",
   });
 }
+
+// Finding cases: the title and the due date only. The figures stay behind the
+// sign-in, so a forwarded or intercepted email carries none.
+const italianDate = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+export async function sendFindingAssignedEmail(email: string, title: string, dueDate: string, caseId: string) {
+  return sendVisEmail({
+    to: email,
+    subject: "Nuovo caso assegnato · VIS Pharma Compass",
+    heading: "Ti è stato assegnato un caso.",
+    message: `${title}. Scadenza: ${italianDate(dueDate)}. Apri il caso per leggere il risultato, registrare la decisione e, a conclusione, l’esito.`,
+    actionLabel: "Apri il caso",
+    actionPath: `/dashboard-review/azioni?caso=${encodeURIComponent(caseId)}`,
+  });
+}
+
+export async function sendFindingOverdueEmail(email: string, title: string, dueDate: string, caseId: string) {
+  return sendVisEmail({
+    to: email,
+    subject: "Caso in scadenza superata · VIS Pharma Compass",
+    heading: "Un caso che ti è assegnato ha superato la scadenza.",
+    message: `${title}. Scadenza: ${italianDate(dueDate)}. Registra la decisione o l’esito, oppure chiedi a chi lo ha assegnato di aggiornare la scadenza.`,
+    actionLabel: "Apri il caso",
+    actionPath: `/dashboard-review/azioni?caso=${encodeURIComponent(caseId)}`,
+  });
+}
