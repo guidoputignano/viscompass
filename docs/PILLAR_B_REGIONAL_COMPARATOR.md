@@ -411,3 +411,22 @@ to the public AIFA data already compiled and shown on `/pillar-b`.
   (14/14), 507 tests (499 passed, 8 skipped), TypeScript, lint and build.
   The browser automation helper was unavailable, so this rerun cannot close
   the live-page gap.
+
+### Search-path hardening (XC-X2.6), 29 October 2026
+
+* **Already applied:** `20261009160000`. A read-only check found
+  `pillar_b_regional_comparator` (and the later `pillar_c_scoped_units`) with
+  `search_path=pg_catalog, pg_temp`.
+* **Applied, on the owner's approval:** `20261009170000`, the committed file
+  (SHA-256 checked in the page against the blob of 0c62ce1), in one run of the
+  SQL editor. Before the run, a pre-check matched each of the six functions to
+  a baseline of its body checksum, grants, owner and security mode.
+* **Verified:**
+  * all six functions now have `search_path=pg_catalog, public, pg_temp`;
+  * each body checksum, the grants, the owner, SECURITY DEFINER and the
+    volatility are unchanged;
+  * of the nine SECURITY DEFINER functions outside the system schemas, only
+    Supabase's own event-trigger function `rls_auto_enable` does not end its
+    path with `pg_temp`, and its body names no unqualified relation.
+* **Live:** the pages that call these functions (`/dashboard-review/obiettivi`,
+  `/admin/control-center`, `/access`) render without server errors.
