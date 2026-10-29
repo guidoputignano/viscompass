@@ -45,7 +45,10 @@ export function decidePrivateScope(input: ScopeInput): ScopeDecision | null {
   // the only branch that reports allOrganizations, and it requires releaseOrgs
   // to be genuinely non-empty: an empty list is a failed widening, not a cohort
   // of zero, and must never render as "you are seeing everything".
-  if (isReviewer && releaseOrgs && releaseOrgs.length > 0) {
+  // It also requires the reviewer's own approved membership (XC-X2.5), as
+  // lib/auth/reviewer-list.ts documents: an allow-listed address alone never
+  // widens, even if a caller reaches this rule outside the dashboard layout.
+  if (isReviewer && org && releaseOrgs && releaseOrgs.length > 0) {
     return {
       orgCodes: releaseOrgs.map((o) => o.org_code),
       orgs: releaseOrgs,

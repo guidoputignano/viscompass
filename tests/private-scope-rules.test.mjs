@@ -33,11 +33,12 @@ test('a reviewer with a usable release listing sees every Azienda by name',()=>{
   assert.equal(d.reviewerScopeUnavailable,false);
 });
 
-test('a reviewer needs no membership of their own',()=>{
-  const d=decidePrivateScope({isReviewer:true,releaseOrgs:MEMBERS,org:null,regionMembers:null});
-  assert.equal(d.allOrganizations,true);
-  assert.equal(d.viewerCode,null);
-  assert.deepEqual(d.orgCodes,['201','202','203','204']);
+test('a reviewer without an approved membership is never widened (XC-X2.5)',()=>{
+  // The allow-listed address alone must not open every Azienda: the reviewer
+  // also needs the approved membership every other account needs.
+  assert.equal(decidePrivateScope({isReviewer:true,releaseOrgs:MEMBERS,org:null,regionMembers:null}),null);
+  const regione=decidePrivateScope({isReviewer:true,releaseOrgs:MEMBERS,org:REGIONE,regionMembers:MEMBERS});
+  assert.equal(regione.allOrganizations,true,'with a membership, of any type, the widening still applies');
 });
 
 test('an EMPTY release listing is a failed widening, never a cohort of zero',()=>{

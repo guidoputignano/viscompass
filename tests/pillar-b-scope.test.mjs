@@ -19,6 +19,8 @@ const THREE = ["reviewer.one@example.org", "reviewer.two@example.org", "reviewer
 const NAMES = { "201": "Azienda Alfa", "202": "Azienda Beta", "203": "Azienda Gamma", "204": "Azienda Delta" };
 const RELEASE = Object.entries(NAMES).map(([org_code, org_name]) => ({ org_code, org_name }));
 const SCOPED = Object.entries(NAMES).map(([orgCode, label]) => ({ orgCode, aslCode: `130${orgCode}`, regionCode: "130", label }));
+// A reviewer is widened only with an approved membership of their own (XC-X2.5).
+const REVIEWER_ORG = { org_code: "201", org_name: NAMES["201"], org_type: "asl" };
 
 test("reviewer listing includes an Azienda found only in the partial year, without making it a comparison year", () => {
   const codes = releaseAslCodes([
@@ -41,7 +43,9 @@ test("all three configured reviewers are recognised, and each is widened to ever
     assert.equal(reviewerEmails().size, 3);
     for (const email of THREE) {
       assert.equal(isReviewerEmail(email), true, email);
-      for (const org of [null, { org_code: "201", org_name: NAMES["201"], org_type: "asl" }, { org_code: "130", org_name: "Regione", org_type: "regione" }]) {
+      assert.equal(decidePrivateScope({ isReviewer: isReviewerEmail(email), releaseOrgs: RELEASE, org: null, regionMembers: null }), null,
+        "the address alone, without a membership, widens nothing");
+      for (const org of [REVIEWER_ORG, { org_code: "130", org_name: "Regione", org_type: "regione" }]) {
         const d = decidePrivateScope({ isReviewer: isReviewerEmail(email), releaseOrgs: RELEASE, org, regionMembers: null });
         assert.deepEqual(d.orgCodes, ["201", "202", "203", "204"]);
         assert.equal(d.allOrganizations, true);
@@ -96,7 +100,7 @@ test("reviewer labels cannot collide across regions and unreviewed regional alia
   const reviewer = decidePrivateScope({
     isReviewer: true,
     releaseOrgs: peers.map((o) => ({ org_code: o.orgCode, org_name: o.label })),
-    org: null, regionMembers: null,
+    org: REVIEWER_ORG, regionMembers: null,
   });
   assert.deepEqual(labelScopedOrgs(reviewer, peers).map((o) => o.label), ["Azienda Abruzzo", "Azienda Altrove"]);
   const ordinary = { viewerCode: null, showRealNames: false, allOrganizations: false };
@@ -114,8 +118,8 @@ test("a pseudonymised viewer's Azienda keys carry no org code; a reviewer's do, 
   assert.deepEqual([...keys.values()], ["asl-1", "asl-2", "asl-3", "asl-4"]);
   assert.equal(parsePillarBFilters({ ambito: "asl-3" }, [...keys.values()]).asl, "asl-3");
   assert.equal(parsePillarBFilters({ ambito: "203" }, [...keys.values()]).asl, null, "a code is not accepted from a pseudonymised viewer");
-  const reviewer = decidePrivateScope({ isReviewer: true, releaseOrgs: RELEASE, org: null, regionMembers: null });
-  const rk = aziendaKeys(labelScopedOrgs(reviewer, SCOPED), reviewer.showRealNames && reviewer.allOrganizations);
+  const reviewer = decidePrivateScope({ isReviewer: true, releaseOrgs: RELEASE, org: REVIEWER_ORG, regionMembers: null });
+  const rk =aziendaKeys(labelScopedOrgs(reviewer, SCOPED), reviewer.showRealNames && reviewer.allOrganizations);
   assert.deepEqual([...rk.values()], ["201", "202", "203", "204"]);
   // Colliding labels never fall back to a code.
   const dup = aziendaKeys([{ orgCode: "201", label: "ASL 1" }, { orgCode: "202", label: "ASL 1" }], false);
