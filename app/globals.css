@@ -82,16 +82,18 @@
   /* The private area meets WCAG 2.2 AA (XC-X5.1). The brand teal measures
      3.54:1 as text on white and under white text, so it stays for the logo,
      marks and borders, and a darker shade of the same hue takes text and
-     pressed states: 5.42:1 on white, and under white text. In dark mode teal
-     text already passes (5.0:1 on the card), and white on teal (2.57:1) gives
-     way to the page's dark ink (6.59:1). The public pages keep the brand
-     token, a design decision for the Foundation President (d0f6ba0). */
+     pressed states: 5.42:1 on white, and under white text. In dark mode the
+     brand teal as text reads 5.0:1 on the card but 4.1:1 on a teal tint (the
+     Revisore badge), so teal text there is a lighter shade (6.2:1 and 5.1:1);
+     white on teal (2.57:1) gives way to the page's dark ink (6.59:1). The
+     public pages keep the brand token, a design decision for the Foundation
+     President (d0f6ba0). */
   .vis-private {
     --primary-text: 174 66% 28%;
     --primary-strong: 174 66% 28%;
   }
   .dark .vis-private {
-    --primary-text: 174 82% 39%;
+    --primary-text: 174 75% 45%;
     --primary-strong: 174 82% 39%;
     --primary-foreground: 199 57% 10%;
   }

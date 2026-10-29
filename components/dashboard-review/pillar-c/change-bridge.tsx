@@ -37,7 +37,7 @@ export function PillarCChangeBridge({ opening, closing, components }: { opening:
       metric={0} comparison={-1} xMetric={-1} matrix={[0]} heading={() => 'Contributo'} axis={n => cMoneyLabel(n)}/>
       : <>
         <div className="overflow-x-auto rounded-xl border border-border bg-gradient-to-b from-secondary/30 to-transparent p-3">
-          <svg viewBox="0 0 960 410" className="min-w-[720px] w-full" role="group" aria-label="Ponte a cascata fra spesa iniziale e finale">
+          <svg viewBox="0 0 960 410" className="min-w-[51rem] w-full" role="group" aria-label="Ponte a cascata fra spesa iniziale e finale">
             {Array.from({ length: 5 }, (_, i) => {
               const v = lo + (hi - lo) * i / 4;
               return <g key={i}><line x1={95} x2={940} y1={y(v)} y2={y(v)} stroke="hsl(var(--border))" strokeDasharray="3 5"/><text x={85} y={y(v) + 4} textAnchor="end" fontSize={13} fill="hsl(var(--muted-foreground))">{`${compact(v)} €`}</text></g>;

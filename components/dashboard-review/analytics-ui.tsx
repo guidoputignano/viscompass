@@ -133,7 +133,7 @@ export function Delta({ value, suffix = " vs periodo precedente" }: { value: num
   }
   const UpOrDown = value >= 0 ? ArrowUpRight : ArrowDownRight;
   return (
-    <span className={cn("inline-flex items-center gap-1", value >= 0 ? "text-rose-700" : "text-emerald-700")}>
+    <span className={cn("inline-flex items-center gap-1", value >= 0 ? "text-rose-700 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-300")}>
       <UpOrDown size={13} />
       {formatSignedPercent(value)}
       {suffix}

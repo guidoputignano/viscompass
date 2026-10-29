@@ -147,20 +147,20 @@ export function PillarCCostConcentration({ units, initialView = "chart" }: { uni
   return <Panel title="Il costo è concentrato su pochi assistiti? · gennaio 2026" description="Curva di concentrazione: assistiti ordinati dal costo più basso. Più la curva si allontana dalla diagonale, più il costo si concentra su pochi assistiti." controls={controls}>
     <div key={view} data-c-concentration={view}>
       {view === "chart" ? <div className="grid gap-5 lg:grid-cols-[minmax(0,26rem)_1fr]">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full max-w-[28rem]" role="img" aria-label={`Curve di concentrazione del costo: ${shown.map((u) => `${u.label}, il 50 % con costo più basso riceve il ${pct(u.data.january.cost.lorenz![5])} del costo`).join("; ") || "nessuna ASL selezionata"}`}>
+        <div className="overflow-x-auto"><svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[22rem] max-w-[28rem]" role="img" aria-label={`Curve di concentrazione del costo: ${shown.map((u) => `${u.label}, il 50 % con costo più basso riceve il ${pct(u.data.january.cost.lorenz![5])} del costo`).join("; ") || "nessuna ASL selezionata"}`}>
           {[0, 0.25, 0.5, 0.75, 1].map((t) => <g key={t}>
             <line x1={x(0)} x2={x(1)} y1={y(t)} y2={y(t)} stroke="hsl(var(--border))" strokeDasharray="3 4" />
-            <text x={L - 6} y={y(t) + 3} textAnchor="end" fontSize={10} fill="currentColor" className="text-muted-foreground">{`${t * 100}%`}</text>
-            <text x={x(t)} y={H - B + 14} textAnchor="middle" fontSize={10} fill="currentColor" className="text-muted-foreground">{`${t * 100}%`}</text></g>)}
+            <text x={L - 6} y={y(t) + 3} textAnchor="end" fontSize={12} fill="currentColor" className="text-muted-foreground">{`${t * 100}%`}</text>
+            <text x={x(t)} y={H - B + 14} textAnchor="middle" fontSize={12} fill="currentColor" className="text-muted-foreground">{`${t * 100}%`}</text></g>)}
           <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)} stroke="currentColor" strokeDasharray="5 4" className="text-muted-foreground" />
-          <text x={x(0.62)} y={y(0.62) - 8} fontSize={10} fill="currentColor" className="text-muted-foreground" transform={`rotate(${-Math.atan(ph / pw) * 180 / Math.PI} ${x(0.62)} ${y(0.62) - 8})`}>costo uguale per tutti</text>
+          <text x={x(0.62)} y={y(0.62) - 8} fontSize={12} fill="currentColor" className="text-muted-foreground" transform={`rotate(${-Math.atan(ph / pw) * 180 / Math.PI} ${x(0.62)} ${y(0.62) - 8})`}>costo uguale per tutti</text>
           {shown.map((u) => { const l = u.data.january.cost.lorenz!; return <g key={u.key}>
             <polyline fill="none" stroke={colorOf(u.key)} strokeWidth={2} points={DECILES.map((k) => `${x(k / 10)},${y(l[k])}`).join(" ")} />
             {DECILES.map((k) => <circle key={k} cx={x(k / 10)} cy={y(l[k])} r={3} fill={colorOf(u.key)} stroke="hsl(var(--card))" strokeWidth={1.5}><title>{`${u.label}: il ${k * 10} % con costo più basso riceve il ${pct(l[k])} del costo`}</title></circle>)}
           </g>; })}
-          <text x={L + pw / 2} y={H - 8} textAnchor="middle" fontSize={10} fill="currentColor">Assistiti, dal costo più basso</text>
-          <text x={12} y={T + ph / 2} textAnchor="middle" fontSize={10} fill="currentColor" transform={`rotate(-90 12 ${T + ph / 2})`}>Quota cumulata del costo</text>
-        </svg>
+          <text x={L + pw / 2} y={H - 8} textAnchor="middle" fontSize={12} fill="currentColor">Assistiti, dal costo più basso</text>
+          <text x={12} y={T + ph / 2} textAnchor="middle" fontSize={12} fill="currentColor" transform={`rotate(-90 12 ${T + ph / 2})`}>Quota cumulata del costo</text>
+        </svg></div>
         <div className="min-w-0 space-y-4">
           <fieldset><legend className="text-xs font-medium text-muted-foreground">ASL mostrate</legend>
             <div className="mt-2 flex flex-wrap gap-2">{curves.map((u) => <label key={u.key} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-xs focus-within:outline focus-within:outline-2 focus-within:outline-primary">
@@ -206,7 +206,7 @@ function DonutChart({ unit, dist, mode }: { unit: Unit; dist: CExtDist; mode: Mo
     <svg viewBox="0 0 180 180" className="mx-auto h-44 w-44" role="img" aria-label={`${unit.label}: ${dist.cells.map((c) => `${c.label} ${value(c.count, c.share)}`).join("; ")}`}>
       {arcs.map(({ c, k, d }) => <path key={c.id} d={d} fill={classColor(k, dist.cells.length)} stroke="hsl(var(--card))" strokeWidth={2} fillRule="evenodd"><title>{`${c.label}: ${value(c.count, c.share)}`}</title></path>)}
       <text x={cx} y={cy - 2} textAnchor="middle" fontSize={15} fontWeight={600} fill="currentColor">{num(total)}</text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fontSize={9} fill="currentColor" className="text-muted-foreground">assistiti</text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize={12} fill="currentColor" className="text-muted-foreground">assistiti</text>
     </svg>
     <ul className="max-w-sm space-y-2 text-xs">{dist.cells.map((c, k) => <li key={c.id} className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-sm" style={{ background: classColor(k, dist.cells.length) }} />{c.label}</span><span className="font-medium tabular-nums">{value(c.count, c.share)}</span></li>)}</ul>
   </div>;

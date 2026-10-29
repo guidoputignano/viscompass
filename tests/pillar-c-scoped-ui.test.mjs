@@ -511,7 +511,12 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   // Same data hash, 28 cases byte-identical. 9 differ only by pressed states on bg-primary-strong and text under 11 px
   // raised to text-[11px]; the other 22 by those and by the change waterfall's labels, 11 to 13 units and rewrapped at
   // 15 characters, with the same text and the same drawing.
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'2385a5d887659978c0c902a3db7e538df9557be00c0ad06324c71ec94b16d7b7');
+  // Re-recorded 29 Oct 2026, the live follow-up of that pass. Baseline reproduced from 99148c2: 2385a5d8….
+  // Same data hash, 34 cases byte-identical; the other 25 differ only by: the selected source's detail in full
+  // primary-foreground (was /85, 4.38:1), dark variants on the Delta and the falling-contribution arrow, the change
+  // summary's labels 10 to 12 units, and the two bridge drawings' minimum widths (40.5rem, 51rem), so their text stays
+  // at 11 px or more where they scroll.
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'58ab21c7eb6ea6674297654be1fe7622927998269f6be0d6176ce1aac829527d');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout

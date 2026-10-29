@@ -8,6 +8,10 @@ import type { CalendarRow } from "@/lib/dashboard-review/pillar-b/facets";
 import { monthSlots, monthlyChartSeries, partialPeriodLabel, type CalendarMetric, type MonthView } from "@/lib/dashboard-review/pillar-b/view-options";
 
 const MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+// The narrow drawing's text, in its 280 units. This chart sits in a <details>
+// inside the section card, so on a 375 px phone it is drawn at 241 px, not
+// the 267 px of the other narrow charts: 13 units render at 11.2 px there.
+const FS = 13;
 const COLORS: Record<number, string> = { 2024: "#647c90", 2025: "#169d94", 2026: "#d99335" };
 const ink = "hsl(var(--foreground))";
 const muted = "hsl(var(--muted-foreground))";
@@ -49,7 +53,7 @@ function MonthlyBarsNarrow({ points, months, shownYears, metric, low, span, labe
   label: string;
 }) {
   const W = NARROW_W, both = shownYears.length > 1;
-  const widest = Math.max(textWidth("—", 12), ...points.map((p) => textWidth(shortValue(p.value, metric), 12)));
+  const widest = Math.max(textWidth("—", FS), ...points.map((p) => textWidth(shortValue(p.value, metric), FS)));
   const L = both ? 66 : 36;
   const R = Math.max(L + 120, W - 2 - widest - 8);
   const sub = both ? 17 : 22, bar = both ? 11 : 13, gap = both ? 6 : 0;
@@ -61,7 +65,7 @@ function MonthlyBarsNarrow({ points, months, shownYears, metric, low, span, labe
   const axisY = rowsEnd + 16;
   const height = axisY + 4;
   const ticks = [0, .5, 1].map((fraction) => {
-    const value = low + fraction * span, text = shortValue(value, metric), w = textWidth(text, 12), x = bx(value);
+    const value = low + fraction * span, text = shortValue(value, metric), w = textWidth(text, FS), x = bx(value);
     return { fraction, value, text, x, extent: fraction === 0 ? [x, x + w] as const : fraction === 1 ? [x - w, x] as const : [x - w / 2, x + w / 2] as const };
   });
   const labelled = clearLabels(ticks.map((t) => t.extent));
@@ -71,24 +75,24 @@ function MonthlyBarsNarrow({ points, months, shownYears, metric, low, span, labe
     {months.map((month, i) => {
       const y0 = top + i * block;
       return <g key={month}>
-        <text x={2} y={y0 + (sub * shownYears.length) / 2 + 4} fontSize="12" fill={muted}>{MONTHS[month - 1]}</text>
+        <text x={2} y={y0 + (sub * shownYears.length) / 2 + 4} fontSize={FS} fill={muted}>{MONTHS[month - 1]}</text>
         {shownYears.map((year, j) => {
           const yc = y0 + j * sub + sub / 2;
           const point = points.find((p) => p.year === year && p.month === month);
           return <g key={year}>
-            {both && <text x={32} y={yc + 4} fontSize="12" fill={muted}>{year}</text>}
+            {both && <text x={32} y={yc + 4} fontSize={FS} fill={muted}>{year}</text>}
             {point && <rect x={Math.min(zero, bx(point.value))} y={yc - bar / 2} width={Math.max(1, Math.abs(bx(point.value) - zero))} height={bar} rx="2"
               fill={COLORS[year]} tabIndex={0} aria-label={exactLabel(month, year, point.value, metric)}>
               {/* ONE text child (hydration error #418). */}
               <title>{exactLabel(month, year, point.value, metric)}</title>
             </rect>}
-            <text x={W - 2} y={yc + 4} textAnchor="end" fontSize="12" fill={point ? ink : muted}>{point ? shortValue(point.value, metric) : "—"}</text>
+            <text x={W - 2} y={yc + 4} textAnchor="end" fontSize={FS} fill={point ? ink : muted}>{point ? shortValue(point.value, metric) : "—"}</text>
           </g>;
         })}
         {both && i < months.length - 1 && <line x1={0} y1={y0 + block - gap / 2} x2={W} y2={y0 + block - gap / 2} stroke={border} strokeOpacity="0.6" />}
       </g>;
     })}
-    {ticks.map((t, i) => labelled[i] && <text key={t.fraction} x={t.x} y={axisY} textAnchor={t.fraction === 0 ? "start" : t.fraction === 1 ? "end" : "middle"} fontSize="12" fill={muted}>{t.text}</text>)}
+    {ticks.map((t, i) => labelled[i] && <text key={t.fraction} x={t.x} y={axisY} textAnchor={t.fraction === 0 ? "start" : t.fraction === 1 ? "end" : "middle"} fontSize={FS} fill={muted}>{t.text}</text>)}
   </svg>;
 }
 

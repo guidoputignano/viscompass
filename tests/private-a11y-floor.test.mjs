@@ -30,6 +30,7 @@ test('the private shell darkens teal text and fills; the public pages keep the b
   const root_=css.slice(css.indexOf(':root {'),css.indexOf('.dark {'));
   assert.match(root_,/--primary: 174 66% 36%;/);assert.match(root_,/--primary-text: 174 66% 36%;/);assert.match(root_,/--primary-strong: 174 66% 36%;/);
   assert.match(css,/\.vis-private \{\n\s+--primary-text: 174 66% 28%;\n\s+--primary-strong: 174 66% 28%;\n\s+\}/);
+  assert.match(css,/\.dark \.vis-private \{[^}]*--primary-text: 174 75% 45%;/);
   assert.match(css,/\.dark \.vis-private \{[^}]*--primary-foreground: 199 57% 10%;/);
   assert.match(read('tailwind.config.ts'),/textColor: \{\n\s+primary: \{\n\s+DEFAULT: "hsl\(var\(--primary-text\)\)"/);
   assert.match(read('components/dashboard-review/nav.tsx'),/className=\{`vis-private flex min-h-svh/);
