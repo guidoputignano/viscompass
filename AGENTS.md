@@ -268,6 +268,11 @@ homepage, Italian auth flow, dashboard modules under
 antibiotici, ricerca, obiettivi, dati, richieste), organization
 access-control centre, transactional email.
 
+**29 October 2026:** the application reads private Pillar A release
+`ddd-20261029` (48 aggregate and 1,316 product records). It is
+`closure-20260923` with three packs' DDD per pack corrected; see
+`docs/PILLAR_A_RELEASE_DDD_20261029.md`. Both releases are in the tables.
+
 **24 September 2026 checkpoint:** live private Pillar A tables contain 48
 aggregate and 1,316 product records for `closure-20260923`; see
 `docs/PILLAR_A_FINAL_AUDIT_20260924.md` for independently checked scope and

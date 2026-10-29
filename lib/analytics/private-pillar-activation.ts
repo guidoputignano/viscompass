@@ -43,6 +43,23 @@
 //
 //   4. This constant set to true.
 //
+// RELEASE ddd-20261029, loaded 29 October 2026 beside closure-20260923 (insert
+// only), replaces it as PRIVATE_RELEASE. The same release with three packs'
+// DDD per pack corrected (docs/PILLAR_A_RELEASE_DDD_20261029.md). Verified in
+// the database after loading, with full outer joins:
+//   - 48 aggregate and 1,316 product rows;
+//   - A+W+R equals T on cf, cmr and ddd in all 12 org-year groups;
+//   - the product grain sums to all 48 aggregate cells;
+//   - 238 AIC, all with their leading zero;
+//   - ddd = qmr x ddd_aic on every row;
+//   - one source hash.
+// Against closure-20260923:
+//   - no row missing or added;
+//   - cf, cmr, cn, qmr, activity, names and classes identical;
+//   - ddd changed in exactly 13 aggregate cells and 9 product rows (3 AIC), as staged.
+// The access policies are per organisation, not per release, so condition 3
+// carries over unchanged.
+//
 // ven_mapping is intentionally EMPTY. MDS-3 ch.40.3 publishes the V/E/N
 // criteria, but the assignments are a per-formulary clinician judgement. Until
 // a panel supplies them and a second person approves them, resolveVen returns
