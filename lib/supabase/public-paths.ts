@@ -9,6 +9,8 @@
 // including the regional forecast approved for public access on 28 Oct 2026.
 // There is no bulk-export route and nothing derived from
 // the confidential Pillar B workbook is reachable without a session.
+// /api/csp-report receives the browser's Content-Security-Policy violation
+// reports (XC-X3.2), which are sent without the session; it serves nothing.
 export const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/pillar-a",
   "/api/pillar-a/series",
@@ -16,6 +18,7 @@ export const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/api/pillar-a/atc4",
   "/pillar-b",
   "/pillar-c",
+  "/api/csp-report",
 ];
 
 export function isPublicPath(pathname: string): boolean {

@@ -42,7 +42,7 @@ function importGraph(entry) {
 }
 
 test("the public paths are exactly these, matched exactly", () => {
-  assert.deepEqual([...PUBLIC_PATHS], ["/pillar-a", "/api/pillar-a/series", "/api/pillar-a/osmed", "/api/pillar-a/atc4", "/pillar-b", "/pillar-c"]);
+  assert.deepEqual([...PUBLIC_PATHS], ["/pillar-a", "/api/pillar-a/series", "/api/pillar-a/osmed", "/api/pillar-a/atc4", "/pillar-b", "/pillar-c", "/api/csp-report"]);
   assert.equal(isPublicPath("/pillar-b"), true);
   for (const p of ["/pillar-b/", "/pillar-b/dati", "/api/pillar-b", "/dashboard-review/revisione-pillar-b", "/pillar-bx", "/Pillar-B"]) {
     assert.equal(isPublicPath(p), false, `${p} must need a session`);

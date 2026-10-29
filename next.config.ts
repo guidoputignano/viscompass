@@ -4,26 +4,42 @@ import type { NextConfig } from "next";
 // headers at all. These are deliberately conservative: each one is either
 // unconditionally safe for this app or scoped so it cannot break a working page.
 //
-// The CSP is the exception and is set in Report-Only. This app relies on Next's
-// inline bootstrap script and on Supabase over XHR/WebSocket; a blocking policy
-// written without observing real traffic would break the dashboard on deploy.
-// Report-Only collects the violations needed to write an enforcing policy, and
-// the header should be switched to Content-Security-Policy once those are clean.
+// The CSP is enforced since 29 October 2026 (XC-X3.1). It ran Report-Only first;
+// a live sweep of every page under the reviewer session and of the public pages,
+// with sections opened and selectors changed, logged no violation of this exact
+// policy. Violations are now blocked and reported to /api/csp-report (XC-X3.2).
+//
+// What it still allows, and why: 'unsafe-inline' for scripts. With
+// cacheComponents every route is partially prerendered, and the prerendered
+// shell carries Next's inline bootstrap scripts, written at build time with no
+// request and so no nonce (node_modules/next/dist/docs/01-app/02-guides/
+// content-security-policy.md: "PPR is incompatible with nonce-based CSP").
+// Everything else an injected script would need is closed: no script from
+// another origin, no eval or new Function (no 'unsafe-eval'), no fetch, XHR,
+// WebSocket or image to any origin but this one and Supabase, no plugin, no
+// <base>, no form posting elsewhere, no framing. With the session cookie
+// HttpOnly (lib/supabase/cookie-options.ts) the session is not readable either.
 const SUPABASE_ORIGIN = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+// React's development build evaluates strings to rebuild server error stacks;
+// production never does, and the production policy does not allow it.
+const DEV_EVAL = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
-const CSP_REPORT_ONLY = [
+const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  // Next injects inline bootstrap and hydration scripts; 'unsafe-inline' is
-  // required until a nonce-based policy is wired through the document.
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${DEV_EVAL}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' ${SUPABASE_ORIGIN} wss://${SUPABASE_ORIGIN.replace(/^https?:\/\//, "")}`.trim(),
+  // Supabase over HTTPS and its realtime WebSocket (wss: for https:, ws: for a
+  // local http: project). Without the variable, no source but this site.
+  `connect-src 'self'${SUPABASE_ORIGIN ? ` ${SUPABASE_ORIGIN} ${SUPABASE_ORIGIN.replace(/^http/, "ws")}` : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
+  // Relative, so every deployment reports to itself. report-uri, not report-to:
+  // it is the one form every browser still sends.
+  "report-uri /api/csp-report",
 ].join("; ");
 
 const SECURITY_HEADERS = [
@@ -38,7 +54,7 @@ const SECURITY_HEADERS = [
   // of any cross-origin Referer.
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
-  { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
+  { key: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
 ];
 
 const nextConfig: NextConfig = {
