@@ -227,7 +227,7 @@ test('in every workspace: in the DPC view right after the service measures, the 
   for(const [label,render_,first] of cases){
     const h=render_('?c_fonte=dpc'),i=h.indexOf(`data-c-under10="${first}"`);
     assert.ok(i>0,`${label}: the list`);
-    assert.ok(h.indexOf('<section id="dpc"')<h.indexOf('Quanto pesa il servizio delle farmacie sul costo DPC?')&&h.indexOf('Quanto pesa il servizio delle farmacie sul costo DPC?')<i&&i<h.indexOf('Quanto varia il compenso per confezione fra le farmacie?'),`${label}: right after the service measures`);
+    assert.ok(h.indexOf('<section id="dpc"')<h.indexOf('Quanto pesa il servizio delle farmacie sul costo DPC?')&&h.indexOf('Quanto pesa il servizio delle farmacie sul costo DPC?')<i&&i<h.indexOf('Giorni tra prescrizione ed erogazione registrata'),`${label}: right after the service measures, before recorded intervals`);
     for(const s of ['','?c_fonte=filef'])assert.ok(!render_(s).includes('data-c-under10='),`${label} ${s||'ledger'}: not outside the DPC view`);
   }
   const az=scoped('azienda4',{under10:u10ViewOf(['asl-4'],()=>'Azienda sintetica Quattro')});

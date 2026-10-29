@@ -14,6 +14,7 @@ import { itNumber } from "@/lib/format/it-number";
 import { CReviewEmpty as Empty, CReviewPanel as Panel } from "@/components/dashboard-review/pillar-c/review-blocks";
 import type { CExtDist, CExtensionView, CExtJanuary } from "@/lib/dashboard-review/pillar-c/extension";
 import { cDpcMonths, usePillarCPeriodCatalog } from "@/components/dashboard-review/pillar-c/period-context";
+import { PillarCSecondaryAnalyses } from "@/components/dashboard-review/pillar-c/secondary-analyses";
 
 type Unit = CExtensionView["units"][number];
 const pct = (v: number, digits = 1) => `${itNumber(v * 100, { minimumFractionDigits: digits, maximumFractionDigits: digits })} %`;
@@ -98,11 +99,14 @@ export function PillarCRecipientSummary({ units }: { units: Unit[] }) {
 }
 
 /** The statistics of each ASL's own distribution of the cost per recipient: one column per ASL, no aggregate column. */
-export function PillarCCostPerRecipient({ units }: { units: Unit[] }) {
+export function PillarCCostPerRecipient({ units, initialDetailsOpen = false }: { units: Unit[]; initialDetailsOpen?: boolean }) {
   const asl = units.filter((u) => u.key !== "aggregato" && u.data.january.cost.quartiles);
   if (!asl.length) return null;
   const v = (u: Unit, f: (c: CExtJanuary["cost"]) => string | null) => f(u.data.january.cost) ?? C_RECIPIENT_STATES.unavailable;
-  return <Panel title="Quanto costa di solito un assistito, in ciascuna ASL" description="Statistiche della distribuzione dentro ciascuna ASL. Per l’aggregato non c’è un valore: una mediana o un indice di concentrazione di quattro ASL non si ottiene sommando o facendo la media dei loro.">
+  return <Panel title="Qual è il costo per assistito nella DPC? · gennaio 2026" description="Costo d’acquisto dei farmaci più compenso del servizio delle farmacie, registrati nei flussi di gennaio.">
+    <div className="grid gap-3 sm:grid-cols-2" data-c-cost-summary>{asl.map((u) => <p key={u.key} className="rounded-xl bg-secondary/40 p-4 text-sm leading-6"><strong className="block font-semibold">{u.label}</strong><span>{`Almeno metà degli assistiti ha un costo registrato fino a ${eur2(u.data.january.cost.quartiles!.median)}. Più assistiti possono avere lo stesso valore.`}</span></p>)}</div>
+    <p className={NOTE}>Il dato aiuta a leggere il costo abituale accanto ai casi di importo elevato. Per l’aggregato non è disponibile una mediana: le mediane delle ASL non si sommano né si mediano.</p>
+    <div className="mt-4"><PillarCSecondaryAnalyses id="dpc-cost-source" summary="Da dove viene questo dato?" initialOpen={initialDetailsOpen}>
     <Table caption="Costo per assistito nelle singole ASL" headers={["Misura", ...asl.map((u) => u.label)]} rows={[
       { key: "median", label: "Mediana (valore centrale)", cells: asl.map((u) => v(u, (c) => c.quartiles ? eur2(c.quartiles.median) : null)) },
       { key: "iqr", label: "Metà centrale degli assistiti (1° – 3° quartile)", cells: asl.map((u) => v(u, (c) => c.quartiles ? `${eur0(c.quartiles.q1)} – ${eur0(c.quartiles.q3)}` : null)) },
@@ -110,7 +114,18 @@ export function PillarCCostPerRecipient({ units }: { units: Unit[] }) {
       { key: "top20", label: "Quota del costo del 20 % con costo maggiore", cells: asl.map((u) => v(u, (c) => c.top20 === null ? null : pct(c.top20))) },
       { key: "gini", label: "Indice di Gini (0 = costo uguale per tutti)", cells: asl.map((u) => v(u, (c) => c.gini === null ? null : num(c.gini, 2))) },
     ]} />
-    <p className={NOTE}>Costo registrato nel flusso: acquisto più compenso di servizio, nel solo mese di gennaio. La mediana è il valore centrale; più assistiti possono avere lo stesso valore.</p>
+    <p className={NOTE}>La mediana è il valore centrale degli importi per assistito nella singola ASL. Un solo mese può comprendere ritiri di farmaci destinati a più mesi.</p>
+    </PillarCSecondaryAnalyses></div>
+  </Panel>;
+}
+
+/** A decision-facing fact from the released top-decile share, without deriving an aggregate distribution. */
+export function PillarCCostConcentrationSummary({ units }: { units: Unit[] }) {
+  const asl = units.filter((u) => u.key !== "aggregato" && u.data.january.cost.top10 !== null);
+  if (!asl.length) return null;
+  return <Panel title="Dove si concentra il costo DPC? · gennaio 2026" description="Una quota elevata segnala dove approfondire i prodotti e la frequenza dei ritiri.">
+    <div className="grid gap-3 sm:grid-cols-2" data-c-concentration-summary>{asl.map((u) => <p key={u.key} className="rounded-xl bg-secondary/40 p-4 text-sm leading-6"><strong className="block font-semibold">{u.label}</strong><span>{`Il 10 % degli assistiti con costo più alto rappresenta il ${pct(u.data.january.cost.top10!)} del costo registrato.`}</span></p>)}</div>
+    <p className={NOTE}>La concentrazione descrive come si distribuiscono gli importi. Per capire quali farmaci incidono, consulta i prodotti; un solo mese può includere ritiri per più mesi di terapia.</p>
   </Panel>;
 }
 

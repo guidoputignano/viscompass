@@ -27,7 +27,7 @@ const req=createRequire(`${root}package.json`),React=req('react'),{renderToStati
 const {SearchParamsContext}=req('next/dist/shared/lib/hooks-client-context.shared-runtime');
 const at=p=>import(pathToFileURL(`${root}${p}`).href);
 const {PillarCAudienceProvider}=await at('components/dashboard-review/pillar-c/audience-context.tsx');
-const {PillarCScopedWorkspace}=await at('components/dashboard-review/pillar-c/scoped-workspace.tsx');
+const {PillarCScopedWorkspace,cScopedStartingSearch}=await at('components/dashboard-review/pillar-c/scoped-workspace.tsx');
 const {PillarCAnalyticalWorkspace}=await at('components/dashboard-review/pillar-c/analytical-workspace.tsx');
 const {CAttributionView,PillarCAttributionAnalysis}=await at('components/dashboard-review/pillar-c/attribution-analysis.tsx');
 const {CPortfolioDossierView,PillarCPortfolioDossier}=await at('components/dashboard-review/pillar-c/portfolio-dossier.tsx');
@@ -90,7 +90,8 @@ function identifiers(html,units,label){
 // «Atti di budget pubblicati», which the scoped reading card uses. One pattern per variant, so that each has its own
 // live match: the reviewer regression test below shows that each of these also matches the reviewer's own markup (the
 // empty variant in one extra render of the workspace with no published act), so none can be a dead pattern.
-const REVIEWER_ONLY_1_2B=[/Atti di budget dipartimentali pubblicati nel pacchetto/,/Nessun atto di budget dipartimentale pubblicato nel pacchetto/,/Aggregato delle quattro Aziende e ASL 1–4/];
+// The fixed four-ASL header was removed by G2-04; the remaining reviewer-only availability sentences still apply.
+const REVIEWER_ONLY_1_2B=[/Atti di budget dipartimentali pubblicati nel pacchetto/,/Nessun atto di budget dipartimentale pubblicato nel pacchetto/];
 const REVIEWER_ONLY=[/id="evidence-workflow"/,/href="#evidence-workflow"/,/coda condivisa|Assegna le verifiche/i,/href="#costi"/,/Versione e tracciabilità/,/Fonti e significato delle analisi/,/Ricevute numeriche/,/Budget modellato/,/Piano modellato/,/data-pillar-c-review="v[12]"/,/\/api\/pillar-c\/workbook/,/id="(composizione|costi|confronti|attivita|tendenze|sensibilita|priorita)"/,/Riservato ai revisori del progetto/,...REVIEWER_ONLY_1_2B];
 const NEVER=/NaN|Infinity|undefined|\b[Dd]emo\b|[Dd]imostra|[Vv]erificat/;
 /** What the Regione reads besides (owner decision of 24 Oct 2026): the modelled budget source and the provenance panels.
@@ -169,11 +170,24 @@ test('the client audience validator accepts the guarded audiences and the review
 });
 
 // ---------------------------------------------------------------- Azienda
+test('starting links normalize rejected organizations in main, portfolio and budget controls without changing periods',()=>{
+  const audience=client('azienda4'),packet=packetOf('azienda4');
+  const raw='c_org=asl-1&c_port_org=asl-2&c_attr_org=TE&c_budget_org=PE&c_channel=CO&c_period=FY2024';
+  for(const choice of ['direzione','farmacia','regione'])for(const keep of [false,true]){
+    const params=new URLSearchParams(cScopedStartingSearch(audience,packet,raw,choice,keep));
+    assert.equal(params.get('c_period'),'FY2024');assert.equal(params.get('c_channel'),'CO');
+    assert.equal(params.get('c_budget_org'),'asl-4');assert.equal(params.has('c_attr_org'),false);
+    for(const key of ['c_org','c_port_org'])assert.ok([null,'asl-4','aggregato'].includes(params.get(key)),key);
+    assert.equal(params.get('c_fonte'),choice==='farmacia'?'dpc':null);
+  }
+});
+
 test('Azienda: own name and the four-Azienda aggregate only, no peer, no reviewer-only section, O4 notes and its export label',()=>{
   for(const search of ['','c_org=aggregato','c_org=aggregato&c_channel=CO&c_period=FY2024&c_comparison=K2&c_trend=cumulative']){
     const h=workspace('azienda4',search),t=text(h);
     assert.match(h,/data-pillar-c-review="scoped-azienda" data-release-state="review_only"/);
-    assert.ok(t.includes(`${ORG_NAME} e aggregato delle quattro Aziende · analisi in revisione`),'scope line');
+    const selected=AV.cScopedReviewFilters(client('azienda4'),new URLSearchParams(search)).filters;
+    assert.ok(text(h.slice(0,h.indexOf('</header>'))).includes(`${AV.cAudienceLabel(client('azienda4'),selected.org)} · ${selected.channel==='Tutti'?'Tutti i canali':selected.channel}`),'the header follows the authorized selection');
     assert.deepEqual(options(h,'Ambito aziendale'),[['asl-4',ORG_NAME],['aggregato','Aggregato delle quattro Aziende']]);
     assert.match(h,new RegExp(`<option value="${search?'aggregato':'asl-4'}" selected="">`));
     assert.doesNotMatch(h,/value="asl-[123]"|ASL [1-4]\b|Aggregato regionale|Azienda sintetica (Uno|Due|Tre)/,'no peer option, label or key');
@@ -220,7 +234,8 @@ test('Regione: «Aggregato regionale» and ASL 1–4 under opaque keys, no provi
   for(const search of ['','c_org=asl-2&c_channel=DD','c_budget_org=asl-1&c_budget_channel=DD','c_org=asl-4&c_budget_org=asl-4&c_budget_channel=CO&c_budget_period=FY2024']){
     const h=workspace('regione',search),t=text(h);
     assert.match(h,/data-pillar-c-review="scoped-regione"/);
-    assert.ok(t.includes('Aggregato regionale e ASL 1–4 · analisi in revisione'));
+    const selected=AV.cScopedReviewFilters(client('regione'),new URLSearchParams(search)).filters;
+    assert.ok(text(h.slice(0,h.indexOf('</header>'))).includes(`${AV.cAudienceLabel(client('regione'),selected.org)} · ${selected.channel==='Tutti'?'Tutti i canali':selected.channel}`),'the regional header follows the selected organization');
     assert.deepEqual(options(h,'Ambito aziendale'),[['aggregato','Aggregato regionale'],['asl-1','ASL 1'],['asl-2','ASL 2'],['asl-3','ASL 3'],['asl-4','ASL 4']]);
     assert.deepEqual(options(h,'Azienda del budget'),[['asl-1','ASL 1'],['asl-2','ASL 2'],['asl-3','ASL 3'],['asl-4','ASL 4']]);
     identifiers(h,SERVER.regione.units,`regione ?${search}`);
@@ -357,9 +372,9 @@ test('shared views under a scoped audience: own labels, no queue, no PVM, no for
   // Regione: the descriptor-only tokens of the synthetic products appear as text, never as an identifier.
   const tokenView=await attrView('regione','asl-2'),r=under(client('regione'),React.createElement(CAttributionView,{view:tokenView}));
   assert.ok(text(r).includes(TOKEN_LABEL));identifiers(r,SERVER.regione.units,'regione attribution');
-  // Dossier: the PVM is a short note with no fetch and no link; the dossier still offers the attribution analysis.
+  // The detailed PVM is secondary; the default dossier retains the attribution link and mounts no PVM.
   const pview=await portView('azienda4','asl-4'),d=under(client('azienda4'),React.createElement(CPortfolioDossierView,{view:pview}));
-  assert.match(d,/data-c-portfolio-pvm="withheld">La scomposizione prezzo, quantità e mix resta nella revisione di progetto e non è inclusa in questa vista\.<\/p>/);
+  assert.match(d,/data-c-secondary="portfolio-details"/);assert.doesNotMatch(d,/data-c-portfolio-pvm=/);
   assert.doesNotMatch(d,/href="#costi"|Quantità, mix e costo unitario · evidenza disponibile/);assert.match(d,/href="#attribuzione"/);
   assert.match(d,/data-org="asl-4"/);assert.ok(text(d).includes(`${ORG_NAME} · tutti i canali`));
   assert.ok(text(under(client('azienda4'),React.createElement(CPortfolioChangeSummary,{view:pview}))).includes(`· ${ORG_NAME} · tutti i canali ·`));
@@ -488,7 +503,11 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   // Re-recorded on 27 Oct 2026 (G2-24/G2-25, Codex's verified wording). Against 44f58c18…: 50 cases byte-identical; 4
   // dossier leaves change only by the candidate wording, the basis line, the note and «Non presente nei dati selezionati»;
   // 4 attribution leaves only by the denominator of the uncertainty share; 1 change summary only by the presence labels.
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'5d5a62a0a3aa54010a50401c0af04a7d121543e887519a6bf56de41b1645e8c9');
+  // Re-recorded 29 Oct 2026, owner-approved clarity pass. Baseline reproduced from HEAD: 5d5a62a0….
+  // Same data hash, 33 cases byte-identical. The 22 workspace cases gain task entry points and a source-aware header;
+  // four dossier cases defer PVM and the exact monthly table under a closed secondary section. Private evidence:
+  // outputs/pillar-c/clarity-20261029/matrix-diff.json. The underlying PVM and exact data retain their own tests.
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'733799ced076193676faa672a0804660e4816c3db5a8f431d0cf11dcd74f96b1');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout
@@ -569,19 +588,22 @@ test('regional parity: the price/quantity/mix panel reads the Regione\u2019s own
   // must show the reading itself, not an «unavailable» state (review of 24 Oct 2026).
   const pinned={...view,sourceSha256:'ff084e85af09c38df52445019af479397ea8313df79c736c4098c60f7edb8eac',classificationSha256:'e2b3c5900036eec54fc01134d32d0f19bd9341db790916ced99b5152f9ad50aa',
     mappingVersion:'v0.1-2026-10-12',mappingStatus:'draft',attributionBasis:'atc-portfolio-proxy',changeSemantic:'later-minus-earlier',changePeriods:{from:'FY2024',to:'FY2025'},dossier:{...view.dossier,id:'AA',label:'Portafoglio sintetico A'}};
-  const r=under(client('regione'),React.createElement(CPortfolioDossierView,{view:pinned,pvmSection:PVM_SECTION}));
+  const closed=under(client('regione'),React.createElement(CPortfolioDossierView,{view:pinned,pvmSection:PVM_SECTION}));
+  assert.match(closed,/data-c-secondary="portfolio-details"/);assert.doesNotMatch(closed,/data-c-portfolio-pvm=/);
+  // Exercise the unchanged PVM leaf that the secondary disclosure mounts on request.
+  const r=under(client('regione'),React.createElement(CPortfolioPriceQuantityMix,{view:pinned,pvmSection:PVM_SECTION}));
   assert.match(r,/<details class="rounded-xl border border-border bg-card" data-c-portfolio-pvm="true"><summary[^>]*>Quantità, mix e costo unitario · evidenza disponibile<\/summary>/);
   assert.doesNotMatch(r,/data-c-portfolio-pvm="withheld"/);
   assert.match(r,/data-c-pvm-status="ready"/);assert.match(r,/data-c-pvm-admitted-change="4"/);
   assert.deepEqual([...r.matchAll(/data-c-pvm-effect="([a-zA-Z]+)" data-value="([^"]+)"/g)].map(m=>[m[1],m[2]]),[['quantity','6'],['mix','1'],['unitCost','-3']]);
   // Another organisation than the aggregate: the decomposition does not apply, and says so.
-  const asl=under(client('regione'),React.createElement(CPortfolioDossierView,{view:await portView('regione','asl-2'),pvmSection:PVM_SECTION}));
+  const asl=under(client('regione'),React.createElement(CPortfolioPriceQuantityMix,{view:await portView('regione','asl-2'),pvmSection:PVM_SECTION}));
   assert.match(asl,/data-c-pvm-status="unsupported"/);
   // Without its object (unreadable), the panel says the decomposition is not available, never «none exists»; nothing is fetched.
-  const none=under(client('regione'),React.createElement(CPortfolioDossierView,{view}));
+  const none=under(client('regione'),React.createElement(CPortfolioPriceQuantityMix,{view}));
   assert.ok(text(none).includes('La scomposizione non è disponibile in questo momento. Nessun valore viene sostituito.'));
   assert.doesNotMatch(none,/Nessuna scomposizione compatibile/);
-  const a=under(client('azienda4'),React.createElement(CPortfolioDossierView,{view:await portView('azienda4','aggregato'),pvmSection:PVM_SECTION}));
+  const a=under(client('azienda4'),React.createElement(CPortfolioPriceQuantityMix,{view:await portView('azienda4','aggregato'),pvmSection:PVM_SECTION}));
   assert.match(a,/data-c-portfolio-pvm="withheld"/);assert.doesNotMatch(a,/data-c-pvm-status=/);
 });
 
@@ -720,7 +742,7 @@ test('G2-01/G2-02: the source bar opens the ledger, DPC and File F views, keeps 
   const links=h=>[...bar(h).matchAll(/<a href="([^"]*)"[^>]*>/g)].map(m=>[m[1].replace(/&amp;/g,'&'),m[0].includes('aria-current="page"')]);
   // The bar sits between the page header and the ledger's section bar.
   const ledger=workspace('azienda4','?c_org=aggregato&c_channel=DD&c_budget_channel=CO',{extension});
-  assert.ok(ledger.indexOf('</header><nav id="c-fonte"')>0&&ledger.indexOf('<nav id="c-fonte"')<ledger.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"'));
+  assert.ok(ledger.indexOf('</header><nav aria-label="Punto di partenza"')>0&&ledger.indexOf('<nav id="c-fonte"')<ledger.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"'));
   // Each link carries the validated «Ambito» and channel and nothing else the address brought in.
   const scope='c_channel=DD&c_org=aggregato&c_port_org=aggregato&c_port_channel=DD';
   assert.deepEqual(links(ledger),[[`?${scope}`,true],[`?${scope}&c_fonte=dpc`,false],[`?${scope}&c_fonte=filef`,false]]);

@@ -9,7 +9,8 @@ import { itNumber } from "@/lib/format/it-number";
 import { CReviewEmpty as Empty, CReviewExactTable as ExactTable, CReviewHeading as Heading, CReviewPanel as Panel } from "@/components/dashboard-review/pillar-c/review-blocks";
 import { C_EXT_SOURCE, type CExtDist, type CExtensionView, type CExtFileF } from "@/lib/dashboard-review/pillar-c/extension";
 import { cFileFHolders, usePillarCPeriodCatalog } from "@/components/dashboard-review/pillar-c/period-context";
-import { PillarCCostConcentration, PillarCCostPerRecipient, PillarCDispensingIntervals, PillarCDistributionExplorer, PillarCPharmacyFees, PillarCRecipientCoverage, PillarCRecipientSummary, PillarCServiceBurden, PillarCTypicalUse } from "@/components/dashboard-review/pillar-c/recipient-views";
+import { PillarCCostConcentration, PillarCCostConcentrationSummary, PillarCCostPerRecipient, PillarCDispensingIntervals, PillarCDistributionExplorer, PillarCPharmacyFees, PillarCRecipientCoverage, PillarCRecipientSummary, PillarCServiceBurden, PillarCTypicalUse } from "@/components/dashboard-review/pillar-c/recipient-views";
+import { PillarCSecondaryAnalyses } from "@/components/dashboard-review/pillar-c/secondary-analyses";
 
 type Unit = CExtensionView["units"][number];
 const pct = (v: number | null, digits = 1) => (v === null ? "—" : `${itNumber(v * 100, { minimumFractionDigits: digits, maximumFractionDigits: digits })}\u00a0%`);
@@ -32,21 +33,24 @@ const monthLabel = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? m
  * burden, pharmacy fees, recorded intervals), each with its exact values. `residence` (the additions' P8-03 panel, or
  * its honest state) sits right after the totals it describes; `under10` (G2-16, the medicines behind the under-€10
  * measures) right after the service measures. */
-export function PillarCRecipientsSection({ view, residence, under10 }: { view: CExtensionView; residence?: ReactNode; under10?: ReactNode }) {
+export function PillarCRecipientsSection({ view, residence, under10, initialDetailsOpen = false }: { view: CExtensionView; residence?: ReactNode; under10?: ReactNode; initialDetailsOpen?: boolean }) {
   const units = view.units, asl = units.filter((u) => u.key !== "aggregato");
   return <div className="space-y-6">
     <Heading inner id="destinatari-dpc" title="Chi sono gli assistiti DPC e con quale utilizzo?">{`${C_EXT_SOURCE.january}.`}</Heading>
     <PillarCRecipientCoverage units={units} />
     <PillarCRecipientSummary units={units} />
     {residence}
-    <PillarCDistributionExplorer units={units} />
-    <PillarCCostPerRecipient units={units} />
-    <PillarCCostConcentration units={units} />
-    <PillarCTypicalUse units={units} />
-    <PillarCServiceBurden units={units} />
-    {under10}
-    <PillarCPharmacyFees units={units} />
-    <PillarCDispensingIntervals units={units} />
+    <PillarCCostPerRecipient units={units} initialDetailsOpen={initialDetailsOpen} />
+    <PillarCCostConcentrationSummary units={units} />
+    <div id="c-dpc-service"><PillarCServiceBurden units={units} /></div>
+    <div id="c-under10">{under10}</div>
+    <div id="c-dpc-intervals"><PillarCDispensingIntervals units={units} /></div>
+    <PillarCSecondaryAnalyses id="dpc" summary="Altre analisi · distribuzioni, utilizzo e compensi delle farmacie" initialOpen={initialDetailsOpen}>
+      <PillarCDistributionExplorer units={units} />
+      <PillarCCostConcentration units={units} />
+      <PillarCTypicalUse units={units} />
+      <PillarCPharmacyFees units={units} />
+    </PillarCSecondaryAnalyses>
     {asl.length === 0 && <Empty>Nessuna ASL in questa vista.</Empty>}
   </div>;
 }
@@ -72,7 +76,7 @@ function useFileFHolder(view: CExtensionView, initialHolder = "") {
 /** The File F view (G2-01/G2-02), the chosen holder: the year (identifiers, concentration, frequency, profile) or one month, which
  * carries only what the catalogue lists for it (reported amount, identifiers of the month): no annual distribution is
  * shown as if it were the month's. */
-export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView; initial?: { holder?: string; period?: string } }) {
+export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView; initial?: { holder?: string; period?: string; detailsOpen?: boolean } }) {
   const { holder, control, coverage, missing, unavailable } = useFileFHolder(view, initial?.holder);
   const [period, setPeriod] = useState(initial?.period ?? "year");
   if (!holder) {
@@ -106,8 +110,15 @@ export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView
       </div>
     </Panel>;
   }
-  return <Panel title={`File F ${fileF.year} · ${unitLabel}: identificativi, concentrazione e frequenza`} description={`${C_EXT_SOURCE.fileF}. Identificativi distinti nel flusso, non pazienti certificati; nessun confronto con le altre ASL.`} controls={controls}>
+  const annualAmount = fileF.months.length ? fileF.months.reduce((total, row) => total + row.amount, 0) : null;
+  return <Panel title={`File F ${fileF.year} · ${unitLabel}: importi e identificativi`} description={`${C_EXT_SOURCE.fileF}. Ogni identificativo è contato una volta nell’anno; gli identificativi mensili non si sommano.`} controls={controls}>
     <div key={`${holder.entry.id}|year`} data-c-filef-period={holder.entry.id}>
+    <dl className="grid gap-4 sm:grid-cols-2" data-c-filef-summary>
+      {[["Identificativi distinti nell’anno", num(fileF.identifiers)], ["Importo riportato nell’anno", annualAmount === null ? "non disponibile" : eur0(annualAmount)]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/40 p-4"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}
+    </dl>
+    <p className="mt-3 text-xs leading-5 text-muted-foreground">Consulta l’andamento mensile per individuare i cambiamenti d’importo e i prodotti che vi contribuiscono. Gli identificativi del flusso non equivalgono a un conteggio clinicamente validato dei pazienti.</p>
+    <p className="mb-4 mt-2 text-xs leading-5 text-muted-foreground">{coverage}</p>
+    <PillarCSecondaryAnalyses id="filef-profile" summary="Altre analisi · profilo, concentrazione e frequenza nel File F" initialOpen={initial?.detailsOpen}>
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {[["Identificativi distinti nell’anno", num(fileF.identifiers)], [pooled ? "65 anni e oltre, incluse le età non note" : "65 anni e oltre", pct(over65(fileF.age))], ["Importo per identificativo, mediana", eur0(c.median)],
         ["Importo per identificativo, 1° – 3° quartile", `${eur0(c.q1)} – ${eur0(c.q3)}`], ["Quota del 10 % con importo maggiore", pct(c.top10)], ["Quota dell’1 % con importo maggiore", pct(c.top1)], ["Indice di Gini", num(c.gini, 2)],
@@ -122,6 +133,7 @@ export function PillarCFileFRecipients({ view, initial }: { view: CExtensionView
     ]} />
     <p className="mt-3 text-xs leading-5 text-muted-foreground">{`Età raggiunta nel ${fileF.year}, dall’anno di nascita registrato; le quote per sesso sono calcolate sugli identificativi con il sesso indicato nel flusso.`}</p>
     <p className="mt-4 text-xs leading-5 text-muted-foreground">{`${januaryTop10 === null ? "" : `L’importo per identificativo è ${c.top10 > januaryTop10 ? "più" : "meno"} concentrato che nella DPC di gennaio della stessa ASL (quota del 10 % con importo maggiore: ${pct(c.top10)} contro ${pct(januaryTop10)}). `}${coverage}`}</p>
+    </PillarCSecondaryAnalyses>
     </div>
   </Panel>;
 }

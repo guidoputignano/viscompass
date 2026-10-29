@@ -172,7 +172,7 @@ test('1. reviewer, Azienda and Regione: the same six frames in the same order an
     assert.deepEqual([...html.matchAll(new RegExp(`<span aria-hidden="true" class="${NUMERAL}">([^<]*)</span>`,'g'))].map(m=>m[1]),['1','2','3','4','5','6'],label);
     assert.equal(count(html,'<nav aria-label="Sezioni dell’analisi Pillar C"'),1,label);
     // Joint feedback 2 (G2-01/G2-02): the source bar sits between the header and the section bar.
-    assert.ok(html.indexOf('</header><nav id="c-fonte"')>0&&count(html,'</nav><nav aria-label="Sezioni dell’analisi Pillar C"')===1&&html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"')<starts[0],`${label}: header, then the source bar, then the section bar, then frame 1`);
+    assert.ok(html.indexOf('</header><nav aria-label="Punto di partenza"')>0&&html.indexOf('<nav aria-label="Punto di partenza"')<html.indexOf('<nav id="c-fonte"')&&count(html,'</nav><nav aria-label="Sezioni dell’analisi Pillar C"')===1&&html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"')<starts[0],`${label}: header, starting views, source bar, section bar, frame 1`);
     assert.equal(navOf(html),reviewerNav,`${label}: the bar is the reviewer's, byte for byte`);
     for(const s of PILLAR_C_SECTIONS){
       const after=html.slice(html.indexOf(frameHead(s))+frameHead(s).length);
@@ -404,7 +404,7 @@ test('7. the scoped scope bar writes c_org, c_channel, c_port_org and c_port_cha
   assert.ok(update,'updateScope is one statement');
   assert.equal(count(update,'window.history.pushState('),1);
   assert.equal(count(update,'cScopedPageScopeSearch(audience, window.location.search, patch)'),1);
-  assert.equal(count(src,'window.history.pushState('),3,'updateBudget, update and updateScope, nothing else');
+  assert.equal(count(src,'window.history.pushState('),4,'updateBudget, update, updateScope and the starting-view choice');
   assert.ok(src.includes('reset ? cInsightResetSearch(window.location.search) : cScopedReviewSearch(audience, window.location.search, patch)'),'«Azzera» is the shared page reset');
   const bar=src.match(/<PillarCScopeBar [^\n]*?\/>/)?.[0];
   assert.equal(bar,'<PillarCScopeBar orgOptions={orgOptions} org={filters.org} channelOptions={SCOPE_CHANNELS} channel={filters.channel} onChange={updateScope} onReset={() => update({}, true)} tampered={tampered} tamperedText={C_AUDIENCE_COPY.tampered} scope={scope} />');
@@ -484,7 +484,7 @@ test('10. keyboard and focus: no positive tabindex, every frame h2 focusable by 
     assert.deepEqual(headingIds(html,'h2'),['quadro-title','destinatari-title','portafogli-attribuzione-title','fattori-title','budget-scenari-title','scenari-title','priorita-evidenza-title'],label);
     for(const id of ['c-decision-title','portfolio-dossier-title','attribuzione-title','spesa-title','cambiamento-title','pianificazione-title','numerosita-title','previsione-title','evidenza-title'])assert.ok(new RegExp(`<h3\\b[^>]*\\sid="${id}"`).test(html),`${label}: ${id} is an h3`);
     const fr=frames(html);
-    const navs=[...html.matchAll(/<nav [\s\S]*?<\/nav>/g)].map(m=>m[0]);assert.equal(navs.length,2,`${label}: the source bar and the section bar`);
+    const navs=[...html.matchAll(/<nav [\s\S]*?<\/nav>/g)].map(m=>m[0]);assert.equal(navs.length,3,`${label}: the starting views, source bar and section bar`);
     const links=[...navs.flatMap(anchors),...anchors(fr.quadro),...anchors(fr.destinatari),...anchors(fr.fattori).filter(a=>a.href==='#portafogli-attribuzione'),...anchors(fr['priorita-evidenza']).filter(a=>a.href==='#attribuzione'||a.href==='#piano-revisione')];
     for(const a of links)assert.match(a.cls,/(^|\s)min-h-11(\s|$)/,`${label}: ${a.href}`);
     const bar=between(html,'<section aria-label="Ambito di revisione"','</section>');

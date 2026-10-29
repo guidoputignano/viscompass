@@ -175,7 +175,8 @@ test('1. six frames, in the order of PILLAR_C_SECTIONS, each with its hidden num
     // The root opens with the header (with the reviewer scope pill), then the source bar (joint feedback 2, G2-01/G2-02),
     // then the one section bar, then frame 1.
     assert.ok(html.startsWith('<div class="space-y-8 pb-12 xl:[&amp;_[id]]:scroll-mt-36" data-pillar-c-review="v2" data-release-state="review_only"><header '),label);
-    assert.equal(count(html,'>Aggregato delle quattro Aziende e ASL 1–4 · revisione di progetto</span></div></header><nav id="c-fonte"'),1,`${label}: the scope pill closes the header and the source bar follows`);
+    assert.equal(count(html,'</header><nav aria-label="Punto di partenza"'),1,`${label}: the task-oriented starting views follow the dynamic header`);
+    assert.ok(html.indexOf('<nav aria-label="Punto di partenza"')<html.indexOf('<nav id="c-fonte"'),`${label}: the source bar follows the starting views`);
     assert.equal(count(html,'</nav><nav aria-label="Sezioni dell’analisi Pillar C"'),1,`${label}: the section bar right after the source bar`);
     assert.equal(count(html,'<nav aria-label="Sezioni dell’analisi Pillar C"'),1,`${label}: one section bar`);
     assert.ok(html.indexOf('<nav aria-label="Sezioni dell’analisi Pillar C"')<starts[0],label);
@@ -332,7 +333,7 @@ test('8. the scope bar writes c_org, c_channel, c_port_org and c_port_channel to
   assert.ok(update,'updateScope is one statement');
   assert.equal(count(update,'window.history.pushState('),1);
   assert.equal(count(update,'cReviewerScopeSearch(window.location.search, patch, audience.defaultOrg)'),1);
-  assert.equal(count(source,'window.history.pushState('),3,'updateBudget, update and updateScope, nothing else');
+  assert.equal(count(source,'window.history.pushState('),4,'updateBudget, update, updateScope and the starting-view choice');
   const bar=source.match(/<PillarCScopeBar [^\n]*?\/>/)?.[0];
   assert.ok(bar,'the bar is mounted');
   assert.equal(count(bar,'onChange={updateScope}'),1);assert.equal(count(bar,'onReset={() => update({}, true)}'),1);

@@ -17,7 +17,9 @@ import { PillarCPortfolioDossier } from "@/components/dashboard-review/pillar-c/
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
 import { PillarCDpcView, PillarCFileFView, PillarCSourceBar, PillarCSourceLinks, PillarCSourcePointer, cSourceCoverage } from "@/components/dashboard-review/pillar-c/source-views";
-import { cSourceView } from "@/lib/dashboard-review/pillar-c/source-views";
+import { cSourceView, cWorkspaceHeading } from "@/lib/dashboard-review/pillar-c/source-views";
+import { cStartingView, cStartingViewSearch, type CStartingView } from "@/lib/dashboard-review/pillar-c/starting-views";
+import { PillarCStartingViews } from "@/components/dashboard-review/pillar-c/starting-views";
 import { PillarCFileFBasket, PillarCFindings, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
 import { cAdditionsFor, cAdditionsHoldsFileF, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
@@ -124,6 +126,15 @@ export function cScopedPageScopeSearch(audience: CClientAudience, search: string
   if (channel === "Tutti") params.delete("c_port_channel"); else params.set("c_port_channel", channel);
   params.delete("c_attr_org"); params.delete("c_attr_channel");
   return params.size ? `?${params}` : "";
+}
+
+/** Starting links preserve the resolved budget controls too, rather than reflecting a rejected budget organization
+ * from a hand-edited URL. Task links keep the current scope; a newly chosen starting view uses its authorized default. */
+export function cScopedStartingSearch(audience: CClientAudience, packet: CScopedClientReview, search: string, choice: CStartingView, keepScope = false): string {
+  const budgetSearch = cScopedBudgetSearch(audience, packet, search, {});
+  const current = cScopedReviewFilters(audience, new URLSearchParams(search)).filters;
+  const org = keepScope ? current.org : choice === "regione" ? audience.aggregateKey : audience.defaultOrg;
+  return cStartingViewSearch(cScopedPageScopeSearch(audience, budgetSearch, { org }), choice);
 }
 
 /**
@@ -250,8 +261,15 @@ function ScopedWorkspace({ audience, packet, forecast, extension, extensionUnava
   // Region-wide comparisons (regional analytical parity): the Regione's extension carries them, an Azienda's never.
   const dpcRegionWide = extension && audience.kind === "regione" ? <PillarCResidentDrivers view={extension} /> : null;
   const fileFRegionWide = extension && audience.kind === "regione" ? <PillarCFileFBasket view={extension} /> : null;
+  const startingView = cStartingView(new URLSearchParams(search), audience.kind);
+  const startingSearch = (choice: CStartingView) => cScopedStartingSearch(audience, packet, search.toString(), choice);
+  const selectStartingView = (choice: CStartingView) => {
+    window.history.pushState(null, "", `${window.location.pathname}${startingSearch(choice)}`);
+    document.getElementById("c-fonte")?.scrollIntoView({ block: "start" });
+  };
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={`scoped-${audience.kind}`} data-release-state="review_only">
-    <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope={audience.scopeLine ?? undefined} />
+    <PageHeader eyebrow="Pillar C" {...cWorkspaceHeading(sourceView, scope, coverage)} />
+    <PillarCStartingViews value={startingView} peerComparison={audience.kind === "regione"} href={(choice) => `${startingSearch(choice)}#c-fonte`} taskHref={(choice) => cScopedStartingSearch(audience, packet, search.toString(), choice, true)} onSelect={selectStartingView} />
     <PillarCSourceBar view={sourceView} coverage={coverage} scope={sourceScope} />
     {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} regionWide={dpcRegionWide} under10={under10List} />
     : sourceView === "filef" ? <PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={fileFRegionWide} />

@@ -17,7 +17,9 @@ import { PillarCEvidenceWorkflow } from "@/components/dashboard-review/pillar-c/
 import { PillarCPlanningWorkspace } from "@/components/dashboard-review/pillar-c/planning-workspace";
 import { cExtensionRecipientsCard } from "@/components/dashboard-review/pillar-c/extension-sections";
 import { PillarCDpcView, PillarCFileFView, PillarCSourceBar, PillarCSourceLinks, PillarCSourcePointer, cSourceCoverage } from "@/components/dashboard-review/pillar-c/source-views";
-import { cSourceView } from "@/lib/dashboard-review/pillar-c/source-views";
+import { cSourceView, cWorkspaceHeading } from "@/lib/dashboard-review/pillar-c/source-views";
+import { cStartingView, cStartingViewSearch, type CStartingView } from "@/lib/dashboard-review/pillar-c/starting-views";
+import { PillarCStartingViews } from "@/components/dashboard-review/pillar-c/starting-views";
 import { PillarCFileFBasket, PillarCResidentDrivers } from "@/components/dashboard-review/pillar-c/extension-reviewer";
 import { PillarCAdditionsFileF, PillarCAdditionsNarrowing, PillarCAdditionsResidence } from "@/components/dashboard-review/pillar-c/additions-sections";
 import { cAdditionsFor, type CAdditionsView } from "@/lib/dashboard-review/pillar-c/additions";
@@ -148,8 +150,15 @@ function ReviewerWorkspace({ audience, packet, workbook, extension, extensionUna
   // The flows are part of this page when their view was read or its read failed; otherwise no source here counts people.
   const sourceView = cSourceView(new URLSearchParams(search)), coverage = cSourceCoverage(extension), flows = Boolean(extension) || extensionUnavailable;
   const sourceScope = cReviewerScopeSearch("", { org: filters.org, channel: filters.channel }, audience.defaultOrg);
+  const startingView = cStartingView(new URLSearchParams(search), audience.kind);
+  const startingSearch = (choice: CStartingView) => cStartingViewSearch(cReviewerScopeSearch(search.toString(), { org: choice === "regione" ? audience.aggregateKey : audience.defaultOrg }, audience.defaultOrg), choice);
+  const selectStartingView = (choice: CStartingView) => {
+    window.history.pushState(null, "", `${window.location.pathname}${startingSearch(choice)}`);
+    document.getElementById("c-fonte")?.scrollIntoView({ block: "start" });
+  };
   return <div className="space-y-8 pb-12 xl:[&_[id]]:scroll-mt-36" data-pillar-c-review={packet.schema === "pillar-c-review-v2" ? "v2" : "v1"} data-release-state="review_only">
-    <PageHeader eyebrow="Pillar C" title="Spesa, budget e aree cliniche" description="Esplora gli importi riconciliati e le ipotesi di pianificazione. Ogni sezione mantiene il proprio periodo, perimetro e significato." scope="Aggregato delle quattro Aziende e ASL 1–4 · revisione di progetto" />
+    <PageHeader eyebrow="Pillar C" {...cWorkspaceHeading(sourceView, scope, coverage)} />
+    <PillarCStartingViews value={startingView} peerComparison href={(choice) => `${startingSearch(choice)}#c-fonte`} taskHref={(choice) => cStartingViewSearch(cReviewerScopeSearch(search.toString(), { org: filters.org, channel: filters.channel }, audience.defaultOrg), choice)} onSelect={selectStartingView} />
     <PillarCSourceBar view={sourceView} coverage={coverage} scope={sourceScope} />
     {sourceView === "dpc" ? <PillarCDpcView extension={extension} unavailable={extensionUnavailable} residence={residence} narrowing={narrowing} under10={under10List} regionWide={extension ? <PillarCResidentDrivers view={extension} /> : null} />
     : sourceView === "filef" ? <PillarCFileFView extension={extension} unavailable={extensionUnavailable} fields={fileFFields} regionWide={extension ? <PillarCFileFBasket view={extension} /> : null} />

@@ -28,7 +28,8 @@ const {PillarCUnitCosts,cExtensionRecipientsCard}=SECTIONS;
 const PERIOD=await import('../components/dashboard-review/pillar-c/period-context.tsx');
 const {buildCPeriodCatalog,publicCPeriodCatalog}=await import('../lib/dashboard-review/pillar-c/period-catalog.ts');
 const catalogOf=view=>publicCPeriodCatalog(buildCPeriodCatalog(view,{mode:'synthetic'}));
-const withCatalog=C=>{const Wrapped=props=>React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog:catalogOf(props.view)},React.createElement(C,props));Wrapped.displayName=`WithCatalog(${C.name})`;return Wrapped;};
+// These legacy numerical checks inspect the expanded detail state; clarity.test separately pins the closed default.
+const withCatalog=C=>{const Wrapped=props=>React.createElement(PERIOD.PillarCPeriodCatalogProvider,{catalog:catalogOf(props.view)},React.createElement(C,{...props,...(C===SECTIONS.PillarCRecipientsSection?{initialDetailsOpen:true}:{}),...(C===SECTIONS.PillarCFileFRecipients?{initial:{...props.initial,detailsOpen:true}}:{})}));Wrapped.displayName=`WithCatalog(${C.name})`;return Wrapped;};
 const PillarCRecipientsSection=withCatalog(SECTIONS.PillarCRecipientsSection),PillarCDpcAttributionEvidence=withCatalog(SECTIONS.PillarCDpcAttributionEvidence),PillarCFileFPortfolios=withCatalog(SECTIONS.PillarCFileFPortfolios),PillarCFileFMonthly=withCatalog(SECTIONS.PillarCFileFMonthly),PillarCFileFRecipients=withCatalog(SECTIONS.PillarCFileFRecipients);
 const {PillarCResidentDrivers}=await import('../components/dashboard-review/pillar-c/extension-reviewer.tsx');
 const RV=await import('../components/dashboard-review/pillar-c/recipient-views.tsx');
@@ -212,7 +213,7 @@ test('R20-04: admitted January use, service and File F fields already in the pac
   assert.doesNotMatch(html,/NaN|undefined|Infinity/);
   // G1-01: no unexplained dash; totals keep the aggregate column, per-ASL statistics have none.
   assert.doesNotMatch(html,/>—</,'no dash cell anywhere in the recipients section');
-  for(const t of ['Quanti sono gli assistiti DPC e chi sono','Quanto costa di solito un assistito, in ciascuna ASL','Il costo è concentrato su pochi assistiti?','Come si distribuiscono gli assistiti',
+  for(const t of ['Quanti sono gli assistiti DPC e chi sono','Qual è il costo per assistito nella DPC?','Il costo è concentrato su pochi assistiti?','Come si distribuiscono gli assistiti',
     'Quante confezioni, prescrizioni e prodotti riceve di solito un assistito?','Quanto pesa il servizio delle farmacie sul costo DPC?','Quanto varia il compenso per confezione fra le farmacie?',
     'Giorni tra prescrizione ed erogazione registrata','Perché gennaio 2026 e come si contano gli assistiti','Donne (%)'])
     assert.ok(html.includes(t),t);
@@ -534,7 +535,7 @@ test('G1-11: File F panels show the holders the catalogue lists, never a first h
   // One holder in a full view: no selector, the holder named, the organisations without a File F named too.
   const all=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:viewOf(ALL)}));
   assert.doesNotMatch(all,/aria-label="Azienda del File F"/,'one holder: nothing to choose');
-  assert.match(all,/File F 2025 · Unità 3: identificativi/);
+  assert.match(all,/File F 2025 · Unità 3: importi e identificativi/);
   assert.match(all,/File F disponibile per: Unità 3 \(2025\)\. Non ricevuto per: Unità 1, Unità 2, Unità 4; per loro nessun valore viene stimato\./);
   // Two holders (synthetic): both offered, in catalogue order, and every File F panel follows the chosen one.
   const two=viewOf(ALL);const h1=two.units.find(u=>u.key==='asl-1').data;h1.fileF=extUnit('asl-3').fileF;h1.fileF.identifiers=6000;h1.fileF.age={...h1.fileF.age,total:6000,cells:[{id:'0-64',label:'0-64',count:2400,share:0.4},{id:'65+',label:'65+',count:3600,share:0.6}]};
@@ -544,9 +545,9 @@ test('G1-11: File F panels show the holders the catalogue lists, never a first h
   const opts=html=>[...(html.match(/<select aria-label="Azienda del File F"[^>]*>(.*?)<\/select>/)?.[1]??'').matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(m=>[m[1],m[2]]);
   const rec=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:two}));
   assert.deepEqual(opts(rec),[['file-f.asl-1.year.2025-01','Unità 1 · 2025'],['file-f.asl-3.year.2025-01','Unità 3 · 2025']]);
-  assert.match(rec,/File F 2025 · Unità 1: identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>6\.000</,'the shown holder’s own figures');
+  assert.match(rec,/File F 2025 · Unità 1: importi e identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>6\.000</,'the shown holder’s own figures');
   const third=renderToStaticMarkup(React.createElement(PillarCFileFRecipients,{view:two,initial:{holder:'file-f.asl-3.year.2025-01'}}));
-  assert.match(third,/File F 2025 · Unità 3: identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>5\.000</,'the other holder, when chosen');
+  assert.match(third,/File F 2025 · Unità 3: importi e identificativi[\s\S]*?Identificativi distinti nell’anno<\/dt><dd[^>]*>5\.000</,'the other holder, when chosen');
   for(const html of [renderToStaticMarkup(React.createElement(PillarCFileFPortfolios,{view:two})),renderToStaticMarkup(React.createElement(PillarCFileFMonthly,{view:two}))])
     assert.deepEqual(opts(html).map(o=>o[0]),['file-f.asl-1.year.2025-01','file-f.asl-3.year.2025-01'],'every File F panel offers both holders');
   // A holder the catalogue does not list is not shown: a File F the catalogue refused stays out.
@@ -602,7 +603,7 @@ test('G1-R03: with tied values the median is described as the central value, nev
   const v=viewOf(AZ),u=v.units.find(x=>x.key==='asl-3').data.january;
   u.use.prescriptions.quartiles={q1:1,median:1,q3:1};u.cost.quartiles={q1:40,median:40,q3:40};
   for(const html of [renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),renderToStaticMarkup(React.createElement(RV.PillarCCostPerRecipient,{units:v.units}))]){
-    assert.match(html,/più assistiti possono avere lo stesso valore/);
+    assert.match(html,/[Pp]iù assistiti possono avere lo stesso valore/);
     assert.doesNotMatch(html,/metà degli assistiti (riceve di meno|costa meno)|metà di più/,'no strict half below / half above');
   }
   assert.match(renderToStaticMarkup(React.createElement(RV.PillarCTypicalUse,{units:v.units})),/aria-label="Prescrizioni registrate per assistito: Unità 3 mediana 1,0, metà centrale 1,0 – 1,0"/);

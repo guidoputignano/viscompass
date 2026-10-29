@@ -27,7 +27,9 @@ test('portfolio dossier renders scope, exact product amounts, chronological comp
  assert.match(html,/Anno 2024 → Anno 2025/);assert.match(html,/10,01 €/);assert.match(html,/Prodotto sintetico A/);
  assert.match(html,/data-c-portfolio-scenario/);assert.match(html,/non previsione né budget approvato/);
  assert.match(html,/Che cosa spiega la variazione/);assert.match(html,/Maggiori contributi in aumento/);assert.match(html,/Contributi in riduzione/);
- assert.match(html,/Importi mensili esatti del portafoglio/);assert.match(html,/Non presente nei dati selezionati/);assert.doesNotMatch(html,/Nessun record/);
+ assert.match(html,/data-c-secondary="portfolio-details"/);assert.match(html,/Altre analisi · quantità, mix e importi mensili/);
+ assert.doesNotMatch(html,/Importi mensili esatti del portafoglio/,'the exact monthly table is mounted only when secondary detail opens');
+ assert.match(html,/Non presente nei dati selezionati/);assert.doesNotMatch(html,/Nessun record/);
  // G2-25: the basis, the two cards with their financial basis, one note at the point of use, the exact amounts on demand.
  assert.match(html,/data-c-portfolio-basis="true">Raggruppamento dei farmaci per ATC e regole di mappatura; area di utilizzo da verificare · ASL 1 · CO · Anno 2025<\/p>/);
  assert.match(html,/Spesa dei farmaci con una sola area candidata<\/p><p[^>]*>10 €<\/p><p[^>]*>Importo netto, rettifiche incluse<\/p>/);

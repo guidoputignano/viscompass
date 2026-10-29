@@ -4,7 +4,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const {C_SOURCE_VIEWS,C_SOURCE_PARAM,cSourceView,cSourceViewSearch,cItalianList}=await import('../lib/dashboard-review/pillar-c/source-views.ts');
+const {C_SOURCE_VIEWS,C_SOURCE_PARAM,cSourceView,cSourceViewSearch,cItalianList,cWorkspaceHeading}=await import('../lib/dashboard-review/pillar-c/source-views.ts');
+
+test('G2-04: the heading follows selected spending scope; separate flows retain their own coverage',()=>{
+  const coverage={dpc:'Azienda sintetica Quattro e aggregato delle quattro Aziende',fileF:'non ricevuto per Azienda sintetica Quattro'};
+  for(const scope of ['Azienda sintetica Quattro · CO','Aggregato delle quattro Aziende · DD']){
+    assert.equal(cWorkspaceHeading('spesa',scope,coverage).scope,scope);
+    const dpc=cWorkspaceHeading('dpc',scope,coverage),filef=cWorkspaceHeading('filef',scope,coverage);
+    assert.equal(dpc.scope,coverage.dpc);assert.equal(filef.scope,coverage.fileF);
+    assert.equal(dpc.title,'Assistiti e servizio DPC');assert.equal(filef.title,'File F');
+    assert.doesNotMatch(JSON.stringify([dpc,filef]),/· CO|· DD|revisione di progetto/);
+  }
+});
 
 test('c_fonte: dpc and filef open their views; anything else, or nothing, is the ledger view',()=>{
   assert.deepEqual([...C_SOURCE_VIEWS],['spesa','dpc','filef']);assert.equal(C_SOURCE_PARAM,'c_fonte');

@@ -12,6 +12,27 @@ export const C_SOURCE_LABELS: Readonly<Record<CSourceView, { label: string; sour
   filef: { label: "File F", source: "File F 2025" },
 };
 
+/** The page heading describes the source actually open. The spending scope is already resolved against the
+ * reader's authorized options; the flow coverage comes from the units delivered to that reader. A ledger's CO/DD
+ * selection must never appear to filter the DPC or File F heading. */
+export function cWorkspaceHeading(view: CSourceView, spendingScope: string, coverage: { dpc: string; fileF: string }) {
+  if (view === "dpc") return {
+    title: "Assistiti e servizio DPC",
+    description: "Assistiti, costi dei farmaci e servizio delle farmacie nei flussi riferiti a gennaio 2026.",
+    scope: coverage.dpc,
+  };
+  if (view === "filef") return {
+    title: "File F",
+    description: "Importi riportati e identificativi nei dati File F del 2025.",
+    scope: coverage.fileF,
+  };
+  return {
+    title: "Spesa, budget e aree cliniche",
+    description: "Spesa, variazioni e budget dell’ambito selezionato. Le analisi DPC e File F hanno una vista dedicata.",
+    scope: spendingScope,
+  };
+}
+
 /** The view a URL asks for; anything else is the ledger view, which needs no parameter. */
 export function cSourceView(params: URLSearchParams): CSourceView {
   const v = params.get(C_SOURCE_PARAM);

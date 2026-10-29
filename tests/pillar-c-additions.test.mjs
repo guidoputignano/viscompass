@@ -370,7 +370,7 @@ test('reviewer: the three panels where they belong, the five units under the rev
   // portfolios. The expenditure view holds none of them.
   const at=(x,a)=>x.indexOf(`data-c-additions="${a}"`);
   assert.ok(h.indexOf('<section id="dpc"')>0&&h.indexOf('<section id="dpc"')<at(h,'residence'),'residence in the DPC view');
-  assert.ok(h.indexOf('Quanti sono gli assistiti DPC e chi sono')>0&&h.indexOf('Quanti sono gli assistiti DPC e chi sono')<at(h,'residence')&&at(h,'residence')<h.indexOf('Come si distribuiscono gli assistiti'),'right after the January recipient totals');
+  assert.ok(h.indexOf('Quanti sono gli assistiti DPC e chi sono')>0&&h.indexOf('Quanti sono gli assistiti DPC e chi sono')<at(h,'residence')&&at(h,'residence')<h.indexOf('Qual è il costo per assistito nella DPC?'),'right after the January recipient totals');
   assert.ok(h.indexOf('Quanto si restringe il campo dei portafogli candidati?')<at(h,'narrowing')&&at(h,'narrowing')<h.indexOf('Assistiti per stato del prodotto e gruppo'),'beside the narrowing evidence');
   assert.equal(at(h,'filef-fields'),-1,'no File F field in the DPC view');
   assert.ok(f.indexOf('<section id="filef"')>0&&f.indexOf('<section id="filef"')<f.indexOf('File F 2025 · ASL 3: portafogli candidati')&&f.indexOf('File F 2025 · ASL 3: portafogli candidati')<at(f,'filef-fields'),'beside the File F portfolios, in the File F view');
