@@ -29,6 +29,8 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          // Pressed and active fills that carry text; see --primary-strong.
+          strong: "hsl(var(--primary-strong))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -55,6 +57,15 @@ export default {
           "3": "hsl(var(--chart-3))",
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
+        },
+      },
+      // Teal as text reads --primary-text, so the private area can darken small
+      // teal text to AA without touching fills, borders, rings or chart marks,
+      // which keep the brand teal.
+      textColor: {
+        primary: {
+          DEFAULT: "hsl(var(--primary-text))",
+          foreground: "hsl(var(--primary-foreground))",
         },
       },
       borderRadius: {

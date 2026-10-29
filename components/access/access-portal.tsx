@@ -80,7 +80,7 @@ function InvitationCard({ invitation }: { invitation: OrganizationInvitation }) 
       <CardContent className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center">
         <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Badge className="border-0 bg-primary text-primary-foreground hover:bg-primary">
+            <Badge className="border-0 bg-primary-strong text-primary-foreground hover:bg-primary-strong">
               Invito ricevuto
             </Badge>
             <span className="text-xs text-muted-foreground">
@@ -178,7 +178,7 @@ export function AccessPortal({
   }
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="vis-private min-h-svh bg-background">
       <header className="border-b border-border bg-card/90">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 md:px-8">
           <VisLogoLink size="sm" />

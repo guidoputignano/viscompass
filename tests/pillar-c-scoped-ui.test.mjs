@@ -507,7 +507,11 @@ test('reviewer: the workspace and every shared view render the markup recorded a
   // Same data hash, 33 cases byte-identical. The 22 workspace cases gain task entry points and a source-aware header;
   // four dossier cases defer PVM and the exact monthly table under a closed secondary section. Private evidence:
   // outputs/pillar-c/clarity-20261029/matrix-diff.json. The underlying PVM and exact data retain their own tests.
-  assert.equal(createHash('sha256').update(out.json).digest('hex'),'733799ced076193676faa672a0804660e4816c3db5a8f431d0cf11dcd74f96b1');
+  // Re-recorded 29 Oct 2026, accessibility pass (XC-X5.1, XC-X5.3). Baseline reproduced from HEAD: 733799ce….
+  // Same data hash, 28 cases byte-identical. 9 differ only by pressed states on bg-primary-strong and text under 11 px
+  // raised to text-[11px]; the other 22 by those and by the change waterfall's labels, 11 to 13 units and rewrapped at
+  // 15 characters, with the same text and the same drawing.
+  assert.equal(createHash('sha256').update(out.json).digest('hex'),'2385a5d887659978c0c902a3db7e538df9557be00c0ad06324c71ec94b16d7b7');
 });
 
 // ---------------------------------------------------------------- copy, translation and layout

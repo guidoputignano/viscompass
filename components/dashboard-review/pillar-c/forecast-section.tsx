@@ -62,7 +62,7 @@ export function PillarCForecastPanel({ forecast, series, onSeries, published = f
   return <div className="space-y-5">
     <div role="note" className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/5 px-5 py-4">
       <div className="min-w-[min(100%,16rem)] flex-1"><p className="text-sm font-semibold">{C_FORECAST_LABEL}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Non è una previsione di un’Azienda, né un budget o un tetto di spesa.</p></div>
-      <span className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{published ? "Previsione regionale · 2026" : "In revisione · accettazione in attesa"}</span>
+      <span className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{published ? "Previsione regionale · 2026" : "In revisione · accettazione in attesa"}</span>
     </div>
 
     <article className={panelClass}>

@@ -71,7 +71,7 @@ export function BudgetRows({ budgets }: { budgets: BudgetRow[] }) {
   const budgetPosition = (n: number) => (n - budgetMin) / (budgetMax - budgetMin) * 100;
   return <>
           <div className="mb-5 flex flex-wrap gap-4 text-xs text-muted-foreground"><span>● Chiave principale</span><span>◇ Chiave alternativa</span><span>│ Budget</span></div>
-          <div className="mb-3 flex justify-between gap-3 text-[10px] tabular-nums text-muted-foreground" aria-hidden="true"><span>{eur(budgetMin)}</span><span>Scala comune · euro</span><span>{eur(budgetMax)}</span></div>
+          <div className="mb-3 flex justify-between gap-3 text-[11px] tabular-nums text-muted-foreground" aria-hidden="true"><span>{eur(budgetMin)}</span><span>Scala comune · euro</span><span>{eur(budgetMax)}</span></div>
           <div className="space-y-5">{budgets.slice(0, 12).map((r) => <div key={r.id}>
             <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{r.level} {r.area}</span><span className="font-semibold tabular-nums">{eur(r.actual)}</span></div>
             {r.actual === null ? <p className="text-xs text-muted-foreground">Nessuna riga attribuita: nessun confronto con un consuntivo pari a zero.</p> : <div className="relative h-5 rounded bg-secondary" aria-hidden="true">
@@ -102,7 +102,7 @@ export function CountRows({ countRows, labels = C_REVIEW_COUNT_LABELS }: { count
   const countValues = countRows.flatMap((r) => [Number(r.lowCountCost), Number(r.highCountCost), Number(r.perPerson)]);
   const countMin = Math.min(0, ...countValues), countMax = Math.max(1, ...countValues);
   const countPosition = (n: number) => (n - countMin) / (countMax - countMin) * 100;
-  return <><div className="mb-3 flex justify-between gap-3 text-[10px] tabular-nums text-muted-foreground" aria-hidden="true"><span>{eur(countMin)}</span><span>{labels.scale}</span><span>{eur(countMax)}</span></div><div className="space-y-4">{countRows.map((r) => <div key={r.portfolio}>
+  return <><div className="mb-3 flex justify-between gap-3 text-[11px] tabular-nums text-muted-foreground" aria-hidden="true"><span>{eur(countMin)}</span><span>{labels.scale}</span><span>{eur(countMax)}</span></div><div className="space-y-4">{countRows.map((r) => <div key={r.portfolio}>
           <div className="mb-1.5 flex flex-wrap justify-between gap-2 text-xs"><span className="font-semibold">{r.portfolio}</span><span className="tabular-nums">{`${eur(r.perPerson)}${labels.unit}`}</span></div>
           <div className="relative h-5 rounded bg-secondary" aria-hidden="true">
             {countMin < 0 && <span className="absolute top-0 h-5 border-l border-border" style={{ left: `${countPosition(0)}%` }} />}

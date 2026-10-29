@@ -156,7 +156,7 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
                 {perimeterGates.map((g, index) => {
                   const y = 23 + index * 35;
                   return <g key={g.id}>
-                    <text x={left} y={y + 15} fontSize="10" fill={ink}>{SHORT_LABEL[g.id]}</text>
+                    <text x={left} y={y + 15} fontSize="11" fill={ink}>{SHORT_LABEL[g.id]}</text>
                     <rect x={280} y={y} width={360 * g.eur / maxGate} height={18} rx="3" fill={COLOR[g.id]} stroke={cardBg} strokeWidth="1" />
                     <text x={right} y={y + 15} textAnchor="end" fontSize="11" fill={ink}>{formatEur(g.eur)}</text>
                   </g>;
@@ -181,7 +181,7 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
                 <dd className="whitespace-nowrap text-right font-mono">{formatEur(g.eur)}</dd>
                 <dt className="text-muted-foreground">{totalHeading}</dt>
                 <dd className="whitespace-nowrap text-right font-mono">{g.shareOfTotal === null ? "—" : formatPercent(g.shareOfTotal)}</dd>
-                <dt className="col-span-2 mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Significato · che cosa se ne fa</dt>
+                <dt className="col-span-2 mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Significato · che cosa se ne fa</dt>
                 <dd className="col-span-2 text-muted-foreground">{g.meaning}<span className="mt-0.5 block text-foreground">{ACTION[g.id]}</span></dd>
               </dl>
             </li>
@@ -199,7 +199,7 @@ export function BridgeBChart({ bridge, check, monthsLabel, scopeLabel }: {
         <div className="hidden overflow-x-auto [@container(min-width:46rem)]:block">
           <table className="w-full min-w-[46rem] text-sm" translate="no">
             <caption className="sr-only">Perimetro biosimilare per soglia: spesa, quota del totale rendicontato, e che cosa se ne può fare ({scopeLabel} · {monthsLabel})</caption>
-            <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-semibold">Soglia</th>
                 <th scope="col" className="px-4 py-2.5 text-left font-semibold">Significato · che cosa se ne fa</th>

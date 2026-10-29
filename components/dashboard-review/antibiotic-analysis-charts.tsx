@@ -66,8 +66,8 @@ export function AntibioticUnitQuadrant({ data }: { data: AntibioticUnitRow[] }) 
     <ResponsiveContainer width="100%" height={330}>
       <ScatterChart margin={{ top: 12, right: 18, bottom: 12, left: 4 }}>
         <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
-        <XAxis type="number" dataKey="x" name="DDD / 100 giornate" tickLine={false} axisLine={false} fontSize={10} unit="" />
-        <YAxis type="number" dataKey="y" name="Spesa / DDD" tickLine={false} axisLine={false} fontSize={10} width={50} unit=" €" />
+        <XAxis type="number" dataKey="x" name="DDD / 100 giornate" tickLine={false} axisLine={false} fontSize={11} unit="" />
+        <YAxis type="number" dataKey="y" name="Spesa / DDD" tickLine={false} axisLine={false} fontSize={11} width={50} unit=" €" />
         <ZAxis type="number" dataKey="z" range={[90, 520]} name="Spesa" />
         <ReferenceLine x={meanX} stroke="hsl(174 45% 48%)" strokeDasharray="4 4" />
         <ReferenceLine y={meanY} stroke="hsl(238 45% 65%)" strokeDasharray="4 4" />

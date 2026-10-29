@@ -71,7 +71,7 @@ export function DashboardReviewNav({
   const contentOverflow = pathname === "/dashboard-review/pillar-c" ? "overflow-x-clip" : "overflow-x-hidden";
 
   return (
-    <div className={`flex min-h-svh w-full max-w-full flex-col ${contentOverflow} md:flex-row`}>
+    <div className={`vis-private flex min-h-svh w-full max-w-full flex-col ${contentOverflow} md:flex-row`}>
       <aside className="flex w-full flex-col gap-6 border-b border-border bg-card px-5 py-5 md:sticky md:top-0 md:min-h-svh md:w-64 md:self-start md:border-b-0 md:border-r md:px-6 md:py-6">
         <div className="flex items-center justify-between gap-3">
           <VisLogoLink size="sm" />
@@ -91,7 +91,7 @@ export function DashboardReviewNav({
         <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary/35 p-3.5">
           {viewer?.isReviewer ? (
             <span className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
+              <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
                 Revisore
               </span>
               <span
@@ -120,7 +120,7 @@ export function DashboardReviewNav({
         <nav className="flex flex-row flex-wrap gap-4 md:flex-col md:gap-5" aria-label="Moduli del cruscotto">
           {NAV_GROUPS.map((group) => (
             <div key={group.label} className="flex min-w-0 flex-col gap-1">
-              <span className="hidden px-3 pb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:block">
+              <span className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:block">
                 {group.label}
               </span>
               <div className="flex flex-row flex-wrap gap-1 md:flex-col">
@@ -136,13 +136,13 @@ export function DashboardReviewNav({
                       className={
                         "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors " +
                         (active
-                          ? "bg-primary text-primary-foreground shadow-sm"
+                          ? "bg-primary-strong text-primary-foreground shadow-sm"
                           : "text-foreground hover:bg-secondary")
                       }
                     >
                       <Icon
                         aria-hidden="true"
-                        className={active ? "text-white" : "text-muted-foreground"}
+                        className={active ? "text-primary-foreground" : "text-muted-foreground"}
                         size={15}
                         strokeWidth={1.8}
                       />
@@ -157,7 +157,7 @@ export function DashboardReviewNav({
 
         {isAdmin && (
           <div className="border-t border-border pt-4">
-            <span className="hidden px-3 pb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:block">
+            <span className="hidden px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:block">
               Amministrazione
             </span>
             <Link
@@ -165,10 +165,10 @@ export function DashboardReviewNav({
               aria-current={pathname === "/admin/control-center" ? "page" : undefined}
               className={
                 "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors " +
-                (pathname === "/admin/control-center" ? "bg-primary text-primary-foreground shadow-sm" : "text-foreground hover:bg-secondary")
+                (pathname === "/admin/control-center" ? "bg-primary-strong text-primary-foreground shadow-sm" : "text-foreground hover:bg-secondary")
               }
             >
-              <KeyRound aria-hidden="true" className={pathname === "/admin/control-center" ? "text-white" : "text-muted-foreground"} size={15} strokeWidth={1.8} />
+              <KeyRound aria-hidden="true" className={pathname === "/admin/control-center" ? "text-primary-foreground" : "text-muted-foreground"} size={15} strokeWidth={1.8} />
               Control Center
             </Link>
           </div>

@@ -27,7 +27,7 @@ const COLUMN_STATUS: Record<UploadStatus, { label: string; tone: "neutral" | "wa
 function Figure({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
+      <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
       <p className={muted ? "mt-0.5 font-mono text-xs text-muted-foreground" : "mt-0.5 font-mono text-xs font-semibold"}>
         {value}
       </p>
@@ -106,7 +106,7 @@ export function UploadLog({ uploads }: { uploads: UploadRecord[] }) {
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[520px] text-xs">
                         <thead>
-                          <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                          <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                             <th className="py-2 pr-4 font-semibold">Motivo</th>
                             <th className="py-2 pr-4 text-right font-semibold">Righe</th>
                             <th className="py-2 pr-4 text-right font-semibold">Importo</th>
@@ -118,7 +118,7 @@ export function UploadLog({ uploads }: { uploads: UploadRecord[] }) {
                             <tr key={group.code} className="border-b border-border align-top last:border-0">
                               <td className="py-2 pr-4">
                                 <p className="text-foreground">{group.reason}</p>
-                                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{group.code}</p>
+                                <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{group.code}</p>
                               </td>
                               <td className="py-2 pr-4 text-right font-mono">{formatNumber(group.rows, 0)}</td>
                               <td className="py-2 pr-4 text-right font-mono">{formatEurPrecise(group.cost)}</td>
@@ -134,7 +134,7 @@ export function UploadLog({ uploads }: { uploads: UploadRecord[] }) {
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">Confronto canonico</p>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Confronto canonico</p>
                       <p className="mt-0.5 text-[11px] leading-5">
                         {view.canonical === null
                           ? "Non registrato."
@@ -144,7 +144,7 @@ export function UploadLog({ uploads }: { uploads: UploadRecord[] }) {
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">Totale dichiarato dal file</p>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Totale dichiarato dal file</p>
                       <p className="mt-0.5 text-[11px] leading-5">
                         {view.declared === null
                           ? "Il file non dichiara un totale."
@@ -166,13 +166,13 @@ export function UploadLog({ uploads }: { uploads: UploadRecord[] }) {
                       above cannot be tied to a flow definition. */}
                   {view.basis && (
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">Base delle colonne lette</p>
-                      <p className="mt-0.5 font-mono text-[10px] leading-4 text-muted-foreground">{view.basis}</p>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Base delle colonne lette</p>
+                      <p className="mt-0.5 font-mono text-[11px] leading-4 text-muted-foreground">{view.basis}</p>
                     </div>
                   )}
 
                   {view.at && (
-                    <p className="text-[10px] text-muted-foreground">Riconciliazione eseguita il {formatDate(view.at)}.</p>
+                    <p className="text-[11px] text-muted-foreground">Riconciliazione eseguita il {formatDate(view.at)}.</p>
                   )}
                 </div>
               </details>

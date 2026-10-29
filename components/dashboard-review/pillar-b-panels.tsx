@@ -331,7 +331,7 @@ export function TrendTable({
       </ul>
       <div className="hidden overflow-x-auto rounded-xl border border-border [@container(min-width:53rem)]:block">
         <table className="w-full min-w-[44rem] text-sm" translate="no">
-          <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">{firstColumn}</th>
               {TREND_VALUES.map((c) => <th key={c.label} className="px-4 py-2.5 text-right font-semibold">{c.label}</th>)}
@@ -442,7 +442,7 @@ export function ConcentrationPanel({ variants, initial, defaultYear }: {
         </ul>
         <div className="mt-3 hidden overflow-x-auto rounded-xl border border-border [@container(min-width:41rem)]:block">
           <table className="w-full min-w-[40rem] text-sm" translate="no">
-            <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5 text-left font-semibold">#</th>
                 <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
@@ -542,7 +542,7 @@ export function VolumePanel({ rows, routes, initial }: {
             <div className="min-w-0 text-xs text-foreground" title={`${row.substance} · ${row.route} · ${row.unit}`}>
               {/* On its own line under 28rem, a long name wraps instead of losing its end. */}
               <span className="block break-words font-medium [@container(min-width:28rem)]:truncate">{row.substance}</span>
-              <span className="block break-words text-[10px] text-muted-foreground [@container(min-width:28rem)]:truncate">{row.route.toLowerCase()} · {row.unit}</span>
+              <span className="block break-words text-[11px] text-muted-foreground [@container(min-width:28rem)]:truncate">{row.route.toLowerCase()} · {row.unit}</span>
             </div>
             <div className="space-y-1">
               {([{ key: "whole", share: row.wholePeriodShare, color: "#647c90" },
@@ -553,7 +553,7 @@ export function VolumePanel({ rows, routes, initial }: {
             </div>
             <div className="text-right font-mono text-[11px] text-foreground">
               {row.windowShare === null ? formatPercent(row.wholePeriodShare!) : formatPercent(row.windowShare)}
-              <span className="block text-[10px] font-sans text-muted-foreground">{row.windowShare === null ? "intero periodo" : "dal primo uso"}</span>
+              <span className="block text-[11px] font-sans text-muted-foreground">{row.windowShare === null ? "intero periodo" : "dal primo uso"}</span>
             </div>
           </div>)}
         </div>
@@ -591,7 +591,7 @@ export function VolumePanel({ rows, routes, initial }: {
       <div className="hidden overflow-x-auto rounded-lg border border-border [@container(min-width:49rem)]:block">
         <table className="w-full min-w-[48rem] text-sm" translate="no">
           <caption className="sr-only">Quota in volume per molecola e via di somministrazione</caption>
-          <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
               <th className="px-4 py-2.5 text-left font-semibold">Via</th>

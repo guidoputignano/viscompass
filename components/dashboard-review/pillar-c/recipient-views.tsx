@@ -42,7 +42,7 @@ const NOTE = "mt-4 text-xs leading-5 text-muted-foreground";
 function Choice<T extends string>({ legend, value, options, onChange }: { legend: string; value: T; options: readonly { value: T; label: string }[]; onChange: (v: T) => void }) {
   const name = useId();
   return <fieldset className="min-w-0"><legend className="text-xs font-medium text-muted-foreground">{legend}</legend>
-    <div className="mt-2 inline-flex flex-wrap rounded-lg border border-border p-0.5">{options.map((o) => <label key={o.value} className={`inline-flex min-h-11 cursor-pointer items-center rounded-md px-3 text-xs font-medium focus-within:outline focus-within:outline-2 focus-within:outline-primary ${value === o.value ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}>
+    <div className="mt-2 inline-flex flex-wrap rounded-lg border border-border p-0.5">{options.map((o) => <label key={o.value} className={`inline-flex min-h-11 cursor-pointer items-center rounded-md px-3 text-xs font-medium focus-within:outline focus-within:outline-2 focus-within:outline-primary ${value === o.value ? "bg-primary-strong text-primary-foreground" : "hover:bg-secondary"}`}>
       <input type="radio" className="sr-only" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} />{o.label}</label>)}</div></fieldset>;
 }
 type View = "chart" | "table";
@@ -276,7 +276,7 @@ function IntervalRows({ rows, max, format, tick = (v: number) => num(v), legend 
         <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card" style={{ left: at(r.median), background: colorOf(r.unit) }} />
       </span>
       <span className="min-w-28 text-right tabular-nums">{`${format(r.median)} · ${format(r.q1)} – ${format(r.q3)}`}</span></div>)}</div>
-    <div className="mt-1 grid grid-cols-[minmax(4.5rem,9rem)_1fr_auto] gap-3 text-[10px] text-muted-foreground" aria-hidden="true"><span /><span className="relative h-4">{ticks.map((t) => <span key={t} className="absolute -translate-x-1/2" style={{ left: at(t) }}>{tick(t)}</span>)}</span><span className="min-w-28" /></div>
+    <div className="mt-1 grid grid-cols-[minmax(4.5rem,9rem)_1fr_auto] gap-3 text-[11px] text-muted-foreground" aria-hidden="true"><span /><span className="relative h-4">{ticks.map((t) => <span key={t} className="absolute -translate-x-1/2" style={{ left: at(t) }}>{tick(t)}</span>)}</span><span className="min-w-28" /></div>
   </div>;
 }
 export function PillarCTypicalUse({ units, initialView = "chart" }: { units: Unit[]; initialView?: View }) {

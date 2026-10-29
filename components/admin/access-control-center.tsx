@@ -93,7 +93,7 @@ function MetricCard({
             </div>
             <div
               className={`rounded-lg p-2.5 ${
-                active ? "bg-primary text-primary-foreground shadow-sm" : "bg-secondary text-muted-foreground"
+                active ? "bg-primary-strong text-primary-foreground shadow-sm" : "bg-secondary text-muted-foreground"
               }`}
             >
               <Icon size={17} />
@@ -453,7 +453,7 @@ export function AccessControlCenter({
             {!embedded && <VisLogoLink size="sm" />}
             {!embedded && <div className="hidden h-8 w-px bg-border sm:block" />}
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Admin</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Admin</p>
               <p className="text-sm font-semibold">Control Center</p>
             </div>
           </div>

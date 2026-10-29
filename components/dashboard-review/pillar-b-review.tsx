@@ -291,7 +291,7 @@ function ReviewQuestion({ title, headline, question, check, who, next, rows, tot
         <div className="mt-3 hidden overflow-x-auto rounded-lg border border-border [@container(min-width:26.125rem)]:block">
           <table className="w-full min-w-[26rem] text-sm" translate="no">
             <caption className="sr-only">{title}: molecole, {amountColumn.toLowerCase()} e quota; il nome apre l&apos;evidenza della molecola</caption>
-            <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-semibold">Molecola · evidenza</th>
                 {firstColumn && <th scope="col" className="px-3 py-2 text-right font-semibold">{firstColumn}</th>}
@@ -633,12 +633,12 @@ export function PillarBReview(props: PillarBReviewProps) {
             </div>}
             <dl className="mt-3 grid gap-3 sm:grid-cols-3">
               {adoption.groupCount > 0 && <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Gruppi con quota in volume calcolabile</dt>
+                <dt className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Gruppi con quota in volume calcolabile</dt>
                 <dd className="font-display mt-1 text-base text-foreground">{formatNumber(adoption.groupCount, 0)}</dd>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">(Azienda, principio attivo, via, unità) · {years.length === 2 ? "presenti in almeno uno dei due anni" : String(years[0])}</p>
               </div>}
               {adoption.uptake.withheldRows > 0 && <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Spesa trattenuta</dt>
+                <dt className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Spesa trattenuta</dt>
                 <dd className="font-display mt-1 text-base text-foreground">{formatEur(adoption.uptake.withheldSpendEur)}</dd>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   {adoption.uptake.withheldShare !== null && <>{formatPercent(adoption.uptake.withheldShare)} del perimetro della misura · </>}
@@ -646,7 +646,7 @@ export function PillarBReview(props: PillarBReviewProps) {
                 </p>
               </div>}
               {adoption.uptake.withheldShare !== null && <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Copertura della misura</dt>
+                <dt className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Copertura della misura</dt>
                 <dd className="font-display mt-1 text-base text-foreground">
                   {formatPercent(1 - adoption.uptake.withheldShare)}
                 </dd>
@@ -688,7 +688,7 @@ export function PillarBReview(props: PillarBReviewProps) {
                   </ul>
                   <div className="hidden overflow-x-auto rounded-lg border border-border [@container(min-width:34.125rem)]:block">
                     <table className="w-full min-w-[34rem] text-sm" translate="no">
-                      <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                         <tr>
                           <th className="px-4 py-2.5 text-left font-semibold">Azienda</th>
                           <th className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
@@ -780,7 +780,7 @@ export function PillarBReview(props: PillarBReviewProps) {
               </ul>
               <div className="hidden overflow-x-auto rounded-xl border border-border [@container(min-width:46.125rem)]:block">
                 <table className="w-full min-w-[46rem] text-sm" translate="no">
-                  <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                     <tr>
                       <th className="px-4 py-2.5 text-left font-semibold">Passaggio</th>
                       <th className="px-4 py-2.5 text-right font-semibold">Record</th>

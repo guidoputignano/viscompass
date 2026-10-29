@@ -11,7 +11,7 @@ const button = 'inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 t
 function wrap(s: string) {
   return s.split(' ').reduce<string[][]>((lines, word) => {
     const last = lines[lines.length - 1];
-    if (last.join(' ').length + word.length > 18) lines.push([word]); else last.push(word);
+    if (last.join(' ').length + word.length > 15) lines.push([word]); else last.push(word);
     return lines;
   }, [[]]);
 }
@@ -40,7 +40,7 @@ export function PillarCChangeBridge({ opening, closing, components }: { opening:
           <svg viewBox="0 0 960 410" className="min-w-[720px] w-full" role="group" aria-label="Ponte a cascata fra spesa iniziale e finale">
             {Array.from({ length: 5 }, (_, i) => {
               const v = lo + (hi - lo) * i / 4;
-              return <g key={i}><line x1={95} x2={940} y1={y(v)} y2={y(v)} stroke="hsl(var(--border))" strokeDasharray="3 5"/><text x={85} y={y(v) + 4} textAnchor="end" fontSize={11} fill="hsl(var(--muted-foreground))">{`${compact(v)} €`}</text></g>;
+              return <g key={i}><line x1={95} x2={940} y1={y(v)} y2={y(v)} stroke="hsl(var(--border))" strokeDasharray="3 5"/><text x={85} y={y(v) + 4} textAnchor="end" fontSize={13} fill="hsl(var(--muted-foreground))">{`${compact(v)} €`}</text></g>;
             })}
             {steps.map((s, i) => {
               const xx = 110 + i * 139, negative = Number(s.value) < 0;
@@ -51,8 +51,8 @@ export function PillarCChangeBridge({ opening, closing, components }: { opening:
                 <rect x={xx} y={Math.min(y(Number(s.start)), y(Number(s.end)))} width={96}
                   height={Math.max(2, Math.abs(y(Number(s.start)) - y(Number(s.end))))} fill={color} rx={4} opacity={selected === s.id ? 1 : 0.8}/>
                 {i < steps.length - 1 && <line x1={xx + 96} x2={xx + 139} y1={y(Number(s.end))} y2={y(Number(s.end))} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3"/>}
-                <text x={xx + 48} y={Math.min(y(Number(s.start)), y(Number(s.end))) - 9} textAnchor="middle" fontSize={11} fill="currentColor">{`${!s.total && Number(s.value) > 0 ? '+' : ''}${compact(s.value)} €`}</text>
-                <text x={xx + 48} y={325} textAnchor="middle" fontSize={11} fill="currentColor">{wrap(label(s.id)).map((words, j) => <tspan key={j} x={xx + 48} dy={j === 0 ? 0 : 15}>{words.join(' ')}</tspan>)}</text>
+                <text x={xx + 48} y={Math.min(y(Number(s.start)), y(Number(s.end))) - 9} textAnchor="middle" fontSize={13} fill="currentColor">{`${!s.total && Number(s.value) > 0 ? '+' : ''}${compact(s.value)} €`}</text>
+                <text x={xx + 48} y={325} textAnchor="middle" fontSize={13} fill="currentColor">{wrap(label(s.id)).map((words, j) => <tspan key={j} x={xx + 48} dy={j === 0 ? 0 : 16}>{words.join(' ')}</tspan>)}</text>
               </g>;
             })}
           </svg>

@@ -64,7 +64,7 @@ function StratumLabel({ row }: { row: Row }) {
   return (
     <>
       <span className="text-foreground">{row.label}</span>
-      {row.rawId !== null && <span className="block break-all font-mono text-[10px] text-muted-foreground">{row.rawId}</span>}
+      {row.rawId !== null && <span className="block break-all font-mono text-[11px] text-muted-foreground">{row.rawId}</span>}
     </>
   );
 }
@@ -144,7 +144,7 @@ export function PillarBStratumCost({ panel }: { panel: StratumCostPanel }) {
                           <div className="hidden overflow-x-auto rounded-lg border border-border [@container(min-width:44.125rem)]:block">
                             <table className="w-full min-w-[44rem] text-sm" translate="no">
                               <caption className="sr-only">{m.substance}: strati, spesa, quantità e costo per unità di ciascun lato</caption>
-                              <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                              <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                                 <tr>
                                   <th scope="col" className="px-3 py-2 text-left font-semibold">Strato · via · forma · unità</th>
                                   <th scope="col" className="px-3 py-2 text-left font-semibold">Riferimento · spesa · quantità · €/unità · record</th>

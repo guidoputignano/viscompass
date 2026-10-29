@@ -56,7 +56,7 @@ export function PillarCSectionBar({ className, available = SECTION_IDS }: { clas
     {PILLAR_C_SECTIONS.map(({ id, number, label }) => {
       const Icon = icons[id], selected = current === id;
       if (!available.includes(id)) return <span key={id} className="flex min-h-11 min-w-0 shrink-0 snap-start items-center gap-2 rounded-xl border border-transparent px-3 py-2 text-xs font-semibold tracking-tight text-muted-foreground md:shrink xl:text-[13px]">
-        <span aria-hidden="true" className="w-3 shrink-0 text-[10px] font-semibold tabular-nums opacity-70">{number}</span>
+        <span aria-hidden="true" className="w-3 shrink-0 text-[11px] font-semibold tabular-nums opacity-70">{number}</span>
         <Icon size={16} strokeWidth={1.8} aria-hidden="true" className="shrink-0" />
         <span className="truncate md:overflow-visible md:whitespace-normal md:leading-4">{label}</span>
         <span className="sr-only">{UNAVAILABLE_ENTRY}</span>
@@ -65,9 +65,9 @@ export function PillarCSectionBar({ className, available = SECTION_IDS }: { clas
         onClick={(e) => { e.preventDefault(); setActive(id); const hash = `#${id}`; if (window.location.hash !== hash) window.history.pushState(null, "", `${window.location.pathname}${window.location.search}${hash}`); document.getElementById(id)?.scrollIntoView({ block: "start" }); document.getElementById(`${id}-title`)?.focus({ preventScroll: true }); }}
         className={cn(
           "group flex min-h-11 min-w-0 shrink-0 snap-start items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card motion-safe:transition-[color,background-color,border-color,box-shadow] motion-safe:duration-200 md:shrink xl:text-[13px]",
-          selected ? "border-primary/30 bg-primary text-primary-foreground shadow-sm" : "border-transparent text-foreground hover:border-primary/15 hover:bg-primary/[0.05]",
+          selected ? "border-primary/30 bg-primary-strong text-primary-foreground shadow-sm" : "border-transparent text-foreground hover:border-primary/15 hover:bg-primary/[0.05]",
         )}>
-        <span aria-hidden="true" className="w-3 shrink-0 text-[10px] font-semibold tabular-nums opacity-70">{number}</span>
+        <span aria-hidden="true" className="w-3 shrink-0 text-[11px] font-semibold tabular-nums opacity-70">{number}</span>
         <Icon size={16} strokeWidth={1.8} aria-hidden="true" className="shrink-0" />
         <span className="truncate md:overflow-visible md:whitespace-normal md:leading-4">{label}</span>
       </a>;

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Boxes, Layers3, PackageSearch, ReceiptEuro, RotateCcw } from "lucide-react";
 import {
@@ -17,6 +18,11 @@ const SHARE_BASIS = { comparable_quantity: "quantità confrontabile", mg: "mg", 
 function scalar(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" && value.length <= 160 ? value : undefined;
 }
+
+export const metadata: Metadata = {
+  title: "Regione → AIC | VIS",
+  robots: { index: false, follow: false },
+};
 
 export default async function ExplorerPage({
   searchParams,
@@ -61,7 +67,7 @@ export default async function ExplorerPage({
         {data.breadcrumbs.map((item, index) => (
           <span key={`${item.href}-${index}`} className="flex items-center gap-2">
             {index > 0 && <ArrowRight size={12} className="text-muted-foreground" />}
-            <Link href={item.href} className={index === data.breadcrumbs.length - 1 ? "font-semibold text-foreground" : "text-muted-foreground hover:text-primary"}>{item.label}</Link>
+            <Link href={item.href} className={index === data.breadcrumbs.length - 1 ? "inline-flex min-h-6 items-center font-semibold text-foreground" : "inline-flex min-h-6 items-center text-muted-foreground hover:text-primary"}>{item.label}</Link>
           </span>
         ))}
         {activeFilterCount > 0 && <Link href="/dashboard-review/ricerca" className="ml-auto inline-flex items-center gap-1 font-semibold text-primary"><RotateCcw size={12} /> Ricomincia</Link>}
@@ -79,26 +85,26 @@ export default async function ExplorerPage({
       ) : (
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border p-5 md:p-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Livello corrente · {data.level_label}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Livello corrente · {data.level_label}</p>
             <h2 className="font-display mt-1 text-xl">Composizione del nodo selezionato</h2>
             <p className="mt-1 text-xs text-muted-foreground">Seleziona una riga per continuare il drill-down. Al livello AIC il percorso termina.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
-              <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+              <thead><tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                 <th className="px-5 py-3 font-semibold">{data.level_label}</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Quota</th><th className="px-5 py-3 text-right font-semibold">Confezioni</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Penetrazione bio<span className="block font-normal normal-case tracking-normal">{data.biosimilar_penetration_basis === null ? "n/d" : `base ${SHARE_BASIS[data.biosimilar_penetration_basis]}`}</span></th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th><th className="px-5 py-3" />
               </tr></thead>
               <tbody>
                 {data.nodes.map((node) => (
                   <tr key={node.key} className="border-b border-border last:border-0 hover:bg-secondary/25">
-                    <td className="px-5 py-4"><p className="font-semibold">{node.label}</p><p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{node.code} · {formatNumber(node.record_count, 0)} record</p></td>
+                    <td className="px-5 py-4"><p className="font-semibold">{node.label}</p><p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{node.code} · {formatNumber(node.record_count, 0)} record</p></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{formatEur(node.spend_eur)}</td>
-                    <td className="px-5 py-4 text-right"><div className="ml-auto flex w-28 items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${node.spend_share * 100}%` }} /></div><span className="w-10 text-right font-mono text-[10px]">{formatPercent(node.spend_share)}</span></div></td>
+                    <td className="px-5 py-4 text-right"><div className="ml-auto flex w-28 items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${node.spend_share * 100}%` }} /></div><span className="w-10 text-right font-mono text-[11px]">{formatPercent(node.spend_share)}</span></div></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.packs === null ? "n/d" : formatNumber(node.packs, 0)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.spend_yoy === null ? "—" : formatSignedPercent(node.spend_yoy)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{node.biosimilar_penetration === null ? "—" : formatPercent(node.biosimilar_penetration)}{node.biosimilar_penetration !== null && node.biosimilar_penetration_quantity_coverage !== null && <span className="block text-[10px] text-muted-foreground">quantità su {formatPercent(node.biosimilar_penetration_quantity_coverage)}</span>}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{node.biosimilar_penetration === null ? "—" : formatPercent(node.biosimilar_penetration)}{node.biosimilar_penetration !== null && node.biosimilar_penetration_quantity_coverage !== null && <span className="block text-[11px] text-muted-foreground">quantità su {formatPercent(node.biosimilar_penetration_quantity_coverage)}</span>}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{node.normalization_coverage === null ? "—" : formatPercent(node.normalization_coverage)}</td>
-                    <td className="px-5 py-4">{node.href ? <Link href={node.href} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Apri <ArrowRight size={12} /></Link> : <span className="text-[10px] text-muted-foreground">Livello finale</span>}</td>
+                    <td className="px-5 py-4">{node.href ? <Link href={node.href} className="inline-flex min-h-6 items-center gap-1 text-xs font-semibold text-primary hover:underline">Apri <ArrowRight size={12} /></Link> : <span className="text-[11px] text-muted-foreground">Livello finale</span>}</td>
                   </tr>
                 ))}
               </tbody>

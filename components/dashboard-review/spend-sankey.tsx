@@ -219,7 +219,7 @@ export function SpendSankey({ data }: { data: SpendFlowData }) {
 function Total({ label, value, detail }: { label: string; value: number | null; detail?: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
       <p className="font-display mt-1 text-lg text-foreground">
         {value === null ? "n/d" : formatEur(value)}
       </p>
@@ -251,7 +251,7 @@ function ClassTable({
       {caption && <p className="mb-2 text-[11px] text-muted-foreground">{caption}</p>}
       <table className="w-full min-w-[520px] text-xs">
         <thead>
-          <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+          <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
             <th className="py-2 pr-4 font-semibold">Classe ATC</th>
             <th className="py-2 pr-4 text-right font-semibold">Acquistato</th>
             <th className="py-2 pr-4 text-right font-semibold">Erogato</th>
@@ -265,7 +265,7 @@ function ClassTable({
               <td className="py-2 pr-4">
                 {/* The unattributed bucket has no ATC code, so its label stands alone. */}
                 {row.code !== row.label && (
-                  <span className="font-mono text-[10px] text-muted-foreground">{row.code} </span>
+                  <span className="font-mono text-[11px] text-muted-foreground">{row.code} </span>
                 )}
                 <span className="text-foreground">{row.label}</span>
               </td>

@@ -52,7 +52,7 @@ function MeasureCard({
       "rounded-xl border p-4 " +
       (accent ? "border-primary/30 bg-primary/5" : "border-border bg-card")
     }>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {title}
       </p>
       {/* Beside a regional line, the big figure says whose it is. */}
@@ -375,7 +375,7 @@ export function PillarBValueUptake({
               <caption className="sr-only">
                 Spesa biosimilare e di riferimento per principio attivo, sui due denominatori
               </caption>
-              <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                 <tr>
                   <th scope="col" className="px-4 py-2.5 text-left font-semibold">Principio attivo</th>
                   <th scope="col" className="px-4 py-2.5 text-right font-semibold">Biosimilare</th>

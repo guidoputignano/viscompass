@@ -45,7 +45,7 @@ export function AwareBarChart({ data }: { data: AwareYearRow[] }) {
               key={option}
               type="button"
               onClick={() => setMetric(option)}
-              className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition ${metric === option ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
+              className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition ${metric === option ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
               aria-pressed={metric === option}
             >
               {option === "cost" ? "Spesa (€)" : option === "ddd" ? "DDD" : "Spesa / DDD (€)"}

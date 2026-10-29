@@ -155,8 +155,8 @@ test('PillarCSectionBar renders one nav with six pill links in order: numeral hi
   }
   // The label truncates only in the row; in the grid it wraps (leading-4 keeps two lines inside the 44 px pill).
   assert.equal((html.match(/<span class="truncate md:overflow-visible md:whitespace-normal md:leading-4">/g)||[]).length,6);
-  assert.ok((` ${links[0].classes} `).includes(' bg-primary '),'the current entry is filled');
-  for(const a of links.slice(1))assert.ok(!(` ${a.classes} `).includes(' bg-primary '),`${a.href}: not filled`);
+  assert.ok((` ${links[0].classes} `).includes(' bg-primary-strong '),'the current entry is filled');
+  for(const a of links.slice(1))assert.ok(!(` ${a.classes} `).includes(' bg-primary-strong '),`${a.href}: not filled`);
   // Numerals: six aria-hidden spans "1" to "6"; icons: six svgs, every one aria-hidden.
   assert.deepEqual([...html.matchAll(/<span aria-hidden="true" class="[^"]*">(\d)<\/span>/g)].map(m=>m[1]),['1','2','3','4','5','6']);
   assert.equal((html.match(/<svg/g)||[]).length,6);

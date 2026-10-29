@@ -44,7 +44,7 @@ function TrendPanel({ data }: { data: SpendDashboardData }) {
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
           <h2 className="font-display mt-1 text-xl">Spesa nel tempo</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {data.trend_granularity === "month" ? `Mesi · ${data.latest_year}` : "Annualità"}
@@ -74,7 +74,7 @@ function AtcPanel({ data }: { data: SpendDashboardData }) {
   const items = data.atc_breakdown;
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione</p>
       <h2 className="font-display mt-1 text-xl">Dove si concentra la spesa</h2>
       <p className="mt-1 text-xs text-muted-foreground">Categorie principali</p>
       <div className="mt-5 divide-y divide-border">
@@ -88,7 +88,7 @@ function AtcPanel({ data }: { data: SpendDashboardData }) {
             <div className="min-w-0">
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate text-xs font-medium">{item.label}</span>
-                <span className="font-mono text-[10px] text-muted-foreground">{formatPercent(item.share)}</span>
+                <span className="font-mono text-[11px] text-muted-foreground">{formatPercent(item.share)}</span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
                 <div className="h-full rounded-full bg-primary" style={{ width: `${item.share * 100}%` }} />
@@ -107,10 +107,10 @@ function MoleculePanel({ data }: { data: SpendDashboardData }) {
     <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex flex-col gap-2 border-b border-border p-5 sm:flex-row sm:items-end sm:justify-between md:p-6">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Intelligence per molecola</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Intelligence per molecola</p>
           <h2 className="font-display mt-1 text-xl">Molecole a maggiore materialità</h2>
         </div>
-        <Link href="/dashboard-review/ricerca" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+        <Link href="/dashboard-review/ricerca" className="inline-flex min-h-6 items-center gap-1 text-xs font-semibold text-primary hover:underline">
           Esplora la gerarchia <ArrowRight size={13} />
         </Link>
       </div>
@@ -120,7 +120,7 @@ function MoleculePanel({ data }: { data: SpendDashboardData }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+              <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                 <th className="px-5 py-3 font-semibold">Molecola</th>
                 <th className="px-5 py-3 text-right font-semibold">Spesa</th>
                 <th className="px-5 py-3 text-right font-semibold">Var. a/a</th>
@@ -135,11 +135,11 @@ function MoleculePanel({ data }: { data: SpendDashboardData }) {
                     <Link href={`/dashboard-review/ricerca?molecule=${encodeURIComponent(row.active_substance)}`} className="font-semibold hover:text-primary">
                       {row.active_substance}
                     </Link>
-                    <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{row.atc_code ?? "ATC non disponibile"} · {row.therapeutic_area}</p>
+                    <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{row.atc_code ?? "ATC non disponibile"} · {row.therapeutic_area}</p>
                   </td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs">{formatEur(row.spend_eur)}</td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs">{row.spend_yoy === null ? "—" : formatSignedPercent(row.spend_yoy)}</td>
-                  <td className="px-5 py-3.5 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}{row.biosimilar_penetration !== null && row.biosimilar_penetration_basis !== null && <span className="block text-[10px] text-muted-foreground">{SHARE_BASIS_LABEL[row.biosimilar_penetration_basis]}</span>}</td>
+                  <td className="px-5 py-3.5 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}{row.biosimilar_penetration !== null && row.biosimilar_penetration_basis !== null && <span className="block text-[11px] text-muted-foreground">{SHARE_BASIS_LABEL[row.biosimilar_penetration_basis]}</span>}</td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs font-semibold text-primary">{row.headroom_eur === null ? "Non calcolabile" : `${row.headroom_eur > 0 ? "≤ " : ""}${formatEur(row.headroom_eur)}`}</td>
                 </tr>
               ))}
@@ -156,7 +156,7 @@ function ReviewQueue({ data }: { data: SpendDashboardData }) {
     <section className="min-w-0 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Coda di revisione</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Coda di revisione</p>
           <h2 className="font-display mt-1 text-xl">Evidenze da aprire</h2>
         </div>
         <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary"><ClipboardCheck size={18} /></span>
@@ -177,7 +177,7 @@ function ReviewQueue({ data }: { data: SpendDashboardData }) {
           </Link>
         ))}
       </div>
-      <Link href="/dashboard-review/obiettivi" className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+      <Link href="/dashboard-review/obiettivi" className="mt-4 inline-flex min-h-6 items-center gap-1 text-xs font-semibold text-primary hover:underline">
         Apri tutte le revisioni <ArrowRight size={13} />
       </Link>
     </section>

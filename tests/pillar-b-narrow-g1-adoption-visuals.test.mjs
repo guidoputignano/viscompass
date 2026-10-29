@@ -321,7 +321,7 @@ test("AziendaBars: side by side from 30rem (one bar) and 40rem (bars per year), 
   assert.match(spesa, /<div class="grid gap-1\.5 \[@container\(min-width:40rem\)\]:grid-cols-\[9rem_1fr_11rem\] \[@container\(min-width:40rem\)\]:items-center \[@container\(min-width:40rem\)\]:gap-3">/);
   assert.ok(spesa.includes('nei canali e nella molecola selezionati; <span class="hidden [@container(min-width:40rem)]:inline">a destra</span><span class="[@container(min-width:40rem)]:hidden">sotto le barre</span> il totale degli anni e la quota con quantità confrontabile.'),
     "stacked, the totals are under the bars and the lead says so");
-  assert.ok(spesa.includes('<span class="whitespace-nowrap text-right text-[10px] text-muted-foreground [@container(min-width:40rem)]:w-20 [@container(min-width:40rem)]:whitespace-normal">2025: nessun record</span>'),
+  assert.ok(spesa.includes('<span class="whitespace-nowrap text-right text-[11px] text-muted-foreground [@container(min-width:40rem)]:w-20 [@container(min-width:40rem)]:whitespace-normal">2025: nessun record</span>'),
     "a missing year stays 'nessun record' on one line when stacked; beside the name, the 5rem column as before");
   for (const metric of ["comparabile", "record"]) {
     assert.match(html(V.AziendaBars, { rows: AZ, years: [2024, 2025], metric }), /<div class="grid gap-1 \[@container\(min-width:30rem\)\]:grid-cols-\[9rem_1fr_7rem\] \[@container\(min-width:30rem\)\]:items-center \[@container\(min-width:30rem\)\]:gap-3">/);

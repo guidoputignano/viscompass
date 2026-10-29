@@ -320,7 +320,7 @@ export function FirstUseTimeline({ model, followsAzienda = true }: {
       <div className="mt-2 hidden overflow-x-auto rounded-lg border border-border [@container(min-width:40.125rem)]:block">
         <table className="w-full min-w-[40rem] text-sm" translate="no">
           <caption className="sr-only">Primo biosimilare dispensato qui, spesa di riferimento e spesa valida per molecola; osservazione fino a {monthKeyLabel(toKey)}</caption>
-          <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
               <th scope="col" className="px-4 py-2 text-left font-semibold">Molecola</th>
               <th scope="col" className="px-4 py-2 text-right font-semibold">Primo biosimilare qui</th>
@@ -424,7 +424,7 @@ export function AziendaBars({ rows, years, metric = "spesa" }: {
             // the name it keeps the 5rem column the values use.
             ? <div key={y} className="flex items-center gap-2">
                 <div className="h-3.5 flex-1 rounded border border-dashed border-border" />
-                <span className="whitespace-nowrap text-right text-[10px] text-muted-foreground [@container(min-width:40rem)]:w-20 [@container(min-width:40rem)]:whitespace-normal">{y}: nessun record</span>
+                <span className="whitespace-nowrap text-right text-[11px] text-muted-foreground [@container(min-width:40rem)]:w-20 [@container(min-width:40rem)]:whitespace-normal">{y}: nessun record</span>
               </div>
             : <div key={y} className="flex items-center gap-2">
                 <div className="h-3.5 flex-1 overflow-hidden rounded bg-muted/60">
@@ -479,7 +479,7 @@ function MixBar({ label, mix, sub, shareOnly }: { label: string; mix: ReturnType
       : <div role="img" aria-label={`Composizione per canale, ${who}: ${mix.parts.map((p) => `${p.channel} ${p.share === null ? "nessun record" : formatPercent(p.share)}`).join(", ")}`} className={"flex overflow-hidden rounded-lg bg-muted/40 " + (sub ? "h-5" : "h-7")}>
           {mix.parts.map((p) => {
             const w = p.share === null ? 0 : Math.max(0, p.share) * 100;
-            return <div key={p.channel} title={segmentTitle(p)} className="flex items-center justify-center overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#0b1f28]" style={{ width: `${w}%`, background: CHANNEL_COLORS[p.channel] ?? muted }}>
+            return <div key={p.channel} title={segmentTitle(p)} className="flex items-center justify-center overflow-hidden whitespace-nowrap text-[11px] font-semibold text-[#0b1f28]" style={{ width: `${w}%`, background: CHANNEL_COLORS[p.channel] ?? muted }}>
               <span className="[@container(min-width:26.25rem)]:hidden">{segmentText(p.channel, w, 24, 14)}</span>
               <span className="hidden [@container(min-width:26.25rem)]:inline">{segmentText(p.channel, w, 16, 8)}</span>
             </div>;
@@ -593,7 +593,7 @@ export function ChannelStack({ rows, years, selectedLabel = null, comparator = n
       <div className={"mt-2 hidden overflow-x-auto rounded-lg border border-border " + tableShown}>
         <table className={"w-full text-sm " + tableWidth} translate="no">
           <caption className="sr-only">{caption}</caption>
-          <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
               <th scope="col" className="px-3 py-2 text-left font-semibold">Anno · canale</th>
               <th scope="col" className="px-3 py-2 text-right font-semibold">{ownHead}</th>
@@ -673,7 +673,7 @@ export function PerimeterComposition({ rows }: { rows: FacetPerimeter[] }) {
     <div className="mt-3 hidden overflow-x-auto rounded-lg border border-border [@container(min-width:34.125rem)]:block">
       <table className="w-full min-w-[34rem] text-sm" translate="no">
         <caption className="sr-only">Composizione del perimetro biosimilare e spesa fuori dal perimetro</caption>
-        <thead className="bg-muted/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+        <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 text-left font-semibold">Stato del prodotto</th>
             <th scope="col" className="px-3 py-2 text-right font-semibold">Spesa</th>

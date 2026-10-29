@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, CircleAlert, ClipboardCheck, Goal, ListChecks } from "lucide-react";
 import {
@@ -10,6 +11,11 @@ import {
 } from "@/components/dashboard-review/analytics-ui";
 import { getObjectiveRank, getReviewWorkspaceData } from "@/lib/dashboard-review/queries";
 import { formatDate, formatNumber, formatPercent } from "@/lib/dashboard-review/format";
+
+export const metadata: Metadata = {
+  title: "Revisioni e obiettivi | VIS",
+  robots: { index: false, follow: false },
+};
 
 export default async function ReviewsPage() {
   const data = await getReviewWorkspaceData();
@@ -46,7 +52,7 @@ export default async function ReviewsPage() {
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="border-b border-border p-5 md:p-6">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Coda evidenze</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Coda evidenze</p>
           <h2 className="font-display mt-1 text-xl">Elementi da verificare</h2>
           <p className="mt-1 text-xs text-muted-foreground">Ordinati per materialità e blocchi di qualità; gli obiettivi restano distinti dai segnali osservati.</p>
         </div>
@@ -58,7 +64,7 @@ export default async function ReviewsPage() {
               <div key={signal.id} className="grid gap-4 p-5 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center">
                 <StatusPill tone={signal.severity === "high" ? "danger" : signal.severity === "medium" ? "warning" : "neutral"}>{signal.severity === "high" ? "Alta" : signal.severity === "medium" ? "Media" : "Informativa"}</StatusPill>
                 <div><p className="font-semibold">{signal.title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{signal.context}</p></div>
-                <div className="flex items-center justify-between gap-4 md:justify-end"><span className="font-mono text-xs font-semibold">{signal.value_label}</span><Link href={signal.href} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Apri evidenza <ArrowRight size={12} /></Link></div>
+                <div className="flex items-center justify-between gap-4 md:justify-end"><span className="font-mono text-xs font-semibold">{signal.value_label}</span><Link href={signal.href} className="inline-flex min-h-6 items-center gap-1 text-xs font-semibold text-primary hover:underline">Apri evidenza <ArrowRight size={12} /></Link></div>
               </div>
             ))}
           </div>
@@ -70,7 +76,7 @@ export default async function ReviewsPage() {
           const rank = ranks.get(objective.id);
           return (
             <article key={objective.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">Obiettivo regionale</p><h3 className="mt-1 font-semibold">{objective.metric}</h3></div><StatusPill>{objective.atc_scope ?? "Formula da definire"}</StatusPill></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Obiettivo regionale</p><h3 className="mt-1 font-semibold">{objective.metric}</h3></div><StatusPill>{objective.atc_scope ?? "Formula da definire"}</StatusPill></div>
               <div className="mt-5 grid grid-cols-3 gap-3 border-y border-border py-4 text-xs">
                 <div><p className="text-muted-foreground">Valore</p><p className="mt-1 font-mono font-semibold">{rank ? formatPercent(rank.my_value) : "—"}</p></div>
                 <div><p className="text-muted-foreground">Target</p><p className="mt-1 font-mono font-semibold">{rank ? formatPercent(rank.target_value) : objective.target_value}</p></div>

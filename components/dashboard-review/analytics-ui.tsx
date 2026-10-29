@@ -60,7 +60,7 @@ export function StatusPill({
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]",
+        "inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]",
         tone === "neutral" && "border-border bg-card text-muted-foreground",
         tone === "positive" && "border-emerald-200 bg-emerald-50 text-emerald-800",
         tone === "warning" && "border-amber-200 bg-amber-50 text-amber-800",
@@ -97,7 +97,7 @@ export function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <p
           className={cn(
-            "text-[10px] font-semibold uppercase tracking-[0.14em]",
+            "text-[11px] font-semibold uppercase tracking-[0.14em]",
             accent ? "text-[hsl(174_52%_28%)] dark:text-white/65" : "text-muted-foreground",
           )}
         >
@@ -177,7 +177,7 @@ export function DecisionFrame({
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
                 <Icon size={17} strokeWidth={1.8} />
               </span>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
             </div>
             {isAction ? (
               <p className="mt-2 flex items-start gap-1.5 text-[11px] font-medium leading-4 text-foreground" title={text}>
@@ -252,7 +252,7 @@ export function TemplateNotice({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-[hsl(174_46%_96%)] px-3.5 py-2.5 dark:bg-primary/10">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary shadow-sm dark:bg-card">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary shadow-sm dark:bg-card">
           <Sparkles size={12} /> {label}
         </span>
         <span className="truncate text-xs text-muted-foreground">{source}</span>

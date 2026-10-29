@@ -58,7 +58,7 @@ export function PillarCSourceBar({ view, coverage, scope }: { view: CSourceView;
         const current = v === view;
         return <a key={v} href={href(v)} onClick={openView(v)} aria-current={current ? "page" : undefined}
           className={cn("flex min-h-11 flex-col justify-center rounded-xl border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-            current ? "border-primary/30 bg-primary text-primary-foreground shadow-sm" : "border-border hover:border-primary/30 hover:bg-primary/[0.05]")}>
+            current ? "border-primary/30 bg-primary-strong text-primary-foreground shadow-sm" : "border-border hover:border-primary/30 hover:bg-primary/[0.05]")}>
           <span className="text-sm font-semibold">{C_SOURCE_LABELS[v].label}</span>
           <span className={cn("mt-0.5 text-xs leading-5", current ? "text-primary-foreground/85" : "text-muted-foreground")}>{detail[v]}</span>
         </a>;

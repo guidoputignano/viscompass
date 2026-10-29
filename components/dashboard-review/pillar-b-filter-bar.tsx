@@ -93,7 +93,7 @@ function Segment({
         (disabled
           ? "cursor-help border border-dashed border-border text-muted-foreground"
           : active
-            ? "bg-primary text-primary-foreground shadow-sm"
+            ? "bg-primary-strong text-primary-foreground shadow-sm"
             : "text-muted-foreground hover:bg-card hover:text-foreground")
       }
     >
@@ -234,9 +234,9 @@ export function PillarBFilterBar({
                 aria-pressed={filters.substance === q.substance}
                 onClick={() => go({ substance: filters.substance === q.substance ? null : q.substance })}
                 className={
-                  "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors " +
+                  "min-h-6 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors " +
                   (filters.substance === q.substance
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-primary bg-primary-strong text-primary-foreground"
                     : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground")
                 }
               >

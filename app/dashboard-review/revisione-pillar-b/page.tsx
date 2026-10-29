@@ -17,6 +17,7 @@
 // FILTERS live in the URL and are applied server-side. The browser never
 // receives rows it then narrows locally.
 
+import type { Metadata } from "next";
 import { EmptyState, PageHeader } from "@/components/dashboard-review/analytics-ui";
 import { formatEur, formatPercent } from "@/lib/dashboard-review/format";
 import { PillarBReview } from "@/components/dashboard-review/pillar-b-review";
@@ -121,6 +122,11 @@ function coverageToUptake(
     usedSpendEur: coverage.usedSpendEur, withheldShare: coverage.withheldShare,
   };
 }
+
+export const metadata: Metadata = {
+  title: "Pillar B · Biosimilari ed esclusività | VIS",
+  robots: { index: false, follow: false },
+};
 
 export default async function RevisionePillarBPage({
   searchParams,

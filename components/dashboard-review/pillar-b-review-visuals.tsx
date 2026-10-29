@@ -250,7 +250,7 @@ export function MoleculeChangeChart({ rows, title, orderNote, measure = "delta" 
         pixels and the Frame clipped the figure. From 36rem, the three columns
         as before. */}
     <div className="[container-type:inline-size]">
-    <div className="mb-1 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 gap-y-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground [@container(min-width:36rem)]:grid-cols-[minmax(0,12rem)_1fr_9rem]">
+    <div className="mb-1 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 gap-y-0.5 text-[11px] uppercase tracking-[0.12em] text-muted-foreground [@container(min-width:36rem)]:grid-cols-[minmax(0,12rem)_1fr_9rem]">
       <span>Molecola</span>
       <span className="col-span-2 row-start-2 [@container(min-width:36rem)]:col-span-1 [@container(min-width:36rem)]:row-start-auto">Barra: variazione € 2025 meno 2024 · zero al centro</span>
       <span className="text-right">{heading}</span>
@@ -272,7 +272,7 @@ export function MoleculeChangeChart({ rows, title, orderNote, measure = "delta" 
           </div>
           <span className="whitespace-nowrap text-right font-mono text-[11px] leading-tight text-foreground [@container(min-width:36rem)]:whitespace-normal">
             {figureText(primary)}
-            {secondary && <span className="block text-[10px] text-muted-foreground">{secondary.kind === "pct" ? "" : secondary.kind === "eur" && measure === "spesa" ? "variazione " : ""}{figureText(secondary)}</span>}
+            {secondary && <span className="block text-[11px] text-muted-foreground">{secondary.kind === "pct" ? "" : secondary.kind === "eur" && measure === "spesa" ? "variazione " : ""}{figureText(secondary)}</span>}
           </span>
         </div>;
       })}

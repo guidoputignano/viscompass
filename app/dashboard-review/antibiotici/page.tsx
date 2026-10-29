@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   Activity,
   BadgeEuro,
@@ -35,6 +36,11 @@ const HEADER = {
   eyebrow: "Antibiotici AWaRe",
   title: "Consumo e costo, nella stessa decisione.",
   description: "Il confronto mostra quando la spesa scende ma l’esposizione cresce, con dettaglio per categoria e unità organizzativa.",
+};
+
+export const metadata: Metadata = {
+  title: "Antibiotici AWaRe | VIS",
+  robots: { index: false, follow: false },
 };
 
 export default async function AntibioticiPage() {
@@ -119,11 +125,11 @@ export default async function AntibioticiPage() {
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Traiettoria</p>
                 <CardTitle className="font-display mt-1 text-xl">Spesa e DDD · indice {baseYear ?? "—"}</CardTitle>
               </div>
               {latest && (
-                <div className="flex gap-2 text-[10px] font-semibold">
+                <div className="flex gap-2 text-[11px] font-semibold">
                   <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">Spesa {latest.costYoy === null ? "N/D" : formatSignedPercent(latest.costYoy)}</span>
                   <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700">DDD {latest.dddYoy === null ? "N/D" : formatSignedPercent(latest.dddYoy)}</span>
                 </div>
@@ -136,7 +142,7 @@ export default async function AntibioticiPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Composizione</p>
             <CardTitle className="font-display text-xl">Access · Watch · Reserve</CardTitle>
             <CardDescription>Confronta spesa, DDD e costo medio per DDD.</CardDescription>
           </CardHeader>
@@ -149,7 +155,7 @@ export default async function AntibioticiPage() {
       {data.units.length > 0 ? <div className="grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
         <Card>
           <CardHeader className="pb-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Unità organizzative</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Unità organizzative</p>
             <CardTitle className="font-display text-xl">Volume × costo normalizzato</CardTitle>
             <CardDescription>La dimensione del punto rappresenta la spesa.</CardDescription>
           </CardHeader>
@@ -160,7 +166,7 @@ export default async function AntibioticiPage() {
           <CardHeader className="border-b border-border pb-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Priorità</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Priorità</p>
                 <CardTitle className="font-display mt-1 text-xl">Unità da approfondire</CardTitle>
               </div>
               <Activity className="text-primary" size={20} />
@@ -172,15 +178,15 @@ export default async function AntibioticiPage() {
                 <div key={`${unit.orgCode}-${unit.unitCode}`} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-5 py-3.5">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{unit.unitName}</p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">{unit.unitCode}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{unit.unitCode}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-xs font-semibold">{unit.costPerDdd === null ? "N/D" : formatEurPrecise(unit.costPerDdd)}</p>
-                    <p className="text-[9px] text-muted-foreground">per DDD</p>
+                    <p className="text-[11px] text-muted-foreground">per DDD</p>
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-xs">{formatEur(unit.costEur)}</p>
-                    <p className="text-[9px] text-muted-foreground">spesa</p>
+                    <p className="text-[11px] text-muted-foreground">spesa</p>
                   </div>
                 </div>
               ))}

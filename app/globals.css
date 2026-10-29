@@ -12,6 +12,10 @@
     --popover-foreground: 204 48% 16%;
     --primary: 174 66% 36%;
     --primary-foreground: 0 0% 100%;
+    /* Teal as text, and filled teal that carries text. The brand teal outside
+       the private area; .vis-private below darkens both to AA. */
+    --primary-text: 174 66% 36%;
+    --primary-strong: 174 66% 36%;
     /* Categorical chart series, assigned in fixed order and never cycled. */
     --viz-1: #2a78d6;
     --viz-2: #eb6834;
@@ -46,6 +50,8 @@
     --popover-foreground: 160 13% 95%;
     --primary: 174 82% 39%;
     --primary-foreground: 0 0% 100%;
+    --primary-text: 174 82% 39%;
+    --primary-strong: 174 82% 39%;
     /* Selected for the dark surface, not an automatic flip of the light hexes:
        reusing those leaves four of six outside the lightness band and the
        violet at 2.04:1 against this background. These all clear 3:1. */
@@ -72,6 +78,23 @@
     --chart-4: 190 25% 75%;
     --chart-5: 180 15% 60%;
   }
+
+  /* The private area meets WCAG 2.2 AA (XC-X5.1). The brand teal measures
+     3.54:1 as text on white and under white text, so it stays for the logo,
+     marks and borders, and a darker shade of the same hue takes text and
+     pressed states: 5.42:1 on white, and under white text. In dark mode teal
+     text already passes (5.0:1 on the card), and white on teal (2.57:1) gives
+     way to the page's dark ink (6.59:1). The public pages keep the brand
+     token, a design decision for the Foundation President (d0f6ba0). */
+  .vis-private {
+    --primary-text: 174 66% 28%;
+    --primary-strong: 174 66% 28%;
+  }
+  .dark .vis-private {
+    --primary-text: 174 82% 39%;
+    --primary-strong: 174 82% 39%;
+    --primary-foreground: 199 57% 10%;
+  }
 }
 
 @layer base {
@@ -84,6 +107,17 @@
   .font-display {
     font-family: var(--font-source-sans), "Segoe UI", Arial, sans-serif;
     font-weight: 600;
+  }
+  /* Recharts paints each legend label in its series colour, inline; the
+     amber and green series fall to 2.1-2.8:1 as text. The swatch beside the
+     label carries the identity, so the label takes the text ink. */
+  .vis-private .recharts-legend-item-text {
+    color: hsl(var(--foreground)) !important;
+  }
+  /* A disclosure toggle is at least 24 px tall (WCAG 2.5.8). :where() keeps
+     the rule below any padding a component sets itself. */
+  :where(.vis-private) summary {
+    padding-block: 0.25rem;
   }
 }
 

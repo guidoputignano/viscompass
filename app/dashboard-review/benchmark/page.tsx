@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Building2, ChartSpline, PackageSearch, Scale } from "lucide-react";
 import {
   DecisionFrame,
@@ -20,6 +21,11 @@ function indexRange(values: number[]): string {
   const low = Math.min(...values), high = Math.max(...values);
   return `${formatNumber(low, 0)}–${formatNumber(high, 0)}`;
 }
+
+export const metadata: Metadata = {
+  title: "Benchmark territoriale | VIS",
+  robots: { index: false, follow: false },
+};
 
 export default async function BenchmarkPage() {
   const data = await getBenchmarkData();
@@ -61,7 +67,7 @@ export default async function BenchmarkPage() {
       ) : (
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border p-5 md:p-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Distribuzione regionale</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Distribuzione regionale</p>
             <h2 className="font-display mt-1 text-xl">Indice di spesa rispetto alla mediana</h2>
             {data.benchmark_available
               ? <p className="mt-1 text-xs text-muted-foreground">100 = mediana del perimetro visibile. La dimensione non è corretta per popolazione o complessità assistenziale.</p>
@@ -69,18 +75,18 @@ export default async function BenchmarkPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-sm">
-              <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+              <thead><tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                 <th className="px-5 py-3 font-semibold">ASL</th><th className="px-5 py-3 font-semibold">Indice</th><th className="px-5 py-3 text-right font-semibold">Spesa</th><th className="px-5 py-3 text-right font-semibold">Var. a/a</th><th className="px-5 py-3 text-right font-semibold">Costo unit.<span className="block font-normal normal-case tracking-normal">indice, 100 = coorte</span></th><th className="px-5 py-3 text-right font-semibold">Biosim.<span className="block font-normal normal-case tracking-normal">{data.biosimilar_penetration_basis === null ? "n/d" : `base ${BENCH_BASIS[data.biosimilar_penetration_basis]}`}</span></th><th className="px-5 py-3 text-right font-semibold">Copertura norm.</th>
               </tr></thead>
               <tbody>
                 {data.rows.map((row) => (
                   <tr key={row.org_code} className={row.is_current_org ? "border-b border-primary/20 bg-primary/5 last:border-0" : "border-b border-border last:border-0"}>
-                    <td className="px-5 py-4"><div className="flex items-center gap-2"><span className="font-semibold">{row.org_name}</span>{row.is_current_org && <StatusPill tone="positive">Il tuo ambito</StatusPill>}</div><span className="font-mono text-[10px] text-muted-foreground">{row.org_code}</span></td>
+                    <td className="px-5 py-4"><div className="flex items-center gap-2"><span className="font-semibold">{row.org_name}</span>{row.is_current_org && <StatusPill tone="positive">Il tuo ambito</StatusPill>}</div><span className="font-mono text-[11px] text-muted-foreground">{row.org_code}</span></td>
                     <td className="px-5 py-4"><div className="flex items-center gap-3"><div className="h-2 w-28 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(row.spend_index ?? 0, 200) / 2}%` }} /></div><span className="font-mono text-xs font-semibold">{row.spend_index === null ? "—" : formatNumber(row.spend_index, 0)}</span></div></td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{formatEur(row.spend_eur)}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{row.spend_yoy === null ? "—" : formatSignedPercent(row.spend_yoy)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{row.unit_cost_index === null ? "—" : formatNumber(row.unit_cost_index, 0)}{row.unit_cost_coverage !== null && <span className="block text-[10px] text-muted-foreground">su {formatPercent(row.unit_cost_coverage)} della spesa</span>}</td>
-                    <td className="px-5 py-4 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}{row.biosimilar_penetration !== null && row.biosimilar_penetration_quantity_coverage !== null && <span className="block text-[10px] text-muted-foreground">quantità su {formatPercent(row.biosimilar_penetration_quantity_coverage)}</span>}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{row.unit_cost_index === null ? "—" : formatNumber(row.unit_cost_index, 0)}{row.unit_cost_coverage !== null && <span className="block text-[11px] text-muted-foreground">su {formatPercent(row.unit_cost_coverage)} della spesa</span>}</td>
+                    <td className="px-5 py-4 text-right font-mono text-xs">{row.biosimilar_penetration === null ? "—" : formatPercent(row.biosimilar_penetration)}{row.biosimilar_penetration !== null && row.biosimilar_penetration_quantity_coverage !== null && <span className="block text-[11px] text-muted-foreground">quantità su {formatPercent(row.biosimilar_penetration_quantity_coverage)}</span>}</td>
                     <td className="px-5 py-4 text-right font-mono text-xs">{row.normalization_coverage === null ? "—" : formatPercent(row.normalization_coverage)}</td>
                   </tr>
                 ))}
