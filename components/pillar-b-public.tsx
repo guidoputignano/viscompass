@@ -63,15 +63,22 @@ const pct = (v: number | null, d = 2) => (v === null ? "—" : `${fmt(v, d)}${NB
 const pp = (v: number | null) => (v === null ? "—" : v === 0 ? `0,00${NB}p.p.` : `${v > 0 ? "+" : "−"}${fmt(Math.abs(v))}${NB}p.p.`);
 const ordinal = (n: number) => `${n}º`;
 
+// The SC hatches live in their own zero-size SVG beside the chart, never inside
+// <BarChart>: Recharts renders only the children it knows, so <defs> placed
+// there never reached the page, and every SC segment and legend swatch, filled
+// url(#pbp-hatch-…), was drawn as nothing (PB-Q2.1). A url(#id) fill resolves
+// anywhere in the document.
 function Hatches() {
-  return <defs>
-    {([["teal", TEAL], ["amber", AMBER]] as const).map(([id, color]) => (
-      <pattern key={id} id={`pbp-hatch-${id}`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <rect width="6" height="6" fill={color} />
-        <line x1="0" y1="0" x2="0" y2="6" stroke="hsl(var(--card))" strokeWidth="2.2" />
-      </pattern>
-    ))}
-  </defs>;
+  return <svg width="0" height="0" aria-hidden="true" focusable="false" style={{ position: "absolute" }}>
+    <defs>
+      {([["teal", TEAL], ["amber", AMBER]] as const).map(([id, color]) => (
+        <pattern key={id} id={`pbp-hatch-${id}`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="6" height="6" fill={color} />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="hsl(var(--card))" strokeWidth="2.2" />
+        </pattern>
+      ))}
+    </defs>
+  </svg>;
 }
 
 function Panel({ title, note, control, children }: {
@@ -251,9 +258,9 @@ export function PillarBPublic({ asset, initial }: { asset: EvScAsset; initial: S
     <Panel title={`Composizione per territorio · ${moleculeName} · ${measureName}`}
       note={`Ogni barra ripartisce il 100 % ${MEASURE_SENTENCE[sel.measure]} di ${moleculeName} nel territorio (${SCOPE}) fra biosimilare (verde acqua) e originator (ambra); la forma sottocutanea è tratteggiata. Territori ordinati per quota biosimilare; l'Italia (·) è il riferimento, il territorio selezionato è in evidenza (▸).`}>
       <div className="h-[36rem]" role="img" aria-label={`Composizione ${MEASURE_SENTENCE[sel.measure]} di ${moleculeName} per territorio, ${SCOPE}; territorio selezionato: ${territoryName}`}>
+        <Hatches />
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={composition} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }} barCategoryGap={3}>
-            <Hatches />
             <CartesianGrid horizontal={false} strokeDasharray="3 5" stroke="hsl(var(--border))" />
             {/* Rows of two-decimal percentages can sum to 100,01: the axis stays
                 at 100 and the hundredth of a point overflowing it is clipped,
