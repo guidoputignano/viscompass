@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { hardenedCookieOptions } from "./cookie-options";
 
 /**
  * Especially important if using Fluid compute: Don't put this client in a
@@ -19,8 +20,11 @@ export async function createClient() {
         },
         setAll(cookiesToSet) {
           try {
+            // The same hardened options as the proxy: a session written by a
+            // server action (sign-in, the email-link confirmation) is HttpOnly
+            // from its first response (./cookie-options.ts, XC-X3.3).
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, hardenedCookieOptions(options, process.env.NODE_ENV === "production")),
             );
           } catch {
             // The `setAll` method was called from a Server Component.

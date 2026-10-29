@@ -9,8 +9,8 @@ register('data:text/javascript,'+encodeURIComponent(`
 import {readFileSync} from 'node:fs';import {fileURLToPath} from 'node:url';import {createRequire} from 'node:module';
 let sucrase;export function initialize({pkg}){sucrase=createRequire(pkg)('sucrase');}
 const nav='data:text/javascript,'+encodeURIComponent('export function useRouter(){return {push(){},refresh(){},replace(){}}}');
-const actions='data:text/javascript,'+encodeURIComponent('export async function registerUser(){throw Error("unexpected write")}export async function requestOrganizationAccess(){throw Error("unexpected write")}export async function respondToOrganizationInvitation(){throw Error("unexpected write")}');
-export async function resolve(s,c,n){if(s==='next/navigation')return {url:nav,shortCircuit:true};if(s==='@/app/auth/sign-up/actions'||s==='@/app/access/actions')return {url:actions,shortCircuit:true};return n(s==='next/link'?s+'.js':s,c);}
+const actions='data:text/javascript,'+encodeURIComponent('export async function registerUser(){throw Error("unexpected write")}export async function requestOrganizationAccess(){throw Error("unexpected write")}export async function respondToOrganizationInvitation(){throw Error("unexpected write")}export async function signOut(){throw Error("unexpected sign-out")}');
+export async function resolve(s,c,n){if(s==='next/navigation')return {url:nav,shortCircuit:true};if(s==='@/app/auth/sign-up/actions'||s==='@/app/access/actions'||s==='@/app/auth/actions')return {url:actions,shortCircuit:true};return n(s==='next/link'?s+'.js':s,c);}
 export async function load(u,c,n){if(u.startsWith('file:')&&u.endsWith('.tsx')){const f=fileURLToPath(u);return {format:'module',source:sucrase.transform(readFileSync(f,'utf8'),{transforms:['typescript','jsx'],jsxRuntime:'automatic',production:true,filePath:f}).code,shortCircuit:true};}return n(u,c);}
 `),{data:{pkg:pathToFileURL(`${root}package.json`).href}});
 const req=createRequire(`${root}package.json`),React=req('react'),{renderToStaticMarkup}=req('react-dom/server');

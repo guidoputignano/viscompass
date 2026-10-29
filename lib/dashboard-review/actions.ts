@@ -12,7 +12,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrg } from "@/lib/auth/get-current-org";
 import { processUpload } from "@/lib/uploads/process-upload";
-import { isUploadStoragePath } from "@/lib/uploads/storage-path";
+import { cUploadStoragePath, isUploadStoragePath } from "@/lib/uploads/storage-path";
 import type { CanonicalFact, FeatureRequestSubmission } from "./types";
 
 export async function searchMolecules(query: string): Promise<CanonicalFact[]> {
@@ -69,6 +69,33 @@ export async function submitFeatureRequest(
   return { ok: true };
 }
 
+// The one-object upload ticket the upload shell needs (XC-X3.3). The session
+// cookie is HttpOnly, so the browser can no longer upload under the caller's
+// session itself. Here, under that session, Storage RLS (supabase_schema.sql
+// section 7) still decides: createSignedUploadUrl is refused unless the caller
+// may insert that object. The path is built here, in the caller's own
+// organisation folder; the client supplies only the file name. The browser
+// then uploads that one object with the token, and recordUpload checks the
+// path again before it is recorded.
+export async function issueUploadTicket(input: { fileName: unknown }): Promise<{ path: string; token: string }> {
+  const supabase = await createClient();
+  const { data: authData, error: authError } = await supabase.auth.getClaims();
+  if (authError || !authData?.claims) {
+    throw new Error("Devi essere autenticato per caricare un file.");
+  }
+
+  const org = await getCurrentOrg();
+  if (!org) {
+    throw new Error("Nessuna organizzazione approvata per il tuo account.");
+  }
+
+  const fileName = typeof input?.fileName === "string" ? input.fileName : "";
+  const path = cUploadStoragePath(org.org_code, fileName, Date.now());
+  const { data, error } = await supabase.storage.from("uploads").createSignedUploadUrl(path);
+  if (error || !data) throw new Error(`Caricamento non autorizzato: ${error?.message ?? "nessun ticket"}`);
+  return { path: data.path, token: data.token };
+}
+
 export interface RecordUploadInput {
   storagePath: string;
   fileName: string;
@@ -77,8 +104,9 @@ export interface RecordUploadInput {
 }
 
 // Records a file already uploaded to Supabase Storage (see
-// components/dashboard-review/upload-shell.tsx, which uploads directly
-// from the browser under Storage RLS before calling this). org_code and
+// components/dashboard-review/upload-shell.tsx, which uploads from the
+// browser with the ticket issueUploadTicket granted under Storage RLS, before
+// calling this). org_code and
 // uploaded_by come from the live session, never from client input — the
 // insert itself relies on the existing "upload for own approved org"
 // policy for enforcement (status defaults to 'uploaded', reconciliation

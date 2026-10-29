@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { updatePassword } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,15 +29,13 @@ export function UpdatePasswordForm({
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.updateUser(
-        recovery ? { password } : { password, current_password: currentPassword },
-      );
-      if (error) throw error;
+      // On the server, where the HttpOnly session cookie is readable (XC-X3.3).
+      const { error } = await updatePassword({ password, currentPassword, recovery });
+      if (error) throw new Error(error);
       setCurrentPassword("");
       setPassword("");
       router.push("/dashboard-review/spend");

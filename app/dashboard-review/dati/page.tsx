@@ -85,7 +85,7 @@ export default async function DataLineagePage() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Ingestione controllata</p>
           <h2 className="font-display mt-1 text-xl">Nuovo caricamento</h2>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">Il file viene salvato nella cartella privata dell’organizzazione e registrato prima della riconciliazione.</p>
-          <div className="mt-5">{org ? <UploadShell orgCode={org.org_code} /> : <EmptyState title="Organizzazione mancante" detail="Serve un’adesione approvata per caricare file." />}</div>
+          <div className="mt-5">{org ? <UploadShell /> :<EmptyState title="Organizzazione mancante" detail="Serve un’adesione approvata per caricare file." />}</div>
         </div>
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border p-5 md:p-6"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Registro operativo</p><h2 className="font-display mt-1 text-xl">Caricamenti dell’organizzazione</h2></div>

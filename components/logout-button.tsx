@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
+import { signOut } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -16,9 +16,10 @@ export function LogoutButton({
   const router = useRouter();
 
   const logout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    // On the server: the HttpOnly session cookie is out of the browser's reach (XC-X3.3).
+    await signOut();
     router.push("/auth/login");
+    router.refresh();
   };
 
   return (

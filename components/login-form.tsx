@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { signInWithPassword } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -51,15 +51,12 @@ export function LoginForm({
       return;
     }
 
-    const supabase = createClient();
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (error) throw error;
+      // On the server, so the session cookie is HttpOnly from its first response (XC-X3.3).
+      const { error } = await signInWithPassword({ email: email.trim(), password });
+      if (error) throw new Error(error);
       // R20-05: back to the page the user asked for (validated by the login page), with its section anchor.
       router.push(loginDestination(next, window.location.hash));
       router.refresh();

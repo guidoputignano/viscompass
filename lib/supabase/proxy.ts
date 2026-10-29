@@ -3,10 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 import { isPublicPath } from "./public-paths";
 import { loginRedirectSearch } from "../auth/safe-next";
-
-// Session cookies last at most seven days. The Supabase default of 400 days keeps
-// a stolen session usable long after the user believes it ended.
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+import { hardenedCookieOptions } from "./cookie-options";
 
 export async function updateSession(request: NextRequest) {
   // The public observatories (/pillar-a, its three read routes, /pillar-b):
@@ -49,19 +46,10 @@ export async function updateSession(request: NextRequest) {
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            // Harden whatever the client asks for rather than trusting it. The
-            // session cookie was being written with no Secure attribute and a
-            // 400-day lifetime: without Secure a single plaintext request leaks
-            // the session, and a year-long window keeps a stolen one usable long
-            // after the user believes they are gone. Secure is skipped only on
-            // localhost, where there is no TLS to require.
-            supabaseResponse.cookies.set(name, value, {
-              ...options,
-              httpOnly: options?.httpOnly ?? true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: options?.sameSite ?? "lax",
-              maxAge: Math.min(options?.maxAge ?? SESSION_MAX_AGE_SECONDS, SESSION_MAX_AGE_SECONDS),
-            }),
+            // Harden whatever the library asks for rather than trusting it:
+            // HttpOnly, Secure in production, at most seven days
+            // (./cookie-options.ts, XC-X3.3).
+            supabaseResponse.cookies.set(name, value, hardenedCookieOptions(options, process.env.NODE_ENV === "production")),
           );
         },
       },

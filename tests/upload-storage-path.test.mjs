@@ -13,6 +13,8 @@ const STUBS={
   'lib/supabase/server.ts':`export async function createClient(){return {
     auth:{getClaims:async()=>({data:globalThis.__up.claims,error:null})},
     from(table){return {insert(row){globalThis.__up.inserts.push([table,row]);return {select(){return {single:async()=>({data:{id:41},error:null})};}};}};},
+    storage:{from(bucket){return {createSignedUploadUrl:async(path)=>{globalThis.__up.tickets.push([bucket,path]);
+      return globalThis.__up.storageRefuses?{data:null,error:{message:'new row violates row-level security policy'}}:{data:{path,token:'ticket-token',signedUrl:'https://project.example/x'},error:null};}};}},
   };}`,
   'lib/auth/get-current-org.ts':`export const getCurrentOrg=async()=>globalThis.__up.org;`,
   'lib/uploads/process-upload.ts':`export async function processUpload(id){globalThis.__up.processed.push(id);}`,
@@ -27,7 +29,7 @@ export async function resolve(specifier,context,next){
   for(const [tail,source] of Object.entries(STUBS))if(url.endsWith('/'+tail))return data(source);
   return out;
 }`),import.meta.url);
-const {recordUpload}=await import('../lib/dashboard-review/actions.ts');
+const {recordUpload,issueUploadTicket}=await import('../lib/dashboard-review/actions.ts');
 
 const HEX='a'.repeat(64);
 const VALID=[
@@ -94,7 +96,7 @@ test('every refused traversal would have left the folder; every accepted path re
 });
 
 // ------------------------------------------------------------- the server action
-const session=(org,{claims={claims:{sub:'00000000-0000-4000-8000-000000000001'}}}={})=>{globalThis.__up={org,claims,inserts:[],processed:[],revalidated:[]};return globalThis.__up;};
+const session=(org,{claims={claims:{sub:'00000000-0000-4000-8000-000000000001'}},storageRefuses=false}={})=>{globalThis.__up={org,claims,storageRefuses,inserts:[],processed:[],revalidated:[],tickets:[]};return globalThis.__up;};
 const ORG={org_code:'201',org_name:'Azienda sintetica',org_type:'asl',region_code:'130'};
 const input=storagePath=>({storagePath,fileName:'estrazione.xlsx',periodCoveredStart:null,periodCoveredEnd:null});
 
@@ -122,6 +124,25 @@ test('recordUpload refuses any other path before writing a row or reading a file
   // The session checks come first, unchanged.
   session(null);await assert.rejects(()=>recordUpload(input('201/x.xlsx')),/Nessuna organizzazione approvata/);
   session(ORG,{claims:null});await assert.rejects(()=>recordUpload(input('201/x.xlsx')),/Devi essere autenticato/);
+});
+
+test('issueUploadTicket asks Storage, under the session, for one object in the caller’s own folder (XC-X3.3)',async()=>{
+  for(const name of ['estrazione 2025.xlsx','../../pillar-c-scoped/x.json','a/b/c.xlsx','%2e%2e.xlsx','',42,null]){
+    const up=session(ORG);
+    const ticket=await issueUploadTicket({fileName:name});
+    assert.equal(up.tickets.length,1);assert.equal(up.tickets[0][0],'uploads');
+    assert.equal(ticket.path,up.tickets[0][1]);assert.equal(ticket.token,'ticket-token');
+    assert.equal(isUploadStoragePath(ticket.path,'201'),true,`${JSON.stringify(name)} stays in the caller’s folder`);
+    assert.equal(up.inserts.length,0,'a ticket records nothing');
+  }
+  // The folder is the session's organisation, never a client value.
+  const other=session({...ORG,org_code:'204'});
+  assert.match((await issueUploadTicket({fileName:'x.xlsx',orgCode:'201'})).path,/^204\//);assert.equal(other.tickets.length,1);
+  // Storage RLS refusing the object refuses the ticket.
+  session(ORG,{storageRefuses:true});await assert.rejects(()=>issueUploadTicket({fileName:'x.xlsx'}),/^Error: Caricamento non autorizzato/);
+  // No ticket without a session or an approved organisation.
+  const none=session(null);await assert.rejects(()=>issueUploadTicket({fileName:'x.xlsx'}),/Nessuna organizzazione approvata/);assert.equal(none.tickets.length,0);
+  const anon=session(ORG,{claims:null});await assert.rejects(()=>issueUploadTicket({fileName:'x.xlsx'}),/Devi essere autenticato/);assert.equal(anon.tickets.length,0);
 });
 
 test('the upload shell writes a path the recorded-path rule always accepts, keeping safe names unchanged',()=>{

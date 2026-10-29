@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
-import { recordUpload } from "@/lib/dashboard-review/actions";
-import { cUploadStoragePath } from "@/lib/uploads/storage-path";
+import { createClient } from "@supabase/supabase-js";
+import { issueUploadTicket, recordUpload } from "@/lib/dashboard-review/actions";
 
 const BUCKET = "uploads";
 
-export function UploadShell({ orgCode }: { orgCode: string }) {
+export function UploadShell() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [periodStart, setPeriodStart] = useState("");
@@ -25,18 +24,23 @@ export function UploadShell({ orgCode }: { orgCode: string }) {
     setErrorMessage(null);
 
     try {
-      // Uploaded directly from the browser under the caller's own
-      // session — Storage RLS (supabase_schema.sql section 7) is what
-      // actually restricts writes to the caller's own org folder, the
-      // same way the uploads table's own INSERT policy restricts the row
-      // below. Nothing here re-implements that check.
+      // The session cookie is HttpOnly (XC-X3.3), so the upload cannot run
+      // under the caller's session in the browser. The server issues a ticket
+      // for one object in the caller's own org folder, and only if Storage RLS
+      // (supabase_schema.sql section 7) would let the caller write it there;
+      // the uploads table's own INSERT policy still restricts the row below.
       // The object name keeps only characters the recorded-path rule admits (lib/uploads/storage-path.ts), so a
       // file Storage accepted is never refused afterwards; the original name is recorded as file_name below.
-      const storagePath = cUploadStoragePath(orgCode, file.name, Date.now());
-      const supabase = createClient();
-      const { error: uploadError } = await supabase.storage
+      const { path: storagePath, token } = await issueUploadTicket({ fileName: file.name });
+      // No session here, and none is stored: the ticket is the only credential.
+      const storage = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+      ).storage;
+      const { error: uploadError } = await storage
         .from(BUCKET)
-        .upload(storagePath, file);
+        .uploadToSignedUrl(storagePath, token, file);
       if (uploadError) throw uploadError;
 
       await recordUpload({
