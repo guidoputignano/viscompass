@@ -1,4 +1,7 @@
-export const PRIVATE_RELEASE = 'closure-20260923';
+// ddd-20261029: closure-20260923 with three packs' DDD per pack corrected to the value derived
+// from the pack's contents and the WHO DDD (scripts/stage_private_pillar_a.mjs --ddd-corrections;
+// docs/PILLAR_A_RELEASE_DDD_20261029.md). Spending, quantities and activity are unchanged.
+export const PRIVATE_RELEASE = 'ddd-20261029';
 export type PrivateFact = {
   release_id: string; org_code: string; year: number; aware_category: string;
   cf: number; cmr: number; ddd: number; activity: number;
